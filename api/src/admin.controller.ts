@@ -1,11 +1,11 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from './auth/auth.guard';
 
 @Controller('admin')
+@UseGuards(AuthGuard)
 export class AdminController {
-  @UseGuards(AuthGuard)
-  @Get('secret')
-  secret() {
-    return { ok: true, message: 'Authorized' };
+  @Get('whoami')
+  whoami(@Req() req: any) {
+    return { sub: req.user?.sub, email: req.user?.email };
   }
 }
