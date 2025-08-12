@@ -7,11 +7,11 @@
   },
   "packageManager": "pnpm@8.15.4",
   "scripts": {
-    "dev": "concurrently -k -n web,api -c auto \"pnpm --filter web dev\" \"pnpm --filter api dev\"",
-    "build": "pnpm -r build",
-    "lint": "pnpm -r lint",
-    "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "dev": "concurrently -k -n web,api -c auto \"pnpm -C web dev\" \"pnpm -C api dev\"",
+    "build": "pnpm -C web build && pnpm -C api build",
+    "lint": "pnpm -C web lint && pnpm -C api lint",
+    "test": "pnpm -C web test && pnpm -C api test",
+    "typecheck": "pnpm -C web typecheck && pnpm -C api typecheck"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

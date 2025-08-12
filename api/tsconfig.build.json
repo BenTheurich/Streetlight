@@ -1,9 +1,20 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
+    "module": "CommonJS",
+    "target": "ES2019",
+    "lib": ["es2019"],
+    "rootDir": "./src",
     "outDir": "./dist",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "sourceMap": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "removeComments": true,
+    "incremental": false,
     "noEmit": false
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
 }

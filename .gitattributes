@@ -1,0 +1,14 @@
+# Force LF in repo; Git converts on checkout if user has autocrlf enabled
+* text=auto eol=lf
+
+# Be explicit for common text types
+*.js   text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
+*.css  text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
