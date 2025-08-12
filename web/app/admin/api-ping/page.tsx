@@ -5,28 +5,33 @@ import { useEffect, useState } from 'react';
 type Health = { ok: boolean };
 
 export default function ApiPingPage() {
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
   const [result, setResult] = useState<Health | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   useEffect(() => {
-    async function run() {
+    if (!apiBase) {
+      setError('NEXT_PUBLIC_API_BASE_URL is not set');
+      return;
+    }
+    (async () => {
       try {
-        if (!apiBase) throw new Error('NEXT_PUBLIC_API_BASE_URL is not set');
         const res = await fetch(`${apiBase}/healthz`, {
           method: 'GET',
-          // No cookies or auth yet; we’ll add later when Clerk is on
-          credentials: 'omit',
-          headers: { 'Accept': 'application/json' },
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          setError(`HTTP ${res.status}`);
+          return;
+        }
         const json = (await res.json()) as Health;
         setResult(json);
-      } catch (e: any) {
-        setError(e?.message ?? String(e));
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
       }
-    }
-    run();
+    })();
   }, [apiBase]);
 
   return (
