@@ -1,24 +1,31 @@
-app = "streetlight-api"
-primary_region = "sjc"
+# fly.toml app configuration file generated for streetlight-api on 2025-08-12T15:20:37-07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'streetlight-api'
+primary_region = 'sjc'
 
 [build]
-  dockerfile = "./Dockerfile"
+  dockerfile = './Dockerfile'
 
 [env]
-  PORT = "4000"
-
-[[vm]]
-  memory = "512mb"
-  cpu_kind = "shared"
-  cpus = 1
+  PORT = '4000'
 
 [[services]]
-  protocol = "tcp"
+  protocol = 'tcp'
   internal_port = 4000
-  processes = ["app"]
+  processes = ['app']
+
   [[services.ports]]
-    handlers = ["http"]
     port = 80
+    handlers = ['http']
+
   [[services.ports]]
-    handlers = ["tls", "http"]
     port = 443
+    handlers = ['tls', 'http']
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
