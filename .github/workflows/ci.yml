@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      api: ${{ steps.filter.outputs.api }}
+      shared: ${{ steps.filter.outputs.shared }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'web/**'
+            api:
+              - 'api/**'
+            shared:
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - '.github/**'
+              - '.eslintrc.cjs'
+              - '.prettierrc'
+              - '.editorconfig'
+              - '.nvmrc'
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Use pnpm 8
+        run: corepack prepare pnpm@8.15.4 --activate
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm --filter web lint
+      - name: Typecheck
+        run: pnpm --filter web typecheck
+      - name: Test
+        run: pnpm --filter web test -- --ci
+      - name: Build
+        run: pnpm --filter web build
+
+  api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Use pnpm 8
+        run: corepack prepare pnpm@8.15.4 --activate
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm --filter api lint
+      - name: Typecheck
+        run: pnpm --filter api typecheck
+      - name: Test
+        run: pnpm --filter api test -- --ci
+      - name: Build
+        run: pnpm --filter api build
