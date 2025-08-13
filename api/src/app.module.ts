@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AdminController } from './admin.controller';
+import { AuthGuard } from './auth/auth.guard';
 
 @Module({
   imports: [],
   controllers: [AppController, AdminController],
-  providers: [],
+  providers: [AuthGuard], // safe even if guard has no DI deps
 })
 export class AppModule {}
