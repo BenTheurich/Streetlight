@@ -1,24 +1,20 @@
 // web/middleware.ts
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { NextResponse } from 'next/server';
 
 const isProtectedRoute = createRouteMatcher(['/admin(.*)']);
 
-export default clerkMiddleware((auth, req) => {
-  // Require sign-in on /admin/**
+export default clerkMiddleware(async (auth, req) => {
   if (isProtectedRoute(req)) {
-    const { userId } = auth();           // <-- middleware context: no await
-    if (!userId) {
-      const url = new URL('/sign-in', req.url);
-      url.searchParams.set('redirect_url', req.url);
-      return NextResponse.redirect(url);
+    const session = await auth();           // <- await the promise
+    if (!session.userId) {
+      return session.redirectToSignIn();    // <- correct helper
     }
   }
 });
 
 export const config = {
   matcher: [
-    // Run on all app routes except static/_next assets
+    // Run on app routes, skip static/_next
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     // Always run for API routes so auth() works in /api/*
     '/(api|trpc)(.*)',
