@@ -6,6 +6,6 @@ import { AuthGuard } from './auth/auth.guard';
 @Module({
   imports: [],
   controllers: [AppController, AdminController],
-  providers: [AuthGuard], // safe even if guard has no DI deps
+  providers: [AuthGuard],
 })
 export class AppModule {}

@@ -5,12 +5,9 @@
     "lib": ["es2019"],
     "rootDir": "./src",
     "outDir": "./dist",
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "strict": true,
-    "sourceMap": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "sourceMap": true,
     "removeComments": true,
     "incremental": false,
     "noEmit": false
