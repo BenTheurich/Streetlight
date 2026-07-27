@@ -115,6 +115,7 @@ git commit -m "feat: add append-only coverage history"
 - Modify: `web/components/TerritoryMap.tsx`
 - Modify: `web/app/page.tsx`
 - Modify: `web/app/globals.css`
+- Modify: `web/lib/database.ts`
 - Modify: `web/package.json`
 
 **Interfaces:**
@@ -152,7 +153,9 @@ Validate exact body keys through the coverage-domain parser. Append one correcti
 refreshed workspace. Return safe 400/404 errors without SQLite details. The client disables only
 the mutation in flight and keeps the selected segment on refresh. Add real route tests against a
 temporary migrated database proving `segmentId`, `kind: "completed"`, extra keys, malformed/future
-dates, and unknown roots are rejected without changing the event count.
+dates, and unknown roots are rejected without changing the event count. Let the database helper
+honor `STREETLIGHT_DATABASE_PATH` at call time so the real route test uses its temporary database;
+keep explicit filename arguments higher priority.
 
 - [ ] **Step 5: Check both pages**
 
@@ -169,7 +172,7 @@ Confirm direct HTTP returns 200 for `/` and `/territory`, and invalid correction
 - [ ] **Step 6: Commit**
 
 ```powershell
-git add web/lib/google-maps-browser.ts web/components/CoverageMap.tsx web/components/CoverageDashboard.tsx web/app/api/coverage/route.ts web/app/api/coverage/route.test.ts web/components/TerritoryMap.tsx web/app/page.tsx web/app/globals.css web/package.json
+git add web/lib/google-maps-browser.ts web/components/CoverageMap.tsx web/components/CoverageDashboard.tsx web/app/api/coverage/route.ts web/app/api/coverage/route.test.ts web/components/TerritoryMap.tsx web/app/page.tsx web/app/globals.css web/lib/database.ts web/package.json
 git commit -m "feat: add coverage heatmap dashboard"
 ```
 
@@ -177,7 +180,6 @@ git commit -m "feat: add coverage heatmap dashboard"
 
 **Files:**
 - Create: `web/db/seed-coverage-demo.mjs`
-- Modify: `web/lib/database.ts`
 - Modify: `web/db/database.test.mjs`
 - Modify: `web/package.json`
 - Modify: `README.md`
@@ -194,9 +196,9 @@ histories, one active packet, and stable row counts/classes after both runs. Ass
 
 Delete and recreate only `web/data/coverage-demo.db`, migrate and apply the normal seed, then add
 relative-date coverage examples and one internally valid active packet with deterministic IDs.
-Never touch `web/data/streetlight.db`. Let the application database helper honor
-`STREETLIGHT_DATABASE_PATH`. Add one exact `coverage:demo` command that recreates the demo and
-spawns Next directly on port 3001 with that environment; do not call `pnpm dev`. Implement
+Never touch `web/data/streetlight.db`. Reuse Task 2's `STREETLIGHT_DATABASE_PATH` support. Add one
+exact `coverage:demo` command that recreates the demo and spawns Next directly on port 3001 with
+that environment; do not call `pnpm dev`. Implement
 `web/db/seed-coverage-demo.mjs --serve` so the same script seeds first, then uses Node
 `child_process.spawn` with `process.execPath`, the installed Next CLI, arguments
 `dev -p 3001`, `stdio: 'inherit'`, and a child `env` containing the absolute demo path as
@@ -239,7 +241,7 @@ test counts, threshold defaults, direct HTTP evidence, and the exact remaining h
 - [ ] **Step 5: Commit**
 
 ```powershell
-git add web/db/seed-coverage-demo.mjs web/lib/database.ts web/db/database.test.mjs web/package.json README.md IMPLEMENTATION_PLAN.md
+git add web/db/seed-coverage-demo.mjs web/db/database.test.mjs web/package.json README.md IMPLEMENTATION_PLAN.md
 git commit -m "test: add isolated coverage review data"
 ```
 
