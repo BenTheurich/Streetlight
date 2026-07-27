@@ -401,6 +401,22 @@ class ImportCompletenessTest(TestCase):
         self.assertEqual(result["quality"]["inferredRoads"], 0)
         self.assertEqual(result["quality"]["unmatchedAddresses"], 4)
 
+    def test_blank_nearby_address_prevents_eighty_percent_unnamed_road_inference(self):
+        roads = [
+            road("blank", "residential", None, [[-117, 33.5], [-116.999, 33.5]])
+        ]
+        addresses = [
+            address("Main Road", -116.9998, 33.5001),
+            address("Main Rd", -116.9996, 33.5001),
+            address("Main Road", -116.9994, 33.5001),
+            address("", -116.9992, 33.5001),
+        ]
+
+        with self.assertRaisesRegex(ValueError, r"main rd: 3"):
+            normalize_features(
+                roads, addresses, center=self.center, radius_miles=self.radius_miles
+            )
+
     def test_rejects_three_unresolved_in_circle_addresses_with_the_same_name(self):
         addresses = [
             address("Lost Lane", -116.9998, 33.5),

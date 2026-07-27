@@ -218,8 +218,7 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
             nearby = [
                 address_item
                 for address_item in in_circle_addresses
-                if address_item["canonical_name"]
-                and min(
+                if min(
                     _distance_to_line(address_item["point"], line)
                     for line in _lines(road_feature["geometry"])
                 )
@@ -227,9 +226,10 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
             ]
             name_counts = {}
             for address_item in nearby:
-                name_counts[address_item["canonical_name"]] = (
-                    name_counts.get(address_item["canonical_name"], 0) + 1
-                )
+                if address_item["canonical_name"]:
+                    name_counts[address_item["canonical_name"]] = (
+                        name_counts.get(address_item["canonical_name"], 0) + 1
+                    )
             ranked_names = sorted(
                 name_counts.items(), key=lambda item: (-item[1], item[0])
             )
