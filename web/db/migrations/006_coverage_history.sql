@@ -41,4 +41,13 @@ BEGIN
       AND root.church_id = NEW.church_id
       AND root.street_segment_id = NEW.street_segment_id
   ) THEN RAISE(ABORT, 'coverage_events correction root is invalid') END;
+
+  SELECT CASE WHEN NEW.kind = 'correction' AND NEW.is_void = 1
+    AND NEW.covered_on <> COALESCE(
+      (SELECT covered_on FROM coverage_events
+        WHERE corrects_event_id = NEW.corrects_event_id AND is_void = 0
+        ORDER BY rowid DESC LIMIT 1),
+      (SELECT covered_on FROM coverage_events WHERE id = NEW.corrects_event_id)
+    )
+  THEN RAISE(ABORT, 'coverage_events void date is invalid') END;
 END;

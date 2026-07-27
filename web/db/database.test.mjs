@@ -946,6 +946,28 @@ test('coverage events are append-only and only valid same-segment completed root
     assert.throws(
       () =>
         insert.run(
+          'wrong-root-date-void',
+          'church-temecula-pilot',
+          segmentId,
+          '2026-07-02',
+          'correction',
+          'root',
+          1,
+        ),
+      /coverage_events/i,
+    );
+    insert.run(
+      'root-date-void',
+      'church-temecula-pilot',
+      segmentId,
+      '2026-07-01',
+      'correction',
+      'root',
+      1,
+    );
+    assert.throws(
+      () =>
+        insert.run(
           'correction-target',
           'church-temecula-pilot',
           segmentId,
@@ -990,6 +1012,28 @@ test('coverage events are append-only and only valid same-segment completed root
       'correction',
       'root',
       0,
+    );
+    assert.throws(
+      () =>
+        insert.run(
+          'wrong-replacement-date-void',
+          'church-temecula-pilot',
+          segmentId,
+          '2026-07-01',
+          'correction',
+          'root',
+          1,
+        ),
+      /coverage_events/i,
+    );
+    insert.run(
+      'replacement-date-void',
+      'church-temecula-pilot',
+      segmentId,
+      '2026-07-02',
+      'correction',
+      'root',
+      1,
     );
     assert.throws(
       () =>
