@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -121,6 +121,32 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
     assert.equal(summary.packetCount, 0);
   } finally {
     rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('import quality columns accept only nullable non-negative integers', () => {
+  const database = openDatabase(':memory:');
+  try {
+    database.exec(
+      "CREATE TABLE territories (id TEXT PRIMARY KEY); INSERT INTO territories VALUES ('territory');",
+    );
+    database.exec(
+      readFileSync(path.join(import.meta.dirname, 'migrations', '005_import_quality.sql'), 'utf8'),
+    );
+    for (const column of [
+      'import_total_addresses',
+      'import_assigned_addresses',
+      'import_inferred_roads',
+      'import_unmatched_addresses',
+      'import_normalizer_version',
+    ]) {
+      const update = database.prepare(`UPDATE territories SET ${column} = ?`);
+      assert.throws(() => update.run(1.5), /CHECK constraint failed/);
+      update.run(null);
+      update.run(0);
+    }
+  } finally {
+    database.close();
   }
 });
 
