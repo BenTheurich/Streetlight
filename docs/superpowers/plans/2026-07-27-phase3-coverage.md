@@ -107,6 +107,7 @@ git commit -m "feat: add append-only coverage history"
 ## Task 2: Coverage dashboard, map, and correction endpoint
 
 **Files:**
+- Modify: `.gitignore` (retain the general `coverage` output rule and unignore only the API route)
 - Create: `web/lib/google-maps-browser.ts`
 - Create: `web/components/CoverageMap.tsx`
 - Create: `web/components/CoverageDashboard.tsx`
