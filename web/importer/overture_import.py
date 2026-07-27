@@ -31,7 +31,10 @@ def keep_segment(road_class: str, address_count: int) -> bool:
 
 
 def _display_name(road):
-    return road["properties"]["names"]["primary"]
+    primary = (road["properties"].get("names") or {}).get("primary")
+    if isinstance(primary, str) and canonical_street_name(primary):
+        return primary
+    return None
 
 
 def _lines(geometry):
@@ -45,8 +48,15 @@ def _split_turns(coordinates):
     start = 0
     for index in range(1, len(coordinates) - 1):
         previous, current, following = coordinates[index - 1 : index + 2]
-        incoming = (current[0] - previous[0], current[1] - previous[1])
-        outgoing = (following[0] - current[0], following[1] - current[1])
+        longitude_scale = math.cos(math.radians(current[1]))
+        incoming = (
+            (current[0] - previous[0]) * longitude_scale,
+            current[1] - previous[1],
+        )
+        outgoing = (
+            (following[0] - current[0]) * longitude_scale,
+            following[1] - current[1],
+        )
         lengths = math.hypot(*incoming) * math.hypot(*outgoing)
         if not lengths:
             continue
@@ -61,42 +71,49 @@ def _split_turns(coordinates):
     return parts
 
 
-def _intersection_parts(lines):
-    # ponytail: pairwise scan suits territory imports; add a spatial index if imports become slow.
+def _segment_length(start, end):
+    longitude_scale = math.cos(math.radians((start[1] + end[1]) / 2))
+    return math.hypot(
+        (end[0] - start[0]) * longitude_scale,
+        end[1] - start[1],
+    )
+
+
+def _connector_parts(lines, connectors):
+    segment_lengths = [
+        [_segment_length(start, end) for start, end in zip(line, line[1:])]
+        for line in lines
+    ]
+    total_length = sum(sum(lengths) for lengths in segment_lengths)
+    targets = sorted(
+        {
+            connector["at"] * total_length
+            for connector in connectors
+            if connector.get("connector_id")
+            and isinstance(connector.get("at"), (int, float))
+            and 0 < connector["at"] < 1
+        }
+    )
     insertions = [{} for _ in lines]
     cuts = [set() for _ in lines]
-    for first_index, first in enumerate(lines):
-        for second_index in range(first_index + 1, len(lines)):
-            second = lines[second_index]
-            for first_segment, (a, b) in enumerate(zip(first, first[1:])):
-                rx, ry = b[0] - a[0], b[1] - a[1]
-                for second_segment, (c, d) in enumerate(zip(second, second[1:])):
-                    sx, sy = d[0] - c[0], d[1] - c[1]
-                    denominator = rx * sy - ry * sx
-                    if abs(denominator) < 1e-15:
-                        continue
-                    qx, qy = c[0] - a[0], c[1] - a[1]
-                    first_amount = (qx * sy - qy * sx) / denominator
-                    second_amount = (qx * ry - qy * rx) / denominator
-                    if not (
-                        0 <= first_amount <= 1 and 0 <= second_amount <= 1
-                    ):
-                        continue
+    traversed = 0
+    for line_index, (line, lengths) in enumerate(zip(lines, segment_lengths)):
+        for segment_index, (start, end, length) in enumerate(
+            zip(line, line[1:], lengths)
+        ):
+            for target in targets:
+                if length and traversed <= target <= traversed + length:
+                    amount = (target - traversed) / length
                     point = [
-                        a[0] + first_amount * rx,
-                        a[1] + first_amount * ry,
+                        start[0] + amount * (end[0] - start[0]),
+                        start[1] + amount * (end[1] - start[1]),
                     ]
-                    point_key = tuple(point)
-                    cuts[first_index].add(point_key)
-                    cuts[second_index].add(point_key)
-                    if 0 < first_amount < 1:
-                        insertions[first_index].setdefault(first_segment, []).append(
-                            (first_amount, point)
+                    cuts[line_index].add(tuple(point))
+                    if 0 < amount < 1:
+                        insertions[line_index].setdefault(segment_index, []).append(
+                            (amount, point)
                         )
-                    if 0 < second_amount < 1:
-                        insertions[second_index].setdefault(second_segment, []).append(
-                            (second_amount, point)
-                        )
+            traversed += length
 
     result = []
     for line_index, coordinates in enumerate(lines):
@@ -143,31 +160,31 @@ def _distance_to_line(point, coordinates):
 
 
 def normalize_features(roads, addresses):
-    road_lines = [
-        (road_feature, line)
-        for road_feature in roads
-        for line in _lines(road_feature["geometry"])
-    ]
-    intersection_parts = _intersection_parts(
-        [coordinates for _, coordinates in road_lines]
-    )
     segments = []
-    next_part_index = {}
-    for line_index, (road_feature, _) in enumerate(road_lines):
+    candidate_classes = ALWAYS_KEEP | KEEP_WITH_ADDRESS
+    for road_feature in roads:
+        road_class = road_feature["properties"]["class"]
+        if road_class not in candidate_classes:
+            continue
         name = _display_name(road_feature)
+        if name is None:
+            continue
+        connector_parts = _connector_parts(
+            _lines(road_feature["geometry"]),
+            road_feature["properties"].get("connectors", []),
+        )
         parts = [
             part
-            for intersection_part in intersection_parts[line_index]
-            for part in _split_turns(intersection_part)
+            for line_parts in connector_parts
+            for connector_part in line_parts
+            for part in _split_turns(connector_part)
         ]
-        for coordinates in parts:
-            part_index = next_part_index.get(road_feature["id"], 0)
-            next_part_index[road_feature["id"]] = part_index + 1
+        for part_index, coordinates in enumerate(parts):
             segments.append(
                 {
                     "source_id": road_feature["id"],
                     "part_index": part_index,
-                    "road_class": road_feature["properties"]["class"],
+                    "road_class": road_class,
                     "street_name": name,
                     "canonical_name": canonical_street_name(name),
                     "coordinates": coordinates,

@@ -3,12 +3,22 @@ from unittest import TestCase
 from .overture_import import canonical_street_name, normalize_features
 
 
-def road(source_id, road_class, name, coordinates, geometry_type="LineString"):
-    return {
+def road(
+    source_id,
+    road_class,
+    name,
+    coordinates,
+    geometry_type="LineString",
+    connectors=None,
+):
+    feature = {
         "id": source_id,
         "properties": {"class": road_class, "names": {"primary": name}},
         "geometry": {"type": geometry_type, "coordinates": coordinates},
     }
+    if connectors is not None:
+        feature["properties"]["connectors"] = connectors
+    return feature
 
 
 def address(street, longitude, latitude):
@@ -22,6 +32,20 @@ class NormalizeFeaturesTest(TestCase):
     def test_canonical_names_ignore_case_punctuation_and_suffix_spelling(self):
         self.assertEqual(canonical_street_name("Jons Place"), "jons pl")
         self.assertEqual(canonical_street_name("JONS PL."), "jons pl")
+
+    def test_skips_roads_without_a_nonempty_primary_display_name(self):
+        missing = road("missing", "residential", "ignored", [[0, 0], [0.001, 0]])
+        del missing["properties"]["names"]
+        roads = [
+            missing,
+            road("null", "residential", None, [[0, 0.001], [0.001, 0.001]]),
+            road("blank", "residential", " -- ", [[0, 0.002], [0.001, 0.002]]),
+            road("named", "residential", "Named Road", [[0, 0.003], [0.001, 0.003]]),
+        ]
+
+        result = normalize_features(roads, [])
+
+        self.assertEqual([item["sourceSegmentId"] for item in result], ["named"])
 
     def test_keeps_residential_without_addresses_and_tertiary_only_with_an_address(self):
         roads = [
@@ -110,6 +134,25 @@ class NormalizeFeaturesTest(TestCase):
             ],
         )
 
+    def test_ineligible_same_named_road_cannot_consume_an_address(self):
+        roads = [
+            road("eligible", "tertiary", "Shared Road", [[0, 0], [0.001, 0]]),
+            road(
+                "service",
+                "service",
+                "Shared Road",
+                [[0, 0.0001], [0.001, 0.0001]],
+            ),
+        ]
+        addresses = [address("Shared Rd", 0.0005, 0.0001)]
+
+        result = normalize_features(roads, addresses)
+
+        self.assertEqual(
+            [(item["sourceSegmentId"], item["estimatedHomes"]) for item in result],
+            [("eligible", 1)],
+        )
+
     def test_rejects_same_street_addresses_beyond_forty_meters(self):
         roads = [
             road("near", "tertiary", "Near Road", [[0, 0], [0.001, 0]]),
@@ -133,7 +176,11 @@ class NormalizeFeaturesTest(TestCase):
                 "turn",
                 "residential",
                 "Bent Lane",
-                [[0, 0], [0.001, 0], [0.0010871557, 0.0009961947]],
+                [
+                    [-117, 33.5],
+                    [-116.999, 33.5],
+                    [-116.9989059115, 33.5009969173],
+                ],
             )
         ]
 
@@ -142,15 +189,18 @@ class NormalizeFeaturesTest(TestCase):
         self.assertEqual(
             [(item["id"], item["geometry"]["coordinates"]) for item in result],
             [
-                ("overture:turn:0", [[0, 0], [0.001, 0]]),
+                ("overture:turn:0", [[-117, 33.5], [-116.999, 33.5]]),
                 (
                     "overture:turn:1",
-                    [[0.001, 0], [0.0010871557, 0.0009961947]],
+                    [
+                        [-116.999, 33.5],
+                        [-116.9989059115, 33.5009969173],
+                    ],
                 ),
             ],
         )
 
-    def test_splits_both_roads_at_geometric_intersections(self):
+    def test_visual_crossing_without_connectors_does_not_split_roads(self):
         roads = [
             road("main", "residential", "Main Street", [[-0.001, 0], [0.001, 0]]),
             road(
@@ -166,10 +216,33 @@ class NormalizeFeaturesTest(TestCase):
         self.assertEqual(
             [(item["id"], item["geometry"]["coordinates"]) for item in result],
             [
-                ("overture:cross:0", [[0, -0.001], [0.0, 0.0]]),
-                ("overture:cross:1", [[0.0, 0.0], [0, 0.001]]),
-                ("overture:main:0", [[-0.001, 0], [0.0, 0.0]]),
-                ("overture:main:1", [[0.0, 0.0], [0.001, 0]]),
+                ("overture:cross:0", [[0, -0.001], [0, 0.001]]),
+                ("overture:main:0", [[-0.001, 0], [0.001, 0]]),
+            ],
+        )
+
+    def test_splits_at_interior_connector_linear_references(self):
+        roads = [
+            road(
+                "connected",
+                "residential",
+                "Connected Road",
+                [[0, 0], [0.002, 0]],
+                connectors=[
+                    {"connector_id": "start", "at": 0.0},
+                    {"connector_id": "junction", "at": 0.5},
+                    {"connector_id": "end", "at": 1.0},
+                ],
+            )
+        ]
+
+        result = normalize_features(roads, [])
+
+        self.assertEqual(
+            [(item["id"], item["geometry"]["coordinates"]) for item in result],
+            [
+                ("overture:connected:0", [[0, 0], [0.001, 0.0]]),
+                ("overture:connected:1", [[0.001, 0.0], [0.002, 0]]),
             ],
         )
 
