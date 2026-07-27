@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { countEligibleHomesCovered } from '../lib/coverage.ts';
 import {
   appendCoverageCorrection,
   getCoverageWorkspace,
@@ -1117,4 +1118,88 @@ test('coverage boundary appends corrections, retains retired logical history, an
     assert.equal(reimported.segments[0].id, first.id);
     assert.equal(reimported.segments[0].lastCoveredOn, '2026-07-20');
   });
+});
+
+test('coverage demo recreates only its isolated database with stable representative review data', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-coverage-demo-'));
+  const filename = path.join(directory, 'coverage-demo.db');
+  const asOf = '2026-07-28';
+  try {
+    const { seedCoverageDemo } = await import('./seed-coverage-demo.mjs');
+    assert.throws(
+      () => seedCoverageDemo(path.join(directory, 'not-the-demo.db'), asOf),
+      /must be named coverage-demo\.db/,
+    );
+    seedCoverageDemo(filename, asOf);
+    const first = openDatabase(filename);
+    const firstCounts = ['coverage_events', 'batches', 'packets', 'packet_segments'].map(
+      (table) => first.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
+    );
+    first.close();
+
+    const workspace = getCoverageWorkspace(filename, asOf);
+    assert.deepEqual(
+      [...new Set(workspace.segments.map((segment) => segment.coverageClass))].sort(),
+      ['green', 'orange', 'red', 'yellow'],
+    );
+    assert.equal(
+      workspace.segments.filter((segment) => segment.lastCoveredOn === null).length >= 2,
+      true,
+    );
+    assert.equal(workspace.activePackets, 1);
+    assert.deepEqual(
+      [30, 90, 180, 365].map((period) =>
+        countEligibleHomesCovered(workspace.segments, workspace.asOf, period),
+      ),
+      [5, 21, 27, 28],
+    );
+    const corrected = workspace.segments
+      .flatMap((segment) => segment.roots)
+      .find((root) => root.eventId === 'coverage-demo-corrected-root');
+    const voided = workspace.segments
+      .flatMap((segment) => segment.roots)
+      .find((root) => root.eventId === 'coverage-demo-voided-root');
+    assert.deepEqual(corrected, {
+      eventId: 'coverage-demo-corrected-root',
+      originalCoveredOn: '2025-03-15',
+      effectiveCoveredOn: '2026-07-08',
+      corrections: [
+        {
+          id: 'coverage-demo-corrected-date',
+          sequence: 6,
+          coveredOn: '2026-07-08',
+          isVoid: false,
+        },
+      ],
+    });
+    assert.deepEqual(
+      voided?.corrections.map(({ id, coveredOn, isVoid }) => ({ id, coveredOn, isVoid })),
+      [{ id: 'coverage-demo-voided-undo', coveredOn: '2025-03-15', isVoid: true }],
+    );
+    assert.equal(voided?.effectiveCoveredOn, null);
+
+    seedCoverageDemo(filename, asOf);
+    const second = openDatabase(filename);
+    assert.deepEqual(
+      ['coverage_events', 'batches', 'packets', 'packet_segments'].map(
+        (table) => second.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
+      ),
+      firstCounts,
+    );
+    second.close();
+
+    const founderFilename = path.join(directory, 'streetlight.db');
+    const founder = openDatabase(founderFilename);
+    migrateDatabase(founder);
+    seedDatabase(founder);
+    assert.deepEqual(
+      ['coverage_events', 'batches', 'packets', 'packet_segments'].map(
+        (table) => founder.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
+      ),
+      [0, 0, 0, 0],
+    );
+    founder.close();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

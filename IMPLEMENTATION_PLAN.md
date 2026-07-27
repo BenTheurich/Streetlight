@@ -41,7 +41,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
 | 2 | Territory setup | Phase 1 | Complete | Founder approved the interactive territory setup, Overture import quality controls, hidden-road activation, toggleable polygon and exact-segment exclusions, and circle/square boundaries on July 28, 2026; 59 Node checks, 25 Python checks, lint, typecheck, production build, and browser review pass |
-| 3 | Coverage history and heatmap | Phase 2 | In progress | Founder delegated full autonomous implementation on July 27, 2026; the reviewed design and task plan are in `docs/superpowers/` |
+| 3 | Coverage history and heatmap | Phase 2 | Awaiting human review | Coverage ledger `b2570bb`, period-boundary remediation `0a54ba3`, dashboard `90ec716`, and viewport remediation `3e2aaea` pass their reviewed contracts; isolated review data and final evidence are recorded below. |
 | 4 | Packet selection | Phase 3 | Pending | None |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
 | 6 | Reconciliation and corrections | Phase 5 | Pending | None |
@@ -281,9 +281,30 @@ Record outreach coverage and display its age on the map.
 
 Load seeded events, inspect every heatmap color, change the selected period, correct one event, and confirm the map and totals update.
 
+### Phase 3 evidence
+
+- Ledger and derivation commits `b2570bb` and `0a54ba3`; dashboard and route commits `90ec716`
+  and `3e2aaea`. The final isolated demo commit is recorded in the Phase 3 task report.
+- The full check runs Biome lint, TypeScript, 53 Node tests, 22 Python tests, and the Next.js
+  production build; `git diff --check` also passes.
+- The isolated `coverage-demo.db` seed is recreated twice with stable counts: 8 coverage events,
+  1 finalized batch, 1 active packet, and 1 packet-segment link. At `2026-07-28`, literal
+  30/90/180/365-day totals are 5/21/27/28 homes; the demo contains green, yellow, orange, red,
+  never-covered, corrected, and undone roots.
+- Direct isolated-server checks are **unrun**: an existing Next dev lock in this worktree prevented
+  `pnpm --dir web coverage:demo` from starting on port 3001, and that existing process was left
+  untouched. Route tests prove correction, undo, restore, reload, and malformed/future/unknown/
+  completion-shaped/extra-key no-mutation behavior. The founder database has no
+  `coverage-demo-*` IDs before or after the demo checks.
+- Browser acceptance is **unrun**: the permitted Codex browser controller cannot access localhost.
+  No alternate automation was used as a substitute. The separately documented sandbox-blocked
+  external Overture refresh remains deferred.
+
 ### Human review
 
-The founder confirms that the heatmap communicates oldest and newest areas without needing instructions.
+Run `pnpm --dir web coverage:demo`, open `http://localhost:3001`, inspect every heatmap color,
+change the selected period, select streets from the map and native control, correct one root, undo
+one, reload, and confirm that newest versus oldest areas are clear without instructions.
 
 ### Completion condition
 

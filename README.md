@@ -33,6 +33,7 @@ Run these from the repository root:
 | Test | `pnpm test` |
 | Production build | `pnpm build` |
 | Run every code check | `pnpm check` |
+| Start the isolated coverage review | `pnpm --dir web coverage:demo` |
 
 `pnpm dev` applies migrations and loads the idempotent local seed automatically,
 then serves Streetlight at `http://localhost:3000`.
@@ -43,9 +44,10 @@ and can be rebuilt with the migration and seed commands.
 The Overture import needs network access but no API key. It uses `python` by default.
 Set `STREETLIGHT_PYTHON` only when `python` is not the desired executable.
 
-## Phase 2 local review
+## Coverage dashboard and Phase 3 review
 
-Territory Setup is at `http://localhost:3000/territory`. Add the following to the
+Coverage is the root route at `http://localhost:3000/`; Territory Setup remains at
+`http://localhost:3000/territory`. Add the following to the
 ignored root `.env.local` before running `pnpm dev`:
 
 ```dotenv
@@ -57,8 +59,17 @@ The browser key renders the interactive administrator map. The server key resolv
 changed church address without exposing that credential to the browser. See
 [ENVIRONMENTS.md](ENVIRONMENTS.md) for the required API and application restrictions.
 
-For Phase 2 review, switch between the circle and square boundary, adjust the boundary distance,
-and confirm roads outside the selected boundary disappear rather than turn gray. Draw and reshape
-an exclusion, confirm affected segments turn gray, save, reload, and then confirm that `Cancel`
-restores the last saved territory. Click one orange segment, exclude it, save and reload, then
-click the same gray segment and restore it. The founder approved Phase 2 on July 28, 2026.
+Coverage is derived from append-only outreach events. Changing a date and undoing a completion add
+correction rows; they never replace or remove the original completion. The map uses green for
+0-89 days, yellow for 90-179, orange for 180-364, and red for 365+ days or never covered.
+The 30/90/180/365-day home metric includes both UTC endpoints: a 90-day selection is
+`[asOf - 89 days, asOf]`.
+
+For founder review, run `pnpm --dir web coverage:demo` and open `http://localhost:3001`.
+It recreates only `web/data/coverage-demo.db`, then starts Next with that isolated database. The
+demo has green, yellow, orange, red, never-covered, corrected, and undone examples plus one active
+packet. Inspect every map color, change the period, select segments, change a date, undo one,
+reload, and confirm the history and totals persist.
+
+`pnpm db:seed` and `pnpm dev` never add fake outreach, batches, packets, or demo IDs to the
+founder's `web/data/streetlight.db`; representative data exists only in the explicit demo file.

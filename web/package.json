@@ -11,6 +11,7 @@
     "test": "node --experimental-strip-types --test app/api/coverage/route.test.ts db/database.test.mjs lib/coverage.test.ts lib/google-maps-server.test.ts lib/overture-import.test.ts lib/territory-client.test.ts lib/territory-geometry.test.ts lib/territory-import.test.ts lib/territory-map-style.test.ts lib/territory.test.ts",
     "db:migrate": "node db/migrate.mjs",
     "db:seed": "node db/seed.mjs",
+    "coverage:demo": "node db/seed-coverage-demo.mjs --serve",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
