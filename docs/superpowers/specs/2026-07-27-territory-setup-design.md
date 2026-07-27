@@ -1,7 +1,8 @@
 # Streetlight Phase 2 territory setup design
 
-Status: awaiting founder review of written specification
+Status: awaiting founder review of amended written specification
 Designed: July 27, 2026
+Amended: July 27, 2026
 Product authority: [PRODUCT.md](../../../PRODUCT.md)
 Execution roadmap: [IMPLEMENTATION_PLAN.md](../../../IMPLEMENTATION_PLAN.md)
 
@@ -19,9 +20,11 @@ Streetlight uses **radius minus exclusions**:
 
 1. Resolve the church address to a geographic point.
 2. Draw a circular territory from that point and a radius.
-3. Import and display the approved Phase 0 street segments.
-4. Exclude any segment that is not entirely inside the radius.
-5. Exclude any whole segment whose road line touches or crosses an exclusion polygon.
+3. Automatically import Overture street and address data when the saved location requires a
+   new footprint.
+4. Normalize that source data into deterministic, read-only outreach segments.
+5. Exclude any segment that is not entirely inside the radius.
+6. Exclude any whole segment whose road line touches or crosses an exclusion polygon.
 
 The outer territory is not a freeform polygon. Administrators do not manually edit imported
 street geometry or estimated tract counts.
@@ -56,15 +59,19 @@ The normal map state shows:
 
 - The circular radius as a dashed accent-color line.
 - Every imported segment.
-- Eligible segments in the page accent color.
-- Excluded segments in gray.
+- Eligible segments as solid, semi-transparent accent-color lines.
+- Excluded segments as solid, semi-transparent gray lines.
 - Saved and draft exclusion polygons as translucent red shapes.
-- A small legend for included and excluded segments.
+- A small legend whose solid orange and gray samples match the map.
 - `Pan` and `Draw exclusion` modes.
 - Standard map zoom behavior.
 
 There is no segment-visibility toggle. Segment eligibility remains visible throughout setup so
 the administrator can understand the effect of radius and polygon changes.
+
+Segment strokes scale with the Google map zoom instead of retaining one fixed pixel width.
+They are approximately 2 pixels when zoomed out and rise gradually to a maximum of 5 pixels
+when close. Their transparency keeps Google road names readable through the overlay.
 
 ### Sidebar
 
@@ -91,7 +98,8 @@ After a valid address is selected:
 - The church point moves to the resolved coordinates.
 - The radius circle recenters immediately.
 - Existing exclusion polygons remain at their geographic coordinates.
-- Segment eligibility and totals recalculate.
+- Existing loaded segments preview against the new draft point.
+- The page states that street data will refresh when the draft is saved.
 
 If the address cannot be resolved, the existing church point remains unchanged.
 
@@ -104,6 +112,8 @@ The slider and numeric field represent one radius value.
 - A segment is eligible by radius only when its complete line lies inside or on the circle.
 - Segments that cross the circle boundary or lie outside it turn gray.
 - Live map and total changes are draft-only until `Save changes`.
+- Expanding beyond the loaded import footprint marks the draft as requiring a data refresh.
+- Reducing the radius within the loaded footprint does not require another import.
 
 ## Exclusion drawing
 
@@ -114,10 +124,15 @@ Drawing works as follows:
 
 1. Choose `Draw exclusion area`.
 2. Click points around the unwanted area.
-3. After three points, `Finish polygon` becomes available.
-4. Each affected segment turns gray as the polygon changes.
-5. The sidebar previews affected segment and tract counts.
-6. The administrator can undo the last point, drag existing points, finish, or cancel.
+3. The first point immediately appears as a native editable Google vertex handle.
+4. The first and second points remain draggable while the partial line is drawn.
+5. After three points, `Finish polygon` becomes available.
+6. Each affected segment turns gray as the polygon changes.
+7. The sidebar previews affected segment and tract counts.
+8. The administrator can undo the last point, drag existing points, finish, or cancel.
+
+The map uses a crosshair cursor while adding points. Hovering or dragging an existing vertex
+uses Google's native move/hand cursor.
 
 A polygon cannot finish with fewer than three distinct points or when its boundary
 self-intersects.
@@ -149,11 +164,49 @@ The browser holds a complete territory draft containing:
 
 Map overlays and totals derive from the draft. The imported street data remains read-only.
 
-`Save changes` submits the complete draft to the server. The server validates and stores the
-territory and exclusions in one database transaction. Either all changes persist or none do.
+`Save changes` submits the complete draft to the server. If the saved center changes, the
+radius exceeds the loaded footprint, or the database still contains the proof-only Phase 0
+fixture, that same action automatically starts a potentially long-running Overture import.
+Exclusion-only saves and radius reductions within the loaded footprint reuse the current
+dataset.
+
+During an import, the page disables editing and displays `Importing streets and addresses…`.
+The first release keeps the save request open rather than adding a background-job queue,
+percentage estimates, or resumable job infrastructure.
+
+The server downloads, normalizes, and validates the replacement dataset before opening the
+database transaction. It then replaces the imported segments and saves the territory and
+exclusions atomically. Either the complete imported territory persists or none of it does.
 
 `Cancel` discards the draft and restores the last saved territory. Leaving the page with
 unsaved changes warns the administrator before navigation.
+
+## Overture import and road eligibility
+
+Google remains the display and submitted-address geocoding provider. Streetlight's durable
+street geometry and estimated tract counts come from pinned Overture release `2026-07-22.0`.
+Changing that release requires an explicit import-version change rather than silently following
+the latest dataset. The importer downloads transportation segments and address points for the
+bounding box enclosing the requested circle, retaining complete source lines that touch that
+box so boundary eligibility can be calculated correctly.
+
+Overture road `class` describes road kind and network hierarchy rather than proving whether
+homes exist along that road. Streetlight therefore uses the founder-approved
+residential-or-address-evidence rule:
+
+- Always retain named `residential` and `living_street` road segments.
+- Retain named `primary`, `secondary`, `tertiary`, and `unclassified` road segments only when
+  at least one matching imported address point is assigned to that normalized segment.
+- Exclude every other road class, including motorway, trunk, service, path, footway, cycleway,
+  track, pedestrian, steps, and bridleway.
+
+Address points are assigned deterministically to the nearest normalized segment with the same
+canonical street name within 40 meters. The resulting count remains an estimate. Imported
+geometries and counts have no administrator correction controls.
+
+The database records the Overture release, import center, imported radius, and successful
+completion time. The current 55-segment Phase 0 fixture is marked proof-only and cannot satisfy
+any saved territory footprint; the first save automatically replaces it.
 
 ## Data and component boundaries
 
@@ -162,13 +215,17 @@ The smallest useful implementation has these responsibilities:
 - **Territory page:** loads the saved workspace and owns the draft/save/cancel lifecycle.
 - **Interactive map:** owns the Google map instance, overlays, map modes, and pointer events.
 - **Setup sidebar:** edits address, radius, polygon metadata, and page actions.
+- **Overture importer:** downloads one required footprint and applies the deterministic
+  normalization and residential-or-address-evidence rule.
 - **Geometry functions:** determine radius containment, polygon intersection, validity, and
   eligible totals.
-- **Territory endpoint:** validates the complete draft and performs the atomic write.
+- **Territory endpoint:** validates the complete draft, conditionally runs the importer, and
+  performs the atomic replacement and save.
 
 The stored territory needs a center point and radius. Each exclusion needs a church ID,
-territory ID, optional name, and polygon geometry. Imported segments retain their Phase 0
-geometry and estimated home counts without editable copies.
+territory ID, optional name, and polygon geometry. Import metadata records the source release
+and loaded footprint. Imported segments retain source identity, geometry, road class, and
+estimated home counts without editable copies.
 
 No provider abstraction, generalized GIS editor, or compatibility layer is required.
 
@@ -194,6 +251,8 @@ pay-as-you-go billing after the cap:
 - Self-intersecting polygon: explain the invalid shape and keep the draft editable.
 - Invalid radius: show an inline field error and do not send the draft.
 - Unresolved address: preserve the current location and explain the failure.
+- Overture download or normalization failure: preserve the prior saved territory and imported
+  segments, preserve the full browser draft, and allow retry.
 - Save rejection or network failure: preserve the full browser draft and allow retry.
 - Database failure: roll back the complete transaction.
 - Unsaved navigation: confirm before discarding the draft.
@@ -201,7 +260,8 @@ pay-as-you-go billing after the cap:
 ## Accessibility and input
 
 - All sidebar controls have labels and keyboard focus states.
-- Included and excluded states differ by text/legend and line style as well as color.
+- Included and excluded states have labeled legend samples and sufficiently different color
+  and luminance; the legend matches the solid map strokes.
 - Map modes have visible selected states and instructions.
 - Polygon vertices have sufficiently large mouse and touch targets.
 - The Google map retains its standard keyboard pan and zoom controls.
@@ -214,6 +274,12 @@ pay-as-you-go billing after the cap:
 
 Use the approved Phase 0 fixture and a small synthetic geometry set.
 
+- The proof-only fixture always requires a real import.
+- A center change or radius expansion beyond the loaded footprint requires an import.
+- Exclusion-only changes and radius reductions within the footprint do not import.
+- The residential-or-address-evidence rule retains and rejects every approved road-class case.
+- A failed download, normalization, or database write preserves the previous complete dataset.
+- A successful import atomically replaces segments and records its source release and footprint.
 - All imported segments belong to the pilot church and territory.
 - A segment entirely inside the radius is eligible.
 - A segment outside or crossing the radius is excluded.
@@ -221,6 +287,7 @@ Use the approved Phase 0 fixture and a small synthetic geometry set.
 - An unrelated segment remains eligible.
 - Draft totals equal the eligible segment totals after every radius or polygon change.
 - Invalid and self-intersecting polygons are rejected.
+- Segment stroke width produces the approved zoom-dependent 2-to-5-pixel range.
 - Creating, renaming, reshaping, and deleting polygons persist after save and reload.
 - Cancelling writes nothing and restores the saved territory.
 - A save is atomic.
@@ -232,15 +299,22 @@ Use the approved Phase 0 fixture and a small synthetic geometry set.
 With real local Google credentials:
 
 1. Open Territory Setup and pan and zoom the map.
-2. Drag the radius slider and verify the circle, segment colors, and totals update live.
-3. Type a radius and verify the slider and map match.
-4. Cancel and verify the saved radius returns.
-5. Draw a polygon and verify touched segments turn gray before finishing.
-6. Undo a point, finish the polygon, optionally name it, and reshape it.
-7. Save and reload; verify the same radius, polygon, segment colors, and totals return.
-8. Delete the polygon, cancel, and verify it returns.
-9. Change the address, confirm, and verify polygons stay at their geographic coordinates.
-10. Confirm the browser console has no application errors.
+2. Confirm segment strokes become thinner when zooming out, remain semi-transparent, and do
+   not conceal road names.
+3. Confirm the legend uses the same solid orange and gray strokes as the map.
+4. Drag the radius slider and verify the circle, segment colors, and totals update live.
+5. Type a radius and verify the slider and map match.
+6. Cancel and verify the saved radius returns.
+7. Start an exclusion and verify the first point is immediately visible.
+8. Confirm the map uses a crosshair for new points and a move/hand cursor on draggable points.
+9. Draw a polygon and verify touched segments turn gray before finishing.
+10. Undo a point, finish the polygon, optionally name it, and reshape it.
+11. Save a footprint requiring import and wait for the Overture import to finish.
+12. Verify the complete imported neighborhood appears and totals reflect the replacement data.
+13. Save and reload; verify the same radius, polygon, segment colors, and totals return.
+14. Delete the polygon, cancel, and verify it returns.
+15. Change the address, confirm, and verify polygons stay at their geographic coordinates.
+16. Confirm the browser console has no application errors.
 
 ## Explicit non-goals
 
@@ -253,6 +327,8 @@ Phase 2 does not include:
 - Manual street-geometry correction.
 - Manual tract-estimate correction.
 - Autosave.
+- Importing on every slider movement.
+- A background-job queue, percentage progress, or resumable imports.
 - Multiple territories.
 - Deployment or authentication.
 
