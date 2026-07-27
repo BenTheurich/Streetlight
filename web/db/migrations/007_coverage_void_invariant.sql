@@ -1,23 +1,4 @@
-ALTER TABLE coverage_events
-ADD COLUMN is_void INTEGER NOT NULL DEFAULT 0 CHECK (is_void IN (0, 1));
-
-CREATE INDEX coverage_events_church_segment
-ON coverage_events (church_id, street_segment_id);
-
-CREATE INDEX coverage_events_correction_root
-ON coverage_events (corrects_event_id);
-
-CREATE TRIGGER coverage_events_no_update
-BEFORE UPDATE ON coverage_events
-BEGIN
-  SELECT RAISE(ABORT, 'coverage_events are append-only');
-END;
-
-CREATE TRIGGER coverage_events_no_delete
-BEFORE DELETE ON coverage_events
-BEGIN
-  SELECT RAISE(ABORT, 'coverage_events are append-only');
-END;
+DROP TRIGGER coverage_events_validate_insert;
 
 CREATE TRIGGER coverage_events_validate_insert
 BEFORE INSERT ON coverage_events
@@ -41,4 +22,19 @@ BEGIN
       AND root.church_id = NEW.church_id
       AND root.street_segment_id = NEW.street_segment_id
   ) THEN RAISE(ABORT, 'coverage_events correction root is invalid') END;
+
+  SELECT CASE WHEN NEW.kind = 'correction' AND NEW.is_void = 1 AND (
+    COALESCE(
+      (SELECT is_void FROM coverage_events
+        WHERE corrects_event_id = NEW.corrects_event_id
+        ORDER BY rowid DESC LIMIT 1),
+      0
+    ) = 1
+    OR NEW.covered_on <> COALESCE(
+      (SELECT covered_on FROM coverage_events
+        WHERE corrects_event_id = NEW.corrects_event_id
+        ORDER BY rowid DESC LIMIT 1),
+      (SELECT covered_on FROM coverage_events WHERE id = NEW.corrects_event_id)
+    )
+  ) THEN RAISE(ABORT, 'coverage_events void state is invalid') END;
 END;

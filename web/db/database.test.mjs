@@ -197,6 +197,83 @@ test('circle and square boundary shapes persist and control whole-segment eligib
   });
 });
 
+test('migration 007 upgrades an existing migration 006 database with current-state void validation', () => {
+  const database = openDatabase(':memory:');
+  try {
+    database.exec(`
+      CREATE TABLE schema_migrations (
+        name TEXT PRIMARY KEY,
+        applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) STRICT;
+      INSERT INTO schema_migrations (name) VALUES ('007_coverage_void_invariant.sql');
+    `);
+    migrateDatabase(database);
+    assert.ok(
+      database
+        .prepare('SELECT 1 FROM schema_migrations WHERE name = ?')
+        .get('006_coverage_history.sql'),
+    );
+    seedDatabase(database);
+    const segmentId = database
+      .prepare('SELECT id FROM street_segments WHERE church_id = ? ORDER BY id LIMIT 1')
+      .get('church-temecula-pilot').id;
+    const insert = database.prepare(
+      `INSERT INTO coverage_events
+        (id, church_id, street_segment_id, covered_on, kind, corrects_event_id, is_void)
+      VALUES (?, 'church-temecula-pilot', ?, ?, ?, ?, ?)`,
+    );
+    insert.run('upgrade-root', segmentId, '2026-07-01', 'completed', null, 0);
+    insert.run('old-first-void', segmentId, '2026-07-01', 'correction', 'upgrade-root', 1);
+    insert.run('old-second-void', segmentId, '2026-07-01', 'correction', 'upgrade-root', 1);
+
+    database
+      .prepare('DELETE FROM schema_migrations WHERE name = ?')
+      .run('007_coverage_void_invariant.sql');
+    migrateDatabase(database);
+
+    assert.ok(
+      database
+        .prepare('SELECT 1 FROM schema_migrations WHERE name = ?')
+        .get('007_coverage_void_invariant.sql'),
+    );
+    assert.throws(
+      () =>
+        insert.run(
+          'upgraded-consecutive-void',
+          segmentId,
+          '2026-07-01',
+          'correction',
+          'upgrade-root',
+          1,
+        ),
+      /coverage_events/i,
+    );
+    insert.run('upgraded-restoration', segmentId, '2026-07-02', 'correction', 'upgrade-root', 0);
+    assert.throws(
+      () =>
+        insert.run(
+          'upgraded-wrong-date-void',
+          segmentId,
+          '2026-07-01',
+          'correction',
+          'upgrade-root',
+          1,
+        ),
+      /coverage_events/i,
+    );
+    insert.run(
+      'upgraded-matching-revoid',
+      segmentId,
+      '2026-07-02',
+      'correction',
+      'upgrade-root',
+      1,
+    );
+  } finally {
+    database.close();
+  }
+});
+
 test('import quality columns accept only nullable non-negative integers', () => {
   const database = openDatabase(':memory:');
   try {
@@ -968,6 +1045,19 @@ test('coverage events are append-only and only valid same-segment completed root
     assert.throws(
       () =>
         insert.run(
+          'consecutive-root-date-void',
+          'church-temecula-pilot',
+          segmentId,
+          '2026-07-01',
+          'correction',
+          'root',
+          1,
+        ),
+      /coverage_events/i,
+    );
+    assert.throws(
+      () =>
+        insert.run(
           'correction-target',
           'church-temecula-pilot',
           segmentId,
@@ -1034,6 +1124,19 @@ test('coverage events are append-only and only valid same-segment completed root
       'correction',
       'root',
       1,
+    );
+    assert.throws(
+      () =>
+        insert.run(
+          'consecutive-replacement-date-void',
+          'church-temecula-pilot',
+          segmentId,
+          '2026-07-02',
+          'correction',
+          'root',
+          1,
+        ),
+      /coverage_events/i,
     );
     assert.throws(
       () =>
