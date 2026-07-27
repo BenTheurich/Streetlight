@@ -83,9 +83,13 @@ export function TerritoryMap({
   const centerRef = useRef(center);
   const drawingRef = useRef(drawing);
   const drawingPointsRef = useRef(drawingPoints);
+  const drawingPathRef = useRef<google.maps.MVCArray<google.maps.LatLng> | null>(null);
+  const syncingDrawingPathRef = useRef(false);
   const addPointRef = useRef(onAddDrawingPoint);
   const drawingPointsChangeRef = useRef(onDrawingPointsChange);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(apiKey ? 'loading' : 'error');
+  const drawingShapeKind =
+    drawing && drawingPoints.length > 0 ? (drawingPoints.length < 3 ? 'line' : 'polygon') : null;
 
   centerRef.current = center;
   drawingRef.current = drawing;
@@ -283,14 +287,14 @@ export function TerritoryMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || status !== 'ready' || !drawing || drawingPoints.length === 0) {
+    if (!map || status !== 'ready' || !drawingShapeKind) {
       return;
     }
     const shape =
-      drawingPoints.length < 3
+      drawingShapeKind === 'line'
         ? new google.maps.Polyline({
             map,
-            path: drawingPoints.map(latLng),
+            path: drawingPointsRef.current.map(latLng),
             strokeColor: '#a9403a',
             strokeOpacity: 0.95,
             strokeWeight: 3,
@@ -300,7 +304,7 @@ export function TerritoryMap({
           })
         : new google.maps.Polygon({
             map,
-            paths: drawingPoints.map(latLng),
+            paths: drawingPointsRef.current.map(latLng),
             fillColor: '#a9403a',
             fillOpacity: 0.25,
             strokeColor: '#a9403a',
@@ -312,6 +316,9 @@ export function TerritoryMap({
           });
     const path = shape.getPath();
     const update = () => {
+      if (syncingDrawingPathRef.current) {
+        return;
+      }
       const nextPoints = positions(path);
       if (!samePositions(nextPoints, drawingPointsRef.current)) {
         drawingPointsRef.current = nextPoints;
@@ -324,13 +331,30 @@ export function TerritoryMap({
       path.addListener('remove_at', update),
       shape.addListener('dragend', update),
     ];
+    drawingPathRef.current = path;
     return () => {
       for (const listener of listeners) {
         listener.remove();
       }
+      if (drawingPathRef.current === path) {
+        drawingPathRef.current = null;
+      }
       shape.setMap(null);
     };
-  }, [drawing, drawingPoints, status]);
+  }, [drawingShapeKind, status]);
+
+  useEffect(() => {
+    const path = drawingPathRef.current;
+    if (!path || !drawingShapeKind || samePositions(positions(path), drawingPoints)) {
+      return;
+    }
+    syncingDrawingPathRef.current = true;
+    path.clear();
+    for (const point of drawingPoints) {
+      path.push(new google.maps.LatLng(point[1], point[0]));
+    }
+    syncingDrawingPathRef.current = false;
+  }, [drawingPoints, drawingShapeKind]);
 
   if (!apiKey) {
     return (
