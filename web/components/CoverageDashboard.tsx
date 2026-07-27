@@ -145,6 +145,7 @@ export function CoverageDashboard({ initialData, mapsApiKey }: CoverageDashboard
                     return (
                       <div className="coverage-root" key={root.eventId}>
                         <strong>Completed {formatDate(root.originalCoveredOn)}</strong>
+                        <code className="coverage-event-id">Event ID: {root.eventId}</code>
                         <span>
                           {root.effectiveCoveredOn
                             ? `Effective ${formatDate(root.effectiveCoveredOn)}`

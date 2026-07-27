@@ -883,6 +883,12 @@ textarea {
   font-size: 0.72rem;
 }
 
+.coverage-event-id {
+  color: var(--muted);
+  font-size: 0.62rem;
+  overflow-wrap: anywhere;
+}
+
 .coverage-root > span {
   color: var(--muted);
   font-size: 0.65rem;
