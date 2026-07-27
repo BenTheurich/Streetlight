@@ -265,8 +265,12 @@ export function TerritoryEditor({
       setRadiusInput(String(nextDraft.radiusMiles));
       setSelectedExclusionId(null);
       setNotice('Territory changes saved.');
-    } catch {
-      setNotice('Could not save territory changes. Your draft is still here.');
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : 'Could not save territory changes. Your draft is still here.',
+      );
     } finally {
       setSaving(false);
       setImporting(false);
@@ -485,6 +489,13 @@ export function TerritoryEditor({
                   <span>Eligible segments</span>
                 </div>
               </div>
+              {savedWorkspace.import.quality && (
+                <p>
+                  Address match: {savedWorkspace.import.quality.assignedAddresses} of{' '}
+                  {savedWorkspace.import.quality.totalAddresses} ·{' '}
+                  {savedWorkspace.import.quality.inferredRoads} inferred road(s)
+                </p>
+              )}
             </section>
 
             <section className="exclusions-section">

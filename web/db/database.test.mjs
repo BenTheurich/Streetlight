@@ -48,6 +48,13 @@ function importedTerritory(segments) {
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',
+    normalizerVersion: 2,
+    quality: {
+      totalAddresses: 12,
+      assignedAddresses: 10,
+      inferredRoads: 1,
+      unmatchedAddresses: 2,
+    },
     segments,
   };
 }
@@ -109,6 +116,8 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
     const summary = getFoundationSummary(filename);
     assert.equal(workspace.import.kind, 'proof');
     assert.equal(workspace.import.release, null);
+    assert.equal(workspace.import.normalizerVersion, null);
+    assert.equal(workspace.import.quality, null);
     assert.equal(summary.packetCount, 0);
   } finally {
     rmSync(directory, { recursive: true, force: true });
@@ -139,6 +148,8 @@ test('an imported save atomically replaces proof segments and records its footpr
       center: imported.center,
       radiusMiles: imported.radiusMiles,
       completedAt: imported.completedAt,
+      normalizerVersion: imported.normalizerVersion,
+      quality: imported.quality,
     });
     assert.deepEqual(
       saved.segments.map(
@@ -328,7 +339,26 @@ test('reimport preserves coverage and finalized packet references to retired seg
 
 test('a replacement failure preserves the complete saved workspace', () => {
   withDatabase((filename) => {
+    const initial = getTerritoryWorkspace(filename);
+    saveTerritoryDraft(
+      {
+        originAddress: initial.originAddress,
+        center: initial.center,
+        radiusMiles: initial.radiusMiles,
+        exclusions: initial.exclusions,
+      },
+      {
+        filename,
+        imported: importedTerritory([importedSegment('prior', 'Prior Road', 'residential', 4)]),
+      },
+    );
     const before = getTerritoryWorkspace(filename);
+    assert.deepEqual(before.import.quality, {
+      totalAddresses: 12,
+      assignedAddresses: 10,
+      inferredRoads: 1,
+      unmatchedAddresses: 2,
+    });
     assert.throws(
       () =>
         saveTerritoryDraft(

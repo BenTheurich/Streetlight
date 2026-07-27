@@ -13,6 +13,14 @@ const validOutput = {
   center: requestedCenter,
   radiusMiles: 1,
   completedAt: '2026-07-27T12:00:00.000Z',
+  normalizerVersion: 2,
+  quality: {
+    totalAddresses: 12,
+    assignedAddresses: 10,
+    inferredRoads: 1,
+    unmatchedAddresses: 2,
+    unresolvedClusters: 0,
+  },
   segments: [
     {
       id: 'overture:road-1:0',
@@ -29,6 +37,16 @@ const validOutput = {
       estimatedHomes: 4,
     },
   ],
+};
+
+const validImportedOutput = {
+  ...validOutput,
+  quality: {
+    totalAddresses: 12,
+    assignedAddresses: 10,
+    inferredRoads: 1,
+    unmatchedAddresses: 2,
+  },
 };
 
 function outputProcess(value: unknown) {
@@ -55,7 +73,7 @@ test('rejects invalid importer arguments before starting Python', () => {
 });
 
 test('accepts the complete pinned import contract', () => {
-  assert.deepEqual(parseOvertureImportOutput(JSON.stringify(validOutput)), validOutput);
+  assert.deepEqual(parseOvertureImportOutput(JSON.stringify(validOutput)), validImportedOutput);
 });
 
 test('rejects malformed JSON and every invalid import field', () => {
@@ -67,6 +85,13 @@ test('rejects malformed JSON and every invalid import field', () => {
     { ...validOutput, center: [-181, 33.5107] },
     { ...validOutput, radiusMiles: 0 },
     { ...validOutput, completedAt: 'yesterday' },
+    { ...validOutput, normalizerVersion: 1 },
+    { ...validOutput, normalizerVersion: 2.5 },
+    { ...validOutput, quality: { ...validOutput.quality, totalAddresses: -1 } },
+    { ...validOutput, quality: { ...validOutput.quality, assignedAddresses: 10.5 } },
+    { ...validOutput, quality: { ...validOutput.quality, unmatchedAddresses: 1 } },
+    { ...validOutput, quality: { ...validOutput.quality, unresolvedClusters: 1 } },
+    { ...validOutput, quality: { ...validOutput.quality, extra: 1 } },
     { ...validOutput, segments: [] },
     {
       ...validOutput,
@@ -151,6 +176,28 @@ test('rejects malformed JSON and every invalid import field', () => {
   }
 });
 
+test('rejects missing and extra import-quality fields', () => {
+  const { quality: _quality, ...withoutQuality } = validOutput;
+  const { normalizerVersion: _normalizerVersion, ...withoutVersion } = validOutput;
+
+  for (const value of [
+    withoutQuality,
+    withoutVersion,
+    { ...validOutput, extra: true },
+    {
+      ...validOutput,
+      quality: {
+        totalAddresses: 12,
+        assignedAddresses: 10,
+        inferredRoads: 1,
+        unmatchedAddresses: 2,
+      },
+    },
+  ]) {
+    assert.throws(() => parseOvertureImportOutput(JSON.stringify(value)), /import output/i);
+  }
+});
+
 test('reports a real importer process failure with stderr', async () => {
   const child = spawn(process.execPath, [
     '-e',
@@ -181,10 +228,10 @@ test('binds successful importer output to the requested center and radius', asyn
     radiusMiles: 1 + 5e-10,
   };
 
-  assert.deepEqual(
-    await readImporterProcess(outputProcess(withinTolerance), requestedCenter, 1),
-    withinTolerance,
-  );
+  assert.deepEqual(await readImporterProcess(outputProcess(withinTolerance), requestedCenter, 1), {
+    ...withinTolerance,
+    quality: validImportedOutput.quality,
+  });
 });
 
 test('terminates and rejects a stalled importer process', async () => {

@@ -23,11 +23,20 @@ export type ImportedTerritorySegment = {
   estimatedHomes: number;
 };
 
+export type ImportQuality = {
+  totalAddresses: number;
+  assignedAddresses: number;
+  inferredRoads: number;
+  unmatchedAddresses: number;
+};
+
 export type ImportedTerritoryInput = {
   release: typeof OVERTURE_RELEASE;
   center: Position;
   radiusMiles: number;
   completedAt: string;
+  normalizerVersion: 2;
+  quality: ImportQuality;
   segments: ImportedTerritorySegment[];
 };
 
@@ -62,6 +71,25 @@ function isIsoTimestamp(value: unknown): value is string {
   );
 }
 
+function isSuccessfulImportQuality(
+  value: unknown,
+): value is ImportQuality & { unresolvedClusters: 0 } {
+  return (
+    isRecord(value) &&
+    hasKeys(value, [
+      'assignedAddresses',
+      'inferredRoads',
+      'totalAddresses',
+      'unmatchedAddresses',
+      'unresolvedClusters',
+    ]) &&
+    Object.values(value).every((count) => Number.isInteger(count) && (count as number) >= 0) &&
+    (value.assignedAddresses as number) + (value.unmatchedAddresses as number) ===
+      value.totalAddresses &&
+    value.unresolvedClusters === 0
+  );
+}
+
 function failImportOutput(): never {
   throw new Error('Invalid Overture import output');
 }
@@ -92,12 +120,22 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
   }
   if (
     !isRecord(value) ||
-    !hasKeys(value, ['center', 'completedAt', 'radiusMiles', 'release', 'segments']) ||
+    !hasKeys(value, [
+      'center',
+      'completedAt',
+      'normalizerVersion',
+      'quality',
+      'radiusMiles',
+      'release',
+      'segments',
+    ]) ||
     value.release !== OVERTURE_RELEASE ||
     !isGeographicPosition(value.center) ||
     !Number.isFinite(value.radiusMiles) ||
     (value.radiusMiles as number) <= 0 ||
     !isIsoTimestamp(value.completedAt) ||
+    value.normalizerVersion !== 2 ||
+    !isSuccessfulImportQuality(value.quality) ||
     !Array.isArray(value.segments) ||
     value.segments.length === 0
   ) {
@@ -155,6 +193,13 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     center: value.center,
     radiusMiles: value.radiusMiles as number,
     completedAt: value.completedAt,
+    normalizerVersion: 2,
+    quality: {
+      totalAddresses: value.quality.totalAddresses as number,
+      assignedAddresses: value.quality.assignedAddresses as number,
+      inferredRoads: value.quality.inferredRoads as number,
+      unmatchedAddresses: value.quality.unmatchedAddresses as number,
+    },
     segments,
   };
 }

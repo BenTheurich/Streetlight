@@ -12,7 +12,15 @@ const draft = {
 test('proof data and an expanded footprint require imports', () => {
   assert.equal(
     needsTerritoryImport(
-      { kind: 'proof', release: null, center: null, radiusMiles: null, completedAt: null },
+      {
+        kind: 'proof',
+        release: null,
+        center: null,
+        radiusMiles: null,
+        completedAt: null,
+        normalizerVersion: null,
+        quality: null,
+      },
       draft,
     ),
     true,
@@ -25,6 +33,13 @@ test('proof data and an expanded footprint require imports', () => {
         center: draft.center,
         radiusMiles: 0.5,
         completedAt: '2026-07-27T12:00:00.000Z',
+        normalizerVersion: 2,
+        quality: {
+          totalAddresses: 12,
+          assignedAddresses: 10,
+          inferredRoads: 1,
+          unmatchedAddresses: 2,
+        },
       },
       draft,
     ),
@@ -41,6 +56,13 @@ test('exclusion changes and radius reductions reuse a current footprint', () => 
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
+        normalizerVersion: 2,
+        quality: {
+          totalAddresses: 12,
+          assignedAddresses: 10,
+          inferredRoads: 1,
+          unmatchedAddresses: 2,
+        },
       },
       {
         ...draft,
@@ -75,6 +97,13 @@ test('a different pinned Overture release requires an import', () => {
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
+        normalizerVersion: 2,
+        quality: {
+          totalAddresses: 12,
+          assignedAddresses: 10,
+          inferredRoads: 1,
+          unmatchedAddresses: 2,
+        },
       },
       draft,
     ),
@@ -91,9 +120,39 @@ test('a changed territory center requires an import', () => {
         center: [-117.1275, 33.5107],
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
+        normalizerVersion: 2,
+        quality: {
+          totalAddresses: 12,
+          assignedAddresses: 10,
+          inferredRoads: 1,
+          unmatchedAddresses: 2,
+        },
       },
       draft,
     ),
     true,
   );
+});
+
+test('legacy and mismatched normalizer versions require replacement', () => {
+  const current = {
+    kind: 'overture' as const,
+    release: '2026-06-17.0',
+    center: draft.center,
+    radiusMiles: 2,
+    completedAt: '2026-07-27T12:00:00.000Z',
+    normalizerVersion: 2,
+    quality: { totalAddresses: 12, assignedAddresses: 10, inferredRoads: 1, unmatchedAddresses: 2 },
+  };
+
+  assert.equal(
+    needsTerritoryImport({ ...current, normalizerVersion: null, quality: null }, draft),
+    true,
+  );
+  assert.equal(
+    needsTerritoryImport({ ...current, quality: undefined } as unknown as typeof current, draft),
+    true,
+  );
+  assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 1 }, draft), true);
+  assert.equal(needsTerritoryImport(current, draft), false);
 });

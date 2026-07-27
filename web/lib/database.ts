@@ -37,6 +37,11 @@ type TerritoryRow = {
   import_center_longitude: number | null;
   import_radius_meters: number | null;
   import_completed_at: string | null;
+  import_total_addresses: number | null;
+  import_assigned_addresses: number | null;
+  import_inferred_roads: number | null;
+  import_unmatched_addresses: number | null;
+  import_normalizer_version: number | null;
   import_generation: number;
 };
 
@@ -152,6 +157,8 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
           t.center_latitude, t.center_longitude, t.radius_meters,
           t.import_kind, t.import_release, t.import_center_latitude,
           t.import_center_longitude, t.import_radius_meters, t.import_completed_at,
+          t.import_total_addresses, t.import_assigned_addresses, t.import_inferred_roads,
+          t.import_unmatched_addresses, t.import_normalizer_version,
           t.import_generation
         FROM territories t
         JOIN churches c ON c.id = t.church_id
@@ -182,7 +189,15 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
     const radiusMiles = territory.radius_meters / 1609.344;
     const imported: TerritoryImportMetadata =
       territory.import_kind === 'proof'
-        ? { kind: 'proof', release: null, center: null, radiusMiles: null, completedAt: null }
+        ? {
+            kind: 'proof',
+            release: null,
+            center: null,
+            radiusMiles: null,
+            completedAt: null,
+            normalizerVersion: null,
+            quality: null,
+          }
         : {
             kind: 'overture',
             release: territory.import_release,
@@ -196,6 +211,19 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
                 ? null
                 : territory.import_radius_meters / 1609.344,
             completedAt: territory.import_completed_at,
+            normalizerVersion: territory.import_normalizer_version,
+            quality:
+              territory.import_total_addresses === null ||
+              territory.import_assigned_addresses === null ||
+              territory.import_inferred_roads === null ||
+              territory.import_unmatched_addresses === null
+                ? null
+                : {
+                    totalAddresses: territory.import_total_addresses,
+                    assignedAddresses: territory.import_assigned_addresses,
+                    inferredRoads: territory.import_inferred_roads,
+                    unmatchedAddresses: territory.import_unmatched_addresses,
+                  },
           };
     const segments = (
       database
@@ -339,7 +367,9 @@ export function saveTerritoryDraft(
           `UPDATE territories
           SET import_kind = 'overture', import_release = ?,
             import_center_latitude = ?, import_center_longitude = ?,
-            import_radius_meters = ?, import_completed_at = ?, import_generation = ?
+            import_radius_meters = ?, import_completed_at = ?, import_total_addresses = ?,
+            import_assigned_addresses = ?, import_inferred_roads = ?, import_unmatched_addresses = ?,
+            import_normalizer_version = ?, import_generation = ?
           WHERE id = ? AND church_id = ?`,
         )
         .run(
@@ -348,6 +378,11 @@ export function saveTerritoryDraft(
           options.imported.center[0],
           options.imported.radiusMiles * 1609.344,
           options.imported.completedAt,
+          options.imported.quality.totalAddresses,
+          options.imported.quality.assignedAddresses,
+          options.imported.quality.inferredRoads,
+          options.imported.quality.unmatchedAddresses,
+          options.imported.normalizerVersion,
           generation,
           PILOT_TERRITORY_ID,
           PILOT_CHURCH_ID,

@@ -123,7 +123,15 @@ test('workspace conversion keeps only the complete editable draft', () => {
     churchName: 'Church',
     name: 'Territory',
     ...draft,
-    import: { kind: 'proof', release: null, center: null, radiusMiles: null, completedAt: null },
+    import: {
+      kind: 'proof',
+      release: null,
+      center: null,
+      radiusMiles: null,
+      completedAt: null,
+      normalizerVersion: null,
+      quality: null,
+    },
     segments,
     totals: {
       allSegments: 3,

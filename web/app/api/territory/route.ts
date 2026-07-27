@@ -1,5 +1,5 @@
 import { getTerritoryWorkspace, saveTerritoryDraft } from '@/lib/database';
-import { runOvertureImport } from '@/lib/overture-import';
+import { type ImportedTerritoryInput, runOvertureImport } from '@/lib/overture-import';
 import { parseTerritoryDraft, type TerritoryDraftInput } from '@/lib/territory-draft';
 import { needsTerritoryImport } from '@/lib/territory-import';
 
@@ -20,11 +20,23 @@ export async function PATCH(request: Request) {
     );
   }
 
+  const workspace = getTerritoryWorkspace();
+  let imported: ImportedTerritoryInput | undefined;
+  if (needsTerritoryImport(workspace.import, draft)) {
+    try {
+      imported = await runOvertureImport(draft.center, draft.radiusMiles);
+    } catch {
+      return Response.json(
+        {
+          error:
+            'Street data import failed its completeness check. No saved changes were replaced.',
+        },
+        { status: 500 },
+      );
+    }
+  }
+
   try {
-    const workspace = getTerritoryWorkspace();
-    const imported = needsTerritoryImport(workspace.import, draft)
-      ? await runOvertureImport(draft.center, draft.radiusMiles)
-      : undefined;
     saveTerritoryDraft(draft, { imported });
     return Response.json(getTerritoryWorkspace());
   } catch {
