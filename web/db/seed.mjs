@@ -8,7 +8,6 @@ const fixture = JSON.parse(
 );
 const churchId = 'church-temecula-pilot';
 const territoryId = 'territory-temecula-pilot';
-const sampleSegment = fixture.segments[0];
 
 export function seedDatabase(database) {
   database.exec('BEGIN IMMEDIATE');
@@ -62,59 +61,22 @@ export function seedDatabase(database) {
           geometry_geojson, estimated_homes)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
     );
-    for (const segment of fixture.segments) {
-      insertSegment.run(
-        segment.id,
-        churchId,
-        territoryId,
-        segment.source_segment_id,
-        segment.street_name,
-        JSON.stringify(segment.geometry),
-        segment.estimated_homes,
-      );
+    const territory = database
+      .prepare('SELECT import_kind FROM territories WHERE id = ?')
+      .get('territory-temecula-pilot');
+    if (territory?.import_kind === 'proof') {
+      for (const segment of fixture.segments) {
+        insertSegment.run(
+          segment.id,
+          churchId,
+          territoryId,
+          segment.source_segment_id,
+          segment.street_name,
+          JSON.stringify(segment.geometry),
+          segment.estimated_homes,
+        );
+      }
     }
-
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO batches
-          (id, church_id, name, status, finalized_at) VALUES (?, ?, ?, ?, ?)`,
-      )
-      .run(
-        'batch-foundation-001',
-        churchId,
-        'Foundation sample',
-        'reconciled',
-        '2026-07-27T12:00:00Z',
-      );
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO packets
-          (id, church_id, batch_id, packet_code, start_address, estimated_homes, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        'packet-foundation-001',
-        churchId,
-        'batch-foundation-001',
-        'TEM-FOUNDATION-001',
-        fixture.territory.origin_address,
-        sampleSegment.estimated_homes,
-        'completed',
-      );
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO packet_segments
-          (church_id, packet_id, street_segment_id, sequence_number)
-          VALUES (?, ?, ?, ?)`,
-      )
-      .run(churchId, 'packet-foundation-001', sampleSegment.id, 0);
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO coverage_events
-          (id, church_id, street_segment_id, covered_on, kind)
-          VALUES (?, ?, ?, ?, ?)`,
-      )
-      .run('coverage-foundation-001', churchId, sampleSegment.id, '2026-07-27', 'completed');
     database.exec('COMMIT');
   } catch (error) {
     database.exec('ROLLBACK');

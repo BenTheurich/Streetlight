@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { TerritoryDraftInput } from './territory-draft.ts';
+import type { TerritoryImportMetadata } from './territory-import.ts';
 import {
   circleBoundary,
   type LineString,
@@ -29,6 +30,12 @@ type TerritoryRow = {
   center_latitude: number;
   center_longitude: number;
   radius_meters: number;
+  import_kind: 'proof' | 'overture';
+  import_release: string | null;
+  import_center_latitude: number | null;
+  import_center_longitude: number | null;
+  import_radius_meters: number | null;
+  import_completed_at: string | null;
 };
 
 type SegmentRow = {
@@ -76,6 +83,7 @@ export type TerritoryWorkspace = {
   originAddress: string;
   center: Position;
   radiusMiles: number;
+  import: TerritoryImportMetadata;
   exclusions: ExclusionArea[];
   segments: TerritorySegment[];
   totals: {
@@ -96,8 +104,8 @@ function parseGeometry<T extends LineString | Polygon>(json: string): T {
   return JSON.parse(json) as T;
 }
 
-export function getFoundationSummary(): FoundationSummary {
-  const database = openWorkspaceDatabase();
+export function getFoundationSummary(filename?: string): FoundationSummary {
+  const database = openWorkspaceDatabase(filename);
   try {
     const row = database
       .prepare(
@@ -135,7 +143,9 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
     const territory = database
       .prepare(
         `SELECT t.id, c.name AS church_name, t.name, t.origin_address,
-          t.center_latitude, t.center_longitude, t.radius_meters
+          t.center_latitude, t.center_longitude, t.radius_meters,
+          t.import_kind, t.import_release, t.import_center_latitude,
+          t.import_center_longitude, t.import_radius_meters, t.import_completed_at
         FROM territories t
         JOIN churches c ON c.id = t.church_id
         WHERE t.id = ? AND t.church_id = ?`,
@@ -163,6 +173,22 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
     );
     const center: Position = [territory.center_longitude, territory.center_latitude];
     const radiusMiles = territory.radius_meters / 1609.344;
+    const imported: TerritoryImportMetadata =
+      territory.import_kind === 'proof'
+        ? { kind: 'proof', release: null, center: null, radiusMiles: null, completedAt: null }
+        : {
+            kind: 'overture',
+            release: territory.import_release,
+            center:
+              territory.import_center_longitude === null || territory.import_center_latitude === null
+                ? null
+                : [territory.import_center_longitude, territory.import_center_latitude],
+            radiusMiles:
+              territory.import_radius_meters === null
+                ? null
+                : territory.import_radius_meters / 1609.344,
+            completedAt: territory.import_completed_at,
+          };
     const segments = (
       database
         .prepare(
@@ -194,6 +220,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
       originAddress: territory.origin_address,
       center,
       radiusMiles,
+      import: imported,
       exclusions,
       segments,
       totals: {
