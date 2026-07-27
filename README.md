@@ -1,25 +1,11 @@
-# Streetlight Monorepo
+# Streetlight
 
-Production-ready monorepo with Next.js (web) and NestJS (api).
+Streetlight is a planned web application for churches that organize house-to-house tract distribution.
 
-## Quickstart
-```bash
-pnpm i
-pnpm dev
-```
-- Web: http://localhost:3000
-- API: http://localhost:4000
+Read [PRODUCT.md](PRODUCT.md) for the approved product definition, workflow, scope, and founder decisions.
 
-## Scripts
-- `pnpm dev`: runs both apps
-- `pnpm build`: build all workspaces
-- `pnpm lint`: lint all workspaces
-- `pnpm test`: test all workspaces
-- `pnpm typecheck`: type-check all workspaces
+## Repository status
 
-## CI Overview
-GitHub Actions runs two independent jobs (web, api) with path filters. Each job installs, lints, type-checks, tests, and builds.
+The current `web` and `api` directories are an abandoned authentication scaffold. They do not implement Streetlight's territory, mapping, packet, PDF, reservation, or reconciliation features. The scaffold is not production-ready and its technology choices are not binding.
 
-## Deploy
-- Web to Vercel: see `web/README.md`
-- API to Fly.io: see `api/README.md`
+New implementation work should preserve the repository history but start from `PRODUCT.md`, replacing existing code when that is simpler than repairing it.

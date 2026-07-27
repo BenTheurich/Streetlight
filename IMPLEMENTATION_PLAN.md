@@ -1,0 +1,443 @@
+# Streetlight implementation plan
+
+Status: approved execution sequence  
+Product authority: [PRODUCT.md](PRODUCT.md)
+
+## Purpose
+
+This document divides Streetlight into numbered, testable phases. A user can ask an AI coding agent to "work on Phase 4," and the agent should have enough scope, dependencies, acceptance criteria, and review instructions to complete that phase without redefining the product.
+
+`PRODUCT.md` defines what Streetlight must do. This document defines the order in which to build it. If the two conflict, `PRODUCT.md` wins.
+
+## Phase workflow
+
+Work on one phase at a time:
+
+1. Read `PRODUCT.md`, `AGENTS.md`, and this document.
+2. Confirm that every dependency phase is marked `Complete`.
+3. Change the requested phase to `In progress`.
+4. Inspect the current code before choosing an implementation.
+5. Implement only the requested phase and fixes required to make it work.
+6. Add the smallest automated checks that would catch a broken implementation.
+7. Run the repository's canonical checks.
+8. Use a real browser for user-interface acceptance checks.
+9. Update the phase status and evidence.
+10. Stop and give the founder the listed human-review steps.
+
+Do not begin the next phase until the founder approves the current phase. Do not add features from later phases for convenience.
+
+## Status values
+
+- `Pending`: Work has not started.
+- `In progress`: An agent is working on the phase.
+- `Awaiting human review`: Automated checks pass and the founder has review steps.
+- `Complete`: The founder approved the phase.
+- `Blocked`: A named decision, credential, data source, or external service prevents further work.
+
+## Phase status
+
+| Phase | Name | Depends on | Status | Evidence |
+|---:|---|---|---|---|
+| 0 | Geographic and print proof | None | Awaiting human review | [Phase 0 proof](phase0/README.md): 3 test cases pass; sample PDF generated |
+| 1 | Application foundation | Phase 0 | Pending | None |
+| 2 | Territory setup | Phase 1 | Pending | None |
+| 3 | Coverage history and heatmap | Phase 2 | Pending | None |
+| 4 | Packet selection | Phase 3 | Pending | None |
+| 5 | Batch finalization and PDF | Phase 4 | Pending | None |
+| 6 | Reconciliation and corrections | Phase 5 | Pending | None |
+| 7 | Authentication and church isolation | Phase 6 | Pending | None |
+| 8 | Deployment and recovery | Phase 7 | Pending | None |
+| 9 | Founder-church pilot | Phase 8 | Pending | None |
+
+## Phase 0: Geographic and print proof
+
+### Goal
+
+Prove that available geographic data can support Streetlight before rebuilding the application.
+
+### Agent work
+
+- Accept a test church address and radius supplied by the founder.
+- Identify the smallest suitable sources for street geometry, residential addresses, walking paths, and map display.
+- Load the test area and normalize it into short street segments.
+- Estimate residential home counts for the segments.
+- Generate one compact sample packet that favors connected segments.
+- Choose a valid starting address and ending address.
+- Draw the proposed walking order on a map.
+- Generate a one-page sample PDF containing the required packet fields.
+- Generate a navigation QR code that opens the starting address in Google Maps.
+- Record provider limits, attribution requirements, licensing constraints, and expected operating costs that would affect the product.
+
+This phase is a proof, not the application. Do not add authentication, billing, dashboards, or a reusable service layer.
+
+### Automated checks
+
+- The same saved input produces the same normalized segments and sample packet.
+- Every packet segment lies inside the requested area.
+- Home counts are non-negative.
+- Start and end addresses belong to the packet area.
+- The QR payload contains the expected Google Maps destination.
+- The PDF contains one page and the required text fields.
+
+### Human review
+
+The founder:
+
+- Compares the map against streets they know.
+- Checks whether residential home counts are credible.
+- Checks whether the proposed route is walkable.
+- Opens the QR code on a phone.
+- Prints the PDF and checks map labels, route markings, addresses, and tract count.
+- Approves the geographic providers before they become application dependencies.
+
+### Completion condition
+
+The founder approves the sample area and printed packet, and the repository records the accepted data sources and constraints.
+
+## Phase 1: Application foundation
+
+### Goal
+
+Replace the abandoned scaffold with the smallest deployable application that can support the approved geographic proof.
+
+### Agent work
+
+- Choose one full-stack web application and one database unless Phase 0 proves a separate process is required.
+- Remove or replace the existing Next.js, NestJS, Clerk, Fly.io, and Vercel scaffold where it does not serve the selected architecture.
+- Preserve `PRODUCT.md`, `IMPLEMENTATION_PLAN.md`, `AGENTS.md`, and Git history.
+- Add versioned database migrations.
+- Add the initial records: church, administrator, territory, street segment, coverage event, batch, packet, and packet segment.
+- Include church ownership on all church data from the first migration.
+- Add local seed data without adding public signup or production authentication.
+- Document one canonical command for install, lint, typecheck, test, build, migrate, and local development.
+
+Phases 1 through 6 remain local-only. Do not deploy an unauthenticated application.
+
+### Automated checks
+
+- A clean checkout installs with the documented command.
+- Database migrations apply to an empty database.
+- Seed data loads.
+- The application starts.
+- Lint, typecheck, tests, and production build pass without third-party credentials.
+- A database integration check creates a church, territory, segments, batch, and packet.
+
+### Human review
+
+The founder receives one local URL and confirms that the application opens. No design approval is required beyond a usable shell.
+
+### Completion condition
+
+The clean-checkout checks pass, the founder opens the local application, and the old scaffold is no longer presented as production code.
+
+## Phase 2: Territory setup
+
+### Goal
+
+Create and correct one church outreach territory.
+
+### Agent work
+
+- Accept a church address and radius.
+- Import and display the street segments proven in Phase 0.
+- Store estimated residential home counts.
+- Allow the administrator to adjust the territory boundary.
+- Allow the administrator to create and remove ignore zones.
+- Allow correction of imported segment geometry and home counts when source data is wrong.
+- Persist all changes.
+
+### Automated checks
+
+- Imported segments belong to the correct church.
+- Segments outside the edited boundary are excluded.
+- Segments inside ignore zones are excluded from eligible home totals.
+- Corrections persist after reload.
+- Territory totals equal the eligible segment totals.
+
+### Browser check
+
+Create a territory, edit its boundary, add an ignore zone, reload the page, and verify that the same map and totals return.
+
+### Human review
+
+The founder inspects the area around the church, corrects a known boundary, and confirms that ignored roads or areas disappear from eligibility.
+
+### Completion condition
+
+The founder can make the stored territory match the church's real outreach area without editing the database.
+
+## Phase 3: Coverage history and heatmap
+
+### Goal
+
+Record outreach coverage and display its age on the map.
+
+### Agent work
+
+- Record append-only coverage events for street segments.
+- Calculate each segment's last-covered date from valid events.
+- Display never-covered and older segments in red, followed by orange, yellow, and green for more recent coverage.
+- Define and document initial time thresholds as implementation defaults.
+- Display total estimated homes, homes covered during a selected period, and active-packet count.
+- Allow an administrator to correct or undo a coverage event while retaining the correction history.
+
+### Automated checks
+
+- A fixed set of events produces the expected last-covered dates and color classes.
+- Never-covered segments use the oldest class.
+- A correction changes the visible result without deleting the original event.
+- Dashboard totals match the underlying eligible segments and events.
+
+### Browser check
+
+Load seeded events, inspect every heatmap color, change the selected period, correct one event, and confirm the map and totals update.
+
+### Human review
+
+The founder confirms that the heatmap communicates oldest and newest areas without needing instructions.
+
+### Completion condition
+
+Coverage events, corrections, colors, and dashboard totals pass their checks and the founder approves the map.
+
+## Phase 4: Packet selection
+
+### Goal
+
+Generate deterministic packet proposals from eligible street segments.
+
+### Agent work
+
+- Accept requested packet quantities and approximate home counts.
+- Start with the oldest eligible segments.
+- Prefer compact, connected segment groups.
+- Exclude segments outside the boundary, inside ignore zones, or reserved by active packets.
+- Prevent a segment from appearing in two proposed packets in the same generation.
+- Produce a proposed walking order, starting address, ending address, street list, and estimated tract count.
+- Prefer ending near the start when that does not make the packet worse.
+- Use a small deterministic heuristic. Do not build a general route-optimization platform.
+
+### Automated checks
+
+Use one fixed synthetic street graph and one saved real-area fixture.
+
+- Repeated runs produce the same packets.
+- Older eligible segments are selected before newer comparable segments.
+- Every selected segment is eligible.
+- No segment appears twice.
+- Packet home counts are calculated from their segments.
+- Each proposed route includes all of its packet segments.
+- Start and end addresses belong to the packet.
+
+### Browser check
+
+Generate mixed packet sizes, inspect each proposal on the map, regenerate the same request, and confirm the output does not change.
+
+### Human review
+
+The founder checks grouping, tract counts, walking order, start and end points, and whether the proposals resemble routes a volunteer would take.
+
+### Completion condition
+
+The founder approves packet proposals for the pilot territory and all deterministic selection checks pass.
+
+## Phase 5: Batch finalization and PDF
+
+### Goal
+
+Turn approved proposals into reserved packets and printable output.
+
+### Agent work
+
+- Preview packet proposals without reserving their segments.
+- Finalize the proposals as a batch in one transaction.
+- Reserve every finalized packet segment.
+- Reject finalization if another active packet already reserved a segment.
+- Download the batch as one multi-page PDF with one packet per page.
+- Include every packet field required by `PRODUCT.md`.
+- Generate a Google Maps QR code for the printed starting address.
+- Allow re-downloading the same finalized batch without changing its data.
+
+### Automated checks
+
+- Previewing creates no reservation.
+- Finalization reserves every included segment once.
+- Conflicting finalization fails without a partial batch.
+- PDF page count equals packet count.
+- Each page contains the correct packet identifier, addresses, street list, home count, and QR payload.
+- Re-downloading does not create new packets or coverage events.
+
+### Browser and print check
+
+Preview a batch, finalize it, download it twice, compare packet identifiers, render every PDF page, and print a sample page.
+
+### Human review
+
+The founder scans the QR code, checks the paper layout, reads the map and street list, and confirms that the tract count is easy to find.
+
+### Completion condition
+
+The founder approves a printed packet and reservations remain correct through preview, finalization, conflict, and repeat-download checks.
+
+## Phase 6: Reconciliation and corrections
+
+### Goal
+
+Match the application to the church's physical table after packet distribution.
+
+### Agent work
+
+- Display every packet in a batch.
+- Let the administrator select sheets still physically present.
+- Preview all unselected sheets as completed.
+- Require confirmation before recording coverage.
+- Use the reconciliation date as the coverage date.
+- Keep remaining sheets active or cancel them.
+- Retain reservations for active sheets.
+- Release reservations for cancelled sheets.
+- Allow completion events to be corrected or undone with history retained.
+
+### Automated checks
+
+- Confirming creates one coverage event per completed packet segment.
+- Repeating the same confirmation creates no duplicate events.
+- Active remaining packets keep their reservations.
+- Cancelled packets release their reservations.
+- Corrections preserve the original event and change the visible last-covered result.
+- Reconciliation never creates a partial-completion state.
+
+### Browser check
+
+Simulate a physical table with some sheets missing, preview the result, confirm it, keep one remaining sheet active, cancel another, and correct one mistaken completion.
+
+### Human review
+
+The founder performs the same simulation with printed sample sheets and confirms that the on-screen language matches the physical process.
+
+### Completion condition
+
+The founder completes the table simulation without database access, and all lifecycle and idempotency checks pass.
+
+## Phase 7: Authentication and church isolation
+
+### Goal
+
+Protect the working application before deployment.
+
+### Agent work
+
+- Present the smallest suitable authentication option, including current cost and operational requirements, for founder approval.
+- Add administrator sign-in without public signup.
+- Map every administrator session to one church workspace.
+- Enforce church ownership in server-side data access.
+- Keep all administrators at one permission level.
+- Add a second test church solely for isolation checks.
+
+Do not trust a church identifier supplied by the browser without verifying it against the authenticated administrator.
+
+### Automated checks
+
+- Unauthenticated requests cannot access administrator pages or data.
+- An administrator can access their church.
+- An administrator cannot read, update, reconcile, or download another church's data.
+- Direct requests with another church's identifiers are rejected.
+- The application still builds and tests without live production credentials.
+
+### Browser check
+
+Sign in as administrators from two test churches and attempt the core workflow and cross-church URLs from both sessions.
+
+### Human review
+
+The founder approves the authentication provider and signs in through the real interface.
+
+### Completion condition
+
+Authentication works, isolation checks pass, and the founder approves the sign-in experience.
+
+## Phase 8: Deployment and recovery
+
+### Goal
+
+Deploy the founder-church pilot and prove that its data can be recovered.
+
+### Agent work
+
+- Present the smallest hosting option that satisfies the product's cost constraint.
+- Configure production environment variables without committing secrets.
+- Deploy the authenticated application and database.
+- Add automated database backups.
+- Document and test the restore command.
+- Add one production smoke check for application health.
+- Run the core workflow in a real browser against the deployed application.
+
+Do not add payments, public signup, analytics suites, or multi-region infrastructure.
+
+### Automated checks
+
+- Production build passes.
+- Migrations apply to a fresh production-equivalent database.
+- Health check passes.
+- Backup completes.
+- Restore creates a usable copy containing expected seeded records.
+- The deployed core browser workflow passes.
+
+### Human review
+
+The founder signs in to the deployed application, creates a test batch, downloads its PDF, and confirms that a demonstrated restore contains the expected data.
+
+### Completion condition
+
+The production workflow and restore demonstration pass, and the founder approves the pilot URL.
+
+## Phase 9: Founder-church pilot
+
+### Goal
+
+Use Streetlight for a real outreach batch and fix only problems that block the approved workflow.
+
+### Agent work
+
+- Import and correct the founder church's real territory.
+- Generate and print a real batch.
+- Support the administrator through distribution and reconciliation.
+- Record discrepancies in geographic data, tract counts, route quality, paper layout, and reconciliation.
+- Fix workflow-blocking defects with regression checks.
+- Record real hosting and provider costs.
+- Revisit provisional pricing only after the pilot evidence is available.
+
+### Automated checks
+
+- Every pilot defect fixed in code has a check that would have caught it.
+- The core browser workflow continues to pass.
+- Backup and restore checks continue to pass.
+
+### Human review
+
+The founder runs the complete workflow without editing data manually or asking a developer to operate the application.
+
+### Completion condition
+
+The founder completes a real outreach batch from territory review through reconciliation and approves Streetlight for another church pilot.
+
+## Standard agent handoff
+
+At the end of a phase, the agent reports:
+
+1. Phase status.
+2. What changed.
+3. Automated checks run and their results.
+4. Browser checks run and their results.
+5. Known limitations within the phase.
+6. Exact human-review steps.
+7. Any decision or credential needed.
+
+The agent then stops. It must not begin the next phase until the founder approves the current phase.
+
+## Reusable request
+
+Use this form when assigning work:
+
+> Work on Phase N in `IMPLEMENTATION_PLAN.md`. Follow `PRODUCT.md` and `AGENTS.md`. Verify dependency phases first. Implement only Phase N, run its automated and browser checks, update its status and evidence, then stop with the human-review checklist.
+
+For Phase 0, include the test church address and radius in the request. Do not commit the address unless the founder confirms that it may be stored in the repository.

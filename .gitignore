@@ -6,3 +6,7 @@ dist
 .vercel
 .DS_Store
 coverage
+tmp
+output
+__pycache__
+*.pyc
