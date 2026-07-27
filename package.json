@@ -14,7 +14,7 @@
     "dev": "pnpm --dir web dev",
     "lint": "pnpm --dir web lint",
     "start": "pnpm --dir web start",
-    "test": "pnpm --dir web test",
+    "test": "pnpm --dir web test && python -m unittest web.importer.test_overture_import",
     "typecheck": "pnpm --dir web typecheck"
   }
 }
