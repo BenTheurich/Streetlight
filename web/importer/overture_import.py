@@ -1,11 +1,18 @@
+import argparse
+import json
 import math
 import re
+import sys
+from contextlib import redirect_stdout
+from datetime import datetime, timezone
 
 
 ALWAYS_KEEP = {"residential", "living_street"}
 KEEP_WITH_ADDRESS = {"primary", "secondary", "tertiary", "unclassified"}
 MAX_ADDRESS_DISTANCE_METERS = 40
+OVERTURE_RELEASE = "2026-07-22.0"
 TURN_SPLIT_DEGREES = 85
+EARTH_RADIUS_MILES = 3958.7613
 
 
 def canonical_street_name(value: str) -> str:
@@ -237,3 +244,155 @@ def normalize_features(roads, addresses):
             }
         )
     return result
+
+
+def enclosing_bbox(longitude: float, latitude: float, radius_miles: float):
+    angular_distance = radius_miles / EARTH_RADIUS_MILES
+    latitude_delta = math.degrees(angular_distance)
+    latitude_radians = math.radians(latitude)
+    if abs(latitude) + latitude_delta >= 90:
+        longitude_delta = 180
+    else:
+        longitude_delta = math.degrees(
+            math.asin(math.sin(angular_distance) / math.cos(latitude_radians))
+        )
+    # ponytail: read all longitudes at the antimeridian; split the query if that scan matters.
+    if longitude - longitude_delta < -180 or longitude + longitude_delta > 180:
+        west, east = -180, 180
+    else:
+        west, east = longitude - longitude_delta, longitude + longitude_delta
+    return (
+        west,
+        max(-90, latitude - latitude_delta),
+        east,
+        min(90, latitude + latitude_delta),
+    )
+
+
+def query_bbox(connection, path, west, south, east, north):
+    bbox_filter = """
+        bbox.xmin <= ? AND bbox.xmax >= ?
+        AND bbox.ymin <= ? AND bbox.ymax >= ?
+    """
+    parameters = [east, west, north, south]
+    if "theme=transportation/type=segment/" in path:
+        rows = connection.execute(
+            f"""
+            SELECT id, names, class, connectors, ST_AsGeoJSON(geometry)
+            FROM read_parquet('{path}', hive_partitioning = true)
+            WHERE subtype = 'road' AND {bbox_filter}
+            ORDER BY id
+            """,
+            parameters,
+        ).fetchall()
+        return [
+            {
+                "id": source_id,
+                "properties": {
+                    "names": names,
+                    "class": road_class,
+                    "connectors": [
+                        {
+                            "connector_id": connector["connector_id"],
+                            "at": connector["at"],
+                        }
+                        for connector in (connectors or [])
+                    ],
+                },
+                "geometry": json.loads(geometry),
+            }
+            for source_id, names, road_class, connectors, geometry in rows
+        ]
+
+    rows = connection.execute(
+        f"""
+        SELECT street, ST_AsGeoJSON(geometry)
+        FROM read_parquet('{path}', hive_partitioning = true)
+        WHERE street IS NOT NULL AND {bbox_filter}
+        """,
+        parameters,
+    ).fetchall()
+    return [
+        {
+            "properties": {"street": street},
+            "geometry": json.loads(geometry),
+        }
+        for street, geometry in rows
+    ]
+
+
+def download_features(longitude: float, latitude: float, radius_miles: float):
+    import duckdb
+
+    west, south, east, north = enclosing_bbox(longitude, latitude, radius_miles)
+    connection = duckdb.connect()
+    try:
+        connection.execute("INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs")
+        segments = query_bbox(
+            connection,
+            f"s3://overturemaps-us-west-2/release/{OVERTURE_RELEASE}/"
+            "theme=transportation/type=segment/*",
+            west,
+            south,
+            east,
+            north,
+        )
+        addresses = query_bbox(
+            connection,
+            f"s3://overturemaps-us-west-2/release/{OVERTURE_RELEASE}/"
+            "theme=addresses/type=address/*",
+            west,
+            south,
+            east,
+            north,
+        )
+        return segments, addresses
+    finally:
+        connection.close()
+
+
+def _finite_float(value):
+    number = float(value)
+    if not math.isfinite(number):
+        raise argparse.ArgumentTypeError("must be finite")
+    return number
+
+
+def _positive_float(value):
+    number = _finite_float(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("must be positive")
+    return number
+
+
+def main(argv=None, download=download_features):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--longitude", type=_finite_float, required=True)
+    parser.add_argument("--latitude", type=_finite_float, required=True)
+    parser.add_argument("--radius-miles", type=_positive_float, required=True)
+    args = parser.parse_args(argv)
+    if not -180 <= args.longitude <= 180 or not -90 <= args.latitude <= 90:
+        parser.error("coordinates are out of range")
+
+    with redirect_stdout(sys.stderr):
+        roads, addresses = download(
+            args.longitude,
+            args.latitude,
+            args.radius_miles,
+        )
+    print(
+        json.dumps(
+            {
+                "release": OVERTURE_RELEASE,
+                "center": [args.longitude, args.latitude],
+                "radiusMiles": args.radius_miles,
+                "completedAt": datetime.now(timezone.utc).isoformat(),
+                "segments": normalize_features(roads, addresses),
+            },
+            separators=(",", ":"),
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,16 @@
+import json
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from unittest import TestCase
 
-from .overture_import import canonical_street_name, normalize_features
+from .overture_import import (
+    OVERTURE_RELEASE,
+    canonical_street_name,
+    enclosing_bbox,
+    main,
+    normalize_features,
+    query_bbox,
+)
 
 
 def road(
@@ -305,3 +315,158 @@ class NormalizeFeaturesTest(TestCase):
             normalize_features(list(reversed(roads)), list(reversed(addresses))),
             expected,
         )
+
+
+class ImportBoundaryTest(TestCase):
+    def test_enclosing_bbox_contains_the_circle_at_the_requested_latitude(self):
+        west, south, east, north = enclosing_bbox(-117.1274, 33.5107, 1)
+
+        self.assertAlmostEqual(west, -117.144758, places=6)
+        self.assertAlmostEqual(south, 33.496227, places=6)
+        self.assertAlmostEqual(east, -117.110042, places=6)
+        self.assertAlmostEqual(north, 33.525173, places=6)
+
+    def test_enclosing_bbox_covers_both_sides_of_the_antimeridian(self):
+        west, _, east, _ = enclosing_bbox(179.99, 0, 1)
+
+        self.assertEqual((west, east), (-180, 180))
+
+    def test_query_bbox_uses_bbox_columns_and_returns_complete_normalizer_inputs(self):
+        class Result:
+            def __init__(self, rows):
+                self.rows = rows
+
+            def fetchall(self):
+                return self.rows
+
+        class Connection:
+            def __init__(self):
+                self.calls = []
+
+            def execute(self, sql, parameters):
+                self.calls.append((sql, parameters))
+                if "theme=transportation" in sql:
+                    return Result(
+                        [
+                            (
+                                "road-1",
+                                {"primary": "Main Street"},
+                                "residential",
+                                [
+                                    {"connector_id": "start", "at": 0.0},
+                                    {"connector_id": "junction", "at": 0.5},
+                                ],
+                                '{"type":"LineString","coordinates":[[-1,0],[0,0],[1,0]]}',
+                            )
+                        ]
+                    )
+                return Result(
+                    [
+                        (
+                            "Main Street",
+                            '{"type":"Point","coordinates":[0.25,0.0001]}',
+                        )
+                    ]
+                )
+
+        connection = Connection()
+        roads = query_bbox(
+            connection,
+            "s3://bucket/theme=transportation/type=segment/*",
+            -1,
+            -2,
+            3,
+            4,
+        )
+        addresses = query_bbox(
+            connection,
+            "s3://bucket/theme=addresses/type=address/*",
+            -1,
+            -2,
+            3,
+            4,
+        )
+
+        self.assertEqual(
+            roads,
+            [
+                road(
+                    "road-1",
+                    "residential",
+                    "Main Street",
+                    [[-1, 0], [0, 0], [1, 0]],
+                    connectors=[
+                        {"connector_id": "start", "at": 0.0},
+                        {"connector_id": "junction", "at": 0.5},
+                    ],
+                )
+            ],
+        )
+        self.assertEqual(addresses, [address("Main Street", 0.25, 0.0001)])
+        for sql, parameters in connection.calls:
+            self.assertIn("bbox.xmin <= ?", sql)
+            self.assertIn("bbox.xmax >= ?", sql)
+            self.assertIn("bbox.ymin <= ?", sql)
+            self.assertIn("bbox.ymax >= ?", sql)
+            self.assertNotIn("ST_Clip", sql)
+            self.assertEqual(parameters, [3, -1, 4, -2])
+        road_sql = connection.calls[0][0]
+        self.assertIn("id, names, class, connectors", road_sql)
+        self.assertIn("subtype = 'road'", road_sql)
+        self.assertNotIn("sources", road_sql)
+        address_sql = connection.calls[1][0]
+        self.assertIn("street", address_sql)
+        self.assertNotIn("number", address_sql)
+        self.assertNotIn("ORDER BY id", address_sql)
+
+    def test_cli_parses_arguments_and_prints_one_json_object(self):
+        output = StringIO()
+
+        def download(longitude, latitude, radius_miles):
+            self.assertEqual((longitude, latitude, radius_miles), (-117.1274, 33.5107, 1))
+            return (
+                [
+                    road(
+                        "road-1",
+                        "residential",
+                        "Main Street",
+                        [[-117.13, 33.51], [-117.12, 33.51]],
+                    )
+                ],
+                [],
+            )
+
+        with redirect_stdout(output):
+            main(
+                [
+                    "--longitude",
+                    "-117.1274",
+                    "--latitude",
+                    "33.5107",
+                    "--radius-miles",
+                    "1",
+                ],
+                download=download,
+            )
+
+        parsed = json.loads(output.getvalue())
+        self.assertEqual(parsed["release"], OVERTURE_RELEASE)
+        self.assertEqual(parsed["center"], [-117.1274, 33.5107])
+        self.assertEqual(parsed["radiusMiles"], 1)
+        self.assertEqual(parsed["segments"][0]["id"], "overture:road-1:0")
+        self.assertEqual(output.getvalue().count("\n"), 1)
+
+    def test_cli_rejects_nonpositive_radius_before_downloading(self):
+        with redirect_stderr(StringIO()):
+            with self.assertRaises(SystemExit):
+                main(
+                    [
+                        "--longitude",
+                        "-117.1274",
+                        "--latitude",
+                        "33.5107",
+                        "--radius-miles",
+                        "0",
+                    ],
+                    download=lambda *_: self.fail("download should not run"),
+                )
