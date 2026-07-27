@@ -90,8 +90,11 @@ git commit -m "fix: recover unnamed residential streets"
 - Create: `web/db/migrations/005_import_quality.sql`
 - Modify: `web/lib/overture-import.ts`
 - Modify: `web/lib/overture-import.test.ts`
+- Modify: `web/lib/territory-import.ts`
+- Modify: `web/lib/territory-import.test.ts`
 - Modify: `web/lib/database.ts`
 - Modify: `web/db/database.test.mjs`
+- Modify: `web/app/api/territory/route.ts`
 - Modify: `web/components/TerritoryEditor.tsx`
 
 **Interfaces:**
@@ -108,7 +111,9 @@ negative, non-integer, or internally inconsistent quality values. Assert
 `assignedAddresses + unmatchedAddresses === totalAddresses`,
 `unresolvedClusters === 0`, and a complete payload round-trips all four stored counts. Extend the
 existing import-decision tests so a legacy or mismatched normalizer version requires replacement.
-Extend the failed-replacement test to prove the prior quality metadata survives rollback.
+Extend the failed-replacement test to prove the prior quality metadata survives rollback. Assert an
+importer failure returns a concise API error and the editor renders that message without discarding
+the draft.
 
 - [ ] **Step 2: Run focused tests and record RED**
 
@@ -134,7 +139,9 @@ import_normalizer_version
 
 Validate exact payload keys at the process boundary. Store the counts and exact version in the
 existing import transaction, expose them from `getTerritoryWorkspace`, and include the version in
-`needsTerritoryImport`.
+`needsTerritoryImport`. Catch importer failures before entering the save function and return
+`Street data import failed its completeness check. No saved changes were replaced.`; do not expose
+Python tracebacks. Preserve and render this API message in the editor.
 
 - [ ] **Step 4: Show one compact quality line in Territory Setup**
 
@@ -161,7 +168,7 @@ Expected: all pass.
 - [ ] **Step 6: Commit**
 
 ```powershell
-git add web/db/migrations/005_import_quality.sql web/lib/overture-import.ts web/lib/overture-import.test.ts web/lib/database.ts web/db/database.test.mjs web/components/TerritoryEditor.tsx
+git add web/db/migrations/005_import_quality.sql web/lib/overture-import.ts web/lib/overture-import.test.ts web/lib/territory-import.ts web/lib/territory-import.test.ts web/lib/database.ts web/db/database.test.mjs web/app/api/territory/route.ts web/components/TerritoryEditor.tsx
 git commit -m "feat: surface territory import quality"
 ```
 

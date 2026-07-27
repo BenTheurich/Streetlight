@@ -81,9 +81,11 @@ controls or raw addresses.
 
 ## Failure and atomicity
 
-An import-quality failure exits the Python importer nonzero. The existing Node process boundary
-surfaces the concise error, and the existing save transaction is never entered. The browser draft,
-saved territory, prior segment generation, import timestamp, and history references remain intact.
+An import-quality failure exits the Python importer nonzero. The API returns the concise safe
+message `Street data import failed its completeness check. No saved changes were replaced.` and
+never exposes a Python traceback. The existing save transaction is never entered. The editor
+renders that message while preserving the browser draft, saved territory, prior segment
+generation, import timestamp, and history references.
 
 ## Verification
 
