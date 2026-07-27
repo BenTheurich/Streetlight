@@ -38,8 +38,8 @@ Do not begin the next phase until the founder approves the current phase. Do not
 
 | Phase | Name | Depends on | Status | Evidence |
 |---:|---|---|---|---|
-| 0 | Geographic and print proof | None | In progress | [Phase 0 proof](phase0/README.md): geographic fixture saved; printed packet requires revision |
-| 1 | Application foundation | Phase 0 | Pending | None |
+| 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
+| 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
 | 2 | Territory setup | Phase 1 | Pending | None |
 | 3 | Coverage history and heatmap | Phase 2 | Pending | None |
 | 4 | Packet selection | Phase 3 | Pending | None |
@@ -73,6 +73,7 @@ This phase is a proof, not the application. Do not add authentication, billing, 
 ### Automated checks
 
 - The same saved input produces the same normalized segments and sample packet.
+- Normalization preserves the first and last coordinates of selected geometry.
 - Every packet segment lies inside the requested area.
 - Every selected segment represents both sides of its street.
 - Home counts are non-negative.
