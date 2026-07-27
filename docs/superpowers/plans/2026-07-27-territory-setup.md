@@ -228,7 +228,7 @@ git commit -m "feat: persist complete territory drafts"
 - Produces: `POST /api/geocode` returning
   `{ formattedAddress: string; center: Position }`.
 
-- [ ] **Step 1: Write failing mock-fetch geocoding tests**
+- [x] **Step 1: Write failing mock-fetch geocoding tests**
 
 ```ts
 const result = await geocodeAddress('31087 Nicolas Rd', mockSuccessfulFetch);
@@ -236,32 +236,32 @@ assert.deepEqual(result.center, [-117.116885, 33.54293]);
 await assert.rejects(() => geocodeAddress('missing', mockZeroResultsFetch), /could not/i);
 ```
 
-- [ ] **Step 2: Run the focused test and verify it fails**
+- [x] **Step 2: Run the focused test and verify it fails**
 
 Run: `pnpm --dir web exec node --experimental-strip-types --test lib/google-maps-server.test.ts`
 
 Expected: FAIL because `google-maps-server.ts` does not exist.
 
-- [ ] **Step 3: Implement server-only Geocoding API lookup**
+- [x] **Step 3: Implement server-only Geocoding API lookup**
 
 Read `GOOGLE_MAPS_SERVER_API_KEY`, with the existing
 `GOOGLE_MAPS_STATIC_API_KEY` accepted only as a local server-side fallback. Never return this
 key. Encode the submitted address, require Google status `OK`, and return only formatted
 address and longitude/latitude.
 
-- [ ] **Step 4: Add the POST route and document key restrictions**
+- [x] **Step 4: Add the POST route and document key restrictions**
 
 The browser key is intended to be visible and must be restricted to Maps JavaScript API plus
 approved HTTP referrers. The server key must be restricted to Geocoding/Static Maps/Roads and
 must not have browser referrers.
 
-- [ ] **Step 5: Run the focused and canonical tests**
+- [x] **Step 5: Run the focused and canonical tests**
 
 Run: `pnpm --dir web test`
 
 Expected: PASS without live credentials or network access.
 
-- [ ] **Step 6: Commit the Google configuration slice**
+- [x] **Step 6: Commit the Google configuration slice**
 
 ```bash
 git add web/lib/google-maps-server.ts web/lib/google-maps-server.test.ts web/app/api/geocode/route.ts web/package.json ENVIRONMENTS.md
