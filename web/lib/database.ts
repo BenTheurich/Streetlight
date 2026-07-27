@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import type { ImportedTerritoryInput } from './overture-import.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
-import type { TerritoryImportMetadata } from './territory-import.ts';
 import {
   circleBoundary,
   type LineString,
@@ -10,6 +10,7 @@ import {
   type Polygon,
   type Position,
 } from './territory-geometry.ts';
+import type { TerritoryImportMetadata } from './territory-import.ts';
 
 const PILOT_CHURCH_ID = 'church-temecula-pilot';
 const PILOT_TERRITORY_ID = 'territory-temecula-pilot';
@@ -41,6 +42,7 @@ type TerritoryRow = {
 type SegmentRow = {
   id: string;
   source_segment_id: string | null;
+  road_class: string;
   street_name: string;
   geometry_geojson: string;
   estimated_homes: number;
@@ -69,6 +71,7 @@ export type ExclusionArea = {
 export type TerritorySegment = {
   id: string;
   sourceSegmentId: string;
+  roadClass: string;
   streetName: string;
   geometry: LineString;
   estimatedHomes: number;
@@ -180,7 +183,8 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
             kind: 'overture',
             release: territory.import_release,
             center:
-              territory.import_center_longitude === null || territory.import_center_latitude === null
+              territory.import_center_longitude === null ||
+              territory.import_center_latitude === null
                 ? null
                 : [territory.import_center_longitude, territory.import_center_latitude],
             radiusMiles:
@@ -192,7 +196,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
     const segments = (
       database
         .prepare(
-          `SELECT id, source_segment_id, street_name, geometry_geojson, estimated_homes
+          `SELECT id, source_segment_id, road_class, street_name, geometry_geojson, estimated_homes
           FROM street_segments
           WHERE territory_id = ? AND church_id = ?
           ORDER BY street_name, id`,
@@ -205,6 +209,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
       return {
         id: row.id,
         sourceSegmentId: row.source_segment_id ?? row.id,
+        roadClass: row.road_class,
         streetName: row.street_name,
         geometry,
         estimatedHomes: row.estimated_homes,
@@ -237,8 +242,16 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
   }
 }
 
-export function saveTerritoryDraft(draft: TerritoryDraftInput, filename?: string): void {
-  const database = openWorkspaceDatabase(filename);
+type SaveTerritoryOptions = {
+  filename?: string;
+  imported?: ImportedTerritoryInput;
+};
+
+export function saveTerritoryDraft(
+  draft: TerritoryDraftInput,
+  options: SaveTerritoryOptions = {},
+): void {
+  const database = openWorkspaceDatabase(options.filename);
   database.exec('BEGIN IMMEDIATE');
   try {
     const result = database
@@ -277,6 +290,47 @@ export function saveTerritoryDraft(draft: TerritoryDraftInput, filename?: string
         exclusion.name,
         JSON.stringify(exclusion.geometry),
       );
+    }
+
+    if (options.imported) {
+      database
+        .prepare('DELETE FROM street_segments WHERE territory_id = ? AND church_id = ?')
+        .run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID);
+      const insertSegment = database.prepare(
+        `INSERT INTO street_segments
+          (id, church_id, territory_id, source_segment_id, road_class, street_name,
+            geometry_geojson, estimated_homes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      for (const segment of options.imported.segments) {
+        insertSegment.run(
+          segment.id,
+          PILOT_CHURCH_ID,
+          PILOT_TERRITORY_ID,
+          segment.sourceSegmentId,
+          segment.roadClass,
+          segment.streetName,
+          JSON.stringify(segment.geometry),
+          segment.estimatedHomes,
+        );
+      }
+      database
+        .prepare(
+          `UPDATE territories
+          SET import_kind = 'overture', import_release = ?,
+            import_center_latitude = ?, import_center_longitude = ?,
+            import_radius_meters = ?, import_completed_at = ?
+          WHERE id = ? AND church_id = ?`,
+        )
+        .run(
+          options.imported.release,
+          options.imported.center[1],
+          options.imported.center[0],
+          options.imported.radiusMiles * 1609.344,
+          options.imported.completedAt,
+          PILOT_TERRITORY_ID,
+          PILOT_CHURCH_ID,
+        );
     }
     database.exec('COMMIT');
   } catch (error) {

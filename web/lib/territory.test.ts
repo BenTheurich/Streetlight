@@ -60,7 +60,7 @@ test('a complete territory draft persists radius, exclusions, and derived totals
         radiusMiles: 20,
         exclusions: [{ id: 'exclude-school', name: 'School', geometry }],
       },
-      filename,
+      { filename },
     );
 
     const saved = getTerritoryWorkspace(filename);
@@ -91,7 +91,7 @@ test('changing the church point keeps saved exclusion coordinates unchanged', ()
         radiusMiles: 5,
         exclusions: [{ id: 'exclude-existing', name: 'Existing', geometry }],
       },
-      filename,
+      { filename },
     );
 
     const saved = getTerritoryWorkspace(filename);
@@ -117,7 +117,7 @@ test('a failed complete-draft save rolls back territory and exclusions together'
             { id: 'duplicate', name: 'Second', geometry },
           ],
         },
-        filename,
+        { filename },
       ),
     );
 

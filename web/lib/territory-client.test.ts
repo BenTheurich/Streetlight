@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { TerritorySegment } from './database.ts';
+import type { TerritorySegment, TerritoryWorkspace } from './database.ts';
 import {
   affectedByExclusion,
   deriveTerritory,
@@ -13,6 +13,7 @@ const segments: TerritorySegment[] = [
   {
     id: 'inside',
     sourceSegmentId: 'inside',
+    roadClass: 'residential',
     streetName: 'Inside Street',
     geometry: {
       type: 'LineString',
@@ -28,6 +29,7 @@ const segments: TerritorySegment[] = [
   {
     id: 'outside',
     sourceSegmentId: 'outside',
+    roadClass: 'residential',
     streetName: 'Outside Street',
     geometry: {
       type: 'LineString',
@@ -43,6 +45,7 @@ const segments: TerritorySegment[] = [
   {
     id: 'touched',
     sourceSegmentId: 'touched',
+    roadClass: 'residential',
     streetName: 'Touched Street',
     geometry: {
       type: 'LineString',
@@ -112,7 +115,7 @@ test('exclusion impact counts every segment touched by that polygon', () => {
 });
 
 test('workspace conversion keeps only the complete editable draft', () => {
-  const workspace = {
+  const workspace: TerritoryWorkspace = {
     id: 'territory',
     churchName: 'Church',
     name: 'Territory',
