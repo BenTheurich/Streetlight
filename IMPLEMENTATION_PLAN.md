@@ -40,7 +40,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 |---:|---|---|---|---|
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
-| 2 | Territory setup | Phase 1 | In progress | Founder approved a revised radius-minus-exclusions design on July 27, 2026; implementation must replace the unapproved static-map prototype before human review |
+| 2 | Territory setup | Phase 1 | Awaiting human review | Founder approved the radius-minus-exclusions design on July 27, 2026; `pnpm check` passes lint, typecheck, 20 Node tests, and the production build; genuine Google Maps browser checks pass for pan/zoom, live radius updates, draw/undo/finish/name/reshape/delete, eligibility totals, save/reload, cancel restoration, server-side address confirmation with existing polygons fixed in place, responsive layout, unavailable-map fallback, and a clean final console |
 | 3 | Coverage history and heatmap | Phase 2 | Pending | None |
 | 4 | Packet selection | Phase 3 | Pending | None |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |

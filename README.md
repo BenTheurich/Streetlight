@@ -37,3 +37,21 @@ then serves Streetlight at `http://localhost:3000`.
 
 The local database is `web/data/streetlight.db`. It is generated, ignored by Git,
 and can be rebuilt with the migration and seed commands.
+
+## Phase 2 local review
+
+Territory Setup is at `http://localhost:3000/territory`. Add the following to the
+ignored root `.env.local` before running `pnpm dev`:
+
+```dotenv
+GOOGLE_MAPS_BROWSER_API_KEY=your_browser_restricted_key
+GOOGLE_MAPS_SERVER_API_KEY=your_server_restricted_key
+```
+
+The browser key renders the interactive administrator map. The server key resolves a
+changed church address without exposing that credential to the browser. See
+[ENVIRONMENTS.md](ENVIRONMENTS.md) for the required API and application restrictions.
+
+For Phase 2 review, adjust the radius, draw and reshape an exclusion, confirm affected
+segments turn gray, save, reload, and then confirm that `Cancel` restores the last saved
+territory. The phase remains awaiting founder approval; Phase 3 must not begin yet.

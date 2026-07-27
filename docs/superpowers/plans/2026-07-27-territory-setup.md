@@ -360,44 +360,44 @@ git commit -m "feat: build interactive territory setup"
 - Consumes: the complete Phase 2 application.
 - Produces: an `Awaiting human review` Phase 2 row with exact automated and browser evidence.
 
-- [ ] **Step 1: Start the genuine local server**
+- [x] **Step 1: Start the genuine local server**
 
 Run: `pnpm dev`
 
 Expected: migration and seed complete, then Next.js listens on `http://localhost:3000`.
 
-- [ ] **Step 2: Verify the unavailable-map path if no browser key is configured**
+- [x] **Step 2: Verify the unavailable-map path if no browser key is configured**
 
 Open `http://localhost:3000/territory`.
 
 Expected: the setup controls and saved data load, and the map panel clearly requests browser
 map configuration without crashing or exposing a server key.
 
-- [ ] **Step 3: Verify the full approved workflow with the configured browser key**
+- [x] **Step 3: Verify the full approved workflow with the configured browser key**
 
 Pan/zoom; drag and type the radius; draw, undo, finish, rename, reshape, and delete a polygon;
 cancel and confirm restoration; save and reload; change the address and confirm old polygon
 coordinates remain fixed. Check mobile-width layout, keyboard focus, and the browser console.
 
-- [ ] **Step 4: Run the final canonical check**
+- [x] **Step 4: Run the final canonical check**
 
 Run: `pnpm check`
 
 Expected: lint, typecheck, Node tests, and production build all pass.
 
-- [ ] **Step 5: Update repository instructions and phase evidence**
+- [x] **Step 5: Update repository instructions and phase evidence**
 
 Document `/territory`, both key names, and the local review flow. Change Phase 2 from
 `In progress` to `Awaiting human review`, recording exact check counts and browser evidence.
 Do not mark it `Complete`; only the founder can approve the phase.
 
-- [ ] **Step 6: Commit the checkpoint**
+- [x] **Step 6: Commit the checkpoint**
 
 ```bash
 git add README.md ENVIRONMENTS.md IMPLEMENTATION_PLAN.md
 git commit -m "docs: prepare phase 2 founder review"
 ```
 
-- [ ] **Step 7: Stop for human review**
+- [x] **Step 7: Stop for human review**
 
 Give the founder the URL and the Phase 2 human-review checklist. Do not start Phase 3.
