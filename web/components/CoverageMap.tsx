@@ -33,10 +33,13 @@ export function CoverageMap({
   const mapRef = useRef<google.maps.Map | null>(null);
   const linesRef = useRef<Array<{ id: string; line: google.maps.Polyline }>>([]);
   const fittedRef = useRef(false);
+  const centerRef = useRef(center);
+  const mapCenterRef = useRef<Position | null>(null);
   const selectedSegmentRef = useRef(selectedSegmentId);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(apiKey ? 'loading' : 'error');
 
   selectedSegmentRef.current = selectedSegmentId;
+  centerRef.current = center;
 
   useEffect(() => {
     if (!apiKey || !elementRef.current) return;
@@ -45,7 +48,7 @@ export function CoverageMap({
       .then((maps) => {
         if (disposed || !elementRef.current) return;
         mapRef.current = new maps.Map(elementRef.current, {
-          center: latLng(center),
+          center: latLng(centerRef.current),
           zoom: 11,
           mapId: 'DEMO_MAP_ID',
           mapTypeControl: false,
@@ -54,6 +57,7 @@ export function CoverageMap({
           clickableIcons: false,
         });
         fittedRef.current = false;
+        mapCenterRef.current = centerRef.current;
         setStatus('ready');
       })
       .catch(() => {
@@ -64,10 +68,14 @@ export function CoverageMap({
       if (mapRef.current) google.maps.event.clearInstanceListeners(mapRef.current);
       mapRef.current = null;
     };
-  }, [apiKey, center]);
+  }, [apiKey]);
 
   useEffect(() => {
-    mapRef.current?.panTo(latLng(center));
+    const previous = mapCenterRef.current;
+    if (!previous || previous[0] !== center[0] || previous[1] !== center[1]) {
+      mapRef.current?.panTo(latLng(center));
+      mapCenterRef.current = center;
+    }
   }, [center]);
 
   useEffect(() => {

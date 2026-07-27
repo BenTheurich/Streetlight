@@ -8,7 +8,9 @@ dist
 .vercel
 .idea
 .DS_Store
-/coverage/
+coverage
+!web/app/api/coverage/
+!web/app/api/coverage/**
 tmp
 output
 .superpowers/
