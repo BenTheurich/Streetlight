@@ -52,7 +52,7 @@ Version one has one authenticated role: administrator.
 | Active packet | A finalized packet whose street segments remain reserved. |
 | Completed packet | A packet whose paper sheet was taken and later recorded as completed during reconciliation. |
 | Last covered | The most recent reconciliation date recorded for a street segment. |
-| Ignore zone | An area excluded from packet generation. |
+| Exclusion area / ignore zone | A polygon that excludes an area from packet generation. The setup page uses `excluded area`; pricing may use `ignore zone`. |
 | Priority zone | An area preferred during packet generation, subject to coverage age and packet constraints. |
 
 ## Coverage model
@@ -64,10 +64,14 @@ The tracked coverage unit is a short street segment rather than an individual ho
 - A turn of about 90 degrees can define a segment boundary. A packet can still contain multiple connected segments across those boundaries.
 - Territory boundaries and ignore zones exclude whole segments from packet selection.
 - Address data supplies estimated home counts and packet starting addresses.
+- Imported street geometry and estimated home counts are read-only in the first release.
+- Administrators rely on the imported data and use exclusion polygons to remove unsuitable
+  segments; manual street-geometry and home-count correction controls are outside the first
+  release.
 - Completing a packet records a coverage event for every included segment.
 - Coverage history must be retained. Correcting a mistake records the correction instead of silently replacing history.
 
-An administrator creates a territory from an address and radius, then adjusts the resulting boundary. The administrator can exclude highways, commercial districts, rivers, apartment complexes, areas assigned elsewhere, and other unsuitable locations.
+An administrator creates a territory from an address and circular radius, then adjusts the radius and draws exclusion polygons. The outer boundary remains circular and is not reshaped as a freeform polygon. The administrator can exclude highways, commercial districts, rivers, apartment complexes, areas assigned elsewhere, and other unsuitable locations.
 
 The main map colors segments by time since last coverage:
 
@@ -164,8 +168,8 @@ Included:
 - Administrator authentication
 - Church workspace setup
 - Territory creation and correction
-- Editable territory boundary
-- Ignore zones
+- Editable territory radius
+- Exclusion areas
 - Coverage heatmap
 - Deterministic packet generation
 - Batch preview and finalization
@@ -190,6 +194,7 @@ Excluded:
 - Advanced reporting
 - Email delivery of packets
 - Individual household records or notes
+- Manual correction of imported street geometry or estimated home counts
 - Partial packet completion
 - AI of any kind
 

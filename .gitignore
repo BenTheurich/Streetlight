@@ -11,6 +11,7 @@ dist
 coverage
 tmp
 output
+.superpowers/
 __pycache__
 *.pyc
 *.tsbuildinfo

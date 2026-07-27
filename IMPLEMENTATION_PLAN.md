@@ -40,7 +40,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 |---:|---|---|---|---|
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
-| 2 | Territory setup | Phase 1 | Pending | None |
+| 2 | Territory setup | Phase 1 | In progress | Founder approved a revised radius-minus-exclusions design on July 27, 2026; implementation must replace the unapproved static-map prototype before human review |
 | 3 | Coverage history and heatmap | Phase 2 | Pending | None |
 | 4 | Packet selection | Phase 3 | Pending | None |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
@@ -143,30 +143,37 @@ Create and correct one church outreach territory.
 - Accept a church address and radius.
 - Import and display the street segments proven in Phase 0.
 - Store estimated residential home counts.
-- Allow the administrator to adjust the territory boundary.
-- Allow the administrator to create and remove ignore zones.
-- Allow correction of imported segment geometry and home counts when source data is wrong.
+- Display the territory in an interactive Google Maps JavaScript API map.
+- Allow the administrator to adjust a circular territory with live radius controls.
+- Allow the administrator to create, name, reshape, and remove polygon exclusion zones.
+- Display eligible segments in the page accent color and excluded segments in gray.
+- Treat imported segment geometry and home counts as read-only.
 - Persist all changes.
 
 ### Automated checks
 
 - Imported segments belong to the correct church.
-- Segments outside the edited boundary are excluded.
-- Segments inside ignore zones are excluded from eligible home totals.
-- Corrections persist after reload.
+- Segments not entirely inside the radius are excluded.
+- Any segment that touches or crosses an exclusion polygon is excluded from eligible home totals.
+- Radius and exclusion-polygon changes persist after reload.
+- Cancelling draft changes leaves the stored territory unchanged.
 - Territory totals equal the eligible segment totals.
 
 ### Browser check
 
-Create a territory, edit its boundary, add an ignore zone, reload the page, and verify that the same map and totals return.
+Create a territory, adjust its radius, draw and reshape an exclusion polygon, save, reload the
+page, and verify that the same map and totals return. Confirm that cancelling a second set of
+changes restores the saved territory.
 
 ### Human review
 
-The founder inspects the area around the church, corrects a known boundary, and confirms that ignored roads or areas disappear from eligibility.
+The founder inspects the area around the church, adjusts the radius, draws a known exclusion,
+and confirms that affected segments turn gray and disappear from eligibility.
 
 ### Completion condition
 
-The founder can make the stored territory match the church's real outreach area without editing the database.
+The founder can make the stored territory match the church's real outreach area by adjusting
+the radius and drawing exclusion polygons, without editing the database.
 
 ## Phase 3: Coverage history and heatmap
 
@@ -213,7 +220,8 @@ Generate deterministic packet proposals from eligible street segments.
 - Accept requested packet quantities and approximate home counts.
 - Start with the oldest eligible segments.
 - Prefer compact, connected segment groups.
-- Exclude segments outside the boundary, inside ignore zones, or reserved by active packets.
+- Exclude segments outside the territory radius, touching or crossing exclusion areas, or
+  reserved by active packets.
 - Prevent a segment from appearing in two proposed packets in the same generation.
 - Produce selected segments, a proposed starting address, a street list, and an estimated tract count.
 - Choose the proposed starting address from an address assigned to one of the selected segments.
