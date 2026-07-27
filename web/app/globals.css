@@ -311,6 +311,18 @@ textarea {
   white-space: nowrap;
 }
 
+.import-status {
+  position: fixed;
+  inset: 58px 0 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: rgb(48 45 40 / 62%);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .territory-sidebar {
   position: relative;
   z-index: 6;
@@ -630,6 +642,12 @@ textarea {
   margin: 0 0 0.45rem;
   color: var(--muted);
   font-size: 0.62rem;
+}
+
+.sidebar-actions .import-notice {
+  min-height: 0;
+  margin-top: -0.2rem;
+  color: #a64e27;
 }
 
 .sidebar-actions > div {

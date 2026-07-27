@@ -10,6 +10,7 @@ import {
 } from '@/lib/territory-client';
 import type { TerritoryDraftInput } from '@/lib/territory-draft';
 import { closePolygon, type Position, polygonIsSimple } from '@/lib/territory-geometry';
+import { needsTerritoryImport } from '@/lib/territory-import';
 import { TerritoryMap } from './TerritoryMap';
 
 type PendingAddress = {
@@ -29,7 +30,7 @@ export function TerritoryEditor({
   mapsApiKey: string;
 }) {
   const initialDraft = territoryDraftFromWorkspace(initialData);
-  const [workspace, setWorkspace] = useState(initialData);
+  const [savedWorkspace, setSavedWorkspace] = useState(initialData);
   const [savedDraft, setSavedDraft] = useState(initialDraft);
   const [draft, setDraft] = useState(initialDraft);
   const [mode, setMode] = useState<'pan' | 'draw'>('pan');
@@ -42,6 +43,7 @@ export function TerritoryEditor({
   const [pendingAddress, setPendingAddress] = useState<PendingAddress | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState('Saved territory loaded.');
   const addressInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -64,10 +66,12 @@ export function TerritoryEditor({
     };
   }, [draft, drawingIsValid, drawingPolygon]);
   const live = useMemo(
-    () => deriveTerritory(workspace.segments, previewDraft),
-    [previewDraft, workspace.segments],
+    () => deriveTerritory(savedWorkspace.segments, previewDraft),
+    [previewDraft, savedWorkspace.segments],
   );
   const isDirty = draftKey(draft) !== draftKey(savedDraft);
+  const importRequired = needsTerritoryImport(savedWorkspace.import, draft);
+  const canSave = isDirty || importRequired;
   const radiusError =
     !Number.isFinite(Number(radiusInput)) || Number(radiusInput) < 1 || Number(radiusInput) > 20
       ? 'Enter a radius from 1 to 20 miles.'
@@ -204,7 +208,9 @@ export function TerritoryEditor({
   }
 
   async function saveChanges() {
+    const willImport = needsTerritoryImport(savedWorkspace.import, draft);
     setSaving(true);
+    setImporting(willImport);
     setNotice('Saving changes…');
     try {
       const response = await fetch('/api/territory', {
@@ -217,16 +223,17 @@ export function TerritoryEditor({
         throw new Error('error' in result ? result.error : 'Could not save territory');
       }
       const nextDraft = territoryDraftFromWorkspace(result);
-      setWorkspace(result);
+      setSavedWorkspace(result);
       setDraft(nextDraft);
       setSavedDraft(structuredClone(nextDraft));
       setRadiusInput(String(nextDraft.radiusMiles));
       setSelectedExclusionId(null);
       setNotice('Territory changes saved.');
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not save territory');
+    } catch {
+      setNotice('Could not save territory changes. Your draft is still here.');
     } finally {
       setSaving(false);
+      setImporting(false);
     }
   }
 
@@ -241,7 +248,12 @@ export function TerritoryEditor({
       </header>
 
       <main className="territory-workspace">
-        <section className="map-panel" aria-label="Territory eligibility preview">
+        <section
+          aria-busy={importing}
+          aria-label="Territory eligibility preview"
+          className="map-panel"
+          inert={importing}
+        >
           <TerritoryMap
             apiKey={mapsApiKey}
             center={draft.center}
@@ -314,7 +326,7 @@ export function TerritoryEditor({
           )}
         </section>
 
-        <aside className="territory-sidebar">
+        <aside aria-busy={importing} className="territory-sidebar" inert={importing}>
           <div className="sidebar-title">
             <h1>Territory Setup</h1>
             <p>Start with a radius around the church, then remove unsuitable areas.</p>
@@ -449,7 +461,7 @@ export function TerritoryEditor({
               ) : (
                 <ul className="exclusion-list">
                   {draft.exclusions.map((area) => {
-                    const impact = affectedByExclusion(workspace.segments, area);
+                    const impact = affectedByExclusion(savedWorkspace.segments, area);
                     return (
                       <li key={area.id}>
                         <button
@@ -496,13 +508,13 @@ export function TerritoryEditor({
                   <div className="impact-row">
                     <span>Segments excluded</span>
                     <strong>
-                      {affectedByExclusion(workspace.segments, selectedExclusion).segments}
+                      {affectedByExclusion(savedWorkspace.segments, selectedExclusion).segments}
                     </strong>
                   </div>
                   <div className="impact-row">
                     <span>Tracts removed</span>
                     <strong>
-                      {affectedByExclusion(workspace.segments, selectedExclusion).homes}
+                      {affectedByExclusion(savedWorkspace.segments, selectedExclusion).homes}
                     </strong>
                   </div>
                   <p>Drag any corner on the map to reshape this area.</p>
@@ -536,6 +548,9 @@ export function TerritoryEditor({
 
           <div className="sidebar-actions">
             <p aria-live="polite">{polygonError || notice}</p>
+            {importRequired && !importing && (
+              <p className="import-notice">Street data will refresh when saved.</p>
+            )}
             <div>
               <button
                 className="secondary"
@@ -547,7 +562,7 @@ export function TerritoryEditor({
               </button>
               <button
                 disabled={
-                  !isDirty || saving || mode === 'draw' || Boolean(radiusError || polygonError)
+                  !canSave || saving || mode === 'draw' || Boolean(radiusError || polygonError)
                 }
                 onClick={saveChanges}
                 type="button"
@@ -558,6 +573,11 @@ export function TerritoryEditor({
           </div>
         </aside>
       </main>
+      {importing && (
+        <div className="import-status" role="status" aria-live="polite">
+          Importing streets and addresses…
+        </div>
+      )}
     </div>
   );
 }
