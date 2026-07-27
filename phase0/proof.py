@@ -199,8 +199,7 @@ def normalize_segments(fixture: dict) -> list[dict]:
             )
             name = source_name
             if nearby_names and max(nearby_names.values()) >= 3:
-                # ponytail: three nearby addresses are enough for this proof;
-                # Phase 2 provides administrator correction for sparse streets.
+                # ponytail: three nearby addresses are enough for this historical proof.
                 name = sorted(
                     nearby_names,
                     key=lambda candidate: (

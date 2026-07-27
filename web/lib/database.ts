@@ -37,6 +37,7 @@ type TerritoryRow = {
   import_center_longitude: number | null;
   import_radius_meters: number | null;
   import_completed_at: string | null;
+  import_generation: number;
 };
 
 type SegmentRow = {
@@ -115,8 +116,10 @@ export function getFoundationSummary(filename?: string): FoundationSummary {
         `SELECT
           c.name AS church_name,
           t.name AS territory_name,
-          (SELECT COUNT(*) FROM street_segments s WHERE s.church_id = c.id) AS segment_count,
-          (SELECT COALESCE(SUM(s.estimated_homes), 0) FROM street_segments s WHERE s.church_id = c.id) AS estimated_homes,
+          (SELECT COUNT(*) FROM street_segments s
+            WHERE s.church_id = c.id AND s.is_current = 1) AS segment_count,
+          (SELECT COALESCE(SUM(s.estimated_homes), 0) FROM street_segments s
+            WHERE s.church_id = c.id AND s.is_current = 1) AS estimated_homes,
           (SELECT COUNT(*) FROM packets p WHERE p.church_id = c.id) AS packet_count
         FROM churches c
         JOIN territories t ON t.church_id = c.id
@@ -148,7 +151,8 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
         `SELECT t.id, c.name AS church_name, t.name, t.origin_address,
           t.center_latitude, t.center_longitude, t.radius_meters,
           t.import_kind, t.import_release, t.import_center_latitude,
-          t.import_center_longitude, t.import_radius_meters, t.import_completed_at
+          t.import_center_longitude, t.import_radius_meters, t.import_completed_at,
+          t.import_generation
         FROM territories t
         JOIN churches c ON c.id = t.church_id
         WHERE t.id = ? AND t.church_id = ?`,
@@ -196,10 +200,11 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
     const segments = (
       database
         .prepare(
-          `SELECT id, source_segment_id, road_class, street_name, geometry_geojson, estimated_homes
+          `SELECT import_segment_id AS id, source_segment_id, road_class, street_name,
+            geometry_geojson, estimated_homes
           FROM street_segments
-          WHERE territory_id = ? AND church_id = ?
-          ORDER BY street_name, id`,
+          WHERE territory_id = ? AND church_id = ? AND is_current = 1
+          ORDER BY street_name, import_segment_id`,
         )
         .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as SegmentRow[]
     ).map((row): TerritorySegment => {
@@ -293,20 +298,35 @@ export function saveTerritoryDraft(
     }
 
     if (options.imported) {
+      const generation =
+        (
+          database
+            .prepare(
+              `SELECT import_generation
+              FROM territories
+              WHERE id = ? AND church_id = ?`,
+            )
+            .get(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Pick<TerritoryRow, 'import_generation'>
+        ).import_generation + 1;
       database
-        .prepare('DELETE FROM street_segments WHERE territory_id = ? AND church_id = ?')
+        .prepare(
+          `UPDATE street_segments
+          SET is_current = 0
+          WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
+        )
         .run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID);
       const insertSegment = database.prepare(
         `INSERT INTO street_segments
-          (id, church_id, territory_id, source_segment_id, road_class, street_name,
-            geometry_geojson, estimated_homes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, church_id, territory_id, import_segment_id, source_segment_id, road_class,
+            street_name, geometry_geojson, estimated_homes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const segment of options.imported.segments) {
         insertSegment.run(
-          segment.id,
+          `${segment.id}@${generation}`,
           PILOT_CHURCH_ID,
           PILOT_TERRITORY_ID,
+          segment.id,
           segment.sourceSegmentId,
           segment.roadClass,
           segment.streetName,
@@ -319,7 +339,7 @@ export function saveTerritoryDraft(
           `UPDATE territories
           SET import_kind = 'overture', import_release = ?,
             import_center_latitude = ?, import_center_longitude = ?,
-            import_radius_meters = ?, import_completed_at = ?
+            import_radius_meters = ?, import_completed_at = ?, import_generation = ?
           WHERE id = ? AND church_id = ?`,
         )
         .run(
@@ -328,6 +348,7 @@ export function saveTerritoryDraft(
           options.imported.center[0],
           options.imported.radiusMiles * 1609.344,
           options.imported.completedAt,
+          generation,
           PILOT_TERRITORY_ID,
           PILOT_CHURCH_ID,
         );

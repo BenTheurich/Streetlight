@@ -21,7 +21,7 @@ test('proof data and an expanded footprint require imports', () => {
     needsTerritoryImport(
       {
         kind: 'overture',
-        release: '2026-07-22.0',
+        release: '2026-06-17.0',
         center: draft.center,
         radiusMiles: 0.5,
         completedAt: '2026-07-27T12:00:00.000Z',
@@ -37,7 +37,7 @@ test('exclusion changes and radius reductions reuse a current footprint', () => 
     needsTerritoryImport(
       {
         kind: 'overture',
-        release: '2026-07-22.0',
+        release: '2026-06-17.0',
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
@@ -63,5 +63,37 @@ test('exclusion changes and radius reductions reuse a current footprint', () => 
       },
     ),
     false,
+  );
+});
+
+test('a different pinned Overture release requires an import', () => {
+  assert.equal(
+    needsTerritoryImport(
+      {
+        kind: 'overture',
+        release: '2026-05-20.0',
+        center: draft.center,
+        radiusMiles: 2,
+        completedAt: '2026-07-27T12:00:00.000Z',
+      },
+      draft,
+    ),
+    true,
+  );
+});
+
+test('a changed territory center requires an import', () => {
+  assert.equal(
+    needsTerritoryImport(
+      {
+        kind: 'overture',
+        release: '2026-06-17.0',
+        center: [-117.1275, 33.5107],
+        radiusMiles: 2,
+        completedAt: '2026-07-27T12:00:00.000Z',
+      },
+      draft,
+    ),
+    true,
   );
 });

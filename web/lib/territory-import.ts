@@ -1,7 +1,7 @@
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import type { Position } from './territory-geometry.ts';
 
-export const OVERTURE_RELEASE = '2026-07-22.0';
+export const OVERTURE_RELEASE = '2026-06-17.0';
 
 export type TerritoryImportMetadata = {
   kind: 'proof' | 'overture';

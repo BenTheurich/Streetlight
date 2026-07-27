@@ -1,15 +1,17 @@
 import json
+import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from unittest import TestCase
+from unittest.mock import patch
 
 from .overture_import import (
     OVERTURE_RELEASE,
     canonical_street_name,
+    download_features,
     enclosing_bbox,
     main,
     normalize_features,
-    query_bbox,
 )
 
 
@@ -331,7 +333,7 @@ class ImportBoundaryTest(TestCase):
 
         self.assertEqual((west, east), (-180, 180))
 
-    def test_query_bbox_uses_bbox_columns_and_returns_complete_normalizer_inputs(self):
+    def test_download_sets_s3_region_before_bbox_queries_and_returns_complete_inputs(self):
         class Result:
             def __init__(self, rows):
                 self.rows = rows
@@ -343,8 +345,10 @@ class ImportBoundaryTest(TestCase):
             def __init__(self):
                 self.calls = []
 
-            def execute(self, sql, parameters):
+            def execute(self, sql, parameters=None):
                 self.calls.append((sql, parameters))
+                if parameters is None:
+                    return Result([])
                 if "theme=transportation" in sql:
                     return Result(
                         [
@@ -369,23 +373,15 @@ class ImportBoundaryTest(TestCase):
                     ]
                 )
 
+            def close(self):
+                pass
+
         connection = Connection()
-        roads = query_bbox(
-            connection,
-            "s3://bucket/theme=transportation/type=segment/*",
-            -1,
-            -2,
-            3,
-            4,
-        )
-        addresses = query_bbox(
-            connection,
-            "s3://bucket/theme=addresses/type=address/*",
-            -1,
-            -2,
-            3,
-            4,
-        )
+        with patch.dict(
+            sys.modules,
+            {"duckdb": type("DuckDB", (), {"connect": lambda: connection})},
+        ):
+            roads, addresses = download_features(0, 0, 1)
 
         self.assertEqual(
             roads,
@@ -403,18 +399,36 @@ class ImportBoundaryTest(TestCase):
             ],
         )
         self.assertEqual(addresses, [address("Main Street", 0.25, 0.0001)])
-        for sql, parameters in connection.calls:
+        self.assertEqual(
+            connection.calls[:5],
+            [
+                ("INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs", None),
+                ("SET s3_region='us-west-2'", None),
+                ("SET s3_access_key_id=''", None),
+                ("SET s3_secret_access_key=''", None),
+                ("SET s3_session_token=''", None),
+            ],
+        )
+        bbox_calls = connection.calls[5:]
+        for sql, parameters in bbox_calls:
             self.assertIn("bbox.xmin <= ?", sql)
             self.assertIn("bbox.xmax >= ?", sql)
             self.assertIn("bbox.ymin <= ?", sql)
             self.assertIn("bbox.ymax >= ?", sql)
             self.assertNotIn("ST_Clip", sql)
-            self.assertEqual(parameters, [3, -1, 4, -2])
-        road_sql = connection.calls[0][0]
+            self.assertEqual(len(parameters), 4)
+            for actual, expected in zip(
+                parameters,
+                [0.014473158, -0.014473158, 0.014473158, -0.014473158],
+            ):
+                self.assertAlmostEqual(actual, expected, places=9)
+        road_sql = bbox_calls[0][0]
         self.assertIn("id, names, class, connectors", road_sql)
         self.assertIn("subtype = 'road'", road_sql)
         self.assertNotIn("sources", road_sql)
-        address_sql = connection.calls[1][0]
+        self.assertNotIn("ORDER BY id", road_sql)
+        address_sql = bbox_calls[1][0]
+        self.assertIn("theme=addresses/type=*/*", address_sql)
         self.assertIn("street", address_sql)
         self.assertNotIn("number", address_sql)
         self.assertNotIn("ORDER BY id", address_sql)

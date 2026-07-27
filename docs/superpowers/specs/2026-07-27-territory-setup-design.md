@@ -184,11 +184,13 @@ unsaved changes warns the administrator before navigation.
 ## Overture import and road eligibility
 
 Google remains the display and submitted-address geocoding provider. Streetlight's durable
-street geometry and estimated tract counts come from pinned Overture release `2026-07-22.0`.
+street geometry and estimated tract counts come from pinned Overture release `2026-06-17.0`.
 Changing that release requires an explicit import-version change rather than silently following
 the latest dataset. The importer downloads transportation segments and address points for the
 bounding box enclosing the requested circle, retaining complete source lines that touch that
-box so boundary eligibility can be calculated correctly.
+box so boundary eligibility can be calculated correctly. DuckDB reads Overture's public S3
+bucket anonymously with the `us-west-2` region set explicitly; ambient AWS credentials are not
+used and no Overture API key is required.
 
 Overture road `class` describes road kind and network hierarchy rather than proving whether
 homes exist along that road. Streetlight therefore uses the founder-approved
@@ -315,6 +317,38 @@ With real local Google credentials:
 14. Delete the polygon, cancel, and verify it returns.
 15. Change the address, confirm, and verify polygons stay at their geographic coordinates.
 16. Confirm the browser console has no application errors.
+
+## Phase 2 verification evidence
+
+Verified July 27, 2026 against pinned Overture release `2026-06-17.0` and the pilot address
+`31087 Nicolas Rd, Temecula, CA 92591`:
+
+- The first real 1-mile website import completed at
+  `2026-07-27T20:20:53.002209+00:00` with 687 imported segments and 3,368 estimated homes.
+  The circle contained 487 eligible segments and 2,635 eligible homes before exclusions.
+- A saved three-point exclusion removed 19 segments and 102 homes without changing that import
+  timestamp. Restarting the dev server returned the same saved radius, polygon, imported set,
+  and totals.
+- With an invalid `STREETLIGHT_PYTHON`, a 1.1-mile expansion failed in 64 ms, retained the
+  complete browser draft, and left the saved 1-mile radius, exclusion, 687 segments, 3,368
+  homes, and import timestamp unchanged after reload.
+- Restoring the valid executable and saving 1.1 miles reimported 769 segments and 3,880 homes
+  at `2026-07-27T20:30:01.764126+00:00`. Reducing the saved radius back to 1 mile completed in
+  24 ms without another import and retained that larger imported footprint and timestamp.
+- Real Chrome checks passed for broad and close zoom readability, solid semi-transparent orange
+  and gray segment styles, matching legend strokes, zoom-scaled line weight, immediate first
+  point display, one- and two-point dragging, crosshair and native point cursors, self-crossing
+  rejection, live gray exclusion previews, and fixed polygon coordinates after an address
+  change. No application console errors occurred; Chrome reported only extension
+  message-channel closure noise.
+- Reimport retires earlier segment versions and keeps their coverage and finalized-packet
+  references intact. The public import ID stays stable while a generation-qualified internal
+  row ID versions each current set; workspace and summary reads filter to current rows.
+- Keyboard-focusable sidebar vertex buttons use arrow keys to reshape both unfinished drawings
+  and selected saved exclusions through the live eligibility callbacks. Unfinished drawing
+  points participate in the unsaved-navigation warning.
+- `pnpm check` passed Biome lint, TypeScript, 38 Node tests, 16 Python tests, and the Next.js
+  production build. `git diff --check` passed.
 
 ## Explicit non-goals
 

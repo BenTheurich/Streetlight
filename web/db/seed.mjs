@@ -57,9 +57,9 @@ export function seedDatabase(database) {
 
     const insertSegment = database.prepare(
       `INSERT OR IGNORE INTO street_segments
-        (id, church_id, territory_id, source_segment_id, street_name,
-          geometry_geojson, estimated_homes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (id, church_id, territory_id, import_segment_id, source_segment_id,
+          street_name, geometry_geojson, estimated_homes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const territory = database
       .prepare('SELECT import_kind FROM territories WHERE id = ?')
@@ -70,6 +70,7 @@ export function seedDatabase(database) {
           segment.id,
           churchId,
           territoryId,
+          segment.id,
           segment.source_segment_id,
           segment.street_name,
           JSON.stringify(segment.geometry),

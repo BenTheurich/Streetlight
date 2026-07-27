@@ -40,7 +40,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 |---:|---|---|---|---|
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
-| 2 | Territory setup | Phase 1 | Awaiting human review | Founder approved the radius-minus-exclusions design on July 27, 2026; `pnpm check` passes lint, typecheck, 20 Node tests, and the production build; genuine Google Maps browser checks pass for pan/zoom, live radius updates, draw/undo/finish/name/reshape/delete, eligibility totals, save/reload, cancel restoration, server-side address confirmation with existing polygons fixed in place, responsive layout, unavailable-map fallback, and a clean final console |
+| 2 | Territory setup | Phase 1 | Awaiting human review | Founder approved the radius-minus-exclusions design on July 27, 2026; pinned Overture `2026-06-17.0` imported 687 segments and 3,368 homes for the 1-mile pilot, while restart persistence, exclusion/radius reuse, 1.1-mile replacement, invalid-Python preservation, and referenced-history-safe reimport passed; `pnpm check` passes lint, typecheck, 38 Node tests, 16 Python tests, and production build; real Chrome map/drawing acceptance passes |
 | 3 | Coverage history and heatmap | Phase 2 | Pending | None |
 | 4 | Packet selection | Phase 3 | Pending | None |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
@@ -164,6 +164,31 @@ Create and correct one church outreach territory.
 Create a territory, adjust its radius, draw and reshape an exclusion polygon, save, reload the
 page, and verify that the same map and totals return. Confirm that cancelling a second set of
 changes restores the saved territory.
+
+### Phase 2 evidence
+
+Verified July 27, 2026 with pinned Overture release `2026-06-17.0`:
+
+- The 1-mile website import returned 687 segments and 3,368 estimated homes at
+  `2026-07-27T20:20:53.002209+00:00`; 487 segments and 2,635 homes were eligible before
+  exclusions.
+- Restart persistence passed. Saving an exclusion reused the import timestamp. Expanding to
+  1.1 miles replaced the set with 769 segments and 3,880 homes at
+  `2026-07-27T20:30:01.764126+00:00`; reducing back to 1 mile reused that footprint.
+- An invalid importer executable preserved the complete 1.1-mile browser draft and left the
+  saved 1-mile radius, exclusion, timestamp, and 687-segment set unchanged after reload.
+- Real Chrome checks passed the approved orange/gray styling and legend, broad/close label
+  readability and stroke scaling, first-point visibility, one/two-point dragging, map/vertex
+  cursors, self-crossing rejection, gray live previews, save/reload/cancel, and geographically
+  fixed polygons after an address change.
+- Reimport now retires prior segment rows instead of deleting them. Focused database checks
+  preserve coverage and finalized-packet references while workspace and summary reads expose
+  only the exact current imported set.
+- Sidebar vertex controls move both partial-drawing and selected saved-polygon vertices with
+  arrow keys through the same live geometry callbacks. Unfinished drawing points now trigger
+  the unsaved-navigation warning.
+- `pnpm check` passed Biome lint, TypeScript, 38 Node tests, 16 Python tests, and the Next.js
+  production build. `git diff --check` passed.
 
 ### Human review
 

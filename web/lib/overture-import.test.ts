@@ -9,7 +9,7 @@ import {
 
 const requestedCenter: [number, number] = [-117.1274, 33.5107];
 const validOutput = {
-  release: '2026-07-22.0',
+  release: '2026-06-17.0',
   center: requestedCenter,
   radiusMiles: 1,
   completedAt: '2026-07-27T12:00:00.000Z',

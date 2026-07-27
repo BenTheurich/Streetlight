@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 ALWAYS_KEEP = {"residential", "living_street"}
 KEEP_WITH_ADDRESS = {"primary", "secondary", "tertiary", "unclassified"}
 MAX_ADDRESS_DISTANCE_METERS = 40
-OVERTURE_RELEASE = "2026-07-22.0"
+OVERTURE_RELEASE = "2026-06-17.0"
 TURN_SPLIT_DEGREES = 85
 EARTH_RADIUS_MILES = 3958.7613
 
@@ -281,7 +281,6 @@ def query_bbox(connection, path, west, south, east, north):
             SELECT id, names, class, connectors, ST_AsGeoJSON(geometry)
             FROM read_parquet('{path}', hive_partitioning = true)
             WHERE subtype = 'road' AND {bbox_filter}
-            ORDER BY id
             """,
             parameters,
         ).fetchall()
@@ -328,6 +327,10 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
     connection = duckdb.connect()
     try:
         connection.execute("INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs")
+        connection.execute("SET s3_region='us-west-2'")
+        connection.execute("SET s3_access_key_id=''")
+        connection.execute("SET s3_secret_access_key=''")
+        connection.execute("SET s3_session_token=''")
         segments = query_bbox(
             connection,
             f"s3://overturemaps-us-west-2/release/{OVERTURE_RELEASE}/"
@@ -340,7 +343,7 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
         addresses = query_bbox(
             connection,
             f"s3://overturemaps-us-west-2/release/{OVERTURE_RELEASE}/"
-            "theme=addresses/type=address/*",
+            "theme=addresses/type=*/*",
             west,
             south,
             east,

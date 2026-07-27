@@ -44,7 +44,7 @@ function importedSegment(id, streetName, roadClass, estimatedHomes) {
 
 function importedTerritory(segments) {
   return {
-    release: '2026-07-22.0',
+    release: '2026-06-17.0',
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',
@@ -118,6 +118,69 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
 test('an imported save atomically replaces proof segments and records its footprint', () => {
   withDatabase((filename) => {
     const workspace = getTerritoryWorkspace(filename);
+    const imported = importedTerritory([
+      importedSegment('one', 'Residential Road', 'residential', 8),
+      importedSegment('two', 'Calle Medusa', 'tertiary', 3),
+    ]);
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: workspace.exclusions,
+      },
+      { filename, imported },
+    );
+
+    const saved = getTerritoryWorkspace(filename);
+    assert.deepEqual(saved.import, {
+      kind: 'overture',
+      release: imported.release,
+      center: imported.center,
+      radiusMiles: imported.radiusMiles,
+      completedAt: imported.completedAt,
+    });
+    assert.deepEqual(
+      saved.segments.map(
+        ({
+          id,
+          sourceSegmentId,
+          roadClass,
+          streetName,
+          geometry,
+          estimatedHomes,
+          eligible,
+          excludedReason,
+        }) => ({
+          id,
+          sourceSegmentId,
+          roadClass,
+          streetName,
+          geometry,
+          estimatedHomes,
+          eligible,
+          excludedReason,
+        }),
+      ),
+      [
+        {
+          ...imported.segments[1],
+          eligible: true,
+          excludedReason: null,
+        },
+        {
+          ...imported.segments[0],
+          eligible: true,
+          excludedReason: null,
+        },
+      ],
+    );
+  });
+});
+
+test('reimport preserves coverage and finalized packet references to retired segments', () => {
+  withDatabase((filename) => {
+    const workspace = getTerritoryWorkspace(filename);
     saveTerritoryDraft(
       {
         originAddress: workspace.originAddress,
@@ -128,17 +191,138 @@ test('an imported save atomically replaces proof segments and records its footpr
       {
         filename,
         imported: importedTerritory([
-          importedSegment('one', 'Residential Road', 'residential', 8),
-          importedSegment('two', 'Calle Medusa', 'tertiary', 3),
+          importedSegment('one', 'Old Residential Road', 'residential', 8),
+          importedSegment('two', 'Removed Road', 'residential', 4),
         ]),
       },
     );
 
+    const database = openDatabase(filename);
+    const oldSegmentId = database
+      .prepare(
+        `SELECT id FROM street_segments
+        WHERE church_id = ? AND territory_id = ? AND import_segment_id = ? AND is_current = 1`,
+      )
+      .get('church-temecula-pilot', 'territory-temecula-pilot', 'one').id;
+    database
+      .prepare(
+        `INSERT INTO coverage_events
+          (id, church_id, street_segment_id, covered_on, kind)
+        VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(
+        'coverage-reimport-regression',
+        'church-temecula-pilot',
+        oldSegmentId,
+        '2026-07-26',
+        'completed',
+      );
+    database
+      .prepare(
+        `INSERT INTO batches (id, church_id, name, status, finalized_at)
+        VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(
+        'batch-reimport-regression',
+        'church-temecula-pilot',
+        'Finalized batch',
+        'finalized',
+        '2026-07-26T12:00:00.000Z',
+      );
+    database
+      .prepare(
+        `INSERT INTO packets
+          (id, church_id, batch_id, packet_code, start_address, estimated_homes, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        'packet-reimport-regression',
+        'church-temecula-pilot',
+        'batch-reimport-regression',
+        'FINAL-001',
+        '1 Old Residential Road',
+        8,
+        'active',
+      );
+    database
+      .prepare(
+        `INSERT INTO packet_segments
+          (church_id, packet_id, street_segment_id, sequence_number)
+        VALUES (?, ?, ?, ?)`,
+      )
+      .run('church-temecula-pilot', 'packet-reimport-regression', oldSegmentId, 0);
+    database.close();
+
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: workspace.exclusions,
+      },
+      {
+        filename,
+        imported: {
+          ...importedTerritory([
+            importedSegment('one', 'Updated Residential Road', 'residential', 9),
+            importedSegment('three', 'New Road', 'living_street', 5),
+          ]),
+          completedAt: '2026-07-27T13:00:00.000Z',
+        },
+      },
+    );
+
     const saved = getTerritoryWorkspace(filename);
-    assert.equal(saved.import.kind, 'overture');
-    assert.equal(saved.import.release, '2026-07-22.0');
-    assert.equal(saved.segments.length, 2);
-    assert.equal(saved.segments.find((segment) => segment.id === 'one')?.roadClass, 'residential');
+    const summary = getFoundationSummary(filename);
+    assert.deepEqual(
+      saved.segments.map(({ id, streetName, estimatedHomes }) => ({
+        id,
+        streetName,
+        estimatedHomes,
+      })),
+      [
+        { id: 'three', streetName: 'New Road', estimatedHomes: 5 },
+        { id: 'one', streetName: 'Updated Residential Road', estimatedHomes: 9 },
+      ],
+    );
+    assert.equal(summary.segmentCount, 2);
+    assert.equal(summary.estimatedHomes, 14);
+
+    const reloaded = openDatabase(filename);
+    const coverage = reloaded
+      .prepare(
+        `SELECT ce.street_segment_id, s.import_segment_id, s.is_current
+        FROM coverage_events ce
+        JOIN street_segments s ON s.id = ce.street_segment_id
+        WHERE ce.id = ?`,
+      )
+      .get('coverage-reimport-regression');
+    const packet = reloaded
+      .prepare(
+        `SELECT ps.street_segment_id, s.import_segment_id, s.is_current
+        FROM packet_segments ps
+        JOIN street_segments s ON s.id = ps.street_segment_id
+        WHERE ps.packet_id = ?`,
+      )
+      .get('packet-reimport-regression');
+    const current = reloaded
+      .prepare(
+        `SELECT id, import_segment_id, is_current
+        FROM street_segments
+        WHERE church_id = ? AND territory_id = ? AND import_segment_id = ? AND is_current = 1`,
+      )
+      .get('church-temecula-pilot', 'territory-temecula-pilot', 'one');
+    assert.deepEqual(
+      { ...coverage },
+      { street_segment_id: oldSegmentId, import_segment_id: 'one', is_current: 0 },
+    );
+    assert.deepEqual(
+      { ...packet },
+      { street_segment_id: oldSegmentId, import_segment_id: 'one', is_current: 0 },
+    );
+    assert.notEqual(current.id, oldSegmentId);
+    assert.equal(current.is_current, 1);
+    reloaded.close();
   });
 });
 
@@ -178,7 +362,7 @@ test('a replacement failure preserves the complete saved workspace', () => {
             ]),
           },
         ),
-      /UNIQUE constraint failed: street_segments\.id/,
+      /UNIQUE constraint failed/,
     );
 
     assert.deepEqual(getTerritoryWorkspace(filename), before);

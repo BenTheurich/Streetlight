@@ -5,6 +5,8 @@ import type { TerritoryWorkspace } from '@/lib/database';
 import {
   affectedByExclusion,
   deriveTerritory,
+  hasUnsavedTerritoryChanges,
+  moveVertexWithArrowKey,
   nextExclusionName,
   territoryDraftFromWorkspace,
 } from '@/lib/territory-client';
@@ -18,8 +20,41 @@ type PendingAddress = {
   center: Position;
 };
 
-function draftKey(draft: TerritoryDraftInput): string {
-  return JSON.stringify(draft);
+function VertexControls({
+  points,
+  onChange,
+}: {
+  points: Position[];
+  onChange: (points: Position[]) => void;
+}) {
+  if (points.length === 0) {
+    return null;
+  }
+  return (
+    <fieldset className="vertex-controls">
+      <legend>Vertices</legend>
+      <div>
+        {points.map((_, index) => (
+          // Vertex order is its stable identity while coordinates move.
+          <button
+            aria-label={`Vertex ${index + 1}. Use arrow keys to move.`}
+            // biome-ignore lint/suspicious/noArrayIndexKey: preserve focus while this vertex moves
+            key={index}
+            onKeyDown={(event) => {
+              const next = moveVertexWithArrowKey(points, index, event.key);
+              if (next !== points) {
+                event.preventDefault();
+                onChange(next);
+              }
+            }}
+            type="button"
+          >
+            Vertex {index + 1}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
 }
 
 export function TerritoryEditor({
@@ -69,7 +104,8 @@ export function TerritoryEditor({
     () => deriveTerritory(savedWorkspace.segments, previewDraft),
     [previewDraft, savedWorkspace.segments],
   );
-  const isDirty = draftKey(draft) !== draftKey(savedDraft);
+  const isDirty = hasUnsavedTerritoryChanges(savedDraft, draft, []);
+  const hasUnsavedChanges = hasUnsavedTerritoryChanges(savedDraft, draft, drawingPoints);
   const importRequired = needsTerritoryImport(savedWorkspace.import, draft);
   const canSave = isDirty || importRequired;
   const radiusError =
@@ -80,7 +116,7 @@ export function TerritoryEditor({
     draft.exclusions.find((area) => area.id === selectedExclusionId) ?? null;
 
   useEffect(() => {
-    if (!isDirty) {
+    if (!hasUnsavedChanges) {
       return;
     }
     const warn = (event: BeforeUnloadEvent) => {
@@ -88,7 +124,7 @@ export function TerritoryEditor({
     };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [isDirty]);
+  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     if (addressEditing) {
@@ -456,6 +492,9 @@ export function TerritoryEditor({
               <button className="draw-button" onClick={startDrawing} type="button">
                 + Draw exclusion area
               </button>
+              {mode === 'draw' && (
+                <VertexControls points={drawingPoints} onChange={changeDrawingPoints} />
+              )}
               {draft.exclusions.length === 0 ? (
                 <p className="empty-state">No areas excluded yet.</p>
               ) : (
@@ -517,7 +556,10 @@ export function TerritoryEditor({
                       {affectedByExclusion(savedWorkspace.segments, selectedExclusion).homes}
                     </strong>
                   </div>
-                  <p>Drag any corner on the map to reshape this area.</p>
+                  <VertexControls
+                    points={selectedExclusion.geometry.coordinates[0].slice(0, -1)}
+                    onChange={(points) => changeExclusion(selectedExclusion.id, points)}
+                  />
                   <button
                     className="secondary"
                     onClick={() => setSelectedExclusionId(null)}
@@ -554,7 +596,7 @@ export function TerritoryEditor({
             <div>
               <button
                 className="secondary"
-                disabled={!isDirty || saving}
+                disabled={!hasUnsavedChanges || saving}
                 onClick={cancelChanges}
                 type="button"
               >

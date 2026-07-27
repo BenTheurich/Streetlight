@@ -15,6 +15,7 @@ Requirements:
 
 - Node.js 22.13 or newer
 - pnpm 10.27
+- Python 3.12 or newer for the Overture importer
 
 ## Canonical commands
 
@@ -23,6 +24,7 @@ Run these from the repository root:
 | Task | Command |
 |---|---|
 | Install | `pnpm install --frozen-lockfile` |
+| Install importer | `python -m pip install -r web/importer/requirements.txt` |
 | Apply migrations | `pnpm db:migrate` |
 | Load local seed data | `pnpm db:seed` |
 | Start locally | `pnpm dev` |
@@ -37,6 +39,9 @@ then serves Streetlight at `http://localhost:3000`.
 
 The local database is `web/data/streetlight.db`. It is generated, ignored by Git,
 and can be rebuilt with the migration and seed commands.
+
+The Overture import needs network access but no API key. It uses `python` by default.
+Set `STREETLIGHT_PYTHON` only when `python` is not the desired executable.
 
 ## Phase 2 local review
 

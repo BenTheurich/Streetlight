@@ -1,6 +1,36 @@
 import type { ExclusionArea, TerritorySegment, TerritoryWorkspace } from './database.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
-import { lineInsideCircle, lineIntersectsPolygon } from './territory-geometry.ts';
+import { lineInsideCircle, lineIntersectsPolygon, type Position } from './territory-geometry.ts';
+
+const VERTEX_KEY_STEP = 0.00005;
+
+export function hasUnsavedTerritoryChanges(
+  saved: TerritoryDraftInput,
+  draft: TerritoryDraftInput,
+  drawingPoints: Position[],
+): boolean {
+  return drawingPoints.length > 0 || JSON.stringify(draft) !== JSON.stringify(saved);
+}
+
+export function moveVertexWithArrowKey(points: Position[], index: number, key: string): Position[] {
+  const delta: Position | undefined = {
+    ArrowDown: [0, -VERTEX_KEY_STEP],
+    ArrowLeft: [-VERTEX_KEY_STEP, 0],
+    ArrowRight: [VERTEX_KEY_STEP, 0],
+    ArrowUp: [0, VERTEX_KEY_STEP],
+  }[key] as Position | undefined;
+  if (!delta || !points[index]) {
+    return points;
+  }
+  return points.map((point, pointIndex) =>
+    pointIndex === index
+      ? [
+          Math.min(180, Math.max(-180, point[0] + delta[0])),
+          Math.min(90, Math.max(-90, point[1] + delta[1])),
+        ]
+      : point,
+  );
+}
 
 export function territoryDraftFromWorkspace(workspace: TerritoryWorkspace): TerritoryDraftInput {
   return {

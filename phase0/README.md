@@ -1,5 +1,12 @@
 # Phase 0 geographic and print proof
 
+> **Retired historical proof artifact.** This directory preserves the founder-approved map and
+> print prototype only. Its committed fixture was a prototype with unverified source metadata;
+> it is not current Overture import evidence. Agents must use
+> [`web/importer/overture_import.py`](../web/importer/overture_import.py) and the current
+> [territory setup specification](../docs/superpowers/specs/2026-07-27-territory-setup-design.md)
+> for live territory imports.
+
 Status: **Complete — founder approved July 27, 2026**
 
 This proof answers one question: can Streetlight turn open geographic data into a useful, printable outreach packet near the test church?
@@ -9,7 +16,7 @@ This proof answers one question: can Streetlight turn open geographic data into 
 - Church: `31087 Nicolas Rd, Temecula, CA 92591, United States`
 - Geocoded center: `33.542930, -117.116885`
 - Import radius: `10.0 miles`
-- Overture release: `2026-07-22.0`
+- Fixture provenance: historical/unverified prototype
 
 A boundary check against OpenStreetMap polygons placed the farthest Temecula point 9.24 miles from the church and the farthest Murrieta point 9.53 miles away. The same circle includes about 49 percent of the Winchester census-designated place. The circle covers about 314 square miles, so later imports must exclude rural and nonresidential data.
 
@@ -19,7 +26,7 @@ The city GIS references are [Temecula GIS](https://temeculaca.gov/265/Geographic
 
 | Need | Phase 0 choice | Constraint |
 |---|---|---|
-| Address points and estimated tract counts | [Overture addresses](https://docs.overturemaps.org/guides/addresses/), with Riverside County as the correction source | The theme is Alpha, does not identify residential addresses, and has unstable IDs. Counts remain estimates and must be editable. |
+| Address points and estimated tract counts | [Overture addresses](https://docs.overturemaps.org/guides/addresses/), with Riverside County as the correction source | The theme is Alpha, does not identify residential addresses, and has unstable IDs. Counts remain estimates. The historical proposal to make them editable was rejected; imported counts are read-only in the first release. |
 | Street geometry | [Overture transportation](https://docs.overturemaps.org/guides/transportation/) | Transportation is ODbL. Printed and interactive maps need attribution. |
 | Administrator map | [Google Maps JavaScript API](https://developers.google.com/maps/documentation/javascript/datalayer) is the Phase 0 recommendation | Its Data layer can display Streetlight's saved GeoJSON geometry. Each map load is billable after Google's monthly free usage. |
 | Packet map | [Google Maps Static API](https://developers.google.com/maps/documentation/maps-static/start) with [Roads API snapping](https://developers.google.com/maps/documentation/roads/snap) | Each render snaps Streetlight's selected coordinates to Google's current road geometry, then draws them on the Google map. The key is not placed in the HTML. |
@@ -40,10 +47,11 @@ AI remains out of scope under the founder decision recorded in `PRODUCT.md`.
 
 - 552 deduplicated address points
 - 112 road or walking-path segments
-- 179,516 bytes
-- SHA-256: `66d8eed8a81892ffc083ec5a5e2edf744ac30df867f72b1373b973027a612ff5`
+- 170,758 bytes
+- SHA-256: `418b1837ed0241eb18ffae6fba305275f45f09dc9d7f8286e0e49ffa008809c9`
 
-The test church address is committed in this fixture with the founder's permission. Address points are deduplicated by normalized number, street, and postcode. The Overture release and exact source assets are stored in the metadata.
+The test church address is committed in this fixture with the founder's permission. Address points are deduplicated by normalized number, street, and postcode. The fixture metadata is deliberately marked historical/unverified because its prototype source
+release and asset claims were never validated. Do not use it as live-import provenance.
 
 ## Browser map proof
 
@@ -57,7 +65,9 @@ The normalizer now processes every named residential source feature in the saved
 - assigns each saved address to only its nearest matching normalized segment within 40 meters; and
 - preserves the first and last coordinates of a selected chain.
 
-These are deliberately small Phase 0 rules. Administrator correction of sparse or incorrect imported geometry belongs in Phase 2, while age, reservations, and requested packet sizes belong in the Phase 4 selector.
+These are deliberately small Phase 0 rules. The historical proposal for administrator
+correction of imported geometry was rejected. Phase 2 keeps imported geometry and counts
+read-only and uses exclusion polygons to remove unsuitable segments.
 
 For the Diego Drive source feature, the address evidence identifies these normalized sections:
 
@@ -90,7 +100,7 @@ The old PDF used the entire U-shaped source feature, added a walking path and en
 
 The examples share no normalized segment IDs or assigned address points. They are selected from the normalizer by connected street names, not hard-coded source IDs. They remain geographic proof cases rather than the age, reservation, and packet-size selection algorithm planned for Phase 4.
 
-This wider check exposed two omissions hidden by the hand-picked samples: the saved Shree Road geometry turns onto Sonia Lane while retaining the Shree Road source name, and Skyline Drive continues through a sixth normalized segment. That changes Skyline's saved-address estimate from 31 to 40. Phase 2 must preserve administrator correction of imported names and geometry.
+This wider check exposed two omissions hidden by the hand-picked samples: the saved Shree Road geometry turns onto Sonia Lane while retaining the Shree Road source name, and Skyline Drive continues through a sixth normalized segment. That changes Skyline's saved-address estimate from 31 to 40. The historical proposal to correct imported names or geometry in Phase 2 was rejected; the current product keeps them read-only and uses exclusions instead.
 
 The generated [sample gallery](../output/phase0/sample-gallery.html) links to a full packet-layout preview for each map.
 

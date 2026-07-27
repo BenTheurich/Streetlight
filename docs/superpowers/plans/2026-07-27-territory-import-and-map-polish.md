@@ -15,14 +15,14 @@ street/address source, while Google remains the display and geocoding provider.
 
 **Tech Stack:** Next.js 16 App Router, React 19, TypeScript 5.9, Node 22 built-in SQLite,
 Python 3, DuckDB 1.5.5 with `spatial` and `httpfs`, native Google Maps JavaScript API, Overture
-Maps release `2026-07-22.0`, Node's and Python's built-in test runners, Biome.
+Maps release `2026-06-17.0`, Node's and Python's built-in test runners, Biome.
 
 ## Global Constraints
 
 - Read `PRODUCT.md` and `IMPLEMENTATION_PLAN.md` before executing any task.
 - Implement only the approved Phase 2 amendment; stop at its human-review checkpoint.
 - Keep Streetlight deterministic and AI-free.
-- Use Overture release `2026-07-22.0`; do not silently float to a newer release.
+- Use Overture release `2026-06-17.0`; do not silently float to a newer release.
 - Import only a bounding box enclosing the requested circle, while retaining complete source
   lines that touch that box.
 - Always retain named `residential` and `living_street` roads.
@@ -113,7 +113,7 @@ test('proof data and an expanded footprint require imports', () => {
     needsTerritoryImport(
       {
         kind: 'overture',
-        release: '2026-07-22.0',
+        release: '2026-06-17.0',
         center: draft.center,
         radiusMiles: 0.5,
         completedAt: '2026-07-27T12:00:00.000Z',
@@ -129,7 +129,7 @@ test('exclusion changes and radius reductions reuse a current footprint', () => 
     needsTerritoryImport(
       {
         kind: 'overture',
-        release: '2026-07-22.0',
+        release: '2026-06-17.0',
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
@@ -225,7 +225,7 @@ Create the pure decision helper:
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import type { Position } from './territory-geometry.ts';
 
-export const OVERTURE_RELEASE = '2026-07-22.0';
+export const OVERTURE_RELEASE = '2026-06-17.0';
 
 export type TerritoryImportMetadata = {
   kind: 'proof' | 'overture';
@@ -465,7 +465,11 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
     west, south, east, north = enclosing_bbox(longitude, latitude, radius_miles)
     connection = duckdb.connect()
     connection.execute("INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs")
-    release = "2026-07-22.0"
+    connection.execute("SET s3_region='us-west-2'")
+    connection.execute("SET s3_access_key_id=''")
+    connection.execute("SET s3_secret_access_key=''")
+    connection.execute("SET s3_session_token=''")
+    release = "2026-06-17.0"
     segments = query_bbox(
         connection,
         f"s3://overturemaps-us-west-2/release/{release}/theme=transportation/type=segment/*",
@@ -473,7 +477,7 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
     )
     addresses = query_bbox(
         connection,
-        f"s3://overturemaps-us-west-2/release/{release}/theme=addresses/type=address/*",
+        f"s3://overturemaps-us-west-2/release/{release}/theme=addresses/type=*/*",
         west, south, east, north,
     )
     return segments, addresses
@@ -484,7 +488,7 @@ source feature touching the bbox, and select only fields used by the normalizer.
 
 ```py
 print(json.dumps({
-    "release": "2026-07-22.0",
+    "release": "2026-06-17.0",
     "center": [args.longitude, args.latitude],
     "radiusMiles": args.radius_miles,
     "completedAt": datetime.now(timezone.utc).isoformat(),
@@ -559,7 +563,7 @@ test('an imported save atomically replaces proof segments and records its footpr
   });
   const saved = getTerritoryWorkspace(filename);
   assert.equal(saved.import.kind, 'overture');
-  assert.equal(saved.import.release, '2026-07-22.0');
+  assert.equal(saved.import.release, '2026-06-17.0');
   assert.equal(saved.segments.length, 2);
   assert.equal(saved.segments.find((segment) => segment.id === 'one').roadClass, 'residential');
 });

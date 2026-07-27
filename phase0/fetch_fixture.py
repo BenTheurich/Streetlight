@@ -8,16 +8,14 @@ from pathlib import Path
 
 import duckdb
 
-RELEASE = "2026-07-22.0"
+RELEASE = "2026-06-17.0"
 ADDRESS_URL = (
-    "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/"
-    f"release/{RELEASE}/theme=addresses/type=address/"
-    "part-00009-2024102b-bc3f-55c9-a212-12336812ff09-c000.zstd.parquet"
+    f"s3://overturemaps-us-west-2/release/{RELEASE}/"
+    "theme=addresses/type=*/*"
 )
 SEGMENT_URL = (
-    "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/"
-    f"release/{RELEASE}/theme=transportation/type=segment/"
-    "part-00004-1ca898db-5b9a-5af5-a460-bb1fc537acf1-c000.zstd.parquet"
+    f"s3://overturemaps-us-west-2/release/{RELEASE}/"
+    "theme=transportation/type=segment/*"
 )
 PACKET_BBOX = [-117.123, 33.539, -117.112, 33.553]
 OUTPUT = Path(__file__).with_name("fixture.json")
@@ -27,6 +25,12 @@ def main() -> None:
     connection = duckdb.connect()
     connection.install_extension("spatial")
     connection.load_extension("spatial")
+    connection.install_extension("httpfs")
+    connection.load_extension("httpfs")
+    connection.execute("SET s3_region='us-west-2'")
+    connection.execute("SET s3_access_key_id=''")
+    connection.execute("SET s3_secret_access_key=''")
+    connection.execute("SET s3_session_token=''")
 
     west, south, east, north = PACKET_BBOX
     addresses = [

@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "overture_release": "2026-07-22.0",
+    "overture_release": "historical-unverified-prototype",
     "extracted_on": "2026-07-27",
     "church": {
       "address": "31087 Nicolas Rd, Temecula, CA 92591, United States",
@@ -20,8 +20,8 @@
       "Seraphina Road"
     ],
     "sources": {
-      "addresses": "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/release/2026-07-22.0/theme=addresses/type=address/part-00009-2024102b-bc3f-55c9-a212-12336812ff09-c000.zstd.parquet",
-      "transportation": "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/release/2026-07-22.0/theme=transportation/type=segment/part-00004-1ca898db-5b9a-5af5-a460-bb1fc537acf1-c000.zstd.parquet"
+      "addresses": "historical-unverified-prototype",
+      "transportation": "historical-unverified-prototype"
     },
     "attribution": "OpenStreetMap contributors, Overture Maps Foundation"
   },

@@ -4,10 +4,13 @@ import type { TerritorySegment, TerritoryWorkspace } from './database.ts';
 import {
   affectedByExclusion,
   deriveTerritory,
+  hasUnsavedTerritoryChanges,
+  moveVertexWithArrowKey,
   nextExclusionName,
   territoryDraftFromWorkspace,
 } from './territory-client.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
+import type { Position } from './territory-geometry.ts';
 
 const segments: TerritorySegment[] = [
   {
@@ -140,5 +143,42 @@ test('default exclusion names skip names that already exist', () => {
       { ...draft.exclusions[0], id: 'exclude-3', name: 'Excluded area 3' },
     ]),
     'Excluded area 2',
+  );
+});
+
+test('arrow keys move only the focused polygon vertex by a deterministic step', () => {
+  const points: Position[] = [
+    [10, 20],
+    [30, 40],
+  ];
+
+  assert.deepEqual(moveVertexWithArrowKey(points, 1, 'ArrowUp'), [
+    [10, 20],
+    [30, 40.00005],
+  ]);
+  assert.deepEqual(moveVertexWithArrowKey(points, 1, 'ArrowDown'), [
+    [10, 20],
+    [30, 39.99995],
+  ]);
+  assert.deepEqual(moveVertexWithArrowKey(points, 1, 'ArrowLeft'), [
+    [10, 20],
+    [29.99995, 40],
+  ]);
+  assert.deepEqual(moveVertexWithArrowKey(points, 1, 'ArrowRight'), [
+    [10, 20],
+    [30.00005, 40],
+  ]);
+  assert.deepEqual(points, [
+    [10, 20],
+    [30, 40],
+  ]);
+});
+
+test('unfinished drawing points count as unsaved territory changes', () => {
+  assert.equal(hasUnsavedTerritoryChanges(draft, structuredClone(draft), []), false);
+  assert.equal(hasUnsavedTerritoryChanges(draft, structuredClone(draft), [[0, 0]]), true);
+  assert.equal(
+    hasUnsavedTerritoryChanges(draft, { ...structuredClone(draft), radiusMiles: 2 }, []),
+    true,
   );
 });

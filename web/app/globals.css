@@ -624,11 +624,33 @@ textarea {
   color: var(--ink);
 }
 
-.exclusion-editor p {
-  margin: 0;
+.vertex-controls {
+  margin: 0.65rem 0 0;
+  padding: 0.55rem;
+  border: 1px solid #ded7ca;
+  border-radius: 7px;
+}
+
+.vertex-controls legend {
+  padding: 0 0.25rem;
   color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.vertex-controls div {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.35rem;
+}
+
+.vertex-controls button {
+  min-height: 32px;
+  padding: 0.35rem;
+  border-color: var(--line);
+  background: white;
+  color: var(--ink);
   font-size: 0.65rem;
-  line-height: 1.4;
 }
 
 .sidebar-actions {
