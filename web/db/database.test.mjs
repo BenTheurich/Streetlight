@@ -3,7 +3,7 @@ import test from 'node:test';
 import { migrateDatabase, openDatabase } from './migrate.mjs';
 import { seedDatabase } from './seed.mjs';
 
-test('migration and seed create the complete church-owned foundation graph', () => {
+test('migration and seed create the church-owned Phase 2 territory graph', () => {
   const database = openDatabase(':memory:');
 
   migrateDatabase(database);
@@ -20,38 +20,24 @@ test('migration and seed create the complete church-owned foundation graph', () 
     'batches',
     'packets',
     'packet_segments',
+    'ignore_zones',
   ];
 
   for (const table of expectedTables) {
-    assert.equal(database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count, 1);
+    const expected = table === 'street_segments' ? 55 : table === 'ignore_zones' ? 0 : 1;
+    assert.equal(database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count, expected);
   }
 
-  const graph = database
+  const segments = database
     .prepare(
-      `SELECT c.id AS church_id, t.id AS territory_id, s.id AS segment_id,
-        b.id AS batch_id, p.id AS packet_id, ps.sequence_number
-      FROM churches c
-      JOIN territories t ON t.church_id = c.id
-      JOIN street_segments s ON s.territory_id = t.id AND s.church_id = c.id
-      JOIN batches b ON b.church_id = c.id
-      JOIN packets p ON p.batch_id = b.id AND p.church_id = c.id
-      JOIN packet_segments ps ON ps.packet_id = p.id
-        AND ps.street_segment_id = s.id
-        AND ps.church_id = c.id`,
+      `SELECT COUNT(*) AS count, SUM(estimated_homes) AS homes,
+        COUNT(DISTINCT church_id) AS churches
+      FROM street_segments
+      WHERE church_id = ? AND territory_id = ?`,
     )
-    .get();
+    .get('church-temecula-pilot', 'territory-temecula-pilot');
 
-  assert.deepEqual(
-    { ...graph },
-    {
-      church_id: 'church-temecula-pilot',
-      territory_id: 'territory-temecula-pilot',
-      segment_id: 'segment-foundation-001',
-      batch_id: 'batch-foundation-001',
-      packet_id: 'packet-foundation-001',
-      sequence_number: 0,
-    },
-  );
+  assert.deepEqual({ ...segments }, { count: 55, homes: 427, churches: 1 });
 
   database.close();
 });

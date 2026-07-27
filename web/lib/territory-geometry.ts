@@ -37,18 +37,36 @@ function distanceMiles(first: Position, second: Position): number {
   return 2 * EARTH_RADIUS_MILES * Math.asin(Math.sqrt(haversine));
 }
 
-export function lineInsideCircle(
-  line: LineString,
-  center: Position,
-  radiusMiles: number,
-): boolean {
+export function lineInsideCircle(line: LineString, center: Position, radiusMiles: number): boolean {
   return line.coordinates.every((point) => distanceMiles(point, center) <= radiusMiles + EPSILON);
+}
+
+export function circleBoundary(center: Position, radiusMiles: number, vertices = 32): Polygon {
+  const angularDistance = radiusMiles / EARTH_RADIUS_MILES;
+  const latitude = (center[1] * Math.PI) / 180;
+  const longitude = (center[0] * Math.PI) / 180;
+  const points: Position[] = [];
+
+  for (let index = 0; index < vertices; index += 1) {
+    const bearing = Math.PI / 2 + (index / vertices) * Math.PI * 2;
+    const nextLatitude = Math.asin(
+      Math.sin(latitude) * Math.cos(angularDistance) +
+        Math.cos(latitude) * Math.sin(angularDistance) * Math.cos(bearing),
+    );
+    const nextLongitude =
+      longitude +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latitude),
+        Math.cos(angularDistance) - Math.sin(latitude) * Math.sin(nextLatitude),
+      );
+    points.push([(nextLongitude * 180) / Math.PI, (nextLatitude * 180) / Math.PI]);
+  }
+  return closePolygon(points);
 }
 
 function pointOnLine(point: Position, start: Position, end: Position): boolean {
   const cross =
-    (point[1] - start[1]) * (end[0] - start[0]) -
-    (point[0] - start[0]) * (end[1] - start[1]);
+    (point[1] - start[1]) * (end[0] - start[0]) - (point[0] - start[0]) * (end[1] - start[1]);
   if (Math.abs(cross) > EPSILON) {
     return false;
   }
@@ -71,8 +89,7 @@ function pointInPolygon(point: Position, polygon: Polygon): boolean {
     }
     if (
       end[1] > point[1] !== start[1] > point[1] &&
-      point[0] <
-        ((start[0] - end[0]) * (point[1] - end[1])) / (start[1] - end[1]) + end[0]
+      point[0] < ((start[0] - end[0]) * (point[1] - end[1])) / (start[1] - end[1]) + end[0]
     ) {
       inside = !inside;
     }
@@ -139,8 +156,7 @@ export function polygonIsSimple(polygon: Polygon): boolean {
   const edgeCount = ring.length - 1;
   for (let first = 0; first < edgeCount; first += 1) {
     for (let second = first + 1; second < edgeCount; second += 1) {
-      const adjacent =
-        second === first + 1 || (first === 0 && second === edgeCount - 1);
+      const adjacent = second === first + 1 || (first === 0 && second === edgeCount - 1);
       if (
         !adjacent &&
         linesIntersect(ring[first], ring[first + 1], ring[second], ring[second + 1])

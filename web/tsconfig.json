@@ -25,6 +25,7 @@
       }
     ],
     "allowJs": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "incremental": true,
     "esModuleInterop": true

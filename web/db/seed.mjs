@@ -1,98 +1,120 @@
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { migrateDatabase, openDatabase } from './migrate.mjs';
 
-const seedStatements = [
-  {
-    sql: 'INSERT OR IGNORE INTO churches (id, name) VALUES (?, ?)',
-    values: ['church-temecula-pilot', 'Temecula Pilot Church'],
-  },
-  {
-    sql: `INSERT OR IGNORE INTO administrators
-      (id, church_id, email, display_name) VALUES (?, ?, ?, ?)`,
-    values: [
-      'admin-local-founder',
-      'church-temecula-pilot',
-      'admin@streetlight.local',
-      'Local Administrator',
-    ],
-  },
-  {
-    sql: `INSERT OR IGNORE INTO territories
-      (id, church_id, name, center_latitude, center_longitude, radius_meters, boundary_geojson)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    values: [
-      'territory-temecula-pilot',
-      'church-temecula-pilot',
-      'Temecula and Murrieta',
-      33.54293,
-      -117.116885,
-      16093.4,
-      '{"type":"Polygon","coordinates":[[[-117.29,33.40],[-116.94,33.40],[-116.94,33.69],[-117.29,33.69],[-117.29,33.40]]]}',
-    ],
-  },
-  {
-    sql: `INSERT OR IGNORE INTO street_segments
-      (id, church_id, territory_id, street_name, geometry_geojson, estimated_homes)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-    values: [
-      'segment-foundation-001',
-      'church-temecula-pilot',
-      'territory-temecula-pilot',
-      'Nicolas Road',
-      '{"type":"LineString","coordinates":[[-117.1172,33.5428],[-117.1162,33.5431]]}',
-      12,
-    ],
-  },
-  {
-    sql: `INSERT OR IGNORE INTO batches
-      (id, church_id, name, status, finalized_at) VALUES (?, ?, ?, ?, ?)`,
-    values: [
-      'batch-foundation-001',
-      'church-temecula-pilot',
-      'Foundation sample',
-      'reconciled',
-      '2026-07-27T12:00:00Z',
-    ],
-  },
-  {
-    sql: `INSERT OR IGNORE INTO packets
-      (id, church_id, batch_id, packet_code, start_address, estimated_homes, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    values: [
-      'packet-foundation-001',
-      'church-temecula-pilot',
-      'batch-foundation-001',
-      'TEM-FOUNDATION-001',
-      '31087 Nicolas Rd, Temecula, CA 92591',
-      12,
-      'completed',
-    ],
-  },
-  {
-    sql: `INSERT OR IGNORE INTO packet_segments
-      (church_id, packet_id, street_segment_id, sequence_number) VALUES (?, ?, ?, ?)`,
-    values: ['church-temecula-pilot', 'packet-foundation-001', 'segment-foundation-001', 0],
-  },
-  {
-    sql: `INSERT OR IGNORE INTO coverage_events
-      (id, church_id, street_segment_id, covered_on, kind) VALUES (?, ?, ?, ?, ?)`,
-    values: [
-      'coverage-foundation-001',
-      'church-temecula-pilot',
-      'segment-foundation-001',
-      '2026-07-27',
-      'completed',
-    ],
-  },
-];
+const fixture = JSON.parse(
+  readFileSync(new URL('./fixtures/temecula-segments.json', import.meta.url), 'utf8'),
+);
+const churchId = 'church-temecula-pilot';
+const territoryId = 'territory-temecula-pilot';
+const sampleSegment = fixture.segments[0];
 
 export function seedDatabase(database) {
   database.exec('BEGIN IMMEDIATE');
   try {
-    for (const statement of seedStatements) {
-      database.prepare(statement.sql).run(...statement.values);
+    database
+      .prepare('INSERT OR IGNORE INTO churches (id, name) VALUES (?, ?)')
+      .run(churchId, 'Temecula Pilot Church');
+    database
+      .prepare(
+        `INSERT OR IGNORE INTO administrators
+          (id, church_id, email, display_name) VALUES (?, ?, ?, ?)`,
+      )
+      .run('admin-local-founder', churchId, 'admin@streetlight.local', 'Local Administrator');
+    database
+      .prepare(
+        `INSERT OR IGNORE INTO territories
+          (id, church_id, name, center_latitude, center_longitude, radius_meters,
+            boundary_geojson, origin_address)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        territoryId,
+        churchId,
+        'Temecula and Murrieta',
+        fixture.territory.center[1],
+        fixture.territory.center[0],
+        fixture.territory.radius_miles * 1609.344,
+        JSON.stringify(fixture.territory.boundary),
+        fixture.territory.origin_address,
+      );
+
+    database
+      .prepare(
+        `UPDATE territories
+        SET center_latitude = ?, center_longitude = ?, radius_meters = ?,
+          boundary_geojson = ?, origin_address = ?
+        WHERE id = ? AND origin_address = ''`,
+      )
+      .run(
+        fixture.territory.center[1],
+        fixture.territory.center[0],
+        fixture.territory.radius_miles * 1609.344,
+        JSON.stringify(fixture.territory.boundary),
+        fixture.territory.origin_address,
+        territoryId,
+      );
+
+    const insertSegment = database.prepare(
+      `INSERT OR IGNORE INTO street_segments
+        (id, church_id, territory_id, source_segment_id, street_name,
+          geometry_geojson, estimated_homes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    );
+    for (const segment of fixture.segments) {
+      insertSegment.run(
+        segment.id,
+        churchId,
+        territoryId,
+        segment.source_segment_id,
+        segment.street_name,
+        JSON.stringify(segment.geometry),
+        segment.estimated_homes,
+      );
     }
+
+    database
+      .prepare(
+        `INSERT OR IGNORE INTO batches
+          (id, church_id, name, status, finalized_at) VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(
+        'batch-foundation-001',
+        churchId,
+        'Foundation sample',
+        'reconciled',
+        '2026-07-27T12:00:00Z',
+      );
+    database
+      .prepare(
+        `INSERT OR IGNORE INTO packets
+          (id, church_id, batch_id, packet_code, start_address, estimated_homes, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        'packet-foundation-001',
+        churchId,
+        'batch-foundation-001',
+        'TEM-FOUNDATION-001',
+        fixture.territory.origin_address,
+        sampleSegment.estimated_homes,
+        'completed',
+      );
+    database
+      .prepare(
+        `INSERT OR IGNORE INTO packet_segments
+          (church_id, packet_id, street_segment_id, sequence_number)
+          VALUES (?, ?, ?, ?)`,
+      )
+      .run(churchId, 'packet-foundation-001', sampleSegment.id, 0);
+    database
+      .prepare(
+        `INSERT OR IGNORE INTO coverage_events
+          (id, church_id, street_segment_id, covered_on, kind)
+          VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run('coverage-foundation-001', churchId, sampleSegment.id, '2026-07-27', 'completed');
     database.exec('COMMIT');
   } catch (error) {
     database.exec('ROLLBACK');

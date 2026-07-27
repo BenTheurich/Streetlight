@@ -138,7 +138,7 @@ git commit -m "feat: define territory eligibility geometry"
 - Produces: `parseTerritoryDraft(value: unknown): TerritoryDraftInput`.
 - Produces: `saveTerritoryDraft(draft: TerritoryDraftInput, filename?: string): void`.
 
-- [ ] **Step 1: Replace the prototype persistence test with failing complete-draft checks**
+- [x] **Step 1: Replace the prototype persistence test with failing complete-draft checks**
 
 The test creates a temporary database, saves a smaller radius and two exclusions in one call,
 reloads, verifies the exact draft, checks live totals, then saves a renamed/reshaped/deleted
@@ -154,32 +154,32 @@ saveTerritoryDraft({
 assert.equal(getTerritoryWorkspace(filename).exclusions[0].name, 'School');
 ```
 
-- [ ] **Step 2: Run the focused persistence test and verify it fails**
+- [x] **Step 2: Run the focused persistence test and verify it fails**
 
 Run: `pnpm --dir web exec node --experimental-strip-types --test lib/territory.test.ts`
 
 Expected: FAIL because the complete-draft API does not exist.
 
-- [ ] **Step 3: Simplify the migration and seed to read-only imported street data**
+- [x] **Step 3: Simplify the migration and seed to read-only imported street data**
 
 Keep `source_segment_id`, `geometry_geojson`, and `estimated_homes`. Remove the prototype's
 duplicate editable/imported columns. Keep the internal SQL table name `ignore_zones`; expose
 those rows as `exclusions` in the setup-page contract.
 
-- [ ] **Step 4: Implement the workspace query and transaction**
+- [x] **Step 4: Implement the workspace query and transaction**
 
 `getTerritoryWorkspace()` derives eligibility from the saved center/radius and every exclusion.
 `saveTerritoryDraft()` uses `BEGIN IMMEDIATE`, updates address/center/radius plus the derived
 circle GeoJSON, replaces the church territory's exclusions, and commits. Every failure rolls
 back before rethrowing.
 
-- [ ] **Step 5: Add request-boundary validation**
+- [x] **Step 5: Add request-boundary validation**
 
 `parseTerritoryDraft()` rejects unknown shapes, an empty or 300+ character address, coordinates
 outside WGS84 limits, radius outside 1–20, duplicate exclusion IDs, more than 100 exclusions,
 names over 100 characters, rings outside 4–200 closed positions, and self-intersections.
 
-- [ ] **Step 6: Replace action-based PATCH with one complete-draft PATCH**
+- [x] **Step 6: Replace action-based PATCH with one complete-draft PATCH**
 
 ```ts
 export async function PATCH(request: Request) {
@@ -194,7 +194,7 @@ export async function PATCH(request: Request) {
 
 There is no segment-update route.
 
-- [ ] **Step 7: Run database, draft, and canonical checks**
+- [x] **Step 7: Run database, draft, and canonical checks**
 
 Run: `pnpm --dir web test`
 
@@ -205,7 +205,7 @@ Run: `pnpm --dir web typecheck`
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit the persistence slice**
+- [x] **Step 8: Commit the persistence slice**
 
 ```bash
 git add web/db web/lib/database.ts web/lib/territory-draft.ts web/lib/territory.test.ts web/app/api/territory/route.ts

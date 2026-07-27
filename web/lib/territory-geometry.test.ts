@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  circleBoundary,
   closePolygon,
   type LineString,
   lineInsideCircle,
@@ -130,4 +131,12 @@ test('closing a polygon adds one closing coordinate', () => {
       ],
     },
   );
+});
+
+test('a circle boundary is closed at the requested radius', () => {
+  const boundary = circleBoundary([0, 0], 1);
+  assert.equal(boundary.coordinates[0].length, 33);
+  assert.deepEqual(boundary.coordinates[0][0], boundary.coordinates[0].at(-1));
+  assert.ok(Math.abs(boundary.coordinates[0][0][0] - 0.01447) < 0.0001);
+  assert.ok(Math.abs(boundary.coordinates[0][0][1]) < 1e-10);
 });
