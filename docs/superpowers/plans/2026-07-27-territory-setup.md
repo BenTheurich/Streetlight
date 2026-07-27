@@ -39,6 +39,8 @@ native Google Maps JavaScript API, Node's built-in test runner, Biome.
 - `web/lib/territory-geometry.test.ts`: focused geometry regression checks.
 - `web/lib/database.ts`: workspace read model and atomic complete-draft save.
 - `web/lib/territory-draft.ts`: request-boundary parsing and validation.
+- `web/lib/territory-client.ts`: browser-draft conversion, live eligibility, and impact totals.
+- `web/lib/territory-client.test.ts`: focused live-draft behavior checks.
 - `web/lib/google-maps-server.ts`: read server/browser key configuration and geocode an address.
 - `web/lib/google-maps-server.test.ts`: mock-fetch geocoding checks.
 - `web/db/migrations/002_territory_setup.sql`: add the Phase 2 address, source ID, and exclusion table.
@@ -273,6 +275,8 @@ git commit -m "feat: add server-side territory geocoding"
 **Files:**
 - Create: `web/components/TerritoryMap.tsx`
 - Replace: `web/components/TerritoryEditor.tsx`
+- Create: `web/lib/territory-client.ts`
+- Create: `web/lib/territory-client.test.ts`
 - Create: `web/app/territory/page.tsx`
 - Replace: `web/app/page.tsx`
 - Replace: `web/app/globals.css`
@@ -287,33 +291,34 @@ git commit -m "feat: add server-side territory geocoding"
 - Produces: `<TerritoryMap apiKey draft segments mode selectedExclusionId ... />`.
 - Produces: `<TerritoryEditor initialData mapsApiKey />`.
 
-- [ ] **Step 1: Make the new route fail visibly before adding its page**
+- [x] **Step 1: Write and run failing live-draft behavior tests**
 
-Run: `pnpm --dir web build`
+Run: `pnpm --dir web exec node --experimental-strip-types --test lib/territory-client.test.ts`
 
-Expected: the existing application still builds only the rejected root static-map prototype;
-there is no `/territory` route or interactive Google map.
+Expected: FAIL because `territory-client.ts` does not exist. The tests cover live radius and
+polygon eligibility, totals, exclusion impact, saved-workspace conversion, and generated names.
 
-- [ ] **Step 2: Add the separate setup route and dashboard stub**
+- [x] **Step 2: Add the separate setup route and dashboard stub**
 
 `/territory` loads the workspace and browser key on the server. `/` remains a minimal Coverage
 Dashboard stub with one `Territory setup` link; it does not implement Phase 3 colors or
 statistics.
 
-- [ ] **Step 3: Load the native Google map without a wrapper**
+- [x] **Step 3: Load the native Google map without a wrapper**
 
 Create one script promise per page, initialize a normal interactive road map, and render a
-clear unavailable state when the browser key is absent or Google fails to load. Automated
+clear unavailable state when the browser key is absent or Google fails to load. Use only the
+official compile-time `@types/google.maps` declarations; add no runtime wrapper. Automated
 builds must not contact Google.
 
-- [ ] **Step 4: Render radius, church marker, segments, and exclusion overlays**
+- [x] **Step 4: Render radius, church marker, segments, and exclusion overlays**
 
 Use native `google.maps.Circle`, `Marker`, `Polyline`, and editable `Polygon` objects. Eligible
 segments are solid orange; excluded segments are gray with a distinct dash pattern. Keep the
 legend visible. Recalculate styles and totals from the browser draft whenever the radius,
 center, or polygon coordinates change.
 
-- [ ] **Step 5: Implement the single polygon drawing/editing flow**
+- [x] **Step 5: Implement the single polygon drawing/editing flow**
 
 `Pan` is the default mode. `Draw exclusion` adds map-click coordinates. At three distinct
 points, enable `Finish polygon`; support undo/cancel. Reject a self-intersection while keeping
@@ -323,22 +328,22 @@ editable vertices, name, affected counts, `Done editing`, and `Delete`.
 For keyboard input, `Enter` adds the current map-center point in draw mode, polygon rows and
 actions remain keyboard reachable, and focused native map controls retain Google pan/zoom.
 
-- [ ] **Step 6: Implement address, radius, save, cancel, and navigation protection**
+- [x] **Step 6: Implement address, radius, save, cancel, and navigation protection**
 
 The slider and numeric field share one 1–20 value. `Change` opens a focused address lookup;
 `Use address` confirms the new center while preserving polygon coordinates. `Save changes`
 PATCHes the whole draft. `Cancel` restores `initialData`. A `beforeunload` handler warns only
 when the serialized draft differs from the saved workspace.
 
-- [ ] **Step 7: Run formatter, lint, typecheck, tests, and production build**
+- [x] **Step 7: Run formatter, lint, typecheck, tests, and production build**
 
-Run: `pnpm --dir web exec biome check --write app components lib db`
+Run: `pnpm --dir web lint --write`
 
 Run: `pnpm check`
 
 Expected: every command passes without a Google credential.
 
-- [ ] **Step 8: Commit the interactive page**
+- [x] **Step 8: Commit the interactive page**
 
 ```bash
 git add web/app web/components web/lib web/biome.json web/tsconfig.json

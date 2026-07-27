@@ -1,0 +1,310 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import type { ExclusionArea, TerritorySegment } from '@/lib/database';
+import { circleBoundary, type Position } from '@/lib/territory-geometry';
+
+let mapsPromise: Promise<typeof google.maps> | undefined;
+
+function loadGoogleMaps(apiKey: string): Promise<typeof google.maps> {
+  if (window.google?.maps) {
+    return Promise.resolve(window.google.maps);
+  }
+  if (!mapsPromise) {
+    mapsPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
+      script.async = true;
+      script.onload = () =>
+        window.google?.maps ? resolve(window.google.maps) : reject(new Error('Map unavailable'));
+      script.onerror = () => reject(new Error('Map unavailable'));
+      document.head.append(script);
+    });
+  }
+  return mapsPromise;
+}
+
+function latLng(position: Position): google.maps.LatLngLiteral {
+  return { lat: position[1], lng: position[0] };
+}
+
+function positions(path: google.maps.MVCArray<google.maps.LatLng>): Position[] {
+  return path.getArray().map((point) => [point.lng(), point.lat()]);
+}
+
+type TerritoryMapProps = {
+  apiKey: string;
+  center: Position;
+  radiusMiles: number;
+  segments: TerritorySegment[];
+  exclusions: ExclusionArea[];
+  selectedExclusionId: string | null;
+  drawing: boolean;
+  drawingPoints: Position[];
+  onAddDrawingPoint: (point: Position) => void;
+  onDrawingPointsChange: (points: Position[]) => void;
+  onExclusionChange: (id: string, points: Position[]) => void;
+  onSelectExclusion: (id: string) => void;
+};
+
+export function TerritoryMap({
+  apiKey,
+  center,
+  radiusMiles,
+  segments,
+  exclusions,
+  selectedExclusionId,
+  drawing,
+  drawingPoints,
+  onAddDrawingPoint,
+  onDrawingPointsChange,
+  onExclusionChange,
+  onSelectExclusion,
+}: TerritoryMapProps) {
+  const elementRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const drawingRef = useRef(drawing);
+  const addPointRef = useRef(onAddDrawingPoint);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(apiKey ? 'loading' : 'error');
+
+  drawingRef.current = drawing;
+  addPointRef.current = onAddDrawingPoint;
+
+  useEffect(() => {
+    if (!apiKey || !elementRef.current) {
+      return;
+    }
+    let disposed = false;
+    loadGoogleMaps(apiKey)
+      .then((maps) => {
+        if (disposed || !elementRef.current) {
+          return;
+        }
+        const map = new maps.Map(elementRef.current, {
+          center: latLng(center),
+          zoom: 11,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          clickableIcons: false,
+        });
+        map.addListener('click', (event: google.maps.MapMouseEvent) => {
+          if (drawingRef.current && event.latLng) {
+            addPointRef.current([event.latLng.lng(), event.latLng.lat()]);
+          }
+        });
+        mapRef.current = map;
+        setStatus('ready');
+      })
+      .catch(() => {
+        if (!disposed) {
+          setStatus('error');
+        }
+      });
+    return () => {
+      disposed = true;
+      if (mapRef.current) {
+        google.maps.event.clearInstanceListeners(mapRef.current);
+      }
+      mapRef.current = null;
+    };
+  }, [apiKey, center]);
+
+  useEffect(() => {
+    mapRef.current?.panTo(latLng(center));
+  }, [center]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready') {
+      return;
+    }
+    const marker = new google.maps.Marker({ map, position: latLng(center), title: 'Church' });
+    return () => marker.setMap(null);
+  }, [center, status]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready') {
+      return;
+    }
+    const fill = new google.maps.Circle({
+      map,
+      center: latLng(center),
+      radius: radiusMiles * 1609.344,
+      fillColor: '#df6d32',
+      fillOpacity: 0.025,
+      strokeOpacity: 0,
+      clickable: false,
+    });
+    const ring = new google.maps.Polyline({
+      map,
+      path: circleBoundary(center, radiusMiles).coordinates[0].map(latLng),
+      strokeOpacity: 0,
+      clickable: false,
+      icons: [
+        {
+          icon: {
+            path: 'M 0,-1 0,1',
+            strokeColor: '#df6d32',
+            strokeOpacity: 1,
+            strokeWeight: 3,
+          },
+          offset: '0',
+          repeat: '12px',
+        },
+      ],
+    });
+    return () => {
+      fill.setMap(null);
+      ring.setMap(null);
+    };
+  }, [center, radiusMiles, status]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready') {
+      return;
+    }
+    const lines = segments.map(
+      (segment) =>
+        new google.maps.Polyline({
+          map,
+          path: segment.geometry.coordinates.map(latLng),
+          strokeColor: segment.eligible ? '#df6d32' : '#77736c',
+          strokeOpacity: segment.eligible ? 0.92 : 0.78,
+          strokeWeight: segment.eligible ? 6 : 7,
+          clickable: false,
+          zIndex: 2,
+          icons: segment.eligible
+            ? undefined
+            : [
+                {
+                  icon: {
+                    path: 'M 0,-1 0,1',
+                    strokeColor: '#77736c',
+                    strokeOpacity: 1,
+                    strokeWeight: 3,
+                  },
+                  offset: '0',
+                  repeat: '11px',
+                },
+              ],
+        }),
+    );
+    return () => {
+      for (const line of lines) {
+        line.setMap(null);
+      }
+    };
+  }, [segments, status]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready') {
+      return;
+    }
+    const polygons = exclusions.map((exclusion) => {
+      const editable = exclusion.id === selectedExclusionId && !drawing;
+      const polygon = new google.maps.Polygon({
+        map,
+        paths: exclusion.geometry.coordinates[0].slice(0, -1).map(latLng),
+        fillColor: '#a9403a',
+        fillOpacity: editable ? 0.3 : 0.2,
+        strokeColor: '#a9403a',
+        strokeOpacity: 0.95,
+        strokeWeight: editable ? 3 : 2,
+        editable,
+        clickable: true,
+        zIndex: 3,
+      });
+      polygon.addListener('click', () => onSelectExclusion(exclusion.id));
+      if (editable) {
+        const path = polygon.getPath();
+        const update = () => onExclusionChange(exclusion.id, positions(path));
+        path.addListener('set_at', update);
+        path.addListener('insert_at', update);
+        path.addListener('remove_at', update);
+      }
+      return polygon;
+    });
+    return () => {
+      for (const polygon of polygons) {
+        google.maps.event.clearInstanceListeners(polygon);
+        google.maps.event.clearInstanceListeners(polygon.getPath());
+        polygon.setMap(null);
+      }
+    };
+  }, [drawing, exclusions, onExclusionChange, onSelectExclusion, selectedExclusionId, status]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready' || !drawing || drawingPoints.length === 0) {
+      return;
+    }
+    if (drawingPoints.length < 3) {
+      const line = new google.maps.Polyline({
+        map,
+        path: drawingPoints.map(latLng),
+        strokeColor: '#a9403a',
+        strokeOpacity: 0.95,
+        strokeWeight: 3,
+        clickable: false,
+        zIndex: 4,
+      });
+      return () => line.setMap(null);
+    }
+
+    const polygon = new google.maps.Polygon({
+      map,
+      paths: drawingPoints.map(latLng),
+      fillColor: '#a9403a',
+      fillOpacity: 0.25,
+      strokeColor: '#a9403a',
+      strokeOpacity: 1,
+      strokeWeight: 3,
+      editable: true,
+      clickable: false,
+      zIndex: 4,
+    });
+    const path = polygon.getPath();
+    const update = () => onDrawingPointsChange(positions(path));
+    path.addListener('set_at', update);
+    path.addListener('insert_at', update);
+    path.addListener('remove_at', update);
+    return () => {
+      google.maps.event.clearInstanceListeners(path);
+      polygon.setMap(null);
+    };
+  }, [drawing, drawingPoints, onDrawingPointsChange, status]);
+
+  if (!apiKey) {
+    return (
+      <div className="map-unavailable" role="status">
+        <strong>Interactive map unavailable</strong>
+        <span>Add the browser map key described in ENVIRONMENTS.md.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      aria-label="Interactive outreach territory map"
+      className="google-map"
+      onKeyDown={(event) => {
+        if (drawing && event.key === 'Enter' && mapRef.current?.getCenter()) {
+          event.preventDefault();
+          const point = mapRef.current.getCenter();
+          if (point) {
+            onAddDrawingPoint([point.lng(), point.lat()]);
+          }
+        }
+      }}
+      ref={elementRef}
+      role="application"
+    >
+      {status === 'loading' && <span className="map-loading">Loading map…</span>}
+      {status === 'error' && <span className="map-loading">Google map could not load.</span>}
+    </div>
+  );
+}
