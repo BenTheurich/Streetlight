@@ -69,7 +69,7 @@ native Google Maps JavaScript API, Node's built-in test runner, Biome.
 - Produces: `lineIntersectsPolygon(line: LineString, polygon: Polygon): boolean`.
 - Produces: `polygonIsSimple(polygon: Polygon): boolean`.
 
-- [ ] **Step 1: Write failing circle and polygon tests**
+- [x] **Step 1: Write failing circle and polygon tests**
 
 ```ts
 test('circle containment includes the boundary and rejects a crossing line', () => {
@@ -83,13 +83,13 @@ test('polygon contact excludes a whole segment and bow-ties are invalid', () => 
 });
 ```
 
-- [ ] **Step 2: Run the focused test and verify it fails**
+- [x] **Step 2: Run the focused test and verify it fails**
 
 Run: `pnpm --dir web exec node --experimental-strip-types --test lib/territory-geometry.test.ts`
 
 Expected: FAIL because `lineInsideCircle` and `polygonIsSimple` are not exported.
 
-- [ ] **Step 3: Replace prototype-only projection/editor helpers with the minimum geometry core**
+- [x] **Step 3: Replace prototype-only projection/editor helpers with the minimum geometry core**
 
 Use a haversine distance for circle containment. Treat polygon boundaries as inside/contact,
 close rings exactly once, and reject self-intersections between non-adjacent edges. Retain the
@@ -105,13 +105,13 @@ export function lineInsideCircle(
 }
 ```
 
-- [ ] **Step 4: Add the focused test to the canonical test command and run it**
+- [x] **Step 4: Add the focused test to the canonical test command and run it**
 
 Run: `pnpm --dir web test`
 
 Expected: PASS for database, territory geometry, and the existing prototype persistence test.
 
-- [ ] **Step 5: Commit the geometry slice**
+- [x] **Step 5: Commit the geometry slice**
 
 ```bash
 git add web/lib/territory-geometry.ts web/lib/territory-geometry.test.ts web/package.json
