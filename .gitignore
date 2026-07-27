@@ -12,6 +12,7 @@ coverage
 tmp
 output
 .superpowers/
+.worktrees/
 __pycache__
 *.pyc
 *.tsbuildinfo
