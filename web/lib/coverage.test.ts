@@ -12,10 +12,17 @@ const asOf = '2026-07-28';
 
 test('coverage classes use every inclusive age boundary and never-covered is red', () => {
   assert.deepEqual(
-    ['2026-04-30', '2026-04-29', '2026-01-30', '2026-01-29', '2025-07-30', '2025-07-28', null].map(
-      (coveredOn) => classifyCoverage(coveredOn, asOf),
-    ),
-    ['green', 'yellow', 'yellow', 'orange', 'orange', 'red', 'red'],
+    [
+      '2026-04-30',
+      '2026-04-29',
+      '2026-01-30',
+      '2026-01-29',
+      '2025-07-30',
+      '2025-07-29',
+      '2025-07-28',
+      null,
+    ].map((coveredOn) => classifyCoverage(coveredOn, asOf)),
+    ['green', 'yellow', 'yellow', 'orange', 'orange', 'orange', 'red', 'red'],
   );
 });
 
@@ -148,9 +155,18 @@ test('eligible period homes include each covered logical segment once at inclusi
         isVoid: false,
       },
       {
+        id: 'a-again',
+        segmentId: 'a',
+        sequence: 3,
+        coveredOn: '2026-05-15',
+        kind: 'completed',
+        correctsEventId: null,
+        isVoid: false,
+      },
+      {
         id: 'c',
         segmentId: 'c',
-        sequence: 3,
+        sequence: 4,
         coveredOn: '2026-04-29',
         kind: 'completed',
         correctsEventId: null,
@@ -166,4 +182,12 @@ test('eligible period homes include each covered logical segment once at inclusi
     ],
   );
   assert.equal(countEligibleHomesCovered(derived, asOf, 90), 8);
+  assert.equal(
+    countEligibleHomesCovered(
+      [{ ...derived[0], lastCoveredOn: '2026-07-29', estimatedHomes: 13 }],
+      asOf,
+      90,
+    ),
+    0,
+  );
 });

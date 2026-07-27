@@ -1026,6 +1026,21 @@ test('coverage boundary appends corrections, retains retired logical history, an
     const otherRoot = recordCoverageCompletion(second.id, '2026-06-01', filename);
     appendCoverageCorrection(root, '2026-07-20', filename);
     appendCoverageCorrection(otherRoot, null, filename);
+    const afterVoid = openDatabase(filename);
+    const afterVoidCount = afterVoid
+      .prepare('SELECT COUNT(*) AS count FROM coverage_events')
+      .get().count;
+    afterVoid.close();
+    assert.throws(
+      () => appendCoverageCorrection(otherRoot, null, filename),
+      /Coverage event is already void/,
+    );
+    const afterSecondVoid = openDatabase(filename);
+    assert.equal(
+      afterSecondVoid.prepare('SELECT COUNT(*) AS count FROM coverage_events').get().count,
+      afterVoidCount,
+    );
+    afterSecondVoid.close();
     appendCoverageCorrection(otherRoot, '2026-07-25', filename);
     const packets = openDatabase(filename);
     packets

@@ -154,11 +154,15 @@ export function countEligibleHomesCovered(
   periodDays: number,
 ): number {
   if (!Number.isInteger(periodDays) || periodDays < 1) throw new Error('Invalid coverage period');
-  const firstDay = utcDay(asOf) - (periodDays - 1);
+  const asOfDay = utcDay(asOf);
+  const firstDay = asOfDay - (periodDays - 1);
   return segments.reduce(
     (total, segment) =>
       total +
-      (segment.eligible && segment.lastCoveredOn && utcDay(segment.lastCoveredOn) >= firstDay
+      (segment.eligible &&
+      segment.lastCoveredOn &&
+      utcDay(segment.lastCoveredOn) >= firstDay &&
+      utcDay(segment.lastCoveredOn) <= asOfDay
         ? segment.estimatedHomes
         : 0),
     0,
