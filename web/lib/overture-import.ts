@@ -11,6 +11,8 @@ const ROAD_CLASSES = new Set([
   'tertiary',
   'unclassified',
 ]);
+const IMPORT_REQUEST_TOLERANCE = 1e-9;
+const IMPORT_TIMEOUT_MS = 15 * 60_000;
 
 export type ImportedTerritorySegment = {
   id: string;
@@ -130,7 +132,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
       segment.geometry.type !== 'LineString' ||
       !Array.isArray(segment.geometry.coordinates) ||
       segment.geometry.coordinates.length < 2 ||
-      !segment.geometry.coordinates.every(isPosition)
+      !segment.geometry.coordinates.every(isGeographicPosition)
     ) {
       failImportOutput();
     }
@@ -157,10 +159,25 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
   };
 }
 
-function readProcess(child: ChildProcessWithoutNullStreams): Promise<string> {
+function readProcess(child: ChildProcessWithoutNullStreams, timeoutMs: number): Promise<string> {
   return new Promise((resolve, reject) => {
     let stdout = '';
     let stderr = '';
+    let settled = false;
+    const finish = (action: () => void) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      action();
+    };
+    const timeout = setTimeout(() => {
+      finish(() => {
+        child.kill();
+        reject(new Error('Overture import timed out'));
+      });
+    }, timeoutMs);
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
     child.stdout.on('data', (chunk: string) => {
@@ -169,21 +186,36 @@ function readProcess(child: ChildProcessWithoutNullStreams): Promise<string> {
     child.stderr.on('data', (chunk: string) => {
       stderr += chunk;
     });
-    child.on('error', reject);
+    child.on('error', (error) => {
+      finish(() => reject(error));
+    });
     child.on('close', (code) => {
-      if (code === 0) {
-        resolve(stdout);
-      } else {
-        reject(new Error(stderr.trim() || `Overture importer exited with code ${code}`));
-      }
+      finish(() => {
+        if (code === 0) {
+          resolve(stdout);
+        } else {
+          reject(new Error(stderr.trim() || `Overture importer exited with code ${code}`));
+        }
+      });
     });
   });
 }
 
 export async function readImporterProcess(
   child: ChildProcessWithoutNullStreams,
+  center: Position,
+  radiusMiles: number,
+  timeoutMs = IMPORT_TIMEOUT_MS,
 ): Promise<ImportedTerritoryInput> {
-  return parseOvertureImportOutput(await readProcess(child));
+  const imported = parseOvertureImportOutput(await readProcess(child, timeoutMs));
+  if (
+    Math.abs(imported.center[0] - center[0]) > IMPORT_REQUEST_TOLERANCE ||
+    Math.abs(imported.center[1] - center[1]) > IMPORT_REQUEST_TOLERANCE ||
+    Math.abs(imported.radiusMiles - radiusMiles) > IMPORT_REQUEST_TOLERANCE
+  ) {
+    throw new Error('Overture import request mismatch');
+  }
+  return imported;
 }
 
 export function runOvertureImport(
@@ -193,5 +225,5 @@ export function runOvertureImport(
   const executable = process.env.STREETLIGHT_PYTHON ?? 'python';
   const script = path.join(process.cwd(), 'importer', 'overture_import.py');
   const child = spawn(executable, [script, ...buildImporterArguments(center, radiusMiles)]);
-  return readImporterProcess(child);
+  return readImporterProcess(child, center, radiusMiles);
 }
