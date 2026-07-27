@@ -141,7 +141,11 @@ export type CoverageWorkspace = {
 };
 
 function openWorkspaceDatabase(filename?: string): DatabaseSync {
-  const database = new DatabaseSync(filename ?? path.join(process.cwd(), 'data', 'streetlight.db'));
+  const database = new DatabaseSync(
+    filename ??
+      process.env.STREETLIGHT_DATABASE_PATH ??
+      path.join(process.cwd(), 'data', 'streetlight.db'),
+  );
   database.exec('PRAGMA foreign_keys = ON');
   return database;
 }
