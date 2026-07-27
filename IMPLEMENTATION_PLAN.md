@@ -284,27 +284,30 @@ Load seeded events, inspect every heatmap color, change the selected period, cor
 ### Phase 3 evidence
 
 - Ledger and derivation commits `b2570bb` and `0a54ba3`; dashboard and route commits `90ec716`
-  and `3e2aaea`. The final isolated demo commit is recorded in the Phase 3 task report.
-- The full check runs Biome lint, TypeScript, 53 Node tests, 22 Python tests, and the Next.js
-  production build; `git diff --check` also passes.
+  and `3e2aaea`; isolated review data and CLI commits `3dae491` and `7b5e290`; final root-ID
+  and migration-upgrade remediations `689859a` and `4e53d83`.
+- The exact-HEAD full check runs Biome lint, TypeScript, 56 Node tests, 22 Python tests, and the
+  Next.js production build. The full Phase 3 diff also passes `git diff --check`, and independent
+  whole-diff review approved all Critical, Important, and Minor findings as resolved.
 - The isolated `coverage-demo.db` seed is recreated twice with stable counts: 8 coverage events,
   1 finalized batch, 1 active packet, and 1 packet-segment link. At `2026-07-28`, literal
   30/90/180/365-day totals are 5/21/27/28 homes; the demo contains green, yellow, orange, red,
   never-covered, corrected, and undone roots.
-- Direct isolated-server checks are **unrun**: an existing Next dev lock in this worktree prevented
-  `pnpm --dir web coverage:demo` from starting on port 3001, and that existing process was left
-  untouched. Route tests prove correction, undo, restore, reload, and malformed/future/unknown/
-  completion-shaped/extra-key no-mutation behavior. The founder database has no
-  `coverage-demo-*` IDs before or after the demo checks.
+- The isolated review server returns `200` for `/` and `/territory`; malformed correction JSON
+  returns `400` without mutation. Its recreated database has migrations 006 and 007 plus 8 demo
+  events. The founder database remains at migrations 001–005 with 0 coverage events. Route tests
+  additionally prove correction, undo, restore, reload, and malformed/future/unknown/
+  completion-shaped/extra-key no-mutation behavior.
 - Browser acceptance is **unrun**: the permitted Codex browser controller cannot access localhost.
   No alternate automation was used as a substitute. The separately documented sandbox-blocked
   external Overture refresh remains deferred.
 
 ### Human review
 
-Run `pnpm --dir web coverage:demo`, open `http://localhost:3001`, inspect every heatmap color,
-change the selected period, select streets from the map and native control, correct one root, undo
-one, reload, and confirm that newest versus oldest areas are clear without instructions.
+The isolated review server is currently running at `http://localhost:3001`. If it is no longer
+running, start it with `pnpm --dir web coverage:demo`. Inspect every heatmap color, change the
+selected period, select streets from the map and native control, correct one root, undo one, reload,
+and confirm that newest versus oldest areas are clear without instructions.
 
 ### Completion condition
 
