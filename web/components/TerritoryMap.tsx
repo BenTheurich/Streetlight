@@ -12,11 +12,17 @@ function loadGoogleMaps(apiKey: string): Promise<typeof google.maps> {
   }
   if (!mapsPromise) {
     mapsPromise = new Promise((resolve, reject) => {
+      const callbackName = '__streetlightGoogleMapsReady';
+      const callbackWindow = window as typeof window & {
+        __streetlightGoogleMapsReady?: () => void;
+      };
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&libraries=marker&callback=${callbackName}`;
       script.async = true;
-      script.onload = () =>
-        window.google?.maps ? resolve(window.google.maps) : reject(new Error('Map unavailable'));
+      callbackWindow.__streetlightGoogleMapsReady = () => {
+        delete callbackWindow.__streetlightGoogleMapsReady;
+        resolve(window.google.maps);
+      };
       script.onerror = () => reject(new Error('Map unavailable'));
       document.head.append(script);
     });
@@ -63,10 +69,12 @@ export function TerritoryMap({
 }: TerritoryMapProps) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const centerRef = useRef(center);
   const drawingRef = useRef(drawing);
   const addPointRef = useRef(onAddDrawingPoint);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(apiKey ? 'loading' : 'error');
 
+  centerRef.current = center;
   drawingRef.current = drawing;
   addPointRef.current = onAddDrawingPoint;
 
@@ -81,8 +89,9 @@ export function TerritoryMap({
           return;
         }
         const map = new maps.Map(elementRef.current, {
-          center: latLng(center),
+          center: latLng(centerRef.current),
           zoom: 11,
+          mapId: 'DEMO_MAP_ID',
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
@@ -108,7 +117,7 @@ export function TerritoryMap({
       }
       mapRef.current = null;
     };
-  }, [apiKey, center]);
+  }, [apiKey]);
 
   useEffect(() => {
     mapRef.current?.panTo(latLng(center));
@@ -119,8 +128,25 @@ export function TerritoryMap({
     if (!map || status !== 'ready') {
       return;
     }
-    const marker = new google.maps.Marker({ map, position: latLng(center), title: 'Church' });
-    return () => marker.setMap(null);
+    let disposed = false;
+    let marker: google.maps.marker.AdvancedMarkerElement | null = null;
+    void google.maps.importLibrary('marker').then((library) => {
+      if (disposed) {
+        return;
+      }
+      const { AdvancedMarkerElement } = library as google.maps.MarkerLibrary;
+      marker = new AdvancedMarkerElement({
+        map,
+        position: latLng(center),
+        title: 'Church',
+      });
+    });
+    return () => {
+      disposed = true;
+      if (marker) {
+        marker.map = null;
+      }
+    };
   }, [center, status]);
 
   useEffect(() => {
@@ -288,23 +314,24 @@ export function TerritoryMap({
   }
 
   return (
-    <div
-      aria-label="Interactive outreach territory map"
-      className="google-map"
-      onKeyDown={(event) => {
-        if (drawing && event.key === 'Enter' && mapRef.current?.getCenter()) {
-          event.preventDefault();
-          const point = mapRef.current.getCenter();
-          if (point) {
-            onAddDrawingPoint([point.lng(), point.lat()]);
+    <>
+      <div
+        aria-label="Interactive outreach territory map"
+        className="google-map"
+        onKeyDown={(event) => {
+          if (drawing && event.key === 'Enter' && mapRef.current?.getCenter()) {
+            event.preventDefault();
+            const point = mapRef.current.getCenter();
+            if (point) {
+              onAddDrawingPoint([point.lng(), point.lat()]);
+            }
           }
-        }
-      }}
-      ref={elementRef}
-      role="application"
-    >
+        }}
+        ref={elementRef}
+        role="application"
+      />
       {status === 'loading' && <span className="map-loading">Loading map…</span>}
       {status === 'error' && <span className="map-loading">Google map could not load.</span>}
-    </div>
+    </>
   );
 }
