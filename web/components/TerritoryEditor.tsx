@@ -249,10 +249,10 @@ export function TerritoryEditor({
 
       <main className="territory-workspace">
         <section
-          aria-busy={importing}
+          aria-busy={saving}
           aria-label="Territory eligibility preview"
           className="map-panel"
-          inert={importing}
+          inert={saving}
         >
           <TerritoryMap
             apiKey={mapsApiKey}
@@ -326,7 +326,7 @@ export function TerritoryEditor({
           )}
         </section>
 
-        <aside aria-busy={importing} className="territory-sidebar" inert={importing}>
+        <aside aria-busy={saving} className="territory-sidebar" inert={saving}>
           <div className="sidebar-title">
             <h1>Territory Setup</h1>
             <p>Start with a radius around the church, then remove unsuitable areas.</p>
