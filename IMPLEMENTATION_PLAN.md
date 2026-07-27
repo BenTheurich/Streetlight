@@ -38,7 +38,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 
 | Phase | Name | Depends on | Status | Evidence |
 |---:|---|---|---|---|
-| 0 | Geographic and print proof | None | Awaiting human review | [Phase 0 proof](phase0/README.md): 3 test cases pass; sample PDF generated |
+| 0 | Geographic and print proof | None | In progress | [Phase 0 proof](phase0/README.md): geographic fixture saved; printed packet requires revision |
 | 1 | Application foundation | Phase 0 | Pending | None |
 | 2 | Territory setup | Phase 1 | Pending | None |
 | 3 | Coverage history and heatmap | Phase 2 | Pending | None |
@@ -58,12 +58,12 @@ Prove that available geographic data can support Streetlight before rebuilding t
 ### Agent work
 
 - Accept a test church address and radius supplied by the founder.
-- Identify the smallest suitable sources for street geometry, residential addresses, walking paths, and map display.
+- Identify the smallest suitable sources for street geometry, residential addresses, and map display.
 - Load the test area and normalize it into short street segments.
 - Estimate residential home counts for the segments.
 - Generate one compact sample packet that favors connected segments.
-- Choose a valid starting address and ending address.
-- Draw the proposed walking order on a map.
+- Choose a valid starting address.
+- Highlight every selected segment using its road geometry and mark the proposed starting point.
 - Generate a one-page sample PDF containing the required packet fields.
 - Generate a navigation QR code that opens the starting address in Google Maps.
 - Record provider limits, attribution requirements, licensing constraints, and expected operating costs that would affect the product.
@@ -74,8 +74,9 @@ This phase is a proof, not the application. Do not add authentication, billing, 
 
 - The same saved input produces the same normalized segments and sample packet.
 - Every packet segment lies inside the requested area.
+- Every selected segment represents both sides of its street.
 - Home counts are non-negative.
-- Start and end addresses belong to the packet area.
+- The starting address belongs to the packet area.
 - The QR payload contains the expected Google Maps destination.
 - The PDF contains one page and the required text fields.
 
@@ -85,9 +86,9 @@ The founder:
 
 - Compares the map against streets they know.
 - Checks whether residential home counts are credible.
-- Checks whether the proposed route is walkable.
+- Confirms that every highlight follows the road and means covering both sides.
 - Opens the QR code on a phone.
-- Prints the PDF and checks map labels, route markings, addresses, and tract count.
+- Prints the PDF and checks map labels, segment highlights, starting address, and tract count.
 - Approves the geographic providers before they become application dependencies.
 
 ### Completion condition
@@ -213,9 +214,9 @@ Generate deterministic packet proposals from eligible street segments.
 - Prefer compact, connected segment groups.
 - Exclude segments outside the boundary, inside ignore zones, or reserved by active packets.
 - Prevent a segment from appearing in two proposed packets in the same generation.
-- Produce a proposed walking order, starting address, ending address, street list, and estimated tract count.
-- Prefer ending near the start when that does not make the packet worse.
-- Use a small deterministic heuristic. Do not build a general route-optimization platform.
+- Produce selected segments, a proposed starting address, a street list, and an estimated tract count.
+- Choose the proposed starting address from an address assigned to one of the selected segments.
+- Use a small deterministic heuristic focused on segment grouping. Do not build a route-optimization platform.
 
 ### Automated checks
 
@@ -226,8 +227,8 @@ Use one fixed synthetic street graph and one saved real-area fixture.
 - Every selected segment is eligible.
 - No segment appears twice.
 - Packet home counts are calculated from their segments.
-- Each proposed route includes all of its packet segments.
-- Start and end addresses belong to the packet.
+- Every packet segment appears in the proposal map.
+- The proposed starting address belongs to the packet.
 
 ### Browser check
 
@@ -235,7 +236,7 @@ Generate mixed packet sizes, inspect each proposal on the map, regenerate the sa
 
 ### Human review
 
-The founder checks grouping, tract counts, walking order, start and end points, and whether the proposals resemble routes a volunteer would take.
+The founder checks grouping, tract counts, highlighted segments, and the proposed starting point.
 
 ### Completion condition
 
@@ -264,7 +265,7 @@ Turn approved proposals into reserved packets and printable output.
 - Finalization reserves every included segment once.
 - Conflicting finalization fails without a partial batch.
 - PDF page count equals packet count.
-- Each page contains the correct packet identifier, addresses, street list, home count, and QR payload.
+- Each page contains the correct packet identifier, starting address, street list, home count, and QR payload.
 - Re-downloading does not create new packets or coverage events.
 
 ### Browser and print check
@@ -401,7 +402,7 @@ Use Streetlight for a real outreach batch and fix only problems that block the a
 - Import and correct the founder church's real territory.
 - Generate and print a real batch.
 - Support the administrator through distribution and reconciliation.
-- Record discrepancies in geographic data, tract counts, route quality, paper layout, and reconciliation.
+- Record discrepancies in geographic data, tract counts, segment grouping, map clarity, paper layout, and reconciliation.
 - Fix workflow-blocking defects with regression checks.
 - Record real hosting and provider costs.
 - Revisit provisional pricing only after the pilot evidence is available.

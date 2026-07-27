@@ -47,7 +47,7 @@ Version one has one authenticated role: administrator.
 | Coverage area | The church's outreach territory. |
 | Street segment | A short section of street tracked as one coverage unit. |
 | Home count | The estimated number of residential homes, and therefore tracts, assigned to a packet. |
-| Packet | One printed route sheet plus the matching number of tracts. |
+| Packet | One printed assignment sheet plus the matching number of tracts. |
 | Batch | A group of packets finalized and printed together. |
 | Active packet | A finalized packet whose street segments remain reserved. |
 | Completed packet | A packet whose paper sheet was taken and later recorded as completed during reconciliation. |
@@ -59,9 +59,10 @@ Version one has one authenticated role: administrator.
 
 The tracked coverage unit is a short street segment rather than an individual household.
 
-- A segment normally includes residential homes on both sides of the street.
-- A territory boundary or ignore zone can exclude one side or part of a segment.
-- Address data supplies estimated home counts and packet start and end addresses.
+- Every selected segment includes residential homes on both sides of the street.
+- Streetlight never assigns only one side of a selected segment.
+- Territory boundaries and ignore zones exclude whole segments from packet selection.
+- Address data supplies estimated home counts and packet starting addresses.
 - Completing a packet records a coverage event for every included segment.
 - Coverage history must be retained. Correcting a mistake records the correction instead of silently replacing history.
 
@@ -82,17 +83,17 @@ The administrator requests a number of packets and an approximate home count for
 
 Streetlight generates compact, connected groups of street segments. It prioritizes the oldest eligible segments while respecting the territory boundary, ignore zones, active reservations, and requested home count.
 
-A packet contains a proposed walking order. It is guidance rather than a requirement. Taking the packet commits the volunteer to cover every highlighted segment, regardless of the order walked.
+A packet contains a connected set of highlighted street segments and a proposed starting point. Volunteers choose how to walk the assignment. Taking the packet commits the volunteer to cover every highlighted segment.
 
-Route behavior:
+Packet map behavior:
 
-- Prefer a loop or an end point near the start because a volunteer may park there.
-- Allow a different end point when it produces a better packet.
-- Show one continuous highlighted route with directional arrows and explicit start and finish markers.
+- Highlight every selected segment using its road geometry.
+- A highlighted segment means covering residential homes on both sides of the street.
+- Show one proposed starting point.
+- Do not show a proposed walking path, walking order, directional arrows, or end point.
 - Do not expose internal street-segment numbers on the volunteer packet.
-- Include a short written route summary. Do not generate detailed turn-by-turn navigation.
 - If individual estimated-home markers appear on the map, define their symbol in the legend.
-- Print the starting address and ending address.
+- Print the starting address.
 - Include a QR code that opens the starting address in Google Maps.
 - The QR code is for navigation only. It does not open Streetlight, identify a volunteer, or report completion.
 - Print the starting address as text so the packet remains usable without scanning the QR code.
@@ -107,17 +108,16 @@ Each packet page contains:
 
 - Packet identifier
 - Batch name
-- Map with one continuous highlighted route
-- Directional arrows and explicit start and finish markers
-- Short written route summary
+- Map with every selected street segment highlighted
+- Clear statement that highlighted segments include both sides of the street
+- Proposed starting-point marker
 - Starting address
-- Ending address
 - Google Maps QR code for the starting address
 - Written list of included streets or address ranges
 - Estimated home count and number of tracts needed
 - Small map legend that defines every nonstandard symbol, including estimated-home markers
 
-The first release does not include an individual-address list, volunteer details, detailed turn-by-turn navigation, or separate packet files.
+The first release does not include an individual-address list, volunteer details, a proposed walking path, an end point, detailed navigation, or separate packet files.
 
 ## Physical distribution
 
@@ -171,9 +171,9 @@ Included:
 - Packet reservations
 - Multi-page PDF generation
 - One-page packet layout
-- Printed start and end addresses
+- Printed starting address
 - Google Maps navigation QR code
-- Proposed walking route
+- Highlighted packet segments and a proposed starting point
 - Batch reconciliation
 - Coverage history and corrections
 - Basic backup and restore
@@ -218,7 +218,7 @@ The following are implementation choices, not founder decisions:
 - Application framework and repository layout
 - Database and geospatial extensions
 - Authentication provider
-- Map, address, geocoding, and routing providers
+- Map, address, and geocoding providers
 - Hosting provider
 - PDF rendering method
 - Payment provider
@@ -232,7 +232,7 @@ Choose the smallest stack that supports a hosted multi-church service, determini
 
 The repository at the time of approval contains a Next.js web shell, a NestJS API shell, partial Clerk authentication, deployment files for Vercel and Fly.io, one brand test, and one undiscovered API health test.
 
-It contains no database schema, territory model, map, address import, packet generator, routing logic, PDF generator, reservation model, reconciliation flow, or Streetlight domain data.
+It contains no database schema, territory model, map, address import, packet generator, segment-grouping logic, PDF generator, reservation model, reconciliation flow, or Streetlight domain data.
 
 The current scaffold is not a product implementation and is not production-ready. Its frameworks, authentication flow, deployment targets, and monorepo structure can be replaced. Preserve the Git repository and history as an archive, but begin the product implementation from the ground truth in this document.
 
