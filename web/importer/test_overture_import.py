@@ -55,7 +55,7 @@ class NormalizeFeaturesTest(TestCase):
             road("named", "residential", "Named Road", [[0, 0.003], [0.001, 0.003]]),
         ]
 
-        result = normalize_features(roads, [])
+        result = normalize_features(roads, [])["segments"]
 
         self.assertEqual([item["sourceSegmentId"] for item in result], ["named"])
 
@@ -83,7 +83,7 @@ class NormalizeFeaturesTest(TestCase):
         ]
         addresses = [address("Calle Medusa", 0.0005, 0.00105)]
 
-        result = normalize_features(roads, addresses)
+        result = normalize_features(roads, addresses)["segments"]
 
         self.assertEqual(
             [item["streetName"] for item in result],
@@ -110,7 +110,7 @@ class NormalizeFeaturesTest(TestCase):
             )
         ]
 
-        result = normalize_features(roads, addresses)
+        result = normalize_features(roads, addresses)["segments"]
 
         self.assertEqual(
             [item["roadClass"] for item in result],
@@ -135,7 +135,7 @@ class NormalizeFeaturesTest(TestCase):
         ]
         addresses = [address("Jons Pl", 0.0005, 0.00017)]
 
-        result = normalize_features(roads, addresses)
+        result = normalize_features(roads, addresses)["segments"]
 
         self.assertEqual(
             [(item["id"], item["estimatedHomes"]) for item in result],
@@ -158,7 +158,7 @@ class NormalizeFeaturesTest(TestCase):
         ]
         addresses = [address("Shared Rd", 0.0005, 0.0001)]
 
-        result = normalize_features(roads, addresses)
+        result = normalize_features(roads, addresses)["segments"]
 
         self.assertEqual(
             [(item["sourceSegmentId"], item["estimatedHomes"]) for item in result],
@@ -175,7 +175,7 @@ class NormalizeFeaturesTest(TestCase):
             address("Far Rd", 0.0005, 0.00137),
         ]
 
-        result = normalize_features(roads, addresses)
+        result = normalize_features(roads, addresses)["segments"]
 
         self.assertEqual(
             [(item["sourceSegmentId"], item["estimatedHomes"]) for item in result],
@@ -196,7 +196,7 @@ class NormalizeFeaturesTest(TestCase):
             )
         ]
 
-        result = normalize_features(roads, [])
+        result = normalize_features(roads, [])["segments"]
 
         self.assertEqual(
             [(item["id"], item["geometry"]["coordinates"]) for item in result],
@@ -223,7 +223,7 @@ class NormalizeFeaturesTest(TestCase):
             ),
         ]
 
-        result = normalize_features(roads, [])
+        result = normalize_features(roads, [])["segments"]
 
         self.assertEqual(
             [(item["id"], item["geometry"]["coordinates"]) for item in result],
@@ -248,7 +248,7 @@ class NormalizeFeaturesTest(TestCase):
             )
         ]
 
-        result = normalize_features(roads, [])
+        result = normalize_features(roads, [])["segments"]
 
         self.assertEqual(
             [(item["id"], item["geometry"]["coordinates"]) for item in result],
@@ -312,11 +312,125 @@ class NormalizeFeaturesTest(TestCase):
             },
         ]
 
-        self.assertEqual(normalize_features(roads, addresses), expected)
+        self.assertEqual(normalize_features(roads, addresses)["segments"], expected)
         self.assertEqual(
-            normalize_features(list(reversed(roads)), list(reversed(addresses))),
+            normalize_features(list(reversed(roads)), list(reversed(addresses)))["segments"],
             expected,
         )
+
+
+class ImportCompletenessTest(TestCase):
+    center = [-117.0, 33.5]
+    radius_miles = 1
+
+    def test_infers_each_unnamed_hillsdale_source_road_and_assigns_every_address_once(self):
+        roads = []
+        addresses = []
+        address_counts = [7, 7, 7, 8]
+        for source_index, address_count in enumerate(address_counts):
+            start = -117.002 + source_index * 0.001
+            roads.append(
+                road(
+                    f"hillsdale-{source_index}",
+                    "residential",
+                    None,
+                    [[start, 33.5], [start + 0.001, 33.5]],
+                )
+            )
+            for address_index in range(address_count):
+                addresses.append(
+                    address(
+                        "HILLSDALE HEIGHTS",
+                        start + (address_index + 1) * 0.001 / (address_count + 1),
+                        33.5001,
+                    )
+                )
+
+        result = normalize_features(
+            roads, addresses, center=self.center, radius_miles=self.radius_miles
+        )
+
+        self.assertEqual(
+            {segment["streetName"] for segment in result["segments"]},
+            {"Hillsdale Heights"},
+        )
+        self.assertEqual(
+            sum(segment["estimatedHomes"] for segment in result["segments"]), 29
+        )
+        self.assertEqual(result["quality"], {
+            "totalAddresses": 29,
+            "assignedAddresses": 29,
+            "inferredRoads": 4,
+            "unmatchedAddresses": 0,
+            "unresolvedClusters": 0,
+        })
+
+    def test_two_nearby_addresses_do_not_infer_an_unnamed_road(self):
+        roads = [
+            road("two", "residential", None, [[-117, 33.5], [-116.999, 33.5]])
+        ]
+        addresses = [
+            address("Short Road", -116.9997, 33.5001),
+            address("Short Rd", -116.9993, 33.5001),
+        ]
+
+        result = normalize_features(
+            roads, addresses, center=self.center, radius_miles=self.radius_miles
+        )
+
+        self.assertEqual(result["segments"], [])
+        self.assertEqual(result["quality"]["inferredRoads"], 0)
+        self.assertEqual(result["quality"]["unmatchedAddresses"], 2)
+
+    def test_equal_top_name_counts_do_not_infer_an_unnamed_road(self):
+        roads = [
+            road("tied", "residential", None, [[-117, 33.5], [-116.999, 33.5]])
+        ]
+        addresses = [
+            address("Maple Road", -116.9998, 33.5001),
+            address("Maple Rd", -116.9996, 33.5001),
+            address("Oak Road", -116.9994, 33.5001),
+            address("Oak Rd", -116.9992, 33.5001),
+        ]
+
+        result = normalize_features(
+            roads, addresses, center=self.center, radius_miles=self.radius_miles
+        )
+
+        self.assertEqual(result["segments"], [])
+        self.assertEqual(result["quality"]["inferredRoads"], 0)
+        self.assertEqual(result["quality"]["unmatchedAddresses"], 4)
+
+    def test_rejects_three_unresolved_in_circle_addresses_with_the_same_name(self):
+        addresses = [
+            address("Lost Lane", -116.9998, 33.5),
+            address("Lost Ln", -116.9996, 33.5),
+            address("Lost Lane", -116.9994, 33.5),
+        ]
+
+        with self.assertRaisesRegex(ValueError, r"lost ln: 3"):
+            normalize_features(
+                [], addresses, center=self.center, radius_miles=self.radius_miles
+            )
+
+    def test_out_of_circle_addresses_do_not_enter_the_unresolved_gate(self):
+        addresses = [
+            address("Outside Lane", -116.9, 33.5),
+            address("Outside Ln", -116.8998, 33.5),
+            address("Outside Lane", -116.8996, 33.5),
+        ]
+
+        result = normalize_features(
+            [], addresses, center=self.center, radius_miles=self.radius_miles
+        )
+
+        self.assertEqual(result["quality"], {
+            "totalAddresses": 0,
+            "assignedAddresses": 0,
+            "inferredRoads": 0,
+            "unmatchedAddresses": 0,
+            "unresolvedClusters": 0,
+        })
 
 
 class ImportBoundaryTest(TestCase):
@@ -467,6 +581,14 @@ class ImportBoundaryTest(TestCase):
         self.assertEqual(parsed["release"], OVERTURE_RELEASE)
         self.assertEqual(parsed["center"], [-117.1274, 33.5107])
         self.assertEqual(parsed["radiusMiles"], 1)
+        self.assertEqual(parsed["normalizerVersion"], 2)
+        self.assertEqual(parsed["quality"], {
+            "totalAddresses": 0,
+            "assignedAddresses": 0,
+            "inferredRoads": 0,
+            "unmatchedAddresses": 0,
+            "unresolvedClusters": 0,
+        })
         self.assertEqual(parsed["segments"][0]["id"], "overture:road-1:0")
         self.assertEqual(output.getvalue().count("\n"), 1)
 

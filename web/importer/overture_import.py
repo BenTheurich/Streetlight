@@ -13,22 +13,48 @@ MAX_ADDRESS_DISTANCE_METERS = 40
 OVERTURE_RELEASE = "2026-06-17.0"
 TURN_SPLIT_DEGREES = 85
 EARTH_RADIUS_MILES = 3958.7613
+SUFFIXES = {
+    "avenue": "ave",
+    "drive": "dr",
+    "lane": "ln",
+    "place": "pl",
+    "road": "rd",
+    "street": "st",
+    "circle": "cir",
+    "court": "ct",
+    "parkway": "pkwy",
+}
+DISPLAY_SUFFIXES = {value: key.title() for key, value in SUFFIXES.items()}
 
 
 def canonical_street_name(value: str) -> str:
     words = re.sub(r"[^a-z0-9 ]", " ", value.lower()).split()
-    suffixes = {
-        "avenue": "ave",
-        "drive": "dr",
-        "lane": "ln",
-        "place": "pl",
-        "road": "rd",
-        "street": "st",
-        "circle": "cir",
-        "court": "ct",
-        "parkway": "pkwy",
-    }
-    return " ".join(suffixes.get(word, word) for word in words)
+    return " ".join(SUFFIXES.get(word, word) for word in words)
+
+
+def _in_circle(point, center, radius_miles):
+    if center is None or radius_miles is None:
+        return True
+    longitude, latitude = point
+    center_longitude, center_latitude = center
+    latitude_delta = math.radians(latitude - center_latitude)
+    longitude_delta = math.radians(longitude - center_longitude)
+    distance = 2 * math.asin(
+        math.sqrt(
+            math.sin(latitude_delta / 2) ** 2
+            + math.cos(math.radians(latitude))
+            * math.cos(math.radians(center_latitude))
+            * math.sin(longitude_delta / 2) ** 2
+        )
+    )
+    return distance * EARTH_RADIUS_MILES <= radius_miles
+
+
+def _inferred_display_name(value):
+    return " ".join(
+        DISPLAY_SUFFIXES.get(word, word.title())
+        for word in canonical_street_name(value).split()
+    )
 
 
 def keep_segment(road_class: str, address_count: int) -> bool:
@@ -166,14 +192,66 @@ def _distance_to_line(point, coordinates):
     return best
 
 
-def normalize_features(roads, addresses):
+def normalize_features(roads, addresses, center=None, radius_miles=None):
     segments = []
     candidate_classes = ALWAYS_KEEP | KEEP_WITH_ADDRESS
+    in_circle_addresses = [
+        {
+            "index": index,
+            "street": address_feature["properties"]["street"],
+            "canonical_name": canonical_street_name(
+                address_feature["properties"]["street"]
+            ),
+            "point": address_feature["geometry"]["coordinates"],
+        }
+        for index, address_feature in enumerate(addresses)
+        if _in_circle(address_feature["geometry"]["coordinates"], center, radius_miles)
+    ]
+    inferred_roads = 0
+
     for road_feature in roads:
         road_class = road_feature["properties"]["class"]
         if road_class not in candidate_classes:
             continue
         name = _display_name(road_feature)
+        if name is None and road_class in ALWAYS_KEEP:
+            nearby = [
+                address_item
+                for address_item in in_circle_addresses
+                if address_item["canonical_name"]
+                and min(
+                    _distance_to_line(address_item["point"], line)
+                    for line in _lines(road_feature["geometry"])
+                )
+                <= MAX_ADDRESS_DISTANCE_METERS
+            ]
+            name_counts = {}
+            for address_item in nearby:
+                name_counts[address_item["canonical_name"]] = (
+                    name_counts.get(address_item["canonical_name"], 0) + 1
+                )
+            ranked_names = sorted(
+                name_counts.items(), key=lambda item: (-item[1], item[0])
+            )
+            if ranked_names:
+                inferred_name, inferred_count = ranked_names[0]
+                runner_up_count = ranked_names[1][1] if len(ranked_names) > 1 else 0
+                if (
+                    inferred_count >= 3
+                    and inferred_count / len(nearby) >= 0.8
+                    and inferred_count > runner_up_count
+                ):
+                    raw_counts = {}
+                    for address_item in nearby:
+                        if address_item["canonical_name"] == inferred_name:
+                            raw_counts[address_item["street"]] = (
+                                raw_counts.get(address_item["street"], 0) + 1
+                            )
+                    raw_name = min(
+                        raw_counts, key=lambda value: (-raw_counts[value], value.casefold(), value)
+                    )
+                    name = _inferred_display_name(raw_name)
+                    inferred_roads += 1
         if name is None:
             continue
         connector_parts = _connector_parts(
@@ -199,25 +277,45 @@ def normalize_features(roads, addresses):
                 }
             )
 
-    for address_feature in addresses:
-        address_name = canonical_street_name(address_feature["properties"]["street"])
-        point = address_feature["geometry"]["coordinates"]
+    assigned_address_indexes = set()
+    for address_item in in_circle_addresses:
         candidates = [
             segment
             for segment in segments
-            if segment["canonical_name"] == address_name
+            if segment["canonical_name"] == address_item["canonical_name"]
         ]
         if candidates:
             nearest = min(
                 candidates,
                 key=lambda segment: (
-                    _distance_to_line(point, segment["coordinates"]),
+                    _distance_to_line(address_item["point"], segment["coordinates"]),
                     segment["source_id"],
                     segment["part_index"],
                 ),
             )
-            if _distance_to_line(point, nearest["coordinates"]) <= MAX_ADDRESS_DISTANCE_METERS:
+            if (
+                _distance_to_line(address_item["point"], nearest["coordinates"])
+                <= MAX_ADDRESS_DISTANCE_METERS
+            ):
                 nearest["address_count"] += 1
+                assigned_address_indexes.add(address_item["index"])
+
+    unresolved_counts = {}
+    for address_item in in_circle_addresses:
+        if address_item["index"] not in assigned_address_indexes:
+            unresolved_counts[address_item["canonical_name"]] = (
+                unresolved_counts.get(address_item["canonical_name"], 0) + 1
+            )
+    unresolved_clusters = [
+        (name, count)
+        for name, count in sorted(unresolved_counts.items())
+        if count >= 3
+    ]
+    if unresolved_clusters:
+        raise ValueError(
+            "unresolved address clusters: "
+            + ", ".join(f"{name}: {count}" for name, count in unresolved_clusters)
+        )
 
     result = []
     for segment in sorted(
@@ -243,7 +341,17 @@ def normalize_features(roads, addresses):
                 "estimatedHomes": segment["address_count"],
             }
         )
-    return result
+    return {
+        "segments": result,
+        "quality": {
+            "totalAddresses": len(in_circle_addresses),
+            "assignedAddresses": len(assigned_address_indexes),
+            "inferredRoads": inferred_roads,
+            "unmatchedAddresses": len(in_circle_addresses)
+            - len(assigned_address_indexes),
+            "unresolvedClusters": 0,
+        },
+    }
 
 
 def enclosing_bbox(longitude: float, latitude: float, radius_miles: float):
@@ -390,7 +498,13 @@ def main(argv=None, download=download_features):
                 "center": [args.longitude, args.latitude],
                 "radiusMiles": args.radius_miles,
                 "completedAt": datetime.now(timezone.utc).isoformat(),
-                "segments": normalize_features(roads, addresses),
+                "normalizerVersion": 2,
+                **normalize_features(
+                    roads,
+                    addresses,
+                    center=[args.longitude, args.latitude],
+                    radius_miles=args.radius_miles,
+                ),
             },
             separators=(",", ":"),
         )
