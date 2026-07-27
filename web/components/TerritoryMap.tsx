@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ExclusionArea, TerritorySegment } from '@/lib/database';
 import { circleBoundary, type Position } from '@/lib/territory-geometry';
+import { segmentStrokeWeight } from '@/lib/territory-map-style';
 
 let mapsPromise: Promise<typeof google.maps> | undefined;
 
@@ -38,6 +39,16 @@ function positions(path: google.maps.MVCArray<google.maps.LatLng>): Position[] {
   return path.getArray().map((point) => [point.lng(), point.lat()]);
 }
 
+function samePositions(first: Position[], second: Position[]): boolean {
+  return (
+    first.length === second.length &&
+    first.every(([firstLng, firstLat], index) => {
+      const [secondLng, secondLat] = second[index];
+      return firstLng === secondLng && firstLat === secondLat;
+    })
+  );
+}
+
 type TerritoryMapProps = {
   apiKey: string;
   center: Position;
@@ -71,12 +82,16 @@ export function TerritoryMap({
   const mapRef = useRef<google.maps.Map | null>(null);
   const centerRef = useRef(center);
   const drawingRef = useRef(drawing);
+  const drawingPointsRef = useRef(drawingPoints);
   const addPointRef = useRef(onAddDrawingPoint);
+  const drawingPointsChangeRef = useRef(onDrawingPointsChange);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(apiKey ? 'loading' : 'error');
 
   centerRef.current = center;
   drawingRef.current = drawing;
+  drawingPointsRef.current = drawingPoints;
   addPointRef.current = onAddDrawingPoint;
+  drawingPointsChangeRef.current = onDrawingPointsChange;
 
   useEffect(() => {
     if (!apiKey || !elementRef.current) {
@@ -198,27 +213,21 @@ export function TerritoryMap({
           map,
           path: segment.geometry.coordinates.map(latLng),
           strokeColor: segment.eligible ? '#df6d32' : '#77736c',
-          strokeOpacity: segment.eligible ? 0.92 : 0.78,
-          strokeWeight: segment.eligible ? 6 : 7,
+          strokeOpacity: segment.eligible ? 0.65 : 0.5,
+          strokeWeight: segmentStrokeWeight(map.getZoom() ?? 11),
           clickable: false,
           zIndex: 2,
-          icons: segment.eligible
-            ? undefined
-            : [
-                {
-                  icon: {
-                    path: 'M 0,-1 0,1',
-                    strokeColor: '#77736c',
-                    strokeOpacity: 1,
-                    strokeWeight: 3,
-                  },
-                  offset: '0',
-                  repeat: '11px',
-                },
-              ],
         }),
     );
+    const updateStrokeWeight = () => {
+      const strokeWeight = segmentStrokeWeight(map.getZoom() ?? 11);
+      for (const line of lines) {
+        line.setOptions({ strokeWeight });
+      }
+    };
+    const zoomListener = map.addListener('zoom_changed', updateStrokeWeight);
     return () => {
+      zoomListener.remove();
       for (const line of lines) {
         line.setMap(null);
       }
@@ -265,44 +274,63 @@ export function TerritoryMap({
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!map || status !== 'ready') {
+      return;
+    }
+    map.setOptions({ draggableCursor: drawing ? 'crosshair' : null });
+    return () => map.setOptions({ draggableCursor: null });
+  }, [drawing, status]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (!map || status !== 'ready' || !drawing || drawingPoints.length === 0) {
       return;
     }
-    if (drawingPoints.length < 3) {
-      const line = new google.maps.Polyline({
-        map,
-        path: drawingPoints.map(latLng),
-        strokeColor: '#a9403a',
-        strokeOpacity: 0.95,
-        strokeWeight: 3,
-        clickable: false,
-        zIndex: 4,
-      });
-      return () => line.setMap(null);
-    }
-
-    const polygon = new google.maps.Polygon({
-      map,
-      paths: drawingPoints.map(latLng),
-      fillColor: '#a9403a',
-      fillOpacity: 0.25,
-      strokeColor: '#a9403a',
-      strokeOpacity: 1,
-      strokeWeight: 3,
-      editable: true,
-      clickable: false,
-      zIndex: 4,
-    });
-    const path = polygon.getPath();
-    const update = () => onDrawingPointsChange(positions(path));
-    path.addListener('set_at', update);
-    path.addListener('insert_at', update);
-    path.addListener('remove_at', update);
-    return () => {
-      google.maps.event.clearInstanceListeners(path);
-      polygon.setMap(null);
+    const shape =
+      drawingPoints.length < 3
+        ? new google.maps.Polyline({
+            map,
+            path: drawingPoints.map(latLng),
+            strokeColor: '#a9403a',
+            strokeOpacity: 0.95,
+            strokeWeight: 3,
+            editable: true,
+            draggable: true,
+            zIndex: 4,
+          })
+        : new google.maps.Polygon({
+            map,
+            paths: drawingPoints.map(latLng),
+            fillColor: '#a9403a',
+            fillOpacity: 0.25,
+            strokeColor: '#a9403a',
+            strokeOpacity: 1,
+            strokeWeight: 3,
+            editable: true,
+            draggable: true,
+            zIndex: 4,
+          });
+    const path = shape.getPath();
+    const update = () => {
+      const nextPoints = positions(path);
+      if (!samePositions(nextPoints, drawingPointsRef.current)) {
+        drawingPointsRef.current = nextPoints;
+        drawingPointsChangeRef.current(nextPoints);
+      }
     };
-  }, [drawing, drawingPoints, onDrawingPointsChange, status]);
+    const listeners = [
+      path.addListener('set_at', update),
+      path.addListener('insert_at', update),
+      path.addListener('remove_at', update),
+      shape.addListener('dragend', update),
+    ];
+    return () => {
+      for (const listener of listeners) {
+        listener.remove();
+      }
+      shape.setMap(null);
+    };
+  }, [drawing, drawingPoints, status]);
 
   if (!apiKey) {
     return (

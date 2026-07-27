@@ -263,11 +263,11 @@ textarea {
 }
 
 .map-legend .included {
-  background: var(--orange);
+  background: rgb(223 109 50 / 65%);
 }
 
 .map-legend .excluded {
-  background: repeating-linear-gradient(90deg, var(--gray-segment) 0 5px, transparent 5px 8px);
+  background: rgb(119 115 108 / 50%);
 }
 
 .drawing-instructions {
