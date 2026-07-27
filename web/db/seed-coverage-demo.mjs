@@ -202,10 +202,10 @@ const isCommand =
 
 if (isCommand) {
   const args = process.argv.slice(2);
-  if (args.length > 1 || (args.length === 1 && args[0] !== '--serve')) {
-    throw new Error('coverage demo accepts only --serve');
+  if (args.length > 1) {
+    throw new Error('coverage demo accepts one filename or --serve');
   }
-  const target = seedCoverageDemo();
+  const target = seedCoverageDemo(args[0] === '--serve' ? defaultDemoPath : args[0]);
   console.log(`Seeded isolated coverage demo at ${target}`);
   if (args[0] === '--serve') process.exitCode = await serveDemo(target);
 }

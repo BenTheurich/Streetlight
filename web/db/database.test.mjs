@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -1199,6 +1200,35 @@ test('coverage demo recreates only its isolated database with stable representat
       [0, 0, 0, 0],
     );
     founder.close();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('coverage demo CLI seeds an explicit guarded path and preserves a rejected target', () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-coverage-demo-cli-'));
+  const filename = path.join(directory, 'coverage-demo.db');
+  const rejected = path.join(directory, 'not-the-demo.db');
+  const command = path.join(import.meta.dirname, 'seed-coverage-demo.mjs');
+  try {
+    for (let run = 0; run < 2; run += 1) {
+      const result = spawnSync(process.execPath, [command, filename], { encoding: 'utf8' });
+      assert.equal(result.status, 0, result.stderr);
+      const database = openDatabase(filename);
+      assert.deepEqual(
+        ['coverage_events', 'batches', 'packets', 'packet_segments'].map(
+          (table) => database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
+        ),
+        [8, 1, 1, 1],
+      );
+      database.close();
+    }
+
+    writeFileSync(rejected, 'do not delete');
+    const result = spawnSync(process.execPath, [command, rejected], { encoding: 'utf8' });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /must be named coverage-demo\.db/);
+    assert.equal(readFileSync(rejected, 'utf8'), 'do not delete');
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
