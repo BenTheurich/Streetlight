@@ -4,8 +4,11 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
+  appendCoverageCorrection,
+  getCoverageWorkspace,
   getFoundationSummary,
   getTerritoryWorkspace,
+  recordCoverageCompletion,
   saveTerritoryDraft,
 } from '../lib/database.ts';
 import { migrateDatabase, openDatabase } from './migrate.mjs';
@@ -863,5 +866,240 @@ test('a replacement failure preserves the complete saved workspace', () => {
     );
 
     assert.deepEqual(getTerritoryWorkspace(filename), before);
+  });
+});
+
+test('coverage events are append-only and only valid same-segment completed roots can be corrected', () => {
+  withDatabase((filename) => {
+    const database = openDatabase(filename);
+    const segmentId = database
+      .prepare('SELECT id FROM street_segments WHERE church_id = ? ORDER BY id LIMIT 1')
+      .get('church-temecula-pilot').id;
+    const otherSegmentId = database
+      .prepare('SELECT id FROM street_segments WHERE church_id = ? AND id <> ? ORDER BY id LIMIT 1')
+      .get('church-temecula-pilot', segmentId).id;
+    database
+      .prepare('INSERT INTO churches (id, name) VALUES (?, ?)')
+      .run('other-church', 'Other Church');
+    database
+      .prepare(
+        `INSERT INTO street_segments
+          (id, church_id, territory_id, import_segment_id, street_name, geometry_geojson, estimated_homes)
+        SELECT ?, ?, territory_id, ?, street_name, geometry_geojson, estimated_homes
+        FROM street_segments WHERE id = ?`,
+      )
+      .run('other-segment', 'other-church', 'other-segment', segmentId);
+
+    const insert = database.prepare(
+      `INSERT INTO coverage_events
+        (id, church_id, street_segment_id, covered_on, kind, corrects_event_id, is_void)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    );
+    assert.throws(
+      () =>
+        insert.run('wrong-church', 'other-church', segmentId, '2026-07-01', 'completed', null, 0),
+      /coverage_events/i,
+    );
+    assert.throws(
+      () =>
+        insert.run(
+          'bad-completed-target',
+          'church-temecula-pilot',
+          segmentId,
+          '2026-07-01',
+          'completed',
+          'x',
+          0,
+        ),
+      /coverage_events/i,
+    );
+    assert.throws(
+      () =>
+        insert.run(
+          'bad-completed-void',
+          'church-temecula-pilot',
+          segmentId,
+          '2026-07-01',
+          'completed',
+          null,
+          1,
+        ),
+      /coverage_events/i,
+    );
+    assert.throws(
+      () =>
+        insert.run(
+          'missing-root',
+          'church-temecula-pilot',
+          segmentId,
+          '2026-07-01',
+          'correction',
+          'x',
+          0,
+        ),
+      /coverage_events/i,
+    );
+
+    insert.run('root', 'church-temecula-pilot', segmentId, '2026-07-01', 'completed', null, 0);
+    assert.throws(
+      () =>
+        insert.run(
+          'correction-target',
+          'church-temecula-pilot',
+          segmentId,
+          '2026-07-02',
+          'correction',
+          'root',
+          2,
+        ),
+      /CHECK constraint failed/,
+    );
+    assert.throws(
+      () =>
+        insert.run(
+          'other-segment-root',
+          'church-temecula-pilot',
+          otherSegmentId,
+          '2026-07-02',
+          'correction',
+          'root',
+          0,
+        ),
+      /coverage_events/i,
+    );
+    assert.throws(
+      () =>
+        insert.run(
+          'other-church-root',
+          'other-church',
+          'other-segment',
+          '2026-07-02',
+          'correction',
+          'root',
+          0,
+        ),
+      /coverage_events/i,
+    );
+    insert.run(
+      'first-correction',
+      'church-temecula-pilot',
+      segmentId,
+      '2026-07-02',
+      'correction',
+      'root',
+      0,
+    );
+    assert.throws(
+      () =>
+        insert.run(
+          'correction-of-correction',
+          'church-temecula-pilot',
+          segmentId,
+          '2026-07-03',
+          'correction',
+          'first-correction',
+          0,
+        ),
+      /coverage_events/i,
+    );
+    assert.throws(
+      () =>
+        database
+          .prepare('UPDATE coverage_events SET covered_on = ? WHERE id = ?')
+          .run('2026-07-04', 'root'),
+      /coverage_events/i,
+    );
+    assert.throws(
+      () => database.prepare('DELETE FROM coverage_events WHERE id = ?').run('root'),
+      /coverage_events/i,
+    );
+    database.close();
+  });
+});
+
+test('coverage boundary appends corrections, retains retired logical history, and totals eligible homes once', () => {
+  withDatabase((filename) => {
+    const before = getTerritoryWorkspace(filename);
+    const first = before.segments.find((segment) => segment.eligible);
+    const second = before.segments.find((segment) => segment.eligible && segment.id !== first.id);
+    const root = recordCoverageCompletion(first.id, '2026-07-01', filename);
+    const otherRoot = recordCoverageCompletion(second.id, '2026-06-01', filename);
+    appendCoverageCorrection(root, '2026-07-20', filename);
+    appendCoverageCorrection(otherRoot, null, filename);
+    appendCoverageCorrection(otherRoot, '2026-07-25', filename);
+    const packets = openDatabase(filename);
+    packets
+      .prepare('INSERT INTO batches (id, church_id, name, status) VALUES (?, ?, ?, ?)')
+      .run('coverage-batch', 'church-temecula-pilot', 'Coverage batch', 'finalized');
+    packets
+      .prepare(
+        `INSERT INTO packets
+          (id, church_id, batch_id, packet_code, start_address, estimated_homes, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        'coverage-packet',
+        'church-temecula-pilot',
+        'coverage-batch',
+        'COVERAGE-001',
+        '1 Main St',
+        1,
+        'active',
+      );
+    packets.close();
+
+    const workspace = getCoverageWorkspace(filename, '2026-07-28');
+    assert.equal(workspace.activePackets, 1);
+    assert.equal(workspace.totals.eligibleHomes, before.totals.eligibleHomes);
+    assert.equal(
+      workspace.segments.find((segment) => segment.id === first.id).lastCoveredOn,
+      '2026-07-20',
+    );
+    assert.equal(
+      workspace.segments.find((segment) => segment.id === second.id).lastCoveredOn,
+      '2026-07-25',
+    );
+    assert.equal(
+      workspace.segments.find((segment) => segment.id === first.id).roots[0].corrections.length,
+      1,
+    );
+
+    const countDatabase = openDatabase(filename);
+    const count = countDatabase
+      .prepare('SELECT COUNT(*) AS count FROM coverage_events')
+      .get().count;
+    countDatabase.close();
+    assert.throws(
+      () => appendCoverageCorrection('missing', '2026-07-26', filename),
+      /Coverage event not found/,
+    );
+    assert.throws(
+      () => appendCoverageCorrection(root, '2026-07-29', filename),
+      /Invalid coverage date/,
+    );
+    const afterFailures = openDatabase(filename);
+    assert.equal(
+      afterFailures.prepare('SELECT COUNT(*) AS count FROM coverage_events').get().count,
+      count,
+    );
+    afterFailures.close();
+
+    saveTerritoryDraft(
+      {
+        originAddress: before.originAddress,
+        center: before.center,
+        radiusMiles: before.radiusMiles,
+        exclusions: before.exclusions,
+      },
+      {
+        filename,
+        imported: importedTerritory([
+          importedSegment(first.id, 'Replacement Road', 'residential', 9),
+        ]),
+      },
+    );
+    const reimported = getCoverageWorkspace(filename, '2026-07-28');
+    assert.equal(reimported.segments[0].id, first.id);
+    assert.equal(reimported.segments[0].lastCoveredOn, '2026-07-20');
   });
 });

@@ -1,5 +1,13 @@
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import {
+  type CoverageClass,
+  type CoverageRoot,
+  classifyCoverage,
+  deriveCoverageSegments,
+  validateCoverageDate,
+} from './coverage.ts';
 import type { ImportedTerritoryInput } from './overture-import.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import {
@@ -112,6 +120,26 @@ export type TerritoryWorkspace = {
   };
 };
 
+export type CoverageWorkspaceSegment = Pick<
+  TerritorySegment,
+  'id' | 'streetName' | 'geometry' | 'estimatedHomes' | 'eligible' | 'excludedReason'
+> & {
+  lastCoveredOn: string | null;
+  coverageClass: CoverageClass;
+  roots: CoverageRoot[];
+};
+
+export type CoverageWorkspace = {
+  id: string;
+  churchName: string;
+  name: string;
+  center: Position;
+  asOf: string;
+  activePackets: number;
+  segments: CoverageWorkspaceSegment[];
+  totals: { eligibleHomes: number };
+};
+
 function openWorkspaceDatabase(filename?: string): DatabaseSync {
   const database = new DatabaseSync(filename ?? path.join(process.cwd(), 'data', 'streetlight.db'));
   database.exec('PRAGMA foreign_keys = ON');
@@ -120,6 +148,177 @@ function openWorkspaceDatabase(filename?: string): DatabaseSync {
 
 function parseGeometry<T extends LineString | Polygon>(json: string): T {
   return JSON.parse(json) as T;
+}
+
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function getCoverageWorkspace(filename?: string, asOf = todayUtc()): CoverageWorkspace {
+  validateCoverageDate(asOf, asOf);
+  const territory = getTerritoryWorkspace(filename);
+  const database = openWorkspaceDatabase(filename);
+  try {
+    const events = database
+      .prepare(
+        `SELECT ce.id, s.import_segment_id AS segment_id, ce.rowid AS sequence,
+          ce.covered_on, ce.kind, ce.corrects_event_id, ce.is_void
+        FROM coverage_events ce
+        JOIN street_segments s ON s.id = ce.street_segment_id
+        WHERE ce.church_id = ? AND s.territory_id = ?
+        ORDER BY ce.rowid`,
+      )
+      .all(PILOT_CHURCH_ID, PILOT_TERRITORY_ID)
+      .map((row) => {
+        const event = row as {
+          id: string;
+          segment_id: string;
+          sequence: number;
+          covered_on: string;
+          kind: 'completed' | 'correction';
+          corrects_event_id: string | null;
+          is_void: number;
+        };
+        return {
+          id: event.id,
+          segmentId: event.segment_id,
+          sequence: event.sequence,
+          coveredOn: event.covered_on,
+          kind: event.kind,
+          correctsEventId: event.corrects_event_id,
+          isVoid: event.is_void === 1,
+        };
+      });
+    const derived = new Map(
+      deriveCoverageSegments(
+        events,
+        asOf,
+        territory.segments.map(({ id, estimatedHomes, eligible }) => ({
+          id,
+          estimatedHomes,
+          eligible,
+        })),
+      ).map((segment) => [segment.id, segment]),
+    );
+    const activePackets = (
+      database
+        .prepare('SELECT COUNT(*) AS count FROM packets WHERE church_id = ? AND status = ?')
+        .get(PILOT_CHURCH_ID, 'active') as { count: number }
+    ).count;
+
+    return {
+      id: territory.id,
+      churchName: territory.churchName,
+      name: territory.name,
+      center: territory.center,
+      asOf,
+      activePackets,
+      segments: territory.segments.map((segment) => {
+        const coverage = derived.get(segment.id);
+        if (!coverage) throw new Error('Coverage segment missing');
+        return {
+          id: segment.id,
+          streetName: segment.streetName,
+          geometry: segment.geometry,
+          estimatedHomes: segment.estimatedHomes,
+          eligible: segment.eligible,
+          excludedReason: segment.excludedReason,
+          lastCoveredOn: coverage.lastCoveredOn,
+          coverageClass: classifyCoverage(coverage.lastCoveredOn, asOf),
+          roots: coverage.roots,
+        };
+      }),
+      totals: { eligibleHomes: territory.totals.eligibleHomes },
+    };
+  } finally {
+    database.close();
+  }
+}
+
+export function recordCoverageCompletion(
+  segmentId: string,
+  coveredOn: string,
+  filename?: string,
+): string {
+  validateCoverageDate(coveredOn, todayUtc());
+  const database = openWorkspaceDatabase(filename);
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    const segment = database
+      .prepare(
+        `SELECT id FROM street_segments
+        WHERE church_id = ? AND territory_id = ? AND import_segment_id = ? AND is_current = 1`,
+      )
+      .get(PILOT_CHURCH_ID, PILOT_TERRITORY_ID, segmentId) as { id: string } | undefined;
+    if (!segment) throw new Error('Street segment not found');
+    const id = randomUUID();
+    database
+      .prepare(
+        `INSERT INTO coverage_events
+          (id, church_id, street_segment_id, covered_on, kind)
+        VALUES (?, ?, ?, ?, 'completed')`,
+      )
+      .run(id, PILOT_CHURCH_ID, segment.id, coveredOn);
+    database.exec('COMMIT');
+    return id;
+  } catch (error) {
+    database.exec('ROLLBACK');
+    throw error;
+  } finally {
+    database.close();
+  }
+}
+
+export function appendCoverageCorrection(
+  eventId: string,
+  coveredOn: string | null,
+  filename?: string,
+): void {
+  if (coveredOn !== null) validateCoverageDate(coveredOn, todayUtc());
+  const database = openWorkspaceDatabase(filename);
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    const root = database
+      .prepare(
+        `SELECT id, church_id, street_segment_id, covered_on
+        FROM coverage_events
+        WHERE id = ? AND church_id = ? AND kind = 'completed'`,
+      )
+      .get(eventId, PILOT_CHURCH_ID) as
+      | { id: string; church_id: string; street_segment_id: string; covered_on: string }
+      | undefined;
+    if (!root) throw new Error('Coverage event not found');
+    const latest = database
+      .prepare(
+        `SELECT covered_on, is_void FROM coverage_events
+        WHERE corrects_event_id = ? ORDER BY rowid DESC LIMIT 1`,
+      )
+      .get(eventId) as { covered_on: string; is_void: number } | undefined;
+    if (coveredOn === null && latest?.is_void === 1)
+      throw new Error('Coverage event is already void');
+    const effectiveDate = latest?.is_void === 0 ? latest.covered_on : root.covered_on;
+    const correctionDate = coveredOn ?? effectiveDate;
+    database
+      .prepare(
+        `INSERT INTO coverage_events
+          (id, church_id, street_segment_id, covered_on, kind, corrects_event_id, is_void)
+        VALUES (?, ?, ?, ?, 'correction', ?, ?)`,
+      )
+      .run(
+        randomUUID(),
+        root.church_id,
+        root.street_segment_id,
+        correctionDate,
+        eventId,
+        coveredOn === null ? 1 : 0,
+      );
+    database.exec('COMMIT');
+  } catch (error) {
+    database.exec('ROLLBACK');
+    throw error;
+  } finally {
+    database.close();
+  }
 }
 
 export function getFoundationSummary(filename?: string): FoundationSummary {
