@@ -61,6 +61,7 @@ The tracked coverage unit is a short street segment rather than an individual ho
 
 - Every selected segment includes residential homes on both sides of the street.
 - Streetlight never assigns only one side of a selected segment.
+- A turn of about 90 degrees can define a segment boundary. A packet can still contain multiple connected segments across those boundaries.
 - Territory boundaries and ignore zones exclude whole segments from packet selection.
 - Address data supplies estimated home counts and packet starting addresses.
 - Completing a packet records a coverage event for every included segment.
@@ -87,12 +88,16 @@ A packet contains a connected set of highlighted street segments and a proposed 
 
 Packet map behavior:
 
-- Highlight every selected segment using its road geometry.
+- Highlight every selected segment with one stroke centered on its road geometry.
+- Preserve the first and last coordinates of the selected geometry; do not shorten the highlight before map-provider snapping.
 - A highlighted segment means covering residential homes on both sides of the street.
 - Show one proposed starting point.
+- Choose a starting house on a terminal segment. Prefer a house north of the road centerline, then the house nearest that segment's outer endpoint.
+- Mark the starting house with Google's standard unlabeled pin.
+- Show the estimated home count once in the packet metadata, not as a map overlay.
 - Do not show a proposed walking path, walking order, directional arrows, or end point.
 - Do not expose internal street-segment numbers on the volunteer packet.
-- If individual estimated-home markers appear on the map, define their symbol in the legend.
+- Do not show individual estimated-home markers in the first release.
 - Print the starting address.
 - Include a QR code that opens the starting address in Google Maps.
 - The QR code is for navigation only. It does not open Streetlight, identify a volunteer, or report completion.
@@ -104,20 +109,16 @@ Previewing packet options does not reserve territory. Reservations begin when th
 
 A finalized batch downloads as one multi-page PDF. Each packet occupies exactly one page.
 
-Each packet page contains:
+The map occupies most of the page. Street names remain readable and every highlight follows the road centerline. Text outside the map is limited to required attribution and these fields:
 
 - Packet identifier
-- Batch name
-- Map with every selected street segment highlighted
-- Clear statement that highlighted segments include both sides of the street
-- Proposed starting-point marker
 - Starting address
 - Google Maps QR code for the starting address
-- Written list of included streets or address ranges
 - Estimated home count and number of tracts needed
-- Small map legend that defines every nonstandard symbol, including estimated-home markers
 
-The first release does not include an individual-address list, volunteer details, a proposed walking path, an end point, detailed navigation, or separate packet files.
+Place the QR code beside the printed starting address, visually group them, and indicate that the QR opens directions. Show the estimated homes/tracts prominently at the upper left. The map contains every selected street segment and one proposed starting-point marker. The Streetlight wordmark or logo appears only in the lower-left corner of the page, outside the map, and the packet identifier appears opposite it in the lower-right corner. The page does not repeat the both-sides rule because that is part of the church's normal outreach process.
+
+The first release does not include a written street list, address ranges, an individual-address list, a map legend, volunteer details, a proposed walking path, an end point, detailed navigation, or separate packet files.
 
 ## Physical distribution
 
