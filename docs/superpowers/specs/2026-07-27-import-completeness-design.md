@@ -37,7 +37,7 @@ An unnamed `residential` or `living_street` source road may receive an inferred 
 
 1. at least three in-circle Overture address points are within 40 meters of its complete geometry;
 2. at least 80 percent of those nearby addresses share one canonical street name; and
-3. the winning canonical name is unique after deterministic count and lexical ordering.
+3. the winning canonical name has strictly more nearby addresses than the runner-up.
 
 The display name comes from the most common raw spelling for the winning canonical name, normalized
 to title case with common street suffixes expanded. Inference happens before connector and turn
@@ -66,13 +66,16 @@ are too weak a signal to infer a road or reject an otherwise usable territory.
 
 Every successful importer payload carries:
 
+- `normalizerVersion`: exactly `2`;
 - `totalAddresses`: in-circle Overture address records considered;
 - `assignedAddresses`: unique records assigned to retained segments;
 - `inferredRoads`: unnamed source roads named by the consensus rule;
 - `unmatchedAddresses`: the remaining one-off address records;
 - `unresolvedClusters`: always zero for a successful payload.
 
-The territory stores the first four counts with the import footprint. The setup sidebar shows one
+The territory stores the normalizer version and the first four counts with the import footprint.
+Legacy imports have no normalizer version, so `needsTerritoryImport` requires one replacement even
+when release, center, and radius are unchanged. The setup sidebar shows one
 compact line with the assigned/total count and inferred-road count. It does not expose editing
 controls or raw addresses.
 
@@ -97,4 +100,3 @@ Automated checks cover:
 The genuine Nicolas Road import must complete with zero unresolved clusters before Phase 3 starts.
 The resulting map is compared against the Hillsdale screenshot and the imported quality totals are
 recorded in `IMPLEMENTATION_PLAN.md`.
-

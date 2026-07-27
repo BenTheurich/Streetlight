@@ -11,6 +11,8 @@
 ## Global Constraints
 
 - Overture release remains exactly `2026-06-17.0`.
+- Successful payloads use normalizer version exactly `2`; legacy or mismatched versions require a
+  replacement import.
 - `MAX_ADDRESS_DISTANCE_METERS` remains exactly `40`.
 - Inference requires at least `3` nearby in-circle addresses and a unique canonical-name share of at least `0.8`.
 - Three or more unassigned in-circle addresses with one canonical street name fail the import.
@@ -29,15 +31,15 @@
 **Interfaces:**
 - Produces: `normalize_features(roads, addresses, center=None, radius_miles=None) -> {"segments": list, "quality": dict}`
 - Produces quality keys: `totalAddresses`, `assignedAddresses`, `inferredRoads`, `unmatchedAddresses`, `unresolvedClusters`
-- The command-line JSON payload includes `quality` beside `segments`.
+- The command-line JSON payload includes `normalizerVersion: 2` and `quality` beside `segments`.
 
 - [ ] **Step 1: Add the Hillsdale regression and quality-gate tests**
 
 Create synthetic unnamed `residential` road features shaped as four connected parts and 29
 `HILLSDALE HEIGHTS` address points within 40 meters. Assert the inferred display name is
 `Hillsdale Heights`, all addresses are assigned once, and quality reports one inferred source road
-per unnamed source feature. Add focused tests proving two addresses do not infer, an 80-percent
-tie does not infer, three unresolved same-name addresses raise `ValueError`, and out-of-circle
+per unnamed source feature. Add focused tests proving two addresses do not infer, equal top counts
+do not infer, three unresolved same-name addresses raise `ValueError`, and out-of-circle
 addresses do not enter the gate.
 
 - [ ] **Step 2: Run the focused Python tests and record RED**
@@ -61,8 +63,9 @@ address identity by input index so one point increments one segment once. Raise 
 
 - [ ] **Step 4: Emit segments and quality from the CLI**
 
-Update the CLI call to pass the requested center/radius, then include the normalized `segments` and
-`quality` object in its existing compact JSON output. Do not retain raw addresses.
+Update the CLI call to pass the requested center/radius, then include `normalizerVersion: 2`, the
+normalized `segments`, and `quality` in its existing compact JSON output. Do not retain raw
+addresses.
 
 - [ ] **Step 5: Run all importer tests and record GREEN**
 
@@ -94,16 +97,18 @@ git commit -m "fix: recover unnamed residential streets"
 **Interfaces:**
 - Extends `ImportedTerritoryInput` with `quality: ImportQuality`.
 - Extends `TerritoryImportMetadata` or the territory workspace import object with the four stored
-  successful quality counts.
+  successful quality counts and `normalizerVersion`.
 - Migration columns are nullable for pre-amendment imports and populated together on every new
   imported replacement.
 
 - [ ] **Step 1: Add failing Node contract and database round-trip tests**
 
-Assert the process parser rejects missing, extra, negative, non-integer, or internally inconsistent
-quality values. Assert `assignedAddresses + unmatchedAddresses === totalAddresses`,
+Assert the process parser rejects a normalizer version other than `2`, plus missing, extra,
+negative, non-integer, or internally inconsistent quality values. Assert
+`assignedAddresses + unmatchedAddresses === totalAddresses`,
 `unresolvedClusters === 0`, and a complete payload round-trips all four stored counts. Extend the
-existing failed-replacement test to prove the prior quality metadata survives rollback.
+existing import-decision tests so a legacy or mismatched normalizer version requires replacement.
+Extend the failed-replacement test to prove the prior quality metadata survives rollback.
 
 - [ ] **Step 2: Run focused tests and record RED**
 
@@ -124,10 +129,12 @@ import_total_addresses
 import_assigned_addresses
 import_inferred_roads
 import_unmatched_addresses
+import_normalizer_version
 ```
 
-Validate exact payload keys at the process boundary. Store the counts in the existing import
-transaction and expose them from `getTerritoryWorkspace`.
+Validate exact payload keys at the process boundary. Store the counts and exact version in the
+existing import transaction, expose them from `getTerritoryWorkspace`, and include the version in
+`needsTerritoryImport`.
 
 - [ ] **Step 4: Show one compact quality line in Territory Setup**
 
@@ -207,4 +214,3 @@ the remaining import-quality implementation choices.
 git add IMPLEMENTATION_PLAN.md README.md
 git commit -m "docs: complete territory setup phase"
 ```
-
