@@ -88,8 +88,10 @@ Route behavior:
 
 - Prefer a loop or an end point near the start because a volunteer may park there.
 - Allow a different end point when it produces a better packet.
-- Show numbered segments, directional arrows, and start and end markers.
-- Do not print written turn-by-turn directions.
+- Show one continuous highlighted route with directional arrows and explicit start and finish markers.
+- Do not expose internal street-segment numbers on the volunteer packet.
+- Include a short written route summary. Do not generate detailed turn-by-turn navigation.
+- If individual estimated-home markers appear on the map, define their symbol in the legend.
 - Print the starting address and ending address.
 - Include a QR code that opens the starting address in Google Maps.
 - The QR code is for navigation only. It does not open Streetlight, identify a volunteer, or report completion.
@@ -105,17 +107,17 @@ Each packet page contains:
 
 - Packet identifier
 - Batch name
-- Map with highlighted street segments
-- Numbered proposed walking route
-- Start and end markers
+- Map with one continuous highlighted route
+- Directional arrows and explicit start and finish markers
+- Short written route summary
 - Starting address
 - Ending address
 - Google Maps QR code for the starting address
 - Written list of included streets or address ranges
 - Estimated home count and number of tracts needed
-- Small map legend
+- Small map legend that defines every nonstandard symbol, including estimated-home markers
 
-The first release does not include an individual-address list, volunteer details, written turn-by-turn directions, or separate packet files.
+The first release does not include an individual-address list, volunteer details, detailed turn-by-turn navigation, or separate packet files.
 
 ## Physical distribution
 

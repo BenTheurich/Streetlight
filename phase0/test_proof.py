@@ -42,10 +42,26 @@ class Phase0ProofTest(unittest.TestCase):
             self.packet["google_maps_url"],
             (
                 "https://www.google.com/maps/dir/?api=1&"
-                "destination=39654+Diego+Dr%2C+Temecula%2C+CA+92591&"
+                "destination=39483+Diego+Dr%2C+Temecula%2C+CA+92591&"
                 "travelmode=walking"
             ),
         )
+        self.assertEqual(len(self.packet["segments"]), 5)
+        self.assertEqual(len(self.packet["directions"]), 4)
+        for previous, current in zip(
+            self.packet["route_legs"],
+            self.packet["route_legs"][1:],
+        ):
+            self.assertAlmostEqual(
+                previous["coordinates"][-1][0],
+                current["coordinates"][0][0],
+                places=6,
+            )
+            self.assertAlmostEqual(
+                previous["coordinates"][-1][1],
+                current["coordinates"][0][1],
+                places=6,
+            )
 
     def test_route_stays_inside_service_area(self) -> None:
         church = self.fixture["metadata"]["church"]
@@ -73,14 +89,18 @@ class Phase0ProofTest(unittest.TestCase):
         text = reader.pages[0].extract_text()
         required = [
             "STREETLIGHT",
-            "OUTREACH PACKET",
+            "OUTREACH ROUTE",
             self.packet["packet_id"],
             self.packet["batch_name"],
-            "ESTIMATED TRACTS",
+            "HOMES /",
+            "TAKING THIS SHEET + FLYERS",
             self.packet["start_address"],
             self.packet["end_address"],
-            "STREETS AND ADDRESS RANGES",
-            "WALK TO START",
+            "HOW TO WALK THIS ROUTE",
+            "STREET COVERAGE",
+            "SCAN FOR START",
+            "Estimated home",
+            "Walk this way",
             "OpenStreetMap contributors",
         ]
         for field in required:

@@ -46,10 +46,12 @@ The test church address is committed in this fixture with the founder's permissi
 The deterministic sample is packet `P0-TEM-001`:
 
 - Target: 50 estimated tracts
-- Generated: 63 estimated tracts across 6 complete road segments
-- Start: `39654 Diego Dr, Temecula, CA 92591`
+- Generated: 63 estimated tracts across 5 connected road segments
+- Start: `39483 Diego Dr, Temecula, CA 92591`
 - End: `39227 Seraphina Rd, Murrieta, CA 92563`
 - Streets: Diego Drive and Seraphina Road
+
+The map uses teal squares for estimated homes and orange arrows for walking direction. Internal segment numbers are not printed.
 
 The generated PDF is [streetlight-phase0-sample-packet.pdf](../output/pdf/streetlight-phase0-sample-packet.pdf). The `output` directory is ignored because the file is reproducible.
 
@@ -74,9 +76,9 @@ The automated check covers deterministic packet selection, nonnegative counts, r
 Phase 1 must not begin until a person checks:
 
 - [ ] Print the PDF on US Letter paper and confirm every field is readable.
-- [ ] Scan the QR code on a phone and confirm it opens walking directions to `39654 Diego Dr`.
-- [ ] Compare the marked Diego Drive and Seraphina Road homes with local knowledge or an on-site check.
-- [ ] Confirm that route segments 1 through 6 make sense as one volunteer assignment, including any backtracking.
+- [ ] Scan the QR code on a phone and confirm it opens walking directions to `39483 Diego Dr`.
+- [ ] Compare the teal home markers on Diego Drive and Seraphina Road with local knowledge or an on-site check.
+- [ ] Confirm that the blue route and orange arrows make sense as one volunteer assignment.
 - [ ] Approve Overture addresses and transportation as the starting providers, or record what failed.
 
 If the address count is unreliable, the first fallback is the [Riverside County Address Points](https://gisopendata-countyofriverside.opendata.arcgis.com/datasets/CountyofRiverside::address-points/about) service. Do not add a second provider before this review finds a concrete Overture failure.
