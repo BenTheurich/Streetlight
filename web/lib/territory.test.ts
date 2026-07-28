@@ -59,6 +59,7 @@ test('a persisted exclusion enabled state controls derived totals', () => {
         center: initial.center,
         radiusMiles: 20,
         activatedRoadGroupIds: [],
+        excludedSegmentIds: [],
         exclusions: [{ id: 'exclude-school', name: 'School', enabled: false, geometry }],
       },
       { filename },
@@ -80,6 +81,7 @@ test('a persisted exclusion enabled state controls derived totals', () => {
         center: disabled.center,
         radiusMiles: disabled.radiusMiles,
         activatedRoadGroupIds: [],
+        excludedSegmentIds: [],
         exclusions: [{ ...disabled.exclusions[0], enabled: true }],
       },
       { filename },
@@ -112,6 +114,7 @@ test('saving a deletion removes only the omitted exclusion', () => {
         center: initial.center,
         radiusMiles: initial.radiusMiles,
         activatedRoadGroupIds: [],
+        excludedSegmentIds: [],
         exclusions: [keep, remove],
       },
       { filename },
@@ -122,6 +125,7 @@ test('saving a deletion removes only the omitted exclusion', () => {
         center: initial.center,
         radiusMiles: initial.radiusMiles,
         activatedRoadGroupIds: [],
+        excludedSegmentIds: [],
         exclusions: [keep],
       },
       { filename },
@@ -142,6 +146,7 @@ test('changing the church point keeps saved exclusion coordinates unchanged', ()
         center: [-117.2, 33.6],
         radiusMiles: 5,
         activatedRoadGroupIds: [],
+        excludedSegmentIds: [],
         exclusions: [{ id: 'exclude-existing', name: 'Existing', enabled: true, geometry }],
       },
       { filename },
@@ -166,6 +171,7 @@ test('a failed complete-draft save rolls back territory and exclusions together'
           center: [-117.2, 33.6],
           radiusMiles: 1,
           activatedRoadGroupIds: [],
+          excludedSegmentIds: [],
           exclusions: [
             { id: 'duplicate', name: 'First', enabled: true, geometry },
             { id: 'duplicate', name: 'Second', enabled: true, geometry },
@@ -189,6 +195,7 @@ test('draft validation accepts the complete saved-draft contract', () => {
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     activatedRoadGroupIds: [' road-group:approved '],
+    excludedSegmentIds: [' segment:exact '],
     exclusions: [
       {
         id: 'exclude-1',
@@ -211,6 +218,7 @@ test('draft validation accepts the complete saved-draft contract', () => {
 
   assert.equal(parsed.originAddress, '31087 Nicolas Rd');
   assert.deepEqual(parsed.activatedRoadGroupIds, ['road-group:approved']);
+  assert.deepEqual(parsed.excludedSegmentIds, ['segment:exact']);
   assert.equal(parsed.exclusions[0].name, '');
   assert.equal(parsed.exclusions[0].enabled, false);
 });
@@ -221,6 +229,7 @@ test('draft validation rejects invalid radius, duplicate IDs, and self-intersect
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     activatedRoadGroupIds: [],
+    excludedSegmentIds: [],
     exclusions: [
       {
         id: 'exclude-1',
@@ -247,6 +256,14 @@ test('draft validation rejects invalid radius, duplicate IDs, and self-intersect
       parseTerritoryDraft({
         ...valid,
         activatedRoadGroupIds: ['road-group:duplicate', 'road-group:duplicate'],
+      }),
+    /duplicate/i,
+  );
+  assert.throws(
+    () =>
+      parseTerritoryDraft({
+        ...valid,
+        excludedSegmentIds: ['segment:duplicate', 'segment:duplicate'],
       }),
     /duplicate/i,
   );

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { TerritorySegment, TerritoryWorkspace } from './database.ts';
+import * as territoryClient from './territory-client.ts';
 import {
   affectedByExclusion,
   deriveTerritory,
@@ -29,6 +30,7 @@ const segments: TerritorySegment[] = [
     estimatedHomes: 10,
     activationKind: 'automatic',
     active: true,
+    manuallyExcluded: false,
     eligible: true,
     excludedReason: null,
   },
@@ -48,6 +50,7 @@ const segments: TerritorySegment[] = [
     estimatedHomes: 20,
     activationKind: 'automatic',
     active: true,
+    manuallyExcluded: false,
     eligible: true,
     excludedReason: null,
   },
@@ -67,6 +70,7 @@ const segments: TerritorySegment[] = [
     estimatedHomes: 5,
     activationKind: 'automatic',
     active: true,
+    manuallyExcluded: false,
     eligible: true,
     excludedReason: null,
   },
@@ -86,6 +90,7 @@ const segments: TerritorySegment[] = [
     estimatedHomes: 7,
     activationKind: 'hidden',
     active: false,
+    manuallyExcluded: false,
     eligible: false,
     excludedReason: 'hidden',
   },
@@ -96,6 +101,7 @@ const draft: TerritoryDraftInput = {
   center: [0, 0],
   radiusMiles: 1,
   activatedRoadGroupIds: [],
+  excludedSegmentIds: [],
   exclusions: [
     {
       id: 'exclude-1',
@@ -196,6 +202,56 @@ test('a draft road-group activation includes every hidden segment in that group'
   });
 });
 
+test('a manual segment exclusion affects only the exact selected segment', () => {
+  const adjacentSegment: TerritorySegment = {
+    ...segments[0],
+    id: 'inside-adjacent',
+    sourceSegmentId: 'inside-adjacent',
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [0, 0.005],
+        [0, 0.009],
+      ],
+    },
+    estimatedHomes: 4,
+  };
+  const result = deriveTerritory([segments[0], adjacentSegment], {
+    ...draft,
+    excludedSegmentIds: ['inside'],
+    exclusions: [],
+  });
+
+  assert.deepEqual(
+    result.segments.map(({ id, manuallyExcluded, eligible, excludedReason }) => ({
+      id,
+      manuallyExcluded,
+      eligible,
+      excludedReason,
+    })),
+    [
+      {
+        id: 'inside',
+        manuallyExcluded: true,
+        eligible: false,
+        excludedReason: 'segment',
+      },
+      {
+        id: 'inside-adjacent',
+        manuallyExcluded: false,
+        eligible: true,
+        excludedReason: null,
+      },
+    ],
+  );
+  assert.deepEqual(result.totals, {
+    allSegments: 2,
+    eligibleSegments: 1,
+    allHomes: 14,
+    eligibleHomes: 4,
+  });
+});
+
 test('exclusion impact counts every segment touched by that polygon', () => {
   assert.deepEqual(affectedByExclusion(segments, draft.exclusions[0]), {
     segments: 1,
@@ -275,4 +331,25 @@ test('unfinished drawing points count as unsaved territory changes', () => {
     hasUnsavedTerritoryChanges(draft, { ...structuredClone(draft), radiusMiles: 2 }, []),
     true,
   );
+});
+
+test('segment exclusion draft changes are exact, reversible, and duplicate-safe', () => {
+  const update = (
+    territoryClient as typeof territoryClient & {
+      setSegmentExcluded?: (
+        draft: TerritoryDraftInput,
+        segmentId: string,
+        excluded: boolean,
+      ) => TerritoryDraftInput;
+    }
+  ).setSegmentExcluded;
+  assert.equal(typeof update, 'function');
+  assert.ok(update);
+
+  const withOtherExcluded = { ...draft, excludedSegmentIds: ['other'] };
+  const excluded = update(withOtherExcluded, 'inside', true);
+  assert.deepEqual(excluded.excludedSegmentIds, ['inside', 'other']);
+  assert.deepEqual(update(excluded, 'inside', true).excludedSegmentIds, ['inside', 'other']);
+  assert.deepEqual(update(excluded, 'inside', false).excludedSegmentIds, ['other']);
+  assert.deepEqual(withOtherExcluded.excludedSegmentIds, ['other']);
 });

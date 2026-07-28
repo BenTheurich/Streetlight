@@ -8,6 +8,7 @@ import {
   hasUnsavedTerritoryChanges,
   moveVertexWithArrowKey,
   nextExclusionName,
+  setSegmentExcluded,
   territoryDraftFromWorkspace,
 } from '@/lib/territory-client';
 import type { TerritoryDraftInput } from '@/lib/territory-draft';
@@ -73,6 +74,7 @@ export function TerritoryEditor({
   const [selectedExclusionId, setSelectedExclusionId] = useState<string | null>(null);
   const [showHiddenRoads, setShowHiddenRoads] = useState(false);
   const [selectedHiddenRoadGroupId, setSelectedHiddenRoadGroupId] = useState<string | null>(null);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [polygonError, setPolygonError] = useState('');
   const [radiusInput, setRadiusInput] = useState(String(initialDraft.radiusMiles));
   const [addressEditing, setAddressEditing] = useState(false);
@@ -122,6 +124,11 @@ export function TerritoryEditor({
         (segment) => !segment.active && segment.roadGroupId === selectedHiddenRoadGroupId,
       )
     : [];
+  const selectedSegment =
+    live.segments.find(
+      (segment) =>
+        segment.id === selectedSegmentId && (segment.eligible || segment.manuallyExcluded),
+    ) ?? null;
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -167,8 +174,25 @@ export function TerritoryEditor({
 
   const selectHiddenRoadGroup = useCallback((roadGroupId: string) => {
     setSelectedHiddenRoadGroupId(roadGroupId);
+    setSelectedSegmentId(null);
     setSelectedExclusionId(null);
     setMode('pan');
+  }, []);
+
+  const selectSegment = useCallback((segmentId: string) => {
+    setSelectedSegmentId(segmentId);
+    setSelectedHiddenRoadGroupId(null);
+    setSelectedExclusionId(null);
+    setMode('pan');
+    setPolygonError('');
+  }, []);
+
+  const selectExclusion = useCallback((exclusionId: string) => {
+    setSelectedExclusionId(exclusionId);
+    setSelectedHiddenRoadGroupId(null);
+    setSelectedSegmentId(null);
+    setMode('pan');
+    setPolygonError('');
   }, []);
 
   function startDrawing() {
@@ -176,6 +200,7 @@ export function TerritoryEditor({
     setDrawingPoints([]);
     setSelectedExclusionId(null);
     setSelectedHiddenRoadGroupId(null);
+    setSelectedSegmentId(null);
     setPolygonError('');
   }
 
@@ -216,6 +241,7 @@ export function TerritoryEditor({
     setDrawingPoints([]);
     setSelectedExclusionId(null);
     setSelectedHiddenRoadGroupId(null);
+    setSelectedSegmentId(null);
     setPolygonError('');
     setAddressEditing(false);
     setPendingAddress(null);
@@ -282,6 +308,7 @@ export function TerritoryEditor({
       setRadiusInput(String(nextDraft.radiusMiles));
       setSelectedExclusionId(null);
       setSelectedHiddenRoadGroupId(null);
+      setSelectedSegmentId(null);
       setNotice('Territory changes saved.');
     } catch (error) {
       setNotice(
@@ -321,12 +348,14 @@ export function TerritoryEditor({
             onAddDrawingPoint={addDrawingPoint}
             onDrawingPointsChange={changeDrawingPoints}
             onExclusionChange={changeExclusion}
-            onSelectExclusion={setSelectedExclusionId}
+            onSelectExclusion={selectExclusion}
             onSelectHiddenRoadGroup={selectHiddenRoadGroup}
+            onSelectSegment={selectSegment}
             radiusMiles={draft.radiusMiles}
             segments={live.segments}
             selectedExclusionId={selectedExclusionId}
             selectedHiddenRoadGroupId={selectedHiddenRoadGroupId}
+            selectedSegmentId={selectedSegment?.id ?? null}
             showHiddenRoads={showHiddenRoads}
           />
           <fieldset className="map-modes">
@@ -524,6 +553,40 @@ export function TerritoryEditor({
               )}
             </section>
 
+            <section className="segment-section">
+              <h2>Road segment</h2>
+              {selectedSegment ? (
+                <div className="segment-card">
+                  <strong>{selectedSegment.streetName || 'Unnamed road'}</strong>
+                  <span>
+                    {selectedSegment.estimatedHomes} estimated tract
+                    {selectedSegment.estimatedHomes === 1 ? '' : 's'} ·{' '}
+                    {selectedSegment.manuallyExcluded ? 'Excluded' : 'Eligible'}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const exclude = !selectedSegment.manuallyExcluded;
+                      setDraft((current) =>
+                        setSegmentExcluded(current, selectedSegment.id, exclude),
+                      );
+                      setNotice(
+                        exclude
+                          ? 'Segment excluded in this draft. Save changes to keep it.'
+                          : 'Segment restored in this draft. Radius and excluded areas still apply.',
+                      );
+                    }}
+                    type="button"
+                  >
+                    {selectedSegment.manuallyExcluded ? 'Restore segment' : 'Exclude segment'}
+                  </button>
+                </div>
+              ) : (
+                <p className="empty-state">
+                  Select an orange segment, or a gray segment you excluded.
+                </p>
+              )}
+            </section>
+
             <section className="hidden-roads-section">
               <div className="section-row">
                 <h2>Missing roads</h2>
@@ -618,12 +681,7 @@ export function TerritoryEditor({
                         <button
                           className="exclusion-select"
                           aria-pressed={area.id === selectedExclusionId}
-                          onClick={() => {
-                            setSelectedExclusionId(area.id);
-                            setSelectedHiddenRoadGroupId(null);
-                            setMode('pan');
-                            setPolygonError('');
-                          }}
+                          onClick={() => selectExclusion(area.id)}
                           type="button"
                         >
                           <span>

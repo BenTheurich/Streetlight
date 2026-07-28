@@ -40,7 +40,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 |---:|---|---|---|---|
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
-| 2 | Territory setup | Phase 1 | Awaiting human review | Hidden-road activation and toggleable/deletable exclusion areas pass automated and browser checks; founder review is ready |
+| 2 | Territory setup | Phase 1 | Awaiting human review | Exact-segment exclusion, hidden-road activation, and toggleable/deletable exclusion areas pass automated and browser checks |
 | 3 | Coverage history and heatmap | Phase 2 | Pending | None |
 | 4 | Packet selection | Phase 3 | Pending | None |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
@@ -152,6 +152,8 @@ Create and correct one church outreach territory.
 - Automatically activate high-confidence residential roads.
 - Allow the administrator to preview and activate a complete hidden road group.
 - Preserve administrator activations through later imports.
+- Allow the administrator to exclude and restore one exact segment without deleting its imported
+  geometry.
 - Treat imported segment geometry and home counts as non-editable.
 - Persist all changes.
 
@@ -166,6 +168,9 @@ Create and correct one church outreach territory.
 - Cancelling draft changes leaves the stored territory unchanged.
 - Hidden-road activation selects the complete deterministic road group.
 - A saved manual activation remains active after a later import.
+- A saved segment exclusion affects only the exact selected segment and survives a reimport only
+  while that segment's geometry remains unchanged.
+- Restoring a segment does not override the radius or an enabled exclusion polygon.
 - Failed imports preserve the prior active and hidden road sets.
 - Territory totals equal the eligible segment totals.
 
@@ -175,11 +180,12 @@ Create a territory, adjust its radius, draw and reshape an exclusion polygon, sa
 page, and verify that the same map and totals return. Confirm that cancelling a second set of
 changes restores the saved territory. Confirm that address evidence activates Hillsdale Heights,
 then show hidden roads, activate another known candidate, save, reload, and verify that the
-complete road remains active after another import.
+complete road remains active after another import. Select one orange segment, exclude it, verify
+that only its tracts leave the totals, save and reload, then select the gray segment and restore it.
 
 ### Phase 2 evidence
 
-Verified July 27, 2026 with pinned Overture release `2026-06-17.0`:
+Verified July 28, 2026 with pinned Overture release `2026-06-17.0`:
 
 - The 1-mile website import returned 687 segments and 3,368 estimated homes at
   `2026-07-27T20:20:53.002209+00:00`; 487 segments and 2,635 homes were eligible before
@@ -209,7 +215,11 @@ Verified July 27, 2026 with pinned Overture release `2026-06-17.0`:
   saved test polygon restored 20 segments and 102 tracts in the live draft; Save/reload preserved
   both states, Cancel restored toggles and draft deletion, and the disabled polygon remained
   selectable as a faint gray outline.
-- Biome, TypeScript, 48 Node tests, 25 Python importer tests, the Next.js production build, and
+- Exact-segment review excluded one six-tract Rose Arbor Court segment without changing its
+  adjacent same-name segments. Eligible totals changed from 1,553 segments and 8,715 tracts to
+  1,552 and 8,709, Save/reload preserved the clickable gray segment, Restore reversed it, and
+  Cancel reinstated the saved exclusion. The local test territory was restored afterward.
+- Biome, TypeScript, 53 Node tests, 25 Python importer tests, the Next.js production build, and
   `git diff --check` pass. The final browser session reported no errors or warnings.
 
 ### Human review
@@ -217,13 +227,14 @@ Verified July 27, 2026 with pinned Overture release `2026-06-17.0`:
 The founder inspects the area around the church, adjusts the radius, draws a known exclusion,
 and confirms that affected segments turn gray and disappear from eligibility. The founder then
 confirms that Hillsdale Heights is active, shows hidden roads, activates a known uncertain road,
-saves, reloads, and confirms that the road remains active.
+saves, reloads, and confirms that the road remains active. The founder then clicks one orange
+segment, excludes and saves it, reloads, and confirms that the same gray segment can be restored.
 
 ### Completion condition
 
 The founder can make the stored territory match the church's real outreach area by adjusting
-the radius, drawing exclusion polygons, and activating retained Overture roads without editing
-the database.
+the radius, drawing exclusion polygons, activating retained Overture roads, and excluding or
+restoring exact individual segments without editing the database.
 
 ## Phase 3: Coverage history and heatmap
 

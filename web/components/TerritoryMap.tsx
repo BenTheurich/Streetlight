@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ExclusionArea, TerritorySegment } from '@/lib/database';
 import { circleBoundary, type Position } from '@/lib/territory-geometry';
-import { segmentStrokeWeight } from '@/lib/territory-map-style';
+import { segmentMapAppearance, segmentStrokeWeight } from '@/lib/territory-map-style';
 
 let mapsPromise: Promise<typeof google.maps> | undefined;
 
@@ -57,6 +57,7 @@ type TerritoryMapProps = {
   exclusions: ExclusionArea[];
   selectedExclusionId: string | null;
   selectedHiddenRoadGroupId: string | null;
+  selectedSegmentId: string | null;
   showHiddenRoads: boolean;
   drawing: boolean;
   drawingPoints: Position[];
@@ -65,6 +66,7 @@ type TerritoryMapProps = {
   onExclusionChange: (id: string, points: Position[]) => void;
   onSelectExclusion: (id: string) => void;
   onSelectHiddenRoadGroup: (id: string) => void;
+  onSelectSegment: (id: string) => void;
 };
 
 export function TerritoryMap({
@@ -75,6 +77,7 @@ export function TerritoryMap({
   exclusions,
   selectedExclusionId,
   selectedHiddenRoadGroupId,
+  selectedSegmentId,
   showHiddenRoads,
   drawing,
   drawingPoints,
@@ -83,6 +86,7 @@ export function TerritoryMap({
   onExclusionChange,
   onSelectExclusion,
   onSelectHiddenRoadGroup,
+  onSelectSegment,
 }: TerritoryMapProps) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -217,44 +221,44 @@ export function TerritoryMap({
     if (!map || status !== 'ready') {
       return;
     }
-    const visibleSegments = segments.filter((segment) => segment.active || showHiddenRoads);
+    const visibleSegments = segments.filter(
+      (segment) => segment.active || segment.manuallyExcluded || showHiddenRoads,
+    );
     const lines = visibleSegments.map((segment) => {
-      const selected = segment.roadGroupId === selectedHiddenRoadGroupId;
+      const appearance = segmentMapAppearance(
+        segment,
+        selectedSegmentId,
+        selectedHiddenRoadGroupId,
+      );
       const strokeWeight = segmentStrokeWeight(map.getZoom() ?? 11);
       const line = new google.maps.Polyline({
         map,
         path: segment.geometry.coordinates.map(latLng),
-        strokeColor: segment.active
-          ? segment.eligible
-            ? '#df6d32'
-            : '#77736c'
-          : selected
-            ? '#315f72'
-            : '#6f8794',
-        strokeOpacity: segment.active ? (segment.eligible ? 0.65 : 0.5) : selected ? 0.8 : 0.38,
-        strokeWeight: selected
-          ? strokeWeight + 2
-          : segment.active
-            ? strokeWeight
-            : Math.max(1, strokeWeight - 1),
-        clickable: !segment.active,
-        zIndex: selected ? 3 : segment.active ? 2 : 1,
+        strokeColor: appearance.strokeColor,
+        strokeOpacity: appearance.strokeOpacity,
+        strokeWeight: Math.max(1, strokeWeight + appearance.weightOffset),
+        clickable: !drawing && appearance.selectable,
+        zIndex: appearance.zIndex,
       });
-      if (!segment.active) {
-        line.addListener('click', () => onSelectHiddenRoadGroup(segment.roadGroupId));
+      if (!drawing && appearance.selectable) {
+        line.addListener('click', () =>
+          segment.active || segment.manuallyExcluded
+            ? onSelectSegment(segment.id)
+            : onSelectHiddenRoadGroup(segment.roadGroupId),
+        );
       }
       return { line, segment };
     });
     const updateStrokeWeight = () => {
       const strokeWeight = segmentStrokeWeight(map.getZoom() ?? 11);
       for (const { line, segment } of lines) {
-        const selected = segment.roadGroupId === selectedHiddenRoadGroupId;
+        const appearance = segmentMapAppearance(
+          segment,
+          selectedSegmentId,
+          selectedHiddenRoadGroupId,
+        );
         line.setOptions({
-          strokeWeight: selected
-            ? strokeWeight + 2
-            : segment.active
-              ? strokeWeight
-              : Math.max(1, strokeWeight - 1),
+          strokeWeight: Math.max(1, strokeWeight + appearance.weightOffset),
         });
       }
     };
@@ -266,7 +270,16 @@ export function TerritoryMap({
         line.setMap(null);
       }
     };
-  }, [onSelectHiddenRoadGroup, segments, selectedHiddenRoadGroupId, showHiddenRoads, status]);
+  }, [
+    drawing,
+    onSelectHiddenRoadGroup,
+    onSelectSegment,
+    segments,
+    selectedHiddenRoadGroupId,
+    selectedSegmentId,
+    showHiddenRoads,
+    status,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -7,6 +7,7 @@ const draft = {
   center: [-117.1274, 33.5107] as [number, number],
   radiusMiles: 1,
   activatedRoadGroupIds: [],
+  excludedSegmentIds: [],
   exclusions: [],
 };
 

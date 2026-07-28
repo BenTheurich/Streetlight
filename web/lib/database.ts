@@ -55,6 +55,7 @@ type SegmentRow = {
   geometry_geojson: string;
   estimated_homes: number;
   activation_kind: 'automatic' | 'hidden' | 'manual';
+  manually_excluded: number;
 };
 
 type ExclusionRow = {
@@ -89,8 +90,9 @@ export type TerritorySegment = {
   estimatedHomes: number;
   activationKind: 'automatic' | 'hidden' | 'manual';
   active: boolean;
+  manuallyExcluded: boolean;
   eligible: boolean;
-  excludedReason: 'hidden' | 'radius' | 'exclusion' | null;
+  excludedReason: 'hidden' | 'radius' | 'exclusion' | 'segment' | null;
 };
 
 export type TerritoryWorkspace = {
@@ -243,7 +245,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
       database
         .prepare(
           `SELECT import_segment_id AS id, source_segment_id, road_group_id, road_class,
-            street_name, geometry_geojson, estimated_homes, activation_kind
+            street_name, geometry_geojson, estimated_homes, activation_kind, manually_excluded
           FROM street_segments
           WHERE territory_id = ? AND church_id = ? AND is_current = 1
           ORDER BY street_name, import_segment_id`,
@@ -256,6 +258,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
         (area) => area.enabled && lineIntersectsPolygon(geometry, area.geometry),
       );
       const active = row.activation_kind !== 'hidden';
+      const manuallyExcluded = row.manually_excluded === 1;
       return {
         id: row.id,
         sourceSegmentId: row.source_segment_id ?? row.id,
@@ -266,14 +269,17 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
         estimatedHomes: row.estimated_homes,
         activationKind: row.activation_kind,
         active,
-        eligible: active && !outsideRadius && !excluded,
+        manuallyExcluded,
+        eligible: active && !outsideRadius && !excluded && !manuallyExcluded,
         excludedReason: !active
           ? 'hidden'
           : outsideRadius
             ? 'radius'
             : excluded
               ? 'exclusion'
-              : null,
+              : manuallyExcluded
+                ? 'segment'
+                : null,
       };
     });
 
@@ -314,6 +320,7 @@ export function saveTerritoryDraft(
 ): void {
   const database = openWorkspaceDatabase(options.filename);
   const activatedRoadGroupIds = new Set(draft.activatedRoadGroupIds);
+  const excludedSegmentIds = new Set(draft.excludedSegmentIds ?? []);
   database.exec('BEGIN IMMEDIATE');
   try {
     const result = database
@@ -356,6 +363,23 @@ export function saveTerritoryDraft(
     }
 
     if (options.imported) {
+      const excludedGeometryById = new Map(
+        (
+          database
+            .prepare(
+              `SELECT import_segment_id, geometry_geojson
+              FROM street_segments
+              WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
+            )
+            .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Array<{
+            import_segment_id: string;
+            geometry_geojson: string;
+          }>
+        )
+          .filter((row) => excludedSegmentIds.has(row.import_segment_id))
+          .map((row) => [row.import_segment_id, row.geometry_geojson]),
+      );
+      excludedSegmentIds.clear();
       const manualRows = database
         .prepare(
           `SELECT import_segment_id, source_segment_id, road_group_id, road_class, street_name,
@@ -404,6 +428,7 @@ export function saveTerritoryDraft(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const segment of options.imported.segments) {
+        const geometry = JSON.stringify(segment.geometry);
         insertSegment.run(
           `${segment.id}@${generation}`,
           PILOT_CHURCH_ID,
@@ -413,10 +438,13 @@ export function saveTerritoryDraft(
           segment.roadGroupId,
           segment.roadClass,
           segment.streetName,
-          JSON.stringify(segment.geometry),
+          geometry,
           segment.estimatedHomes,
           segment.activationKind,
         );
+        if (excludedGeometryById.get(segment.id) === geometry) {
+          excludedSegmentIds.add(segment.id);
+        }
       }
       for (const segment of manualRows) {
         if (segment.source_segment_id && importedSourceIds.has(segment.source_segment_id)) {
@@ -436,6 +464,9 @@ export function saveTerritoryDraft(
           'manual',
         );
         activatedRoadGroupIds.add(segment.road_group_id);
+        if (excludedGeometryById.get(segment.import_segment_id) === segment.geometry_geojson) {
+          excludedSegmentIds.add(segment.import_segment_id);
+        }
       }
       database
         .prepare(
@@ -471,6 +502,22 @@ export function saveTerritoryDraft(
     );
     for (const roadGroupId of activatedRoadGroupIds) {
       activate.run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID, roadGroupId);
+    }
+    database
+      .prepare(
+        `UPDATE street_segments
+        SET manually_excluded = 0
+        WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
+      )
+      .run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID);
+    const excludeSegment = database.prepare(
+      `UPDATE street_segments
+      SET manually_excluded = 1
+      WHERE territory_id = ? AND church_id = ? AND is_current = 1
+        AND import_segment_id = ?`,
+    );
+    for (const segmentId of excludedSegmentIds) {
+      excludeSegment.run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID, segmentId);
     }
     database.exec('COMMIT');
   } catch (error) {

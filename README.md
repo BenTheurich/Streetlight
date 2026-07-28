@@ -59,4 +59,5 @@ changed church address without exposing that credential to the browser. See
 
 For Phase 2 review, adjust the radius, draw and reshape an exclusion, confirm affected
 segments turn gray, save, reload, and then confirm that `Cancel` restores the last saved
-territory. The phase remains awaiting founder approval; Phase 3 must not begin yet.
+territory. Click one orange segment, exclude it, save and reload, then click the same gray segment
+and restore it. The phase remains awaiting founder approval; Phase 3 must not begin yet.

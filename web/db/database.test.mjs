@@ -339,6 +339,136 @@ test('hidden road groups stay out of totals until the saved draft activates them
   });
 });
 
+test('saving a segment exclusion persists only the exact selected segment', () => {
+  withDatabase((filename) => {
+    const workspace = getTerritoryWorkspace(filename);
+    const sharedGroup = 'road-group:shared';
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: [],
+        activatedRoadGroupIds: [],
+        excludedSegmentIds: [],
+      },
+      {
+        filename,
+        imported: importedTerritory([
+          importedSegment('one', 'Shared Road', 'residential', 4, 'automatic', sharedGroup),
+          importedSegment('two', 'Shared Road', 'residential', 5, 'automatic', sharedGroup),
+        ]),
+      },
+    );
+
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: [],
+        activatedRoadGroupIds: [],
+        excludedSegmentIds: ['one'],
+      },
+      { filename },
+    );
+
+    const saved = getTerritoryWorkspace(filename);
+    assert.deepEqual(
+      saved.segments.map(({ id, manuallyExcluded, eligible, excludedReason }) => ({
+        id,
+        manuallyExcluded,
+        eligible,
+        excludedReason,
+      })),
+      [
+        { id: 'one', manuallyExcluded: true, eligible: false, excludedReason: 'segment' },
+        { id: 'two', manuallyExcluded: false, eligible: true, excludedReason: null },
+      ],
+    );
+    assert.deepEqual(saved.totals, {
+      allSegments: 2,
+      eligibleSegments: 1,
+      allHomes: 9,
+      eligibleHomes: 5,
+    });
+  });
+});
+
+test('reimport preserves an exclusion only while the exact segment geometry remains', () => {
+  withDatabase((filename) => {
+    const workspace = getTerritoryWorkspace(filename);
+    const original = importedSegment('one', 'Exact Road', 'residential', 4);
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: [],
+        activatedRoadGroupIds: [],
+        excludedSegmentIds: [],
+      },
+      { filename, imported: importedTerritory([original]) },
+    );
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: [],
+        activatedRoadGroupIds: [],
+        excludedSegmentIds: ['one'],
+      },
+      { filename },
+    );
+
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: [],
+        activatedRoadGroupIds: [],
+        excludedSegmentIds: ['one'],
+      },
+      {
+        filename,
+        imported: importedTerritory([{ ...original, estimatedHomes: 5, activationKind: 'hidden' }]),
+      },
+    );
+    const hidden = getTerritoryWorkspace(filename).segments[0];
+    assert.equal(hidden.manuallyExcluded, true);
+    assert.equal(hidden.active, false);
+
+    const changedGeometry = {
+      ...original,
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [-117.1169, 33.5429],
+          [-117.1167, 33.5431],
+        ],
+      },
+    };
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: [],
+        activatedRoadGroupIds: [],
+        excludedSegmentIds: ['one'],
+      },
+      { filename, imported: importedTerritory([changedGeometry]) },
+    );
+
+    const replacement = getTerritoryWorkspace(filename).segments[0];
+    assert.equal(replacement.manuallyExcluded, false);
+    assert.equal(replacement.eligible, true);
+    assert.equal(replacement.excludedReason, null);
+  });
+});
+
 test('reimport keeps an administrator-approved source active when its group identity changes', () => {
   withDatabase((filename) => {
     const workspace = getTerritoryWorkspace(filename);

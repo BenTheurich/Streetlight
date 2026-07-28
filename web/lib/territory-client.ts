@@ -12,6 +12,20 @@ export function hasUnsavedTerritoryChanges(
   return drawingPoints.length > 0 || JSON.stringify(draft) !== JSON.stringify(saved);
 }
 
+export function setSegmentExcluded(
+  draft: TerritoryDraftInput,
+  segmentId: string,
+  excluded: boolean,
+): TerritoryDraftInput {
+  const ids = new Set(draft.excludedSegmentIds);
+  if (excluded) {
+    ids.add(segmentId);
+  } else {
+    ids.delete(segmentId);
+  }
+  return { ...draft, excludedSegmentIds: [...ids].sort() };
+}
+
 export function moveVertexWithArrowKey(points: Position[], index: number, key: string): Position[] {
   const delta: Position | undefined = {
     ArrowDown: [0, -VERTEX_KEY_STEP],
@@ -44,6 +58,10 @@ export function territoryDraftFromWorkspace(workspace: TerritoryWorkspace): Terr
           .map((segment) => segment.roadGroupId),
       ),
     ].sort(),
+    excludedSegmentIds: workspace.segments
+      .filter((segment) => segment.manuallyExcluded)
+      .map((segment) => segment.id)
+      .sort(),
     exclusions: structuredClone(workspace.exclusions),
   };
 }
@@ -53,6 +71,7 @@ export function deriveTerritory(
   draft: TerritoryDraftInput,
 ): Pick<TerritoryWorkspace, 'segments' | 'totals'> {
   const activatedRoadGroupIds = new Set(draft.activatedRoadGroupIds);
+  const excludedSegmentIds = new Set(draft.excludedSegmentIds ?? []);
   const segments = importedSegments.map((segment): TerritorySegment => {
     const outsideRadius = !lineInsideCircle(segment.geometry, draft.center, draft.radiusMiles);
     const excluded = draft.exclusions.some(
@@ -60,12 +79,22 @@ export function deriveTerritory(
     );
     const manuallyActivated = activatedRoadGroupIds.has(segment.roadGroupId);
     const active = segment.active || manuallyActivated;
+    const manuallyExcluded = excludedSegmentIds.has(segment.id);
     return {
       ...segment,
       activationKind: manuallyActivated ? 'manual' : segment.activationKind,
       active,
-      eligible: active && !outsideRadius && !excluded,
-      excludedReason: !active ? 'hidden' : outsideRadius ? 'radius' : excluded ? 'exclusion' : null,
+      manuallyExcluded,
+      eligible: active && !outsideRadius && !excluded && !manuallyExcluded,
+      excludedReason: !active
+        ? 'hidden'
+        : outsideRadius
+          ? 'radius'
+          : excluded
+            ? 'exclusion'
+            : manuallyExcluded
+              ? 'segment'
+              : null,
     };
   });
   return {

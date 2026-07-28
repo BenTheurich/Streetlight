@@ -529,7 +529,8 @@ textarea {
   accent-color: var(--orange);
 }
 
-.hidden-road-card {
+.hidden-road-card,
+.segment-card {
   display: grid;
   gap: 0.45rem;
   padding: 0.7rem;
@@ -538,16 +539,25 @@ textarea {
   background: #f2f6f7;
 }
 
+.segment-card {
+  border-color: #dcc7b8;
+  background: #fbf3ed;
+}
+
 .hidden-road-card strong,
-.hidden-road-card span {
+.hidden-road-card span,
+.segment-card strong,
+.segment-card span {
   display: block;
 }
 
-.hidden-road-card strong {
+.hidden-road-card strong,
+.segment-card strong {
   font-size: 0.72rem;
 }
 
-.hidden-road-card span {
+.hidden-road-card span,
+.segment-card span {
   color: var(--muted);
   font-size: 0.62rem;
 }
