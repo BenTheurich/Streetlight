@@ -634,6 +634,7 @@ test('packet generation workspace joins current addresses, eligibility, heatmap,
       eligible: true,
       reserved: true,
       coverageClass: 'red',
+      lastCoveredOn: null,
       addresses: [
         { ...address, number: '20' },
         { ...address, number: null },

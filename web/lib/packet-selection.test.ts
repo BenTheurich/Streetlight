@@ -26,6 +26,7 @@ function segment(
     eligible: true,
     reserved: false,
     coverageClass,
+    lastCoveredOn: null,
     addresses: [
       {
         number: '1',
@@ -144,7 +145,11 @@ test('proposals prioritize old ranges, expand outward, match mixed sizes, and ne
   );
   assert.deepEqual(
     result.proposals.map((proposal) => proposal.segments.map(({ id }) => id)),
-    [['near-a', 'near-b'], ['far-culdesac'], ['orange-a', 'orange-b']],
+    [
+      ['near-a', 'near-b'],
+      ['far-culdesac', 'newer-neighbor'],
+      ['orange-a', 'orange-b'],
+    ],
   );
   const selectedIds = result.proposals.flatMap((proposal) => proposal.segments.map(({ id }) => id));
   assert.equal(new Set(selectedIds).size, selectedIds.length);
@@ -168,7 +173,7 @@ test('packet tolerance keeps connected exceptions whole and terminates on zero e
       segment('normal-b', [0.001, 0], [0.002, 0], 16, 'red'),
     ],
   }).proposals[0];
-  assert.ok(normal.estimatedHomes >= 24 && normal.estimatedHomes <= 36);
+  assert.ok(normal.estimatedHomes >= 21 && normal.estimatedHomes <= 39);
 
   const oversized = generatePacketProposals({
     center: [0, 0],
@@ -185,7 +190,170 @@ test('packet tolerance keeps connected exceptions whole and terminates on zero e
       segment('zero-b', [0.001, 0], [0.002, 0], 0, 'red'),
     ],
   });
-  assert.equal(new Set(zero.proposals.flatMap((proposal) => proposal.segments)).size, 2);
+  assert.deepEqual(zero.proposals, []);
+  assert.ok(zero.warnings.some((warning) => warning.includes('cleanup packet')));
+});
+
+test('a tiny nearby component does not displace an available normal packet', () => {
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [{ quantity: 1, targetHomes: 100 }],
+    segments: [
+      segment('tiny', [0, 0], [0.001, 0], 10, 'red'),
+      segment('normal', [0.01, 0], [0.011, 0], 90, 'red'),
+    ],
+  });
+
+  assert.deepEqual(
+    result.proposals.map((proposal) => proposal.segments.map(({ id }) => id)),
+    [['normal']],
+  );
+});
+
+test('an overdue seed may use a connected newer range to reach the lower bound', () => {
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [{ quantity: 1, targetHomes: 100 }],
+    segments: [
+      segment('old-seed', [0, 0], [0.001, 0], 10, 'red'),
+      segment('newer-fill', [0.001, 0], [0.002, 0], 60, 'orange'),
+    ],
+  });
+
+  assert.deepEqual(
+    result.proposals.map((proposal) => proposal.segments.map(({ id }) => id)),
+    [['old-seed', 'newer-fill']],
+  );
+  assert.equal(result.proposals[0].estimatedHomes, 70);
+});
+
+test('an attached small branch is absorbed instead of being stranded', () => {
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [{ quantity: 1, targetHomes: 100 }],
+    segments: [
+      segment('first', [0, 0], [0.001, 0], 60, 'red'),
+      segment('second', [0.001, 0], [0.002, 0], 40, 'red'),
+      segment('culdesac', [0.001, 0], [0.001, 0.001], 10, 'red'),
+    ],
+  });
+
+  assert.deepEqual(result.proposals[0].segments.map(({ id }) => id).sort(), [
+    'culdesac',
+    'first',
+    'second',
+  ]);
+  assert.equal(result.proposals[0].estimatedHomes, 110);
+});
+
+test('orphan cleanup does not depend on the greedy street order', () => {
+  const result = generatePacketProposals({
+    center: [0.003, 0],
+    requests: [{ quantity: 1, targetHomes: 100 }],
+    segments: [
+      segment('old-seed', [0, 0], [0.001, 0], 60, 'red', {
+        lastCoveredOn: '2020-01-01',
+      }),
+      segment('second', [0.001, 0], [0.002, 0], 40, 'red', {
+        lastCoveredOn: '2021-01-01',
+      }),
+      segment('large-remainder', [0.002, 0], [0.003, 0], 50, 'red', {
+        lastCoveredOn: '2021-01-01',
+      }),
+      segment('culdesac', [0.001, 0], [0.001, 0.001], 10, 'red', {
+        lastCoveredOn: '2021-01-01',
+      }),
+    ],
+  });
+
+  assert.deepEqual(
+    result.proposals[0].segments.map(({ id }) => id),
+    ['old-seed', 'second', 'culdesac'],
+  );
+});
+
+test('batch cleanup fills a small gap bordered by generated packets', () => {
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [{ quantity: 2, targetHomes: 100 }],
+    segments: [
+      segment('a-core', [0, 0], [0.001, 0], 100, 'red'),
+      segment('b-core', [0.001, 0], [0.002, 0], 100, 'red'),
+      segment('gap', [0.001, 0], [0.001, 0.001], 10, 'red'),
+      segment('future-core', [0.001, 0.001], [0.001, 0.002], 100, 'red'),
+    ],
+  });
+
+  assert.equal(result.proposals.length, 2);
+  assert.ok(result.proposals.some((proposal) => proposal.segments.some(({ id }) => id === 'gap')));
+});
+
+test('a side-street endpoint meeting a road interior forms a packet junction', () => {
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [{ quantity: 1, targetHomes: 100 }],
+    segments: [
+      segment('main-road', [0, 0], [0.002, 0], 60, 'red'),
+      segment('side-street', [0.001, 0.00001], [0.001, 0.001], 40, 'red'),
+    ],
+  });
+
+  assert.deepEqual(
+    result.proposals[0].segments.map(({ id }) => id),
+    ['main-road', 'side-street'],
+  );
+});
+
+test('short aligned gaps in the same named road remain connected', () => {
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [{ quantity: 1, targetHomes: 100 }],
+    segments: [
+      segment('enfield-a', [0, 0], [0.001, 0], 50, 'red', {
+        streetName: 'Enfield Lane',
+      }),
+      segment('enfield-b', [0.00114, 0], [0.002, 0], 50, 'red', {
+        streetName: 'Enfield Lane',
+      }),
+    ],
+  });
+
+  assert.deepEqual(
+    result.proposals[0].segments.map(({ id }) => id),
+    ['enfield-a', 'enfield-b'],
+  );
+});
+
+test('nearby parallel roads are not treated as a junction', () => {
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [{ quantity: 1, targetHomes: 100 }],
+    segments: [
+      segment('lower-road', [0, 0], [0.002, 0], 50, 'red'),
+      segment('upper-road', [0.001, 0.00002], [0.003, 0.00002], 50, 'red'),
+    ],
+  });
+
+  assert.deepEqual(result.proposals, []);
+});
+
+test('exact coverage age outranks church distance within one heatmap range', () => {
+  const newerNear = Object.assign(segment('newer-near', [0, 0], [0.001, 0], 100, 'red'), {
+    lastCoveredOn: '2025-01-01',
+  });
+  const olderFar = Object.assign(segment('older-far', [0.01, 0], [0.011, 0], 100, 'red'), {
+    lastCoveredOn: '2024-01-01',
+  });
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [{ quantity: 1, targetHomes: 100 }],
+    segments: [newerNear, olderFar],
+  });
+
+  assert.deepEqual(
+    result.proposals[0].segments.map(({ id }) => id),
+    ['older-far'],
+  );
 });
 
 test('starting address prefers terminal north-side outer ends, then falls back inside', () => {
@@ -250,7 +418,8 @@ test('components without a numbered address are skipped with stable warnings', (
   assert.deepEqual(result.proposals, []);
   assert.deepEqual(result.warnings, [
     'Skipped a connected area because no usable starting address was available.',
-    'Generated fewer packets because no more eligible streets were available.',
+    'Some overdue streets need a smaller cleanup packet.',
+    'Generated fewer packets because no more sensible eligible streets were available.',
   ]);
 });
 
@@ -280,6 +449,7 @@ test('saved Temecula geometry produces connected deterministic mixed-size propos
         eligible: true,
         reserved: false,
         coverageClass: 'red',
+        lastCoveredOn: null,
         addresses: [
           {
             number: String(index + 1),

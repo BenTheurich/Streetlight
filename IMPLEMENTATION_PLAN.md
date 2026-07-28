@@ -423,6 +423,17 @@ Generate mixed packet sizes, inspect each proposal on the map, regenerate the sa
 - Saved Overture import squares are now reused whenever they contain the proposed territory. A
   contained center shift, radius reduction, boundary-shape change, exclusion change, or segment
   edit avoids a refresh; expanding beyond the saved footprint still refreshes street data on save.
+- The orphan-prevention amendment widens normal proposals to 70-130 percent, protects the oldest
+  segment as each seed, permits connected newer-range fill only when needed, absorbs stranded
+  branches, and cleans up small gaps bordered by generated packets. Packet connectivity now
+  recognizes conservative T-junctions and aligned same-name gaps without joining nearby parallel
+  roads.
+- The amended selector passes 108 Node checks, Biome, TypeScript, and the production build. Two
+  identical canonical 10-by-100 runs returned byte-identical results with ten unique proposals at
+  117, 130, 111, 111, 108, 128, 123, 113, 119, and 130 estimated tracts and no warnings. Direct
+  selection completed in about 1.6 seconds on the pilot territory.
+- Browser evaluation regenerated those ten proposals on the shared map, showed coherent connected
+  review highlights and the updated estimates, and reported no console warnings or errors.
 
 ### Human review
 

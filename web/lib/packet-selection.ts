@@ -17,6 +17,7 @@ export type PacketSelectionSegment = {
   eligible: boolean;
   reserved: boolean;
   coverageClass: CoverageClass;
+  lastCoveredOn: string | null;
   addresses: PacketAddress[];
 };
 
@@ -58,8 +59,12 @@ type Prefix = {
   area: number;
   start: PacketProposal['start'];
 };
+type Adjacency = Map<string, Set<string>>;
 
 const coverageOrder: CoverageClass[] = ['red', 'orange', 'yellow', 'green'];
+const metersPerDegree = 111_320;
+const junctionToleranceMeters = 3;
+const continuationGapMeters = 20;
 
 function endpointKey([longitude, latitude]: Position): string {
   return `${longitude.toFixed(7)},${latitude.toFixed(7)}`;
@@ -67,6 +72,131 @@ function endpointKey([longitude, latitude]: Position): string {
 
 function endpoints(segment: PacketSelectionSegment): [Position, Position] {
   return [segment.geometry.coordinates[0], segment.geometry.coordinates.at(-1) as Position];
+}
+
+function connect(adjacency: Adjacency, first: string, second: string): void {
+  adjacency.get(first)?.add(second);
+  adjacency.get(second)?.add(first);
+}
+
+function vector(start: Position, end: Position): Position {
+  return [(end[0] - start[0]) * Math.cos(((start[1] + end[1]) * Math.PI) / 360), end[1] - start[1]];
+}
+
+function absoluteCosine(first: Position, second: Position): number {
+  const firstLength = Math.hypot(...first);
+  const secondLength = Math.hypot(...second);
+  if (firstLength === 0 || secondLength === 0) return 1;
+  return Math.abs((first[0] * second[0] + first[1] * second[1]) / firstLength / secondLength);
+}
+
+function terminalDirections(segment: PacketSelectionSegment): Array<{
+  point: Position;
+  direction: Position;
+}> {
+  const coordinates = segment.geometry.coordinates;
+  return [
+    { point: coordinates[0], direction: vector(coordinates[0], coordinates[1]) },
+    {
+      point: coordinates.at(-1) as Position,
+      direction: vector(coordinates.at(-2) as Position, coordinates.at(-1) as Position),
+    },
+  ];
+}
+
+function endpointMeetsInterior(
+  endpoint: { point: Position; direction: Position },
+  geometry: LineString,
+): boolean {
+  let best: { distanceMeters: number; direction: Position; projected: Position } | undefined;
+  for (let index = 1; index < geometry.coordinates.length; index += 1) {
+    const start = geometry.coordinates[index - 1];
+    const end = geometry.coordinates[index];
+    const scale = Math.cos(((endpoint.point[1] + start[1] + end[1]) * Math.PI) / 540);
+    const x = (endpoint.point[0] - start[0]) * scale;
+    const y = endpoint.point[1] - start[1];
+    const dx = (end[0] - start[0]) * scale;
+    const dy = end[1] - start[1];
+    const lengthSquared = dx * dx + dy * dy;
+    const amount =
+      lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, (x * dx + y * dy) / lengthSquared));
+    const projected: Position = [
+      start[0] + (end[0] - start[0]) * amount,
+      start[1] + (end[1] - start[1]) * amount,
+    ];
+    const distanceMeters =
+      Math.sqrt(scaledDistanceSquared(endpoint.point, projected)) * metersPerDegree;
+    if (!best || distanceMeters < best.distanceMeters) {
+      best = { distanceMeters, direction: vector(start, end), projected };
+    }
+  }
+  if (!best || best.distanceMeters > junctionToleranceMeters) return false;
+  const [lineStart, lineEnd] = [geometry.coordinates[0], geometry.coordinates.at(-1) as Position];
+  const projectionIsInterior =
+    Math.sqrt(scaledDistanceSquared(best.projected, lineStart)) * metersPerDegree >
+      junctionToleranceMeters &&
+    Math.sqrt(scaledDistanceSquared(best.projected, lineEnd)) * metersPerDegree >
+      junctionToleranceMeters;
+  return projectionIsInterior && absoluteCosine(endpoint.direction, best.direction) < 0.9;
+}
+
+function sameNamedContinuation(
+  first: PacketSelectionSegment,
+  second: PacketSelectionSegment,
+): boolean {
+  const firstName = first.streetName.trim().toLocaleLowerCase();
+  if (!firstName || firstName !== second.streetName.trim().toLocaleLowerCase()) return false;
+  return terminalDirections(first).some((firstEndpoint) =>
+    terminalDirections(second).some((secondEndpoint) => {
+      const gap = vector(firstEndpoint.point, secondEndpoint.point);
+      return (
+        Math.hypot(...gap) * metersPerDegree <= continuationGapMeters &&
+        absoluteCosine(firstEndpoint.direction, gap) > 0.85 &&
+        absoluteCosine(secondEndpoint.direction, gap) > 0.85
+      );
+    }),
+  );
+}
+
+function buildAdjacency(segments: PacketSelectionSegment[]): Adjacency {
+  const adjacency = new Map(segments.map((segment) => [segment.id, new Set<string>()]));
+  const byEndpoint = new Map<string, string[]>();
+  for (const segment of segments) {
+    for (const endpoint of endpoints(segment)) {
+      const key = endpointKey(endpoint);
+      const ids = byEndpoint.get(key) ?? [];
+      ids.push(segment.id);
+      byEndpoint.set(key, ids);
+    }
+  }
+  for (const ids of byEndpoint.values()) {
+    for (const id of ids) {
+      for (const other of ids) {
+        if (other !== id) connect(adjacency, id, other);
+      }
+    }
+  }
+  // ponytail: Pair scanning is cheap for the pilot's ~1,500 roads; add a spatial index if
+  // substantially larger territories make proposal generation measurably slow.
+  for (let firstIndex = 0; firstIndex < segments.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < segments.length; secondIndex += 1) {
+      const first = segments[firstIndex];
+      const second = segments[secondIndex];
+      if (adjacency.get(first.id)?.has(second.id)) continue;
+      if (
+        terminalDirections(first).some((endpoint) =>
+          endpointMeetsInterior(endpoint, second.geometry),
+        ) ||
+        terminalDirections(second).some((endpoint) =>
+          endpointMeetsInterior(endpoint, first.geometry),
+        ) ||
+        sameNamedContinuation(first, second)
+      ) {
+        connect(adjacency, first.id, second.id);
+      }
+    }
+  }
+  return adjacency;
 }
 
 function usableAddress(address: PacketAddress): boolean {
@@ -145,6 +275,17 @@ function compareKeys(a: Array<number | string>, b: Array<number | string>): numb
   return 0;
 }
 
+function compareCoverageAge(first: PacketSelectionSegment, second: PacketSelectionSegment): number {
+  const classDifference = compareNumbers(
+    coverageOrder.indexOf(first.coverageClass),
+    coverageOrder.indexOf(second.coverageClass),
+  );
+  if (classDifference !== 0) return classDifference;
+  if (first.lastCoveredOn === null) return second.lastCoveredOn === null ? 0 : -1;
+  if (second.lastCoveredOn === null) return 1;
+  return compareStrings(first.lastCoveredOn, second.lastCoveredOn);
+}
+
 function selectStart(
   segments: PacketSelectionSegment[],
   center: Position,
@@ -216,6 +357,7 @@ function selectStart(
 function componentFrom(
   anchor: PacketSelectionSegment,
   available: Map<string, PacketSelectionSegment>,
+  adjacency: Adjacency,
 ): PacketSelectionSegment[] {
   const component: PacketSelectionSegment[] = [];
   const pending = [anchor];
@@ -225,14 +367,9 @@ function componentFrom(
     if (visited.has(segment.id)) continue;
     visited.add(segment.id);
     component.push(segment);
-    const keys = new Set(endpoints(segment).map(endpointKey));
-    for (const candidate of available.values()) {
-      if (
-        !visited.has(candidate.id) &&
-        endpoints(candidate).some((endpoint) => keys.has(endpointKey(endpoint)))
-      ) {
-        pending.push(candidate);
-      }
+    for (const id of adjacency.get(segment.id) ?? []) {
+      const candidate = available.get(id);
+      if (candidate && !visited.has(candidate.id)) pending.push(candidate);
     }
   }
   return component;
@@ -242,6 +379,7 @@ function connectedPrefixes(
   anchor: PacketSelectionSegment,
   component: PacketSelectionSegment[],
   center: Position,
+  adjacency: Adjacency,
 ): Prefix[] {
   const selected = [anchor];
   const remaining = new Map(
@@ -259,15 +397,15 @@ function connectedPrefixes(
       });
     }
     if (remaining.size === 0) break;
-    const selectedEndpoints = new Set(
-      selected.flatMap((segment) => endpoints(segment).map(endpointKey)),
-    );
+    const selectedIds = new Set(selected.map((segment) => segment.id));
     const next = [...remaining.values()]
-      .filter((segment) =>
-        endpoints(segment).some((endpoint) => selectedEndpoints.has(endpointKey(endpoint))),
-      )
+      .filter((segment) => [...(adjacency.get(segment.id) ?? [])].some((id) => selectedIds.has(id)))
       .sort(
         (a, b) =>
+          compareNumbers(
+            coverageOrder.indexOf(a.coverageClass),
+            coverageOrder.indexOf(b.coverageClass),
+          ) ||
           compareNumbers(segmentDistance(a, center), segmentDistance(b, center)) ||
           compareNumbers(
             boundingArea([...selected, a], center),
@@ -280,6 +418,147 @@ function connectedPrefixes(
     remaining.delete(next.id);
   }
   return prefixes;
+}
+
+function remainderComponents(
+  selected: PacketSelectionSegment[],
+  component: PacketSelectionSegment[],
+  adjacency: Adjacency,
+): PacketSelectionSegment[][] {
+  const selectedIds = new Set(selected.map(({ id }) => id));
+  const remaining = new Map(
+    component
+      .filter((segment) => !selectedIds.has(segment.id))
+      .map((segment) => [segment.id, segment]),
+  );
+  const remainders: PacketSelectionSegment[][] = [];
+  while (remaining.size > 0) {
+    const seed = remaining.values().next().value as PacketSelectionSegment;
+    const remainder = componentFrom(seed, remaining, adjacency);
+    remainders.push(remainder);
+    for (const segment of remainder) remaining.delete(segment.id);
+  }
+  return remainders;
+}
+
+function orphanedHomes(
+  selected: PacketSelectionSegment[],
+  component: PacketSelectionSegment[],
+  adjacency: Adjacency,
+  minimumViableHomes: number,
+): number {
+  return remainderComponents(selected, component, adjacency).reduce((total, remainder) => {
+    const homes = remainder.reduce((sum, segment) => sum + segment.estimatedHomes, 0);
+    return homes < minimumViableHomes ? total + homes : total;
+  }, 0);
+}
+
+function absorbOrphans(
+  prefix: Prefix,
+  component: PacketSelectionSegment[],
+  adjacency: Adjacency,
+  minimumViableHomes: number,
+  upperBound: number,
+  center: Position,
+): Prefix {
+  const selected = [...prefix.segments];
+  let estimatedHomes = prefix.estimatedHomes;
+  const orphans = remainderComponents(selected, component, adjacency)
+    .map((segments) => ({
+      segments: [...segments].sort((a, b) => compareStrings(a.id, b.id)),
+      estimatedHomes: segments.reduce((sum, segment) => sum + segment.estimatedHomes, 0),
+    }))
+    .filter(({ estimatedHomes: homes }) => homes < minimumViableHomes)
+    .sort(
+      (a, b) =>
+        compareNumbers(a.estimatedHomes, b.estimatedHomes) ||
+        compareStrings(
+          a.segments.map(({ id }) => id).join('\0'),
+          b.segments.map(({ id }) => id).join('\0'),
+        ),
+    );
+  for (const orphan of orphans) {
+    if (estimatedHomes + orphan.estimatedHomes > upperBound) continue;
+    selected.push(...orphan.segments);
+    estimatedHomes += orphan.estimatedHomes;
+  }
+  if (selected.length === prefix.segments.length) return prefix;
+  const start = selectStart(selected, center);
+  return start
+    ? {
+        segments: selected,
+        estimatedHomes,
+        area: boundingArea(selected, center),
+        start,
+      }
+    : prefix;
+}
+
+function fillBorderedGaps(
+  proposals: PacketProposal[],
+  available: Map<string, PacketSelectionSegment>,
+  allSegments: Map<string, PacketSelectionSegment>,
+  adjacency: Adjacency,
+  center: Position,
+): void {
+  while (true) {
+    const owners = new Map<string, number>();
+    for (const [proposalIndex, proposal] of proposals.entries()) {
+      for (const segment of proposal.segments) owners.set(segment.id, proposalIndex);
+    }
+    const candidate = [...available.values()]
+      .map((segment) => {
+        const neighboringOwners = [...(adjacency.get(segment.id) ?? [])]
+          .map((id) => owners.get(id))
+          .filter((owner): owner is number => owner !== undefined);
+        return { segment, neighboringOwners };
+      })
+      .filter(({ neighboringOwners }) => neighboringOwners.length >= 2)
+      .sort(
+        (a, b) =>
+          compareNumbers(a.segment.estimatedHomes, b.segment.estimatedHomes) ||
+          compareCoverageAge(a.segment, b.segment) ||
+          compareStrings(a.segment.id, b.segment.id),
+      )[0];
+    if (!candidate) return;
+
+    const ownerCounts = new Map<number, number>();
+    for (const owner of candidate.neighboringOwners) {
+      ownerCounts.set(owner, (ownerCounts.get(owner) ?? 0) + 1);
+    }
+    const owner = [...ownerCounts]
+      .filter(
+        ([proposalIndex]) =>
+          proposals[proposalIndex].estimatedHomes + candidate.segment.estimatedHomes <=
+          proposals[proposalIndex].targetHomes * 1.3,
+      )
+      .sort(
+        (a, b) =>
+          compareNumbers(b[1], a[1]) ||
+          compareNumbers(proposals[a[0]].estimatedHomes, proposals[b[0]].estimatedHomes) ||
+          compareNumbers(a[0], b[0]),
+      )[0]?.[0];
+    if (owner === undefined) {
+      available.delete(candidate.segment.id);
+      continue;
+    }
+
+    const proposal = proposals[owner];
+    proposal.segments.push({
+      id: candidate.segment.id,
+      geometry: candidate.segment.geometry,
+      estimatedHomes: candidate.segment.estimatedHomes,
+    });
+    proposal.estimatedHomes += candidate.segment.estimatedHomes;
+    proposal.streetNames = [
+      ...new Set([...proposal.streetNames, candidate.segment.streetName]),
+    ].sort();
+    const selected = proposal.segments.map(
+      ({ id }) => allSegments.get(id) as PacketSelectionSegment,
+    );
+    proposal.start = selectStart(selected, center) ?? proposal.start;
+    available.delete(candidate.segment.id);
+  }
 }
 
 export function parsePacketSizeRequests(value: unknown): PacketSizeRequest[] {
@@ -324,42 +603,79 @@ export function generatePacketProposals(input: {
   });
   const proposals: PacketProposal[] = [];
   const warnings: string[] = [];
+  const available = new Map(
+    input.segments
+      .filter((segment) => segment.eligible && !segment.reserved)
+      .map((segment) => [segment.id, segment]),
+  );
+  const allSegments = new Map(available);
+  const adjacency = buildAdjacency([...available.values()]);
 
-  for (const coverageClass of coverageOrder) {
-    const available = new Map(
-      input.segments
-        .filter(
-          (segment) =>
-            segment.eligible && !segment.reserved && segment.coverageClass === coverageClass,
-        )
-        .map((segment) => [segment.id, segment]),
+  while (slots.length > 0 && available.size > 0) {
+    const anchors = [...available.values()].sort(
+      (a, b) =>
+        compareCoverageAge(a, b) ||
+        compareNumbers(segmentDistance(a, input.center), segmentDistance(b, input.center)) ||
+        compareStrings(a.id, b.id),
     );
-    while (slots.length > 0 && available.size > 0) {
-      const anchor = [...available.values()].sort(
-        (a, b) =>
-          compareNumbers(segmentDistance(a, input.center), segmentDistance(b, input.center)) ||
-          compareStrings(a.id, b.id),
-      )[0];
-      const component = componentFrom(anchor, available);
-      const prefixes = connectedPrefixes(anchor, component, input.center);
+    let choice:
+      | {
+          prefix: Prefix;
+          slot: TargetSlot;
+          difference: number;
+          orphanedHomes: number;
+          coverageClass: CoverageClass;
+        }
+      | undefined;
+    let missingAddress = false;
+    const minimumViableHomes = Math.min(...slots.map(({ targetHomes }) => targetHomes * 0.7));
+
+    for (const anchor of anchors) {
+      const component = componentFrom(anchor, available, adjacency);
+      const prefixes = connectedPrefixes(anchor, component, input.center, adjacency);
       if (prefixes.length === 0) {
-        for (const segment of component) available.delete(segment.id);
-        const warning =
-          'Skipped a connected area because no usable starting address was available.';
-        if (!warnings.includes(warning)) warnings.push(warning);
+        missingAddress = true;
         continue;
       }
-      const choice = prefixes
+      choice = prefixes
         .flatMap((prefix) =>
-          slots.map((slot) => ({
-            prefix,
-            slot,
-            difference: Math.abs(prefix.estimatedHomes - slot.targetHomes) / slot.targetHomes,
-          })),
+          slots.flatMap((slot) => {
+            const expanded = absorbOrphans(
+              prefix,
+              component,
+              adjacency,
+              minimumViableHomes,
+              slot.targetHomes * 1.3,
+              input.center,
+            );
+            if (
+              !(
+                (expanded.estimatedHomes >= slot.targetHomes * 0.7 &&
+                  expanded.estimatedHomes <= slot.targetHomes * 1.3) ||
+                (expanded.segments.length === 1 && expanded.estimatedHomes > slot.targetHomes * 1.3)
+              )
+            ) {
+              return [];
+            }
+            return [
+              {
+                prefix: expanded,
+                slot,
+                difference: Math.abs(expanded.estimatedHomes - slot.targetHomes) / slot.targetHomes,
+                orphanedHomes: orphanedHomes(
+                  expanded.segments,
+                  component,
+                  adjacency,
+                  minimumViableHomes,
+                ),
+                coverageClass: anchor.coverageClass,
+              },
+            ];
+          }),
         )
         .sort(
           (a, b) =>
-            compareNumbers(a.difference <= 0.2 ? 0 : 1, b.difference <= 0.2 ? 0 : 1) ||
+            compareNumbers(a.orphanedHomes, b.orphanedHomes) ||
             compareNumbers(a.difference, b.difference) ||
             compareNumbers(a.prefix.area, b.prefix.area) ||
             compareNumbers(a.prefix.segments.length, b.prefix.segments.length) ||
@@ -369,27 +685,37 @@ export function generatePacketProposals(input: {
               b.prefix.segments.map(({ id }) => id).join('\0'),
             ),
         )[0];
-      proposals.push({
-        targetHomes: choice.slot.targetHomes,
-        estimatedHomes: choice.prefix.estimatedHomes,
-        coverageClass,
-        segments: choice.prefix.segments.map(({ id, geometry, estimatedHomes }) => ({
-          id,
-          geometry,
-          estimatedHomes,
-        })),
-        start: choice.prefix.start,
-        streetNames: [
-          ...new Set(choice.prefix.segments.map(({ streetName }) => streetName)),
-        ].sort(),
-      });
-      for (const segment of choice.prefix.segments) available.delete(segment.id);
-      slots.splice(slots.indexOf(choice.slot), 1);
+      if (choice) break;
     }
-    if (slots.length === 0) break;
+
+    if (!choice) {
+      if (missingAddress) {
+        warnings.push('Skipped a connected area because no usable starting address was available.');
+      }
+      warnings.push('Some overdue streets need a smaller cleanup packet.');
+      break;
+    }
+
+    proposals.push({
+      targetHomes: choice.slot.targetHomes,
+      estimatedHomes: choice.prefix.estimatedHomes,
+      coverageClass: choice.coverageClass,
+      segments: choice.prefix.segments.map(({ id, geometry, estimatedHomes }) => ({
+        id,
+        geometry,
+        estimatedHomes,
+      })),
+      start: choice.prefix.start,
+      streetNames: [...new Set(choice.prefix.segments.map(({ streetName }) => streetName))].sort(),
+    });
+    for (const segment of choice.prefix.segments) available.delete(segment.id);
+    slots.splice(slots.indexOf(choice.slot), 1);
   }
+  fillBorderedGaps(proposals, available, allSegments, adjacency, input.center);
   if (slots.length > 0) {
-    warnings.push('Generated fewer packets because no more eligible streets were available.');
+    warnings.push(
+      'Generated fewer packets because no more sensible eligible streets were available.',
+    );
   }
   return { proposals, warnings };
 }

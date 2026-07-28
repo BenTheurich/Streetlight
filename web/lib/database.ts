@@ -349,6 +349,7 @@ export function getPacketGenerationWorkspace(
           estimatedHomes,
           eligible,
           coverageClass,
+          lastCoveredOn,
         }): PacketSelectionSegment => ({
           id,
           streetName,
@@ -357,6 +358,7 @@ export function getPacketGenerationWorkspace(
           eligible,
           reserved: reserved.has(id),
           coverageClass,
+          lastCoveredOn,
           addresses: addresses.get(id) ?? [],
         }),
       ),
