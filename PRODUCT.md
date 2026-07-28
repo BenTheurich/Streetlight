@@ -102,6 +102,11 @@ inside the selected boundary but excluded by an enabled exclusion polygon or exa
 override. The administrator can exclude highways, commercial districts, rivers, apartment
 complexes, areas assigned elsewhere, and other unsuitable locations.
 
+A territory save reuses imported streets and addresses whenever the proposed territory's enclosing
+square fits inside the saved import footprint. It imports again only when the proposed footprint
+extends beyond stored geography or the pinned source-data contract requires an upgrade. Ordinary
+exclusion, activation, exact-segment, boundary-shape, and contained boundary changes do not import.
+
 The main map colors segments by time since last coverage:
 
 - Red: oldest or never covered
@@ -223,7 +228,8 @@ the map camera, Map/Satellite choice, and each tool's in-progress state. Coverag
 Packets share the complete heatmap; a selected packet adds a distinct review highlight and
 starting pin above it. Territory Setup replaces the heatmap treatment with its editing overlays.
 The saved church location uses the founder-supplied church marker in every tool, and the header
-uses the founder-supplied logo beside the `STREETLIGHT` text.
+uses the founder-supplied logo beside the `STREETLIGHT` text. A compact lower-left **Layers** card
+opens the Map/Satellite chooser without loading a second map or static-map thumbnail.
 
 Advanced charts, leaderboards, volunteer statistics, and a report builder are outside the first release.
 

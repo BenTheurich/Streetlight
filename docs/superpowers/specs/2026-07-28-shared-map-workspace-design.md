@@ -79,7 +79,8 @@ One `AdminMap` component owns:
 Switching tools updates map data and interaction options without constructing a new Google map.
 This also avoids unnecessary map loads and tile requests during ordinary navigation.
 
-Google's native Map/Satellite control is available at the lower-right in every mode. The selected
+The custom lower-left **Layers** card opens a small Map/Satellite chooser in every mode. It uses a
+local decorative thumbnail rather than another Google map or Static Maps request. The selected
 basemap remains unchanged across tool switches because the map instance remains mounted.
 Streetlight overlays do not change when the basemap changes.
 
@@ -173,7 +174,7 @@ state-management dependency is required.
 - The church marker has the title `Church`.
 - The packet starting marker has the title `Starting address`.
 - Existing form labels, live notices, legends, and keyboard-accessible territory controls remain.
-- Map/Satellite uses Google's native accessible control.
+- The Layers card and its Map/Satellite chooser are keyboard accessible.
 
 ## Error and stale-state rules
 
