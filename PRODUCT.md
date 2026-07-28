@@ -130,18 +130,24 @@ may be scattered anywhere in the territory, but each individual packet is one co
 Streetlight respects the territory boundary, ignore zones, active reservations, and requested home
 count.
 
-Selection is heatmap-range-first. Streetlight processes red, orange, yellow, and green in that
-order, and a packet grows only through connected segments in one range. Within a range, selection
-begins nearest the church and expands outward evenly. Stable segment identifiers break otherwise
-equal choices. This makes an initially all-red territory progress outward from the church while
-preventing a single overdue street from pulling recently covered neighboring streets into its
-packet.
+Selection is oldest-seed-first. Each packet begins with the oldest eligible unassigned segment,
+then grows through connected segments in that heatmap range. If it remains below the normal lower
+bound, it may progressively include adjacent segments from newer ranges until it becomes viable.
+Newer segments are used only as needed to make the older seed serviceable. Equal-age choices begin
+nearest the church and expand outward evenly; stable segment identifiers break remaining ties.
 
-The normal tract target is plus or minus 20 percent, but a segment is never split. An isolated old
-street may become an intentionally undersized packet rather than crossing into a newer heatmap
-range, and one indivisible segment may produce an oversized packet. If request slots remain after
-an older range is exhausted, generation continues into the next range. If the territory runs out
-of usable eligible segments, Streetlight returns fewer proposals with an explanation.
+The normal tract target is plus or minus 30 percent, but a segment is never split. Within that
+range, Streetlight prefers a coherent packet that avoids creating a small leftover branch over a
+packet that merely lands closer to the numeric target. It may absorb a whole attached branch when
+the result remains within the upper bound and the branch could not satisfy any remaining requested
+packet size. One indivisible segment may still produce an oversized packet.
+
+Streetlight does not silently skip an overdue segment because newer geography would make an easier
+packet. If an old connected area cannot reach the lower bound even after considering adjacent
+segments from every heatmap range, Streetlight reports that the area needs a smaller cleanup
+packet. If the requested number of sensible packets cannot be produced, Streetlight returns fewer
+proposals with an explanation instead of filling the request with misleading one- or ten-tract
+packets.
 
 A packet contains a connected set of highlighted street segments and a proposed starting point. Volunteers choose how to walk the assignment. Taking the packet commits the volunteer to cover every highlighted segment.
 

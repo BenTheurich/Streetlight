@@ -346,11 +346,15 @@ Generate deterministic packet proposals from eligible street segments.
 - Accept requested packet quantities and approximate home counts.
 - Follow the approved
   [`Phase 4 packet proposal design`](docs/superpowers/specs/2026-07-28-phase4-packet-proposals-design.md).
-- Process heatmap ranges oldest to newest, and expand outward from the church within each range.
+- Protect the oldest eligible segment as each packet's seed, use same-range connected streets first,
+  and cross into newer ranges only as needed to make that seed viable.
 - Prefer compact, connected segment groups and automatically match mixed requested sizes to the
   geography.
-- Target plus or minus 20 percent without splitting segments; support the approved deterministic
-  undersized and indivisible-oversized exceptions.
+- Target plus or minus 30 percent without splitting segments; absorb attached small branches when
+  doing so prevents an unusable remainder and remains within the upper bound.
+- Recognize true T-junctions and conservative same-name continuation gaps in the packet graph.
+- Return fewer proposals with a cleanup explanation instead of silently skipping an old segment or
+  filling request slots with arbitrary tiny packets.
 - Exclude segments outside the territory boundary, touching or crossing exclusion areas, or
   reserved by active packets.
 - Prevent a segment from appearing in two proposed packets in the same generation.
@@ -365,12 +369,14 @@ Generate deterministic packet proposals from eligible street segments.
 Use one fixed synthetic street graph and one saved real-area fixture.
 
 - Repeated runs produce the same packets.
-- Older heatmap ranges are selected before newer ranges.
+- The oldest eligible segment anchors each packet and newer ranges fill it only when necessary.
 - An all-red territory expands outward from the church.
 - Every selected segment is eligible.
 - No segment appears twice.
 - Packet home counts are calculated from their segments.
-- Normal proposals meet the target tolerance, and both size exceptions are deterministic.
+- Normal proposals meet the target tolerance, orphan prevention is deterministic, and viable
+  normal candidates outrank arbitrary tiny components.
+- T-junctions and conservative same-name gaps connect without joining unrelated roads.
 - Every packet segment appears in the proposal map.
 - The proposed starting address belongs to the packet and follows the fallback order.
 

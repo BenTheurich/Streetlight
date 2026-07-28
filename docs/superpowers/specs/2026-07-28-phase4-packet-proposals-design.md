@@ -1,7 +1,7 @@
 # Phase 4 Deterministic Packet Proposals Design
 
 **Date:** 2026-07-28  
-**Status:** Founder-approved design  
+**Status:** Founder-approved design, amended for orphan prevention
 **Authority:** `PRODUCT.md` remains authoritative
 
 ## Purpose
@@ -35,7 +35,7 @@ Each proposal contains:
 - the sum of the selected segments' estimated homes;
 - its proposed starting address and address coordinate;
 - a deduplicated, admin-only street-name summary; and
-- the heatmap range from which it was selected.
+- the heatmap ranges represented in it.
 
 The Phase 4 street summary is for reviewing a proposal in the administrator interface. It does not
 change the approved Phase 5 printed packet content.
@@ -54,40 +54,52 @@ cannot appear in two proposals. Preview generation does not itself reserve anyth
 The selector operates on the whole requested batch, not on one neighborhood:
 
 1. Classify eligible segments with the administrator's current heatmap thresholds.
-2. Process ranges from oldest to newest: red, orange, yellow, then green. Never-covered segments
-   are red.
-3. Within the current range, choose the remaining segment nearest the church as the next anchor.
-4. Grow a connected candidate around that anchor using only segments in the same heatmap range.
-5. Match that connected area to the remaining requested tract target that fits it best.
-6. Remove the chosen segments and target slot, then repeat.
-7. Move to the next-newer heatmap range only after no segments remain in the older range or no
-   request slots remain.
+2. Choose the oldest eligible unassigned segment as a protected seed. Never-covered segments are
+   older than dated segments.
+3. Grow connected candidates from that seed, preferring segments in the seed's heatmap range.
+4. If every same-range candidate remains below the lower target bound, progressively consider
+   adjacent segments from ranges newer than the seed as needed.
+5. Match the resulting connected candidates to the remaining requested target they fit best.
+6. Prefer a candidate that avoids leaving an attached component unable to satisfy any remaining
+   request over one that is merely closer to its target.
+7. Remove the chosen segments and target slot, then repeat from the oldest remaining seed.
 
-Distance within a heatmap range is measured deterministically from the church center to segment
-geometry. This makes an initially all-red territory expand outward from the church in rings instead
-of finishing one distant direction before nearby streets elsewhere.
+Coverage age is the primary ordering rule. For equal coverage dates, distance from the church to
+segment geometry preserves the approved outward expansion. An initially all-never-covered territory
+therefore progresses outward from the church. Stable segment identifiers break remaining ties.
 
-When multiple connected additions are possible, prefer the addition that preserves the outward
-expansion, then the smallest resulting geographic footprint, then a stable segment-ID tie-breaker.
-Exact coverage dates do not override geographic expansion within the same configured heatmap range.
-This is a small deterministic heuristic, not route optimization.
+Cross-range filling is a fallback for making an old seed viable, not a reason to repeat recently
+covered neighboring streets when enough older connected geometry exists. Candidate comparison is
+deterministic and bounded to the imported street graph; this remains a grouping heuristic rather
+than route optimization.
 
-For each remaining requested size, the selector considers the connected prefixes grown from the
-anchor and keeps the prefix closest to that target. It assigns the target with the best relative
-fit, using the request's stable input order as the final tie-breaker. This allows a small isolated
-cul-de-sac to receive a small requested target while a larger connected area receives a larger one.
+## Road connectivity
+
+Packet connectivity uses the retained Overture geometry rather than the visual Google basemap.
+Besides exact shared endpoints, the packet graph recognizes:
+
+- a road endpoint meeting another segment's interior at a true T-junction; and
+- a short same-name continuation gap when the two pieces have compatible direction.
+
+The implementation uses conservative, fixture-backed tolerances. It does not connect unrelated
+nearby roads, parallel roads, or roads merely because they look close on the map. These additional
+graph edges do not change imported line geometry or split a normalized segment; they only record
+that two whole segments are connected for packet grouping.
 
 ## Target tolerance and exceptions
 
-The normal target range is plus or minus 20 percent. A segment is never split.
+The normal target range is plus or minus 30 percent. A segment is never split.
 
-- A connected area may become an intentionally undersized packet rather than pulling in streets
-  from a newer heatmap range.
+- Within the normal range, preventing a small stranded remainder outranks numeric closeness to the
+  target. For example, a 109-tract packet may beat a 99-tract packet when the additional ten tracts
+  complete an attached cul-de-sac.
+- A packet may absorb a whole attached branch when it remains at or below 130 percent and the
+  branch could not satisfy any remaining requested packet size.
 - A single indivisible segment may exceed the upper tolerance and become an oversized packet.
-- If request slots remain after an older range is exhausted, the selector continues with the next
-  range so the requested packet count is honored.
-- If the territory runs out of eligible segments or usable starting addresses, the selector
-  returns fewer proposals with a clear explanation.
+- If an old seed cannot reach 70 percent even after considering connected segments from every
+  heatmap range, it is reported as needing a smaller cleanup packet rather than silently skipped.
+- If the requested count cannot be met with sensible proposals, the selector returns fewer
+  proposals with a clear explanation. It does not fill slots with arbitrary tiny packets.
 
 Active zero-estimate residential segments remain eligible. Their selection does not increase a
 packet's estimate, and the finite no-duplicate rule prevents them from causing an endless search.
@@ -128,15 +140,15 @@ The preview uses Google's standard unlabeled pin at the chosen address. The exis
 is reimported once during Phase 4 development to populate address records. Future imports include
 them normally; no customer migration workflow is needed before there are customers.
 
-## Administrator page
+## Administrator workspace
 
-The Coverage dashboard receives a primary **Generate packets** action leading to a dedicated page.
-The page uses the existing full-height map shell:
+**Generate packets** is a tool in the persistent map workspace at `/`:
 
 - The sidebar contains request rows with native quantity and target inputs, an **Add packet size**
   action, and **Generate proposals**.
 - After generation, the sidebar lists proposal cards with target and estimated tract count.
-- Selecting a card focuses the interactive Google map on that packet alone.
+- The complete generated set is highlighted after generation. Selecting a card focuses the
+  interactive Google map on that packet alone.
 - The map shows the proposal's connected segments, normal road labels, and standard Google
   starting-address pin.
 - The selected proposal shows its written starting address and admin-only street summary.
@@ -161,7 +173,8 @@ The server validates the same boundary independently.
 
 Generation returns specific, non-mutating warnings when:
 
-- fewer eligible connected areas exist than requested;
+- fewer sensible packets exist than requested;
+- an overdue connected area requires a smaller cleanup packet;
 - one or more otherwise selectable areas lack a usable starting address; or
 - no eligible segments remain.
 
@@ -181,8 +194,12 @@ One fixed synthetic graph and one saved real Temecula fixture prove:
 - every proposal is connected;
 - no segment appears twice in one batch;
 - estimated homes equal the selected-segment sum;
-- normal results meet the 20-percent tolerance;
-- isolated undersized and indivisible oversized exceptions are deterministic;
+- normal results meet the 30-percent tolerance;
+- an old seed uses newer adjacent ranges only when same-range geometry cannot reach the lower bound;
+- an attached small branch is absorbed when doing so prevents an unusable remainder;
+- viable normal candidates are chosen instead of arbitrary tiny components;
+- exact T-junctions and conservative same-name gaps are connected without joining unrelated roads;
+- cleanup warnings and indivisible oversized exceptions are deterministic;
 - starting addresses belong to selected segments and follow the approved fallback order; and
 - insufficient data returns fewer proposals without mutation.
 
