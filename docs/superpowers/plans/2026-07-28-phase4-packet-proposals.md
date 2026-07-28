@@ -315,7 +315,7 @@ git diff --check
 
 Expected: all pass.
 
-- [ ] **Step 7: Commit the address evidence**
+- [x] **Step 7: Commit the address evidence**
 
 ```powershell
 git add IMPLEMENTATION_PLAN.md web/db/migrations/013_segment_addresses.sql web/importer/overture_import.py web/importer/test_overture_import.py web/lib/overture-import.ts web/lib/overture-import.test.ts web/lib/territory-import.ts web/lib/territory-import.test.ts web/lib/database.ts web/db/database.test.mjs
@@ -387,7 +387,7 @@ export function generatePacketProposals(input: {
 }): PacketGenerationResult;
 ```
 
-- [ ] **Step 1: Write failing request-boundary and synthetic-graph tests**
+- [x] **Step 1: Write failing request-boundary and synthetic-graph tests**
 
 Add exact-key parser tests accepting:
 
@@ -437,7 +437,7 @@ node --experimental-strip-types --test web/lib/packet-selection.test.ts
 
 Expected: FAIL because the module does not exist.
 
-- [ ] **Step 2: Implement validation and deterministic geometry primitives**
+- [x] **Step 2: Implement validation and deterministic geometry primitives**
 
 Use exact object-key checks. Expand quantities into stable target slots while preserving request-row
 order.
@@ -460,7 +460,7 @@ Add local point-to-line distance using longitude scaled by `Math.cos(latitude)`;
 geospatial dependency. Use endpoint keys only for adjacency. Preserve original geometry arrays in
 proposal output.
 
-- [ ] **Step 3: Implement connected outward growth and mixed-size matching**
+- [x] **Step 3: Implement connected outward growth and mixed-size matching**
 
 For one anchor and heatmap range:
 
@@ -493,7 +493,7 @@ Generated fewer packets because no more eligible streets were available.
 
 Return only the selected starting address, never every address.
 
-- [ ] **Step 4: Implement terminal-address ranking and fallbacks**
+- [x] **Step 4: Implement terminal-address ranking and fallbacks**
 
 For a candidate prefix, count selected endpoint occurrences. A terminal endpoint occurs once.
 Terminal segment addresses rank by:
@@ -518,7 +518,7 @@ function formatAddress(address: PacketAddress): string {
 Deduplicate and sort `streetNames` with JavaScript's default UTF-16 code-unit `sort()` so results
 do not depend on the host locale. Do not output internal sequence numbers.
 
-- [ ] **Step 5: Add tolerance, exception, and saved-real-geometry checks**
+- [x] **Step 5: Add tolerance, exception, and saved-real-geometry checks**
 
 Add focused tests proving:
 
