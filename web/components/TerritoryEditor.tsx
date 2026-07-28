@@ -71,6 +71,8 @@ export function TerritoryEditor({
   const [mode, setMode] = useState<'pan' | 'draw'>('pan');
   const [drawingPoints, setDrawingPoints] = useState<Position[]>([]);
   const [selectedExclusionId, setSelectedExclusionId] = useState<string | null>(null);
+  const [showHiddenRoads, setShowHiddenRoads] = useState(false);
+  const [selectedHiddenRoadGroupId, setSelectedHiddenRoadGroupId] = useState<string | null>(null);
   const [polygonError, setPolygonError] = useState('');
   const [radiusInput, setRadiusInput] = useState(String(initialDraft.radiusMiles));
   const [addressEditing, setAddressEditing] = useState(false);
@@ -114,6 +116,11 @@ export function TerritoryEditor({
       : '';
   const selectedExclusion =
     draft.exclusions.find((area) => area.id === selectedExclusionId) ?? null;
+  const selectedHiddenRoadSegments = selectedHiddenRoadGroupId
+    ? live.segments.filter(
+        (segment) => !segment.active && segment.roadGroupId === selectedHiddenRoadGroupId,
+      )
+    : [];
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -157,10 +164,17 @@ export function TerritoryEditor({
     );
   }, []);
 
+  const selectHiddenRoadGroup = useCallback((roadGroupId: string) => {
+    setSelectedHiddenRoadGroupId(roadGroupId);
+    setSelectedExclusionId(null);
+    setMode('pan');
+  }, []);
+
   function startDrawing() {
     setMode('draw');
     setDrawingPoints([]);
     setSelectedExclusionId(null);
+    setSelectedHiddenRoadGroupId(null);
     setPolygonError('');
   }
 
@@ -199,6 +213,7 @@ export function TerritoryEditor({
     setMode('pan');
     setDrawingPoints([]);
     setSelectedExclusionId(null);
+    setSelectedHiddenRoadGroupId(null);
     setPolygonError('');
     setAddressEditing(false);
     setPendingAddress(null);
@@ -264,6 +279,7 @@ export function TerritoryEditor({
       setSavedDraft(structuredClone(nextDraft));
       setRadiusInput(String(nextDraft.radiusMiles));
       setSelectedExclusionId(null);
+      setSelectedHiddenRoadGroupId(null);
       setNotice('Territory changes saved.');
     } catch (error) {
       setNotice(
@@ -304,9 +320,12 @@ export function TerritoryEditor({
             onDrawingPointsChange={changeDrawingPoints}
             onExclusionChange={changeExclusion}
             onSelectExclusion={setSelectedExclusionId}
+            onSelectHiddenRoadGroup={selectHiddenRoadGroup}
             radiusMiles={draft.radiusMiles}
             segments={live.segments}
             selectedExclusionId={selectedExclusionId}
+            selectedHiddenRoadGroupId={selectedHiddenRoadGroupId}
+            showHiddenRoads={showHiddenRoads}
           />
           <fieldset className="map-modes">
             <legend className="sr-only">Map mode</legend>
@@ -334,6 +353,11 @@ export function TerritoryEditor({
             <span>
               <i className="excluded" /> Excluded
             </span>
+            {showHiddenRoads && (
+              <span>
+                <i className="hidden-road" /> Hidden
+              </span>
+            )}
           </div>
           {mode === 'draw' && (
             <div className="drawing-instructions">
@@ -498,6 +522,64 @@ export function TerritoryEditor({
               )}
             </section>
 
+            <section className="hidden-roads-section">
+              <div className="section-row">
+                <h2>Missing roads</h2>
+                <label className="hidden-roads-toggle">
+                  <input
+                    checked={showHiddenRoads}
+                    onChange={(event) => {
+                      setShowHiddenRoads(event.target.checked);
+                      if (!event.target.checked) {
+                        setSelectedHiddenRoadGroupId(null);
+                      }
+                    }}
+                    type="checkbox"
+                  />
+                  Show hidden roads
+                </label>
+              </div>
+              {selectedHiddenRoadSegments.length > 0 ? (
+                <div className="hidden-road-card">
+                  <strong>{selectedHiddenRoadSegments[0].streetName}</strong>
+                  <span>
+                    {selectedHiddenRoadSegments.length} segment
+                    {selectedHiddenRoadSegments.length === 1 ? '' : 's'} ·{' '}
+                    {selectedHiddenRoadSegments.reduce(
+                      (total, segment) => total + segment.estimatedHomes,
+                      0,
+                    )}{' '}
+                    estimated tracts
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (!selectedHiddenRoadGroupId) {
+                        return;
+                      }
+                      setDraft((current) => ({
+                        ...current,
+                        activatedRoadGroupIds: [
+                          ...current.activatedRoadGroupIds,
+                          selectedHiddenRoadGroupId,
+                        ],
+                      }));
+                      setSelectedHiddenRoadGroupId(null);
+                      setNotice('Road activated in this draft. Save changes to keep it.');
+                    }}
+                    type="button"
+                  >
+                    Activate road
+                  </button>
+                </div>
+              ) : (
+                <p className="empty-state">
+                  {showHiddenRoads
+                    ? 'Select a blue-gray road on the map.'
+                    : 'Reveal uncertain Overture roads when one appears to be missing.'}
+                </p>
+              )}
+            </section>
+
             <section className="exclusions-section">
               <h2>Excluded areas</h2>
               <button className="draw-button" onClick={startDrawing} type="button">
@@ -518,6 +600,7 @@ export function TerritoryEditor({
                           aria-pressed={area.id === selectedExclusionId}
                           onClick={() => {
                             setSelectedExclusionId(area.id);
+                            setSelectedHiddenRoadGroupId(null);
                             setMode('pan');
                             setPolygonError('');
                           }}

@@ -13,18 +13,19 @@ const validOutput = {
   center: requestedCenter,
   radiusMiles: 1,
   completedAt: '2026-07-27T12:00:00.000Z',
-  normalizerVersion: 2,
+  normalizerVersion: 3,
   quality: {
     totalAddresses: 12,
     assignedAddresses: 10,
     inferredRoads: 1,
     unmatchedAddresses: 2,
-    unresolvedClusters: 0,
+    unresolvedClusters: 2,
   },
   segments: [
     {
       id: 'overture:road-1:0',
       sourceSegmentId: 'road-1',
+      roadGroupId: 'road-group:overture:road-1:0',
       roadClass: 'residential',
       streetName: 'Main Street',
       geometry: {
@@ -35,19 +36,12 @@ const validOutput = {
         ],
       },
       estimatedHomes: 4,
+      activationKind: 'automatic',
     },
   ],
 };
 
-const validImportedOutput = {
-  ...validOutput,
-  quality: {
-    totalAddresses: 12,
-    assignedAddresses: 10,
-    inferredRoads: 1,
-    unmatchedAddresses: 2,
-  },
-};
+const validImportedOutput = validOutput;
 
 function outputProcess(value: unknown) {
   return spawn(process.execPath, [
@@ -90,7 +84,7 @@ test('rejects malformed JSON and every invalid import field', () => {
     { ...validOutput, quality: { ...validOutput.quality, totalAddresses: -1 } },
     { ...validOutput, quality: { ...validOutput.quality, assignedAddresses: 10.5 } },
     { ...validOutput, quality: { ...validOutput.quality, unmatchedAddresses: 1 } },
-    { ...validOutput, quality: { ...validOutput.quality, unresolvedClusters: 1 } },
+    { ...validOutput, quality: { ...validOutput.quality, unresolvedClusters: -1 } },
     { ...validOutput, quality: { ...validOutput.quality, extra: 1 } },
     { ...validOutput, segments: [] },
     {
@@ -107,7 +101,15 @@ test('rejects malformed JSON and every invalid import field', () => {
     },
     {
       ...validOutput,
-      segments: [{ ...validOutput.segments[0], roadClass: 'motorway' }],
+      segments: [{ ...validOutput.segments[0], roadClass: '' }],
+    },
+    {
+      ...validOutput,
+      segments: [{ ...validOutput.segments[0], roadGroupId: '' }],
+    },
+    {
+      ...validOutput,
+      segments: [{ ...validOutput.segments[0], activationKind: 'manual' }],
     },
     {
       ...validOutput,

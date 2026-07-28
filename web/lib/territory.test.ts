@@ -58,6 +58,7 @@ test('a complete territory draft persists radius, exclusions, and derived totals
         originAddress: initial.originAddress,
         center: initial.center,
         radiusMiles: 20,
+        activatedRoadGroupIds: [],
         exclusions: [{ id: 'exclude-school', name: 'School', geometry }],
       },
       { filename },
@@ -89,6 +90,7 @@ test('changing the church point keeps saved exclusion coordinates unchanged', ()
         originAddress: '1 New Address, Temecula, CA',
         center: [-117.2, 33.6],
         radiusMiles: 5,
+        activatedRoadGroupIds: [],
         exclusions: [{ id: 'exclude-existing', name: 'Existing', geometry }],
       },
       { filename },
@@ -112,6 +114,7 @@ test('a failed complete-draft save rolls back territory and exclusions together'
           originAddress: 'Rollback Address',
           center: [-117.2, 33.6],
           radiusMiles: 1,
+          activatedRoadGroupIds: [],
           exclusions: [
             { id: 'duplicate', name: 'First', geometry },
             { id: 'duplicate', name: 'Second', geometry },
@@ -134,6 +137,7 @@ test('draft validation accepts the complete saved-draft contract', () => {
     originAddress: ' 31087 Nicolas Rd ',
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
+    activatedRoadGroupIds: [' road-group:approved '],
     exclusions: [
       {
         id: 'exclude-1',
@@ -154,6 +158,7 @@ test('draft validation accepts the complete saved-draft contract', () => {
   });
 
   assert.equal(parsed.originAddress, '31087 Nicolas Rd');
+  assert.deepEqual(parsed.activatedRoadGroupIds, ['road-group:approved']);
   assert.equal(parsed.exclusions[0].name, '');
 });
 
@@ -162,6 +167,7 @@ test('draft validation rejects invalid radius, duplicate IDs, and self-intersect
     originAddress: '31087 Nicolas Rd',
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
+    activatedRoadGroupIds: [],
     exclusions: [
       {
         id: 'exclude-1',
@@ -182,6 +188,14 @@ test('draft validation rejects invalid radius, duplicate IDs, and self-intersect
   };
 
   assert.throws(() => parseTerritoryDraft({ ...valid, radiusMiles: 0 }), /radius/i);
+  assert.throws(
+    () =>
+      parseTerritoryDraft({
+        ...valid,
+        activatedRoadGroupIds: ['road-group:duplicate', 'road-group:duplicate'],
+      }),
+    /duplicate/i,
+  );
   assert.throws(
     () =>
       parseTerritoryDraft({

@@ -41,6 +41,7 @@ type TerritoryRow = {
   import_assigned_addresses: number | null;
   import_inferred_roads: number | null;
   import_unmatched_addresses: number | null;
+  import_unresolved_clusters: number | null;
   import_normalizer_version: number | null;
   import_generation: number;
 };
@@ -48,10 +49,12 @@ type TerritoryRow = {
 type SegmentRow = {
   id: string;
   source_segment_id: string | null;
+  road_group_id: string;
   road_class: string;
   street_name: string;
   geometry_geojson: string;
   estimated_homes: number;
+  activation_kind: 'automatic' | 'hidden' | 'manual';
 };
 
 type ExclusionRow = {
@@ -77,12 +80,15 @@ export type ExclusionArea = {
 export type TerritorySegment = {
   id: string;
   sourceSegmentId: string;
+  roadGroupId: string;
   roadClass: string;
   streetName: string;
   geometry: LineString;
   estimatedHomes: number;
+  activationKind: 'automatic' | 'hidden' | 'manual';
+  active: boolean;
   eligible: boolean;
-  excludedReason: 'radius' | 'exclusion' | null;
+  excludedReason: 'hidden' | 'radius' | 'exclusion' | null;
 };
 
 export type TerritoryWorkspace = {
@@ -122,9 +128,11 @@ export function getFoundationSummary(filename?: string): FoundationSummary {
           c.name AS church_name,
           t.name AS territory_name,
           (SELECT COUNT(*) FROM street_segments s
-            WHERE s.church_id = c.id AND s.is_current = 1) AS segment_count,
+            WHERE s.church_id = c.id AND s.is_current = 1
+              AND s.activation_kind != 'hidden') AS segment_count,
           (SELECT COALESCE(SUM(s.estimated_homes), 0) FROM street_segments s
-            WHERE s.church_id = c.id AND s.is_current = 1) AS estimated_homes,
+            WHERE s.church_id = c.id AND s.is_current = 1
+              AND s.activation_kind != 'hidden') AS estimated_homes,
           (SELECT COUNT(*) FROM packets p WHERE p.church_id = c.id) AS packet_count
         FROM churches c
         JOIN territories t ON t.church_id = c.id
@@ -158,7 +166,8 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
           t.import_kind, t.import_release, t.import_center_latitude,
           t.import_center_longitude, t.import_radius_meters, t.import_completed_at,
           t.import_total_addresses, t.import_assigned_addresses, t.import_inferred_roads,
-          t.import_unmatched_addresses, t.import_normalizer_version,
+          t.import_unmatched_addresses, t.import_unresolved_clusters,
+          t.import_normalizer_version,
           t.import_generation
         FROM territories t
         JOIN churches c ON c.id = t.church_id
@@ -216,20 +225,22 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
               territory.import_total_addresses === null ||
               territory.import_assigned_addresses === null ||
               territory.import_inferred_roads === null ||
-              territory.import_unmatched_addresses === null
+              territory.import_unmatched_addresses === null ||
+              territory.import_unresolved_clusters === null
                 ? null
                 : {
                     totalAddresses: territory.import_total_addresses,
                     assignedAddresses: territory.import_assigned_addresses,
                     inferredRoads: territory.import_inferred_roads,
                     unmatchedAddresses: territory.import_unmatched_addresses,
+                    unresolvedClusters: territory.import_unresolved_clusters,
                   },
           };
     const segments = (
       database
         .prepare(
-          `SELECT import_segment_id AS id, source_segment_id, road_class, street_name,
-            geometry_geojson, estimated_homes
+          `SELECT import_segment_id AS id, source_segment_id, road_group_id, road_class,
+            street_name, geometry_geojson, estimated_homes, activation_kind
           FROM street_segments
           WHERE territory_id = ? AND church_id = ? AND is_current = 1
           ORDER BY street_name, import_segment_id`,
@@ -239,15 +250,25 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
       const geometry = parseGeometry<LineString>(row.geometry_geojson);
       const outsideRadius = !lineInsideCircle(geometry, center, radiusMiles);
       const excluded = exclusions.some((area) => lineIntersectsPolygon(geometry, area.geometry));
+      const active = row.activation_kind !== 'hidden';
       return {
         id: row.id,
         sourceSegmentId: row.source_segment_id ?? row.id,
+        roadGroupId: row.road_group_id || row.id,
         roadClass: row.road_class,
         streetName: row.street_name,
         geometry,
         estimatedHomes: row.estimated_homes,
-        eligible: !outsideRadius && !excluded,
-        excludedReason: outsideRadius ? 'radius' : excluded ? 'exclusion' : null,
+        activationKind: row.activation_kind,
+        active,
+        eligible: active && !outsideRadius && !excluded,
+        excludedReason: !active
+          ? 'hidden'
+          : outsideRadius
+            ? 'radius'
+            : excluded
+              ? 'exclusion'
+              : null,
       };
     });
 
@@ -262,9 +283,11 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
       exclusions,
       segments,
       totals: {
-        allSegments: segments.length,
+        allSegments: segments.filter((segment) => segment.active).length,
         eligibleSegments: segments.filter((segment) => segment.eligible).length,
-        allHomes: segments.reduce((total, segment) => total + segment.estimatedHomes, 0),
+        allHomes: segments
+          .filter((segment) => segment.active)
+          .reduce((total, segment) => total + segment.estimatedHomes, 0),
         eligibleHomes: segments
           .filter((segment) => segment.eligible)
           .reduce((total, segment) => total + segment.estimatedHomes, 0),
@@ -285,6 +308,7 @@ export function saveTerritoryDraft(
   options: SaveTerritoryOptions = {},
 ): void {
   const database = openWorkspaceDatabase(options.filename);
+  const activatedRoadGroupIds = new Set(draft.activatedRoadGroupIds);
   database.exec('BEGIN IMMEDIATE');
   try {
     const result = database
@@ -326,6 +350,30 @@ export function saveTerritoryDraft(
     }
 
     if (options.imported) {
+      const manualRows = database
+        .prepare(
+          `SELECT import_segment_id, source_segment_id, road_group_id, road_class, street_name,
+            geometry_geojson, estimated_homes
+          FROM street_segments
+          WHERE territory_id = ? AND church_id = ? AND is_current = 1
+            AND activation_kind = 'manual'`,
+        )
+        .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Array<
+        SegmentRow & { import_segment_id: string }
+      >;
+      const manuallyActivatedSources = new Set(
+        manualRows
+          .map((row) => row.source_segment_id)
+          .filter((sourceId): sourceId is string => sourceId !== null),
+      );
+      const importedSourceIds = new Set(
+        options.imported.segments.map((segment) => segment.sourceSegmentId),
+      );
+      for (const segment of options.imported.segments) {
+        if (manuallyActivatedSources.has(segment.sourceSegmentId)) {
+          activatedRoadGroupIds.add(segment.roadGroupId);
+        }
+      }
       const generation =
         (
           database
@@ -345,9 +393,9 @@ export function saveTerritoryDraft(
         .run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID);
       const insertSegment = database.prepare(
         `INSERT INTO street_segments
-          (id, church_id, territory_id, import_segment_id, source_segment_id, road_class,
-            street_name, geometry_geojson, estimated_homes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, church_id, territory_id, import_segment_id, source_segment_id, road_group_id,
+            road_class, street_name, geometry_geojson, estimated_homes, activation_kind)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const segment of options.imported.segments) {
         insertSegment.run(
@@ -356,11 +404,32 @@ export function saveTerritoryDraft(
           PILOT_TERRITORY_ID,
           segment.id,
           segment.sourceSegmentId,
+          segment.roadGroupId,
           segment.roadClass,
           segment.streetName,
           JSON.stringify(segment.geometry),
           segment.estimatedHomes,
+          segment.activationKind,
         );
+      }
+      for (const segment of manualRows) {
+        if (segment.source_segment_id && importedSourceIds.has(segment.source_segment_id)) {
+          continue;
+        }
+        insertSegment.run(
+          `${segment.import_segment_id}@${generation}`,
+          PILOT_CHURCH_ID,
+          PILOT_TERRITORY_ID,
+          segment.import_segment_id,
+          segment.source_segment_id,
+          segment.road_group_id,
+          segment.road_class,
+          segment.street_name,
+          segment.geometry_geojson,
+          segment.estimated_homes,
+          'manual',
+        );
+        activatedRoadGroupIds.add(segment.road_group_id);
       }
       database
         .prepare(
@@ -369,7 +438,7 @@ export function saveTerritoryDraft(
             import_center_latitude = ?, import_center_longitude = ?,
             import_radius_meters = ?, import_completed_at = ?, import_total_addresses = ?,
             import_assigned_addresses = ?, import_inferred_roads = ?, import_unmatched_addresses = ?,
-            import_normalizer_version = ?, import_generation = ?
+            import_unresolved_clusters = ?, import_normalizer_version = ?, import_generation = ?
           WHERE id = ? AND church_id = ?`,
         )
         .run(
@@ -382,11 +451,20 @@ export function saveTerritoryDraft(
           options.imported.quality.assignedAddresses,
           options.imported.quality.inferredRoads,
           options.imported.quality.unmatchedAddresses,
+          options.imported.quality.unresolvedClusters,
           options.imported.normalizerVersion,
           generation,
           PILOT_TERRITORY_ID,
           PILOT_CHURCH_ID,
         );
+    }
+    const activate = database.prepare(
+      `UPDATE street_segments
+      SET activation_kind = 'manual'
+      WHERE territory_id = ? AND church_id = ? AND is_current = 1 AND road_group_id = ?`,
+    );
+    for (const roadGroupId of activatedRoadGroupIds) {
+      activate.run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID, roadGroupId);
     }
     database.exec('COMMIT');
   } catch (error) {

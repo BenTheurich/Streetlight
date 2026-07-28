@@ -28,8 +28,7 @@ export async function PATCH(request: Request) {
     } catch {
       return Response.json(
         {
-          error:
-            'Street data import failed its completeness check. No saved changes were replaced.',
+          error: 'Street data import failed. No saved changes were replaced.',
         },
         { status: 500 },
       );

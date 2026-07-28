@@ -25,10 +25,18 @@ function withDatabase(run) {
   }
 }
 
-function importedSegment(id, streetName, roadClass, estimatedHomes) {
+function importedSegment(
+  id,
+  streetName,
+  roadClass,
+  estimatedHomes,
+  activationKind = 'automatic',
+  roadGroupId = `road-group:${id}`,
+) {
   return {
     id,
     sourceSegmentId: `source-${id}`,
+    roadGroupId,
     roadClass,
     streetName,
     geometry: {
@@ -39,6 +47,7 @@ function importedSegment(id, streetName, roadClass, estimatedHomes) {
       ],
     },
     estimatedHomes,
+    activationKind,
   };
 }
 
@@ -48,12 +57,13 @@ function importedTerritory(segments) {
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 2,
+    normalizerVersion: 3,
     quality: {
       totalAddresses: 12,
       assignedAddresses: 10,
       inferredRoads: 1,
       unmatchedAddresses: 2,
+      unresolvedClusters: 0,
     },
     segments,
   };
@@ -182,19 +192,25 @@ test('an imported save atomically replaces proof segments and records its footpr
         ({
           id,
           sourceSegmentId,
+          roadGroupId,
           roadClass,
           streetName,
           geometry,
           estimatedHomes,
+          activationKind,
+          active,
           eligible,
           excludedReason,
         }) => ({
           id,
           sourceSegmentId,
+          roadGroupId,
           roadClass,
           streetName,
           geometry,
           estimatedHomes,
+          activationKind,
+          active,
           eligible,
           excludedReason,
         }),
@@ -202,13 +218,196 @@ test('an imported save atomically replaces proof segments and records its footpr
       [
         {
           ...imported.segments[1],
+          active: true,
           eligible: true,
           excludedReason: null,
         },
         {
           ...imported.segments[0],
+          active: true,
           eligible: true,
           excludedReason: null,
+        },
+      ],
+    );
+  });
+});
+
+test('hidden road groups stay out of totals until the saved draft activates them', () => {
+  withDatabase((filename) => {
+    const workspace = getTerritoryWorkspace(filename);
+    const hiddenGroup = 'road-group:hidden-road';
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: [],
+        activatedRoadGroupIds: [],
+      },
+      {
+        filename,
+        imported: importedTerritory([
+          importedSegment('hidden-a', 'Hidden Road', 'service', 4, 'hidden', hiddenGroup),
+          importedSegment('hidden-b', 'Hidden Road', 'service', 5, 'hidden', hiddenGroup),
+        ]),
+      },
+    );
+
+    const hidden = getTerritoryWorkspace(filename);
+    assert.deepEqual(
+      hidden.segments.map((segment) => ({
+        id: segment.id,
+        activationKind: segment.activationKind,
+        active: segment.active,
+        eligible: segment.eligible,
+      })),
+      [
+        { id: 'hidden-a', activationKind: 'hidden', active: false, eligible: false },
+        { id: 'hidden-b', activationKind: 'hidden', active: false, eligible: false },
+      ],
+    );
+    assert.deepEqual(hidden.totals, {
+      allSegments: 0,
+      eligibleSegments: 0,
+      allHomes: 0,
+      eligibleHomes: 0,
+    });
+
+    saveTerritoryDraft(
+      {
+        originAddress: hidden.originAddress,
+        center: hidden.center,
+        radiusMiles: hidden.radiusMiles,
+        exclusions: hidden.exclusions,
+        activatedRoadGroupIds: [hiddenGroup],
+      },
+      { filename },
+    );
+
+    const activated = getTerritoryWorkspace(filename);
+    assert.equal(
+      activated.segments.every((segment) => segment.activationKind === 'manual'),
+      true,
+    );
+    assert.equal(
+      activated.segments.every((segment) => segment.active && segment.eligible),
+      true,
+    );
+    assert.deepEqual(activated.totals, {
+      allSegments: 2,
+      eligibleSegments: 2,
+      allHomes: 9,
+      eligibleHomes: 9,
+    });
+  });
+});
+
+test('reimport keeps an administrator-approved source active when its group identity changes', () => {
+  withDatabase((filename) => {
+    const workspace = getTerritoryWorkspace(filename);
+    const originalGroup = 'road-group:original';
+    const replacementGroup = 'road-group:replacement';
+    const firstImport = importedTerritory([
+      importedSegment('candidate', 'Candidate Road', 'service', 7, 'hidden', originalGroup),
+    ]);
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: [],
+        activatedRoadGroupIds: [originalGroup],
+      },
+      { filename, imported: firstImport },
+    );
+    assert.equal(getTerritoryWorkspace(filename).segments[0].activationKind, 'manual');
+
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: [],
+        activatedRoadGroupIds: [originalGroup],
+      },
+      {
+        filename,
+        imported: importedTerritory([
+          importedSegment('candidate', 'Candidate Road', 'service', 8, 'hidden', replacementGroup),
+        ]),
+      },
+    );
+
+    const reimported = getTerritoryWorkspace(filename).segments;
+    assert.deepEqual(
+      reimported.map(({ roadGroupId, activationKind, estimatedHomes }) => ({
+        roadGroupId,
+        activationKind,
+        estimatedHomes,
+      })),
+      [{ roadGroupId: replacementGroup, activationKind: 'manual', estimatedHomes: 8 }],
+    );
+  });
+});
+
+test('reimport preserves the last approved geometry when Overture drops its source road', () => {
+  withDatabase((filename) => {
+    const workspace = getTerritoryWorkspace(filename);
+    const approvedGroup = 'road-group:approved';
+    const approved = importedSegment(
+      'approved',
+      'Approved Road',
+      'service',
+      6,
+      'hidden',
+      approvedGroup,
+    );
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: [],
+        activatedRoadGroupIds: [approvedGroup],
+      },
+      { filename, imported: importedTerritory([approved]) },
+    );
+
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        exclusions: [],
+        activatedRoadGroupIds: [approvedGroup],
+      },
+      {
+        filename,
+        imported: importedTerritory([importedSegment('new-road', 'New Road', 'residential', 3)]),
+      },
+    );
+
+    const reimported = getTerritoryWorkspace(filename).segments;
+    assert.deepEqual(
+      reimported.map(({ id, streetName, activationKind, estimatedHomes }) => ({
+        id,
+        streetName,
+        activationKind,
+        estimatedHomes,
+      })),
+      [
+        {
+          id: 'approved',
+          streetName: 'Approved Road',
+          activationKind: 'manual',
+          estimatedHomes: 6,
+        },
+        {
+          id: 'new-road',
+          streetName: 'New Road',
+          activationKind: 'automatic',
+          estimatedHomes: 3,
         },
       ],
     );
@@ -384,6 +583,7 @@ test('a replacement failure preserves the complete saved workspace', () => {
       assignedAddresses: 10,
       inferredRoads: 1,
       unmatchedAddresses: 2,
+      unresolvedClusters: 0,
     });
     assert.throws(
       () =>

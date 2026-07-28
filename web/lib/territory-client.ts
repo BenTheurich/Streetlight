@@ -37,6 +37,13 @@ export function territoryDraftFromWorkspace(workspace: TerritoryWorkspace): Terr
     originAddress: workspace.originAddress,
     center: [...workspace.center],
     radiusMiles: workspace.radiusMiles,
+    activatedRoadGroupIds: [
+      ...new Set(
+        workspace.segments
+          .filter((segment) => segment.activationKind === 'manual')
+          .map((segment) => segment.roadGroupId),
+      ),
+    ].sort(),
     exclusions: structuredClone(workspace.exclusions),
   };
 }
@@ -45,23 +52,30 @@ export function deriveTerritory(
   importedSegments: TerritorySegment[],
   draft: TerritoryDraftInput,
 ): Pick<TerritoryWorkspace, 'segments' | 'totals'> {
+  const activatedRoadGroupIds = new Set(draft.activatedRoadGroupIds);
   const segments = importedSegments.map((segment): TerritorySegment => {
     const outsideRadius = !lineInsideCircle(segment.geometry, draft.center, draft.radiusMiles);
     const excluded = draft.exclusions.some((area) =>
       lineIntersectsPolygon(segment.geometry, area.geometry),
     );
+    const manuallyActivated = activatedRoadGroupIds.has(segment.roadGroupId);
+    const active = segment.active || manuallyActivated;
     return {
       ...segment,
-      eligible: !outsideRadius && !excluded,
-      excludedReason: outsideRadius ? 'radius' : excluded ? 'exclusion' : null,
+      activationKind: manuallyActivated ? 'manual' : segment.activationKind,
+      active,
+      eligible: active && !outsideRadius && !excluded,
+      excludedReason: !active ? 'hidden' : outsideRadius ? 'radius' : excluded ? 'exclusion' : null,
     };
   });
   return {
     segments,
     totals: {
-      allSegments: segments.length,
+      allSegments: segments.filter((segment) => segment.active).length,
       eligibleSegments: segments.filter((segment) => segment.eligible).length,
-      allHomes: segments.reduce((total, segment) => total + segment.estimatedHomes, 0),
+      allHomes: segments
+        .filter((segment) => segment.active)
+        .reduce((total, segment) => total + segment.estimatedHomes, 0),
       eligibleHomes: segments
         .filter((segment) => segment.eligible)
         .reduce((total, segment) => total + segment.estimatedHomes, 0),
@@ -73,8 +87,8 @@ export function affectedByExclusion(
   segments: TerritorySegment[],
   exclusion: ExclusionArea,
 ): { segments: number; homes: number } {
-  const affected = segments.filter((segment) =>
-    lineIntersectsPolygon(segment.geometry, exclusion.geometry),
+  const affected = segments.filter(
+    (segment) => segment.active && lineIntersectsPolygon(segment.geometry, exclusion.geometry),
   );
   return {
     segments: affected.length,

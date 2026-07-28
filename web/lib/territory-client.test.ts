@@ -16,6 +16,7 @@ const segments: TerritorySegment[] = [
   {
     id: 'inside',
     sourceSegmentId: 'inside',
+    roadGroupId: 'road-group:inside',
     roadClass: 'residential',
     streetName: 'Inside Street',
     geometry: {
@@ -26,12 +27,15 @@ const segments: TerritorySegment[] = [
       ],
     },
     estimatedHomes: 10,
+    activationKind: 'automatic',
+    active: true,
     eligible: true,
     excludedReason: null,
   },
   {
     id: 'outside',
     sourceSegmentId: 'outside',
+    roadGroupId: 'road-group:outside',
     roadClass: 'residential',
     streetName: 'Outside Street',
     geometry: {
@@ -42,12 +46,15 @@ const segments: TerritorySegment[] = [
       ],
     },
     estimatedHomes: 20,
+    activationKind: 'automatic',
+    active: true,
     eligible: true,
     excludedReason: null,
   },
   {
     id: 'touched',
     sourceSegmentId: 'touched',
+    roadGroupId: 'road-group:touched',
     roadClass: 'residential',
     streetName: 'Touched Street',
     geometry: {
@@ -58,8 +65,29 @@ const segments: TerritorySegment[] = [
       ],
     },
     estimatedHomes: 5,
+    activationKind: 'automatic',
+    active: true,
     eligible: true,
     excludedReason: null,
+  },
+  {
+    id: 'hidden',
+    sourceSegmentId: 'hidden',
+    roadGroupId: 'road-group:hidden',
+    roadClass: 'service',
+    streetName: 'Hidden Road',
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [0.001, 0],
+        [0.001, 0.005],
+      ],
+    },
+    estimatedHomes: 7,
+    activationKind: 'hidden',
+    active: false,
+    eligible: false,
+    excludedReason: 'hidden',
   },
 ];
 
@@ -67,6 +95,7 @@ const draft: TerritoryDraftInput = {
   originAddress: 'Church',
   center: [0, 0],
   radiusMiles: 1,
+  activatedRoadGroupIds: [],
   exclusions: [
     {
       id: 'exclude-1',
@@ -100,6 +129,7 @@ test('live territory derivation distinguishes radius and polygon exclusions', ()
       { id: 'inside', eligible: true, excludedReason: null },
       { id: 'outside', eligible: false, excludedReason: 'radius' },
       { id: 'touched', eligible: false, excludedReason: 'exclusion' },
+      { id: 'hidden', eligible: false, excludedReason: 'hidden' },
     ],
   );
   assert.deepEqual(result.totals, {
@@ -107,6 +137,31 @@ test('live territory derivation distinguishes radius and polygon exclusions', ()
     eligibleSegments: 1,
     allHomes: 35,
     eligibleHomes: 10,
+  });
+});
+
+test('a draft road-group activation includes every hidden segment in that group', () => {
+  const result = deriveTerritory(segments, {
+    ...draft,
+    activatedRoadGroupIds: ['road-group:hidden'],
+  });
+
+  assert.deepEqual(
+    result.segments
+      .filter((segment) => segment.roadGroupId === 'road-group:hidden')
+      .map(({ active, eligible, activationKind, excludedReason }) => ({
+        active,
+        eligible,
+        activationKind,
+        excludedReason,
+      })),
+    [{ active: true, eligible: true, activationKind: 'manual', excludedReason: null }],
+  );
+  assert.deepEqual(result.totals, {
+    allSegments: 4,
+    eligibleSegments: 2,
+    allHomes: 42,
+    eligibleHomes: 17,
   });
 });
 

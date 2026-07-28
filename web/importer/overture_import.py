@@ -192,6 +192,52 @@ def _distance_to_line(point, coordinates):
     return best
 
 
+def _assign_road_groups(segments):
+    parents = list(range(len(segments)))
+
+    def find(index):
+        while parents[index] != index:
+            parents[index] = parents[parents[index]]
+            index = parents[index]
+        return index
+
+    def union(first, second):
+        first_root = find(first)
+        second_root = find(second)
+        if first_root != second_root:
+            parents[max(first_root, second_root)] = min(first_root, second_root)
+
+    endpoint_members = {}
+    for index, segment in enumerate(segments):
+        for point in (segment["coordinates"][0], segment["coordinates"][-1]):
+            key = (round(point[0], 7), round(point[1], 7))
+            endpoint_members.setdefault(key, []).append(index)
+
+    for members in endpoint_members.values():
+        named = {}
+        unnamed = []
+        for index in members:
+            segment = segments[index]
+            if segment["has_name_evidence"]:
+                named.setdefault(segment["canonical_name"], []).append(index)
+            else:
+                unnamed.append(index)
+        for matching in named.values():
+            for index in matching[1:]:
+                union(matching[0], index)
+        if not named and len(unnamed) == 2:
+            union(unnamed[0], unnamed[1])
+    grouped_ids = {}
+    for index, segment in enumerate(segments):
+        grouped_ids.setdefault(find(index), []).append(segment["segment_id"])
+    group_id_by_root = {
+        root: f"road-group:{min(member_ids)}"
+        for root, member_ids in grouped_ids.items()
+    }
+    for index, segment in enumerate(segments):
+        segment["road_group_id"] = group_id_by_root[find(index)]
+
+
 def normalize_features(roads, addresses, center=None, radius_miles=None):
     segments = []
     candidate_classes = ALWAYS_KEEP | KEEP_WITH_ADDRESS
@@ -211,8 +257,6 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
 
     for road_feature in roads:
         road_class = road_feature["properties"]["class"]
-        if road_class not in candidate_classes:
-            continue
         name = _display_name(road_feature)
         if name is None and road_class in ALWAYS_KEEP:
             nearby = [
@@ -252,8 +296,9 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
                     )
                     name = _inferred_display_name(raw_name)
                     inferred_roads += 1
+        has_name_evidence = name is not None
         if name is None:
-            continue
+            name = "Unnamed road"
         connector_parts = _connector_parts(
             _lines(road_feature["geometry"]),
             road_feature["properties"].get("connectors", []),
@@ -265,13 +310,16 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
             for part in _split_turns(connector_part)
         ]
         for part_index, coordinates in enumerate(parts):
+            segment_id = f"overture:{road_feature['id']}:{part_index}"
             segments.append(
                 {
+                    "segment_id": segment_id,
                     "source_id": road_feature["id"],
                     "part_index": part_index,
                     "road_class": road_class,
                     "street_name": name,
                     "canonical_name": canonical_street_name(name),
+                    "has_name_evidence": has_name_evidence,
                     "coordinates": coordinates,
                     "address_count": 0,
                 }
@@ -282,7 +330,9 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
         candidates = [
             segment
             for segment in segments
-            if segment["canonical_name"] == address_item["canonical_name"]
+            if segment["road_class"] in candidate_classes
+            and segment["has_name_evidence"]
+            and segment["canonical_name"] == address_item["canonical_name"]
         ]
         if candidates:
             nearest = min(
@@ -300,6 +350,8 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
                 nearest["address_count"] += 1
                 assigned_address_indexes.add(address_item["index"])
 
+    _assign_road_groups(segments)
+
     unresolved_counts = {}
     for address_item in in_circle_addresses:
         if address_item["index"] not in assigned_address_indexes:
@@ -311,11 +363,6 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
         for name, count in sorted(unresolved_counts.items())
         if count >= 3
     ]
-    if unresolved_clusters:
-        raise ValueError(
-            "unresolved address clusters: "
-            + ", ".join(f"{name}: {count}" for name, count in unresolved_clusters)
-        )
 
     result = []
     for segment in sorted(
@@ -326,12 +373,11 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
             item["part_index"],
         ),
     ):
-        if not keep_segment(segment["road_class"], segment["address_count"]):
-            continue
         result.append(
             {
-                "id": f"overture:{segment['source_id']}:{segment['part_index']}",
+                "id": segment["segment_id"],
                 "sourceSegmentId": segment["source_id"],
+                "roadGroupId": segment["road_group_id"],
                 "roadClass": segment["road_class"],
                 "streetName": segment["street_name"],
                 "geometry": {
@@ -339,6 +385,12 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
                     "coordinates": segment["coordinates"],
                 },
                 "estimatedHomes": segment["address_count"],
+                "activationKind": (
+                    "automatic"
+                    if segment["has_name_evidence"]
+                    and keep_segment(segment["road_class"], segment["address_count"])
+                    else "hidden"
+                ),
             }
         )
     return {
@@ -349,7 +401,7 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
             "inferredRoads": inferred_roads,
             "unmatchedAddresses": len(in_circle_addresses)
             - len(assigned_address_indexes),
-            "unresolvedClusters": 0,
+            "unresolvedClusters": len(unresolved_clusters),
         },
     }
 
@@ -498,7 +550,7 @@ def main(argv=None, download=download_features):
                 "center": [args.longitude, args.latitude],
                 "radiusMiles": args.radius_miles,
                 "completedAt": datetime.now(timezone.utc).isoformat(),
-                "normalizerVersion": 2,
+                "normalizerVersion": 3,
                 **normalize_features(
                     roads,
                     addresses,

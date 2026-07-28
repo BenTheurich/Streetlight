@@ -45,7 +45,70 @@ class NormalizeFeaturesTest(TestCase):
         self.assertEqual(canonical_street_name("Jons Place"), "jons pl")
         self.assertEqual(canonical_street_name("JONS PL."), "jons pl")
 
-    def test_skips_roads_without_a_nonempty_primary_display_name(self):
+    def test_retains_uncertain_overture_roads_as_hidden_candidates(self):
+        roads = [
+            road("residential", "residential", "Home Road", [[0, 0], [0.001, 0]]),
+            road("service", "service", "Access Road", [[0, 0.001], [0.001, 0.001]]),
+            road("motorway", "motorway", "Freeway", [[0, 0.002], [0.001, 0.002]]),
+        ]
+
+        result = normalize_features(roads, [])["segments"]
+
+        self.assertEqual(
+            [
+                (segment["sourceSegmentId"], segment.get("activationKind"))
+                for segment in result
+            ],
+            [
+                ("service", "hidden"),
+                ("motorway", "hidden"),
+                ("residential", "automatic"),
+            ],
+        )
+
+    def test_groups_connected_named_source_roads_without_joining_disconnected_namesakes(self):
+        roads = [
+            road("west", "residential", "Shared Road", [[0, 0], [0.001, 0]]),
+            road("east", "residential", "Shared Rd", [[0.001, 0], [0.002, 0]]),
+            road("separate", "residential", "Shared Road", [[0.01, 0], [0.011, 0]]),
+        ]
+
+        result = normalize_features(roads, [])["segments"]
+        groups = {
+            segment["sourceSegmentId"]: segment.get("roadGroupId")
+            for segment in result
+        }
+
+        self.assertIsNotNone(groups["west"])
+        self.assertEqual(groups["west"], groups["east"])
+        self.assertNotEqual(groups["west"], groups["separate"])
+
+    def test_unnamed_groups_continue_only_through_unbranched_unnamed_connections(self):
+        roads = [
+            road("chain-a", "service", None, [[0, 0], [0.001, 0]]),
+            road("chain-b", "service", None, [[0.001, 0], [0.002, 0]]),
+            road("branch-a", "service", None, [[0.01, 0], [0.011, 0]]),
+            road("branch-b", "service", None, [[0.011, 0], [0.012, 0]]),
+            road("branch-c", "service", None, [[0.011, 0], [0.011, 0.001]]),
+            road("named-stop", "residential", "Named Road", [[0.02, 0], [0.021, 0]]),
+            road("stop-a", "service", None, [[0.019, 0], [0.02, 0]]),
+            road("stop-b", "service", None, [[0.02, 0], [0.02, 0.001]]),
+        ]
+
+        result = normalize_features(roads, [])["segments"]
+        groups = {
+            segment["sourceSegmentId"]: segment["roadGroupId"]
+            for segment in result
+        }
+
+        self.assertEqual(groups["chain-a"], groups["chain-b"])
+        self.assertEqual(
+            len({groups["branch-a"], groups["branch-b"], groups["branch-c"]}),
+            3,
+        )
+        self.assertNotEqual(groups["stop-a"], groups["stop-b"])
+
+    def test_retains_roads_without_a_name_as_hidden_candidates(self):
         missing = road("missing", "residential", "ignored", [[0, 0], [0.001, 0]])
         del missing["properties"]["names"]
         roads = [
@@ -57,7 +120,18 @@ class NormalizeFeaturesTest(TestCase):
 
         result = normalize_features(roads, [])["segments"]
 
-        self.assertEqual([item["sourceSegmentId"] for item in result], ["named"])
+        self.assertEqual(
+            {
+                item["sourceSegmentId"]: (item["streetName"], item["activationKind"])
+                for item in result
+            },
+            {
+                "blank": ("Unnamed road", "hidden"),
+                "missing": ("Unnamed road", "hidden"),
+                "named": ("Named Road", "automatic"),
+                "null": ("Unnamed road", "hidden"),
+            },
+        )
 
     def test_keeps_residential_without_addresses_and_tertiary_only_with_an_address(self):
         roads = [
@@ -86,8 +160,13 @@ class NormalizeFeaturesTest(TestCase):
         result = normalize_features(roads, addresses)["segments"]
 
         self.assertEqual(
-            [item["streetName"] for item in result],
-            ["Calle Medusa", "Quiet Lane"],
+            [(item["streetName"], item["activationKind"]) for item in result],
+            [
+                ("Calle Medusa", "automatic"),
+                ("Empty Avenue", "hidden"),
+                ("Loading Road", "hidden"),
+                ("Quiet Lane", "automatic"),
+            ],
         )
         self.assertEqual(result[0]["estimatedHomes"], 1)
 
@@ -113,8 +192,13 @@ class NormalizeFeaturesTest(TestCase):
         result = normalize_features(roads, addresses)["segments"]
 
         self.assertEqual(
-            [item["roadClass"] for item in result],
-            ["primary", "secondary", "unclassified"],
+            [(item["roadClass"], item["activationKind"]) for item in result],
+            [
+                ("motorway", "hidden"),
+                ("primary", "automatic"),
+                ("secondary", "automatic"),
+                ("unclassified", "automatic"),
+            ],
         )
 
     def test_assigns_each_address_once_to_nearest_same_canonical_street(self):
@@ -161,8 +245,15 @@ class NormalizeFeaturesTest(TestCase):
         result = normalize_features(roads, addresses)["segments"]
 
         self.assertEqual(
-            [(item["sourceSegmentId"], item["estimatedHomes"]) for item in result],
-            [("eligible", 1)],
+            [
+                (
+                    item["sourceSegmentId"],
+                    item["estimatedHomes"],
+                    item["activationKind"],
+                )
+                for item in result
+            ],
+            [("eligible", 1, "automatic"), ("service", 0, "hidden")],
         )
 
     def test_rejects_same_street_addresses_beyond_forty_meters(self):
@@ -178,8 +269,15 @@ class NormalizeFeaturesTest(TestCase):
         result = normalize_features(roads, addresses)["segments"]
 
         self.assertEqual(
-            [(item["sourceSegmentId"], item["estimatedHomes"]) for item in result],
-            [("near", 1)],
+            [
+                (
+                    item["sourceSegmentId"],
+                    item["estimatedHomes"],
+                    item["activationKind"],
+                )
+                for item in result
+            ],
+            [("far", 0, "hidden"), ("near", 1, "automatic")],
         )
 
     def test_splits_at_turns_of_at_least_eighty_five_degrees(self):
@@ -280,6 +378,7 @@ class NormalizeFeaturesTest(TestCase):
             {
                 "id": "overture:a:0",
                 "sourceSegmentId": "a",
+                "roadGroupId": "road-group:overture:a:0",
                 "roadClass": "residential",
                 "streetName": "Alpha Avenue",
                 "geometry": {
@@ -287,10 +386,12 @@ class NormalizeFeaturesTest(TestCase):
                     "coordinates": [[0, 0], [0.001, 0]],
                 },
                 "estimatedHomes": 1,
+                "activationKind": "automatic",
             },
             {
                 "id": "overture:a:1",
                 "sourceSegmentId": "a",
+                "roadGroupId": "road-group:overture:a:1",
                 "roadClass": "residential",
                 "streetName": "Alpha Avenue",
                 "geometry": {
@@ -298,10 +399,12 @@ class NormalizeFeaturesTest(TestCase):
                     "coordinates": [[0, 0.001], [0.001, 0.001]],
                 },
                 "estimatedHomes": 1,
+                "activationKind": "automatic",
             },
             {
                 "id": "overture:z:0",
                 "sourceSegmentId": "z",
+                "roadGroupId": "road-group:overture:z:0",
                 "roadClass": "living_street",
                 "streetName": "Zulu Road",
                 "geometry": {
@@ -309,6 +412,7 @@ class NormalizeFeaturesTest(TestCase):
                     "coordinates": [[0, 0.003], [0.001, 0.003]],
                 },
                 "estimatedHomes": 0,
+                "activationKind": "automatic",
             },
         ]
 
@@ -378,7 +482,13 @@ class ImportCompletenessTest(TestCase):
             roads, addresses, center=self.center, radius_miles=self.radius_miles
         )
 
-        self.assertEqual(result["segments"], [])
+        self.assertEqual(
+            [
+                (segment["streetName"], segment["activationKind"])
+                for segment in result["segments"]
+            ],
+            [("Unnamed road", "hidden")],
+        )
         self.assertEqual(result["quality"]["inferredRoads"], 0)
         self.assertEqual(result["quality"]["unmatchedAddresses"], 2)
 
@@ -397,7 +507,13 @@ class ImportCompletenessTest(TestCase):
             roads, addresses, center=self.center, radius_miles=self.radius_miles
         )
 
-        self.assertEqual(result["segments"], [])
+        self.assertEqual(
+            [
+                (segment["streetName"], segment["activationKind"])
+                for segment in result["segments"]
+            ],
+            [("Unnamed road", "hidden")],
+        )
         self.assertEqual(result["quality"]["inferredRoads"], 0)
         self.assertEqual(result["quality"]["unmatchedAddresses"], 4)
 
@@ -412,22 +528,30 @@ class ImportCompletenessTest(TestCase):
             address("", -116.9992, 33.5001),
         ]
 
-        with self.assertRaisesRegex(ValueError, r"main rd: 3"):
-            normalize_features(
-                roads, addresses, center=self.center, radius_miles=self.radius_miles
-            )
+        result = normalize_features(
+            roads, addresses, center=self.center, radius_miles=self.radius_miles
+        )
 
-    def test_rejects_three_unresolved_in_circle_addresses_with_the_same_name(self):
+        self.assertEqual(result["segments"][0]["activationKind"], "hidden")
+        self.assertEqual(result["quality"]["unresolvedClusters"], 1)
+
+    def test_reports_three_unresolved_addresses_without_rejecting_the_import(self):
         addresses = [
             address("Lost Lane", -116.9998, 33.5),
             address("Lost Ln", -116.9996, 33.5),
             address("Lost Lane", -116.9994, 33.5),
         ]
 
-        with self.assertRaisesRegex(ValueError, r"lost ln: 3"):
-            normalize_features(
+        try:
+            result = normalize_features(
                 [], addresses, center=self.center, radius_miles=self.radius_miles
             )
+        except ValueError as error:
+            self.fail(f"valid import was rejected: {error}")
+
+        self.assertEqual(result["segments"], [])
+        self.assertEqual(result["quality"]["unmatchedAddresses"], 3)
+        self.assertEqual(result["quality"]["unresolvedClusters"], 1)
 
     def test_out_of_circle_addresses_do_not_enter_the_unresolved_gate(self):
         addresses = [
@@ -597,7 +721,7 @@ class ImportBoundaryTest(TestCase):
         self.assertEqual(parsed["release"], OVERTURE_RELEASE)
         self.assertEqual(parsed["center"], [-117.1274, 33.5107])
         self.assertEqual(parsed["radiusMiles"], 1)
-        self.assertEqual(parsed["normalizerVersion"], 2)
+        self.assertEqual(parsed["normalizerVersion"], 3)
         self.assertEqual(parsed["quality"], {
             "totalAddresses": 0,
             "assignedAddresses": 0,

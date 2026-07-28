@@ -3,24 +3,18 @@ import path from 'node:path';
 import type { LineString, Position } from './territory-geometry.ts';
 import { OVERTURE_RELEASE } from './territory-import.ts';
 
-const ROAD_CLASSES = new Set([
-  'living_street',
-  'primary',
-  'residential',
-  'secondary',
-  'tertiary',
-  'unclassified',
-]);
 const IMPORT_REQUEST_TOLERANCE = 1e-9;
 const IMPORT_TIMEOUT_MS = 15 * 60_000;
 
 export type ImportedTerritorySegment = {
   id: string;
   sourceSegmentId: string;
+  roadGroupId: string;
   roadClass: string;
   streetName: string;
   geometry: LineString;
   estimatedHomes: number;
+  activationKind: 'automatic' | 'hidden';
 };
 
 export type ImportQuality = {
@@ -28,6 +22,7 @@ export type ImportQuality = {
   assignedAddresses: number;
   inferredRoads: number;
   unmatchedAddresses: number;
+  unresolvedClusters: number;
 };
 
 export type ImportedTerritoryInput = {
@@ -35,7 +30,7 @@ export type ImportedTerritoryInput = {
   center: Position;
   radiusMiles: number;
   completedAt: string;
-  normalizerVersion: 2;
+  normalizerVersion: 3;
   quality: ImportQuality;
   segments: ImportedTerritorySegment[];
 };
@@ -71,9 +66,7 @@ function isIsoTimestamp(value: unknown): value is string {
   );
 }
 
-function isSuccessfulImportQuality(
-  value: unknown,
-): value is ImportQuality & { unresolvedClusters: 0 } {
+function isSuccessfulImportQuality(value: unknown): value is ImportQuality {
   return (
     isRecord(value) &&
     hasKeys(value, [
@@ -85,8 +78,7 @@ function isSuccessfulImportQuality(
     ]) &&
     Object.values(value).every((count) => Number.isInteger(count) && (count as number) >= 0) &&
     (value.assignedAddresses as number) + (value.unmatchedAddresses as number) ===
-      value.totalAddresses &&
-    value.unresolvedClusters === 0
+      value.totalAddresses
   );
 }
 
@@ -134,7 +126,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     !Number.isFinite(value.radiusMiles) ||
     (value.radiusMiles as number) <= 0 ||
     !isIsoTimestamp(value.completedAt) ||
-    value.normalizerVersion !== 2 ||
+    value.normalizerVersion !== 3 ||
     !isSuccessfulImportQuality(value.quality) ||
     !Array.isArray(value.segments) ||
     value.segments.length === 0
@@ -147,10 +139,12 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     if (
       !isRecord(segment) ||
       !hasKeys(segment, [
+        'activationKind',
         'estimatedHomes',
         'geometry',
         'id',
         'roadClass',
+        'roadGroupId',
         'sourceSegmentId',
         'streetName',
       ]) ||
@@ -159,12 +153,15 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
       ids.has(segment.id) ||
       typeof segment.sourceSegmentId !== 'string' ||
       segment.sourceSegmentId.trim() === '' ||
+      typeof segment.roadGroupId !== 'string' ||
+      segment.roadGroupId.trim() === '' ||
       typeof segment.roadClass !== 'string' ||
-      !ROAD_CLASSES.has(segment.roadClass) ||
+      segment.roadClass.trim() === '' ||
       typeof segment.streetName !== 'string' ||
       segment.streetName.trim() === '' ||
       !Number.isInteger(segment.estimatedHomes) ||
       (segment.estimatedHomes as number) < 0 ||
+      (segment.activationKind !== 'automatic' && segment.activationKind !== 'hidden') ||
       !isRecord(segment.geometry) ||
       !hasKeys(segment.geometry, ['coordinates', 'type']) ||
       segment.geometry.type !== 'LineString' ||
@@ -178,6 +175,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     return {
       id: segment.id,
       sourceSegmentId: segment.sourceSegmentId,
+      roadGroupId: segment.roadGroupId,
       roadClass: segment.roadClass,
       streetName: segment.streetName,
       geometry: {
@@ -185,6 +183,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
         coordinates: segment.geometry.coordinates,
       },
       estimatedHomes: segment.estimatedHomes as number,
+      activationKind: segment.activationKind,
     };
   });
 
@@ -193,12 +192,13 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     center: value.center,
     radiusMiles: value.radiusMiles as number,
     completedAt: value.completedAt,
-    normalizerVersion: 2,
+    normalizerVersion: 3,
     quality: {
       totalAddresses: value.quality.totalAddresses as number,
       assignedAddresses: value.quality.assignedAddresses as number,
       inferredRoads: value.quality.inferredRoads as number,
       unmatchedAddresses: value.quality.unmatchedAddresses as number,
+      unresolvedClusters: value.quality.unresolvedClusters as number,
     },
     segments,
   };

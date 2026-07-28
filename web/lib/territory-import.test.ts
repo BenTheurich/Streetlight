@@ -6,6 +6,7 @@ const draft = {
   originAddress: '31087 Nicolas Rd, Temecula, CA 92591',
   center: [-117.1274, 33.5107] as [number, number],
   radiusMiles: 1,
+  activatedRoadGroupIds: [],
   exclusions: [],
 };
 
@@ -33,12 +34,13 @@ test('proof data and an expanded footprint require imports', () => {
         center: draft.center,
         radiusMiles: 0.5,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 2,
+        normalizerVersion: 3,
         quality: {
           totalAddresses: 12,
           assignedAddresses: 10,
           inferredRoads: 1,
           unmatchedAddresses: 2,
+          unresolvedClusters: 0,
         },
       },
       draft,
@@ -56,12 +58,13 @@ test('exclusion changes and radius reductions reuse a current footprint', () => 
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 2,
+        normalizerVersion: 3,
         quality: {
           totalAddresses: 12,
           assignedAddresses: 10,
           inferredRoads: 1,
           unmatchedAddresses: 2,
+          unresolvedClusters: 0,
         },
       },
       {
@@ -97,12 +100,13 @@ test('a different pinned Overture release requires an import', () => {
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 2,
+        normalizerVersion: 3,
         quality: {
           totalAddresses: 12,
           assignedAddresses: 10,
           inferredRoads: 1,
           unmatchedAddresses: 2,
+          unresolvedClusters: 0,
         },
       },
       draft,
@@ -120,12 +124,13 @@ test('a changed territory center requires an import', () => {
         center: [-117.1275, 33.5107],
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 2,
+        normalizerVersion: 3,
         quality: {
           totalAddresses: 12,
           assignedAddresses: 10,
           inferredRoads: 1,
           unmatchedAddresses: 2,
+          unresolvedClusters: 0,
         },
       },
       draft,
@@ -141,8 +146,14 @@ test('legacy and mismatched normalizer versions require replacement', () => {
     center: draft.center,
     radiusMiles: 2,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 2,
-    quality: { totalAddresses: 12, assignedAddresses: 10, inferredRoads: 1, unmatchedAddresses: 2 },
+    normalizerVersion: 3,
+    quality: {
+      totalAddresses: 12,
+      assignedAddresses: 10,
+      inferredRoads: 1,
+      unmatchedAddresses: 2,
+      unresolvedClusters: 0,
+    },
   };
 
   assert.equal(
@@ -154,5 +165,6 @@ test('legacy and mismatched normalizer versions require replacement', () => {
     true,
   );
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 1 }, draft), true);
+  assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 2 }, draft), true);
   assert.equal(needsTerritoryImport(current, draft), false);
 });

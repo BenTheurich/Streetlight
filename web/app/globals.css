@@ -270,6 +270,10 @@ textarea {
   background: rgb(119 115 108 / 50%);
 }
 
+.map-legend .hidden-road {
+  background: rgb(111 135 148 / 45%);
+}
+
 .drawing-instructions {
   position: absolute;
   right: 15px;
@@ -508,6 +512,44 @@ textarea {
 .territory-summary strong,
 .territory-summary span {
   display: block;
+}
+
+.hidden-roads-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--ink);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.hidden-roads-toggle input {
+  width: auto;
+  min-height: 0;
+  accent-color: var(--orange);
+}
+
+.hidden-road-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.7rem;
+  border: 1px solid #b9c6cb;
+  border-radius: 7px;
+  background: #f2f6f7;
+}
+
+.hidden-road-card strong,
+.hidden-road-card span {
+  display: block;
+}
+
+.hidden-road-card strong {
+  font-size: 0.72rem;
+}
+
+.hidden-road-card span {
+  color: var(--muted);
+  font-size: 0.62rem;
 }
 
 .territory-summary strong {

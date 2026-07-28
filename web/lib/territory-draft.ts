@@ -4,6 +4,7 @@ export type TerritoryDraftInput = {
   originAddress: string;
   center: Position;
   radiusMiles: number;
+  activatedRoadGroupIds: string[];
   exclusions: Array<{
     id: string;
     name: string;
@@ -87,6 +88,9 @@ export function parseTerritoryDraft(value: unknown): TerritoryDraftInput {
   if (!Array.isArray(value.exclusions) || value.exclusions.length > 100) {
     throw new Error('Invalid exclusion areas');
   }
+  if (!Array.isArray(value.activatedRoadGroupIds) || value.activatedRoadGroupIds.length > 1000) {
+    throw new Error('Invalid activated roads');
+  }
 
   const ids = new Set<string>();
   const exclusions = value.exclusions.map((candidate) => {
@@ -104,11 +108,21 @@ export function parseTerritoryDraft(value: unknown): TerritoryDraftInput {
       geometry: parsePolygon(candidate.geometry),
     };
   });
+  const roadGroupIds = new Set<string>();
+  const activatedRoadGroupIds = value.activatedRoadGroupIds.map((candidate) => {
+    const id = parseText(candidate, 'Road group ID', 200, true);
+    if (roadGroupIds.has(id)) {
+      throw new Error('Duplicate road group ID');
+    }
+    roadGroupIds.add(id);
+    return id;
+  });
 
   return {
     originAddress: parseText(value.originAddress, 'Church address', 300, true),
     center: parsePosition(value.center),
     radiusMiles: value.radiusMiles,
+    activatedRoadGroupIds,
     exclusions,
   };
 }
