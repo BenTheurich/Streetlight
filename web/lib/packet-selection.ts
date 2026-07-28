@@ -336,7 +336,9 @@ export function generatePacketProposals(input: {
       const prefixes = connectedPrefixes(anchor, component, input.center);
       if (prefixes.length === 0) {
         for (const segment of component) available.delete(segment.id);
-        warnings.push('Skipped a connected area because no usable starting address was available.');
+        const warning =
+          'Skipped a connected area because no usable starting address was available.';
+        if (!warnings.includes(warning)) warnings.push(warning);
         continue;
       }
       const choice = prefixes

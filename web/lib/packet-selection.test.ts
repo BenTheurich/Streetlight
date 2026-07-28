@@ -216,6 +216,9 @@ test('components without a numbered address are skipped with stable warnings', (
           },
         ],
       }),
+      segment('also-unusable', [0.01, 0], [0.011, 0], 10, 'red', {
+        addresses: [],
+      }),
     ],
   });
   assert.deepEqual(result.proposals, []);
