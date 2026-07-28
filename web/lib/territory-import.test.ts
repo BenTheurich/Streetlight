@@ -119,27 +119,47 @@ test('a different pinned Overture release requires an import', () => {
   );
 });
 
-test('a changed territory center requires an import', () => {
+test('shifted drafts reuse only containing imported footprints', () => {
+  const imported = {
+    kind: 'overture' as const,
+    release: '2026-06-17.0',
+    center: draft.center,
+    radiusMiles: 2,
+    completedAt: '2026-07-27T12:00:00.000Z',
+    normalizerVersion: 5,
+    quality: {
+      totalAddresses: 12,
+      assignedAddresses: 10,
+      inferredRoads: 1,
+      unmatchedAddresses: 2,
+      unresolvedClusters: 0,
+    },
+  };
+
+  assert.equal(
+    needsTerritoryImport(imported, {
+      ...draft,
+      center: [draft.center[0] + 0.001, draft.center[1]],
+    }),
+    false,
+  );
+  assert.equal(
+    needsTerritoryImport(imported, {
+      ...draft,
+      center: [draft.center[0] + 0.001, draft.center[1]],
+      radiusMiles: 2,
+    }),
+    true,
+  );
   assert.equal(
     needsTerritoryImport(
+      { ...imported, radiusMiles: 1 },
       {
-        kind: 'overture',
-        release: '2026-06-17.0',
-        center: [-117.1275, 33.5107],
-        radiusMiles: 2,
-        completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 5,
-        quality: {
-          totalAddresses: 12,
-          assignedAddresses: 10,
-          inferredRoads: 1,
-          unmatchedAddresses: 2,
-          unresolvedClusters: 0,
-        },
+        ...draft,
+        center: [draft.center[0] + 1e-12, draft.center[1] - 1e-12],
       },
-      draft,
     ),
-    true,
+    false,
   );
 });
 

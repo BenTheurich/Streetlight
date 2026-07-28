@@ -7,6 +7,7 @@ import type { PacketGenerationResult } from '@/lib/packet-selection';
 import { AdminMap } from './AdminMap';
 import { CoverageDashboard } from './CoverageDashboard';
 import { CoverageMap } from './CoverageMap';
+import { MapLayersControl } from './MapLayersControl';
 import { PacketGenerator } from './PacketGenerator';
 import { PacketProposalMap } from './PacketProposalMap';
 import { TerritoryEditor } from './TerritoryEditor';
@@ -113,6 +114,7 @@ export function StreetlightWorkspace({
       <main className="territory-workspace">
         <section className="map-panel">
           <AdminMap apiKey={mapsApiKey} churchCenter={coverage.center} onMapChange={setMap} />
+          <MapLayersControl map={map} />
           <CoverageMap
             active={tool !== 'territory'}
             interactive={tool === 'coverage'}

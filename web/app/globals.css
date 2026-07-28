@@ -271,6 +271,135 @@ textarea {
   transform: translate(-50%, -50%);
 }
 
+.layers-control {
+  position: absolute;
+  bottom: 68px;
+  left: 14px;
+  z-index: 6;
+}
+
+.layers-trigger {
+  position: relative;
+  width: 116px;
+  height: 86px;
+  overflow: hidden;
+  padding: 0;
+  border: 2px solid white;
+  border-radius: 12px;
+  background: #5e6c50;
+  box-shadow: 0 3px 10px rgb(31 35 30 / 35%);
+  color: white;
+}
+
+.layers-thumbnail,
+.layers-choice-preview.satellite {
+  background:
+    linear-gradient(18deg, transparent 46%, rgb(222 212 180 / 80%) 47% 50%, transparent 51%),
+    linear-gradient(112deg, transparent 40%, rgb(177 192 163 / 70%) 41% 44%, transparent 45%),
+    linear-gradient(145deg, #324b36 0 26%, #796b43 27% 45%, #526a38 46% 67%, #8b8357 68%);
+}
+
+.layers-thumbnail {
+  position: absolute;
+  inset: 0;
+}
+
+.layers-thumbnail::before,
+.layers-thumbnail::after {
+  position: absolute;
+  content: "";
+}
+
+.layers-thumbnail::before {
+  inset: 8px 12px 28px 42px;
+  border: 1px solid rgb(234 228 199 / 75%);
+  background:
+    repeating-linear-gradient(90deg, transparent 0 12px, rgb(205 191 150 / 55%) 13px 14px),
+    repeating-linear-gradient(0deg, transparent 0 9px, rgb(205 191 150 / 45%) 10px 11px);
+  transform: rotate(-8deg);
+}
+
+.layers-thumbnail::after {
+  inset: 0;
+  background: linear-gradient(transparent 42%, rgb(18 24 20 / 76%));
+}
+
+.layers-trigger-label {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 70%);
+}
+
+.layers-trigger-label svg {
+  width: 22px;
+  fill: currentColor;
+}
+
+.layers-trigger:hover {
+  transform: translateY(-1px);
+}
+
+.layers-trigger:focus-visible,
+.layers-chooser button:focus-visible {
+  outline: 3px solid #1769ff;
+  outline-offset: 2px;
+}
+
+.layers-chooser {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 0;
+  display: grid;
+  width: 216px;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid #d2cabd;
+  border-radius: 11px;
+  background: rgb(255 253 248 / 98%);
+  box-shadow: 0 4px 16px rgb(48 45 40 / 25%);
+}
+
+.layers-chooser button {
+  display: grid;
+  min-width: 0;
+  gap: 0.35rem;
+  padding: 5px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.7rem;
+  text-align: left;
+}
+
+.layers-chooser button.active {
+  border-color: #1769ff;
+  background: #eef4ff;
+}
+
+.layers-choice-preview {
+  display: block;
+  height: 50px;
+  border: 1px solid #c9c3b8;
+  border-radius: 6px;
+}
+
+.layers-choice-preview.map {
+  background:
+    linear-gradient(28deg, transparent 43%, #c7d5e0 44% 50%, transparent 51%),
+    linear-gradient(105deg, transparent 46%, white 47% 54%, transparent 55%),
+    linear-gradient(145deg, #e6f2df 0 28%, #f6f3ed 29% 68%, #dbead5 69%);
+}
+
 .map-modes,
 .map-legend {
   position: absolute;
