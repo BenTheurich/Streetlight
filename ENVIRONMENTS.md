@@ -1,21 +1,32 @@
-# Environments and Variables
+# Environment variables
 
-| App | Variable | Where to Set | Purpose |
-|-----|----------|--------------|---------|
-| web | `NEXT_PUBLIC_API_BASE_URL` | Vercel Project → Settings → Environment Variables | Base URL for API calls from the browser |
-| web | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Vercel Project → Settings → Environment Variables | Clerk publishable key for frontend |
-| web | `CLERK_SECRET_KEY` | Vercel Project → Settings → Environment Variables | Clerk secret key for server actions/middleware |
-| web | `NEXT_PUBLIC_GOOGLE_MAPS_JS_KEY` | Vercel Project → Settings → Environment Variables | Google Maps JS API key (optional) |
-| web | `NEXT_PUBLIC_SENTRY_DSN` | Vercel Project → Settings → Environment Variables | Sentry DSN (optional) |
-| api | `PORT` | Fly Secrets/Env | Port for the API (default 4000) |
-| api | `NODE_ENV` | Fly Secrets/Env | Node environment |
-| api | `WEB_ORIGIN` | Fly Secrets/Env | Allowed web origin for CORS |
-| api | `CLERK_JWKS_URL` | Fly Secrets/Env | JWKS URL for Clerk (e.g., `https://<clerk-domain>/.well-known/jwks.json`) |
-| api | `CLERK_ISSUER` | Fly Secrets/Env | Expected JWT issuer (e.g., `https://<clerk-domain>/`) |
-| api | `CLERK_AUDIENCE` | Fly Secrets/Env | Expected JWT audience (e.g., `streetlight-api`) |
-| api | `DISABLE_AUTH` | Fly Secrets/Env | Set `true` to bypass auth guard in development |
-| api | `DATABASE_URL` | Fly Secrets/Env | Placeholder for future DB connectivity |
+The local SQLite database is generated at `web/data/streetlight.db`.
 
-## Local Development
-- Create `web/.env.local` from `web/.env.example`.
-- Create `api/.env` from `api/.env.example`.
+Phase 2 supports these values in the ignored root `.env.local`:
+
+| Variable | Used for | Required restrictions |
+|---|---|---|
+| `GOOGLE_MAPS_BROWSER_API_KEY` | Interactive administrator map | Maps JavaScript API and approved HTTP referrers only |
+| `GOOGLE_MAPS_SERVER_API_KEY` | Server-side church-address geocoding | Geocoding API and server-origin restrictions; never exposed to the browser |
+| `GOOGLE_MAPS_STATIC_API_KEY` | Phase 0/packet map proof and local geocoding fallback | Static Maps, Roads, and Geocoding APIs; never exposed to the browser |
+| `STREETLIGHT_PYTHON` | Optional Overture importer executable | Set only when `python` is not the desired executable |
+
+The browser key is intentionally visible in the rendered map request and must be protected by
+API and referrer restrictions. The server key and Static Maps key must never use a
+browser-visible `NEXT_PUBLIC_` name.
+
+Without `GOOGLE_MAPS_BROWSER_API_KEY`, Territory Setup renders a clear unavailable-map state
+while database, test, and production-build commands continue to work. Address changes require
+one of the server-side keys; the existing saved address and location remain usable without it.
+
+Install the pinned importer dependency with:
+
+```powershell
+python -m pip install -r web/importer/requirements.txt
+```
+
+Overture import requires network access to its public S3 data but no API key. Streetlight
+explicitly uses anonymous access and does not reuse ambient AWS credentials.
+
+Authentication configuration belongs to Phase 7. Production configuration belongs
+to Phase 8.

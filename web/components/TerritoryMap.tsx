@@ -1,0 +1,439 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import type { ExclusionArea, TerritorySegment } from '@/lib/database';
+import { type BoundaryShape, type Position, territoryBoundary } from '@/lib/territory-geometry';
+import {
+  segmentMapAppearance,
+  segmentStrokeWeight,
+  segmentVisibleOnMap,
+} from '@/lib/territory-map-style';
+
+let mapsPromise: Promise<typeof google.maps> | undefined;
+
+function loadGoogleMaps(apiKey: string): Promise<typeof google.maps> {
+  if (window.google?.maps) {
+    return Promise.resolve(window.google.maps);
+  }
+  if (!mapsPromise) {
+    mapsPromise = new Promise((resolve, reject) => {
+      const callbackName = '__streetlightGoogleMapsReady';
+      const callbackWindow = window as typeof window & {
+        __streetlightGoogleMapsReady?: () => void;
+      };
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&libraries=marker&callback=${callbackName}`;
+      script.async = true;
+      callbackWindow.__streetlightGoogleMapsReady = () => {
+        delete callbackWindow.__streetlightGoogleMapsReady;
+        resolve(window.google.maps);
+      };
+      script.onerror = () => reject(new Error('Map unavailable'));
+      document.head.append(script);
+    });
+  }
+  return mapsPromise;
+}
+
+function latLng(position: Position): google.maps.LatLngLiteral {
+  return { lat: position[1], lng: position[0] };
+}
+
+function positions(path: google.maps.MVCArray<google.maps.LatLng>): Position[] {
+  return path.getArray().map((point) => [point.lng(), point.lat()]);
+}
+
+function samePositions(first: Position[], second: Position[]): boolean {
+  return (
+    first.length === second.length &&
+    first.every(([firstLng, firstLat], index) => {
+      const [secondLng, secondLat] = second[index];
+      return firstLng === secondLng && firstLat === secondLat;
+    })
+  );
+}
+
+type TerritoryMapProps = {
+  apiKey: string;
+  center: Position;
+  radiusMiles: number;
+  boundaryShape: BoundaryShape;
+  segments: TerritorySegment[];
+  exclusions: ExclusionArea[];
+  selectedExclusionId: string | null;
+  selectedHiddenRoadGroupId: string | null;
+  selectedSegmentId: string | null;
+  showHiddenRoads: boolean;
+  drawing: boolean;
+  drawingPoints: Position[];
+  onAddDrawingPoint: (point: Position) => void;
+  onDrawingPointsChange: (points: Position[]) => void;
+  onExclusionChange: (id: string, points: Position[]) => void;
+  onSelectExclusion: (id: string) => void;
+  onSelectHiddenRoadGroup: (id: string) => void;
+  onSelectSegment: (id: string) => void;
+};
+
+export function TerritoryMap({
+  apiKey,
+  center,
+  radiusMiles,
+  boundaryShape,
+  segments,
+  exclusions,
+  selectedExclusionId,
+  selectedHiddenRoadGroupId,
+  selectedSegmentId,
+  showHiddenRoads,
+  drawing,
+  drawingPoints,
+  onAddDrawingPoint,
+  onDrawingPointsChange,
+  onExclusionChange,
+  onSelectExclusion,
+  onSelectHiddenRoadGroup,
+  onSelectSegment,
+}: TerritoryMapProps) {
+  const elementRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const centerRef = useRef(center);
+  const drawingRef = useRef(drawing);
+  const drawingPointsRef = useRef(drawingPoints);
+  const drawingPathRef = useRef<google.maps.MVCArray<google.maps.LatLng> | null>(null);
+  const syncingDrawingPathRef = useRef(false);
+  const addPointRef = useRef(onAddDrawingPoint);
+  const drawingPointsChangeRef = useRef(onDrawingPointsChange);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(apiKey ? 'loading' : 'error');
+  const drawingShapeKind =
+    drawing && drawingPoints.length > 0 ? (drawingPoints.length < 3 ? 'line' : 'polygon') : null;
+
+  centerRef.current = center;
+  drawingRef.current = drawing;
+  drawingPointsRef.current = drawingPoints;
+  addPointRef.current = onAddDrawingPoint;
+  drawingPointsChangeRef.current = onDrawingPointsChange;
+
+  useEffect(() => {
+    if (!apiKey || !elementRef.current) {
+      return;
+    }
+    let disposed = false;
+    loadGoogleMaps(apiKey)
+      .then((maps) => {
+        if (disposed || !elementRef.current) {
+          return;
+        }
+        const map = new maps.Map(elementRef.current, {
+          center: latLng(centerRef.current),
+          zoom: 11,
+          mapId: 'DEMO_MAP_ID',
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          clickableIcons: false,
+        });
+        map.addListener('click', (event: google.maps.MapMouseEvent) => {
+          if (drawingRef.current && event.latLng) {
+            addPointRef.current([event.latLng.lng(), event.latLng.lat()]);
+          }
+        });
+        mapRef.current = map;
+        setStatus('ready');
+      })
+      .catch(() => {
+        if (!disposed) {
+          setStatus('error');
+        }
+      });
+    return () => {
+      disposed = true;
+      if (mapRef.current) {
+        google.maps.event.clearInstanceListeners(mapRef.current);
+      }
+      mapRef.current = null;
+    };
+  }, [apiKey]);
+
+  useEffect(() => {
+    mapRef.current?.panTo(latLng(center));
+  }, [center]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready') {
+      return;
+    }
+    let disposed = false;
+    let marker: google.maps.marker.AdvancedMarkerElement | null = null;
+    void google.maps.importLibrary('marker').then((library) => {
+      if (disposed) {
+        return;
+      }
+      const { AdvancedMarkerElement } = library as google.maps.MarkerLibrary;
+      marker = new AdvancedMarkerElement({
+        map,
+        position: latLng(center),
+        title: 'Church',
+      });
+    });
+    return () => {
+      disposed = true;
+      if (marker) {
+        marker.map = null;
+      }
+    };
+  }, [center, status]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready') {
+      return;
+    }
+    const boundary = territoryBoundary(center, radiusMiles, boundaryShape);
+    const fill = new google.maps.Polygon({
+      map,
+      paths: boundary.coordinates[0].map(latLng),
+      fillColor: '#df6d32',
+      fillOpacity: 0.025,
+      strokeOpacity: 0,
+      clickable: false,
+    });
+    const ring = new google.maps.Polyline({
+      map,
+      path: boundary.coordinates[0].map(latLng),
+      strokeOpacity: 0,
+      clickable: false,
+      icons: [
+        {
+          icon: {
+            path: 'M 0,-1 0,1',
+            strokeColor: '#df6d32',
+            strokeOpacity: 1,
+            strokeWeight: 3,
+          },
+          offset: '0',
+          repeat: '12px',
+        },
+      ],
+    });
+    return () => {
+      fill.setMap(null);
+      ring.setMap(null);
+    };
+  }, [boundaryShape, center, radiusMiles, status]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready') {
+      return;
+    }
+    const visibleSegments = segments.filter((segment) =>
+      segmentVisibleOnMap(segment, showHiddenRoads),
+    );
+    const lines = visibleSegments.map((segment) => {
+      const appearance = segmentMapAppearance(
+        segment,
+        selectedSegmentId,
+        selectedHiddenRoadGroupId,
+      );
+      const strokeWeight = segmentStrokeWeight(map.getZoom() ?? 11);
+      const line = new google.maps.Polyline({
+        map,
+        path: segment.geometry.coordinates.map(latLng),
+        strokeColor: appearance.strokeColor,
+        strokeOpacity: appearance.strokeOpacity,
+        strokeWeight: Math.max(1, strokeWeight + appearance.weightOffset),
+        clickable: !drawing && appearance.selectable,
+        zIndex: appearance.zIndex,
+      });
+      if (!drawing && appearance.selectable) {
+        line.addListener('click', () =>
+          segment.active || segment.manuallyExcluded
+            ? onSelectSegment(segment.id)
+            : onSelectHiddenRoadGroup(segment.roadGroupId),
+        );
+      }
+      return { line, segment };
+    });
+    const updateStrokeWeight = () => {
+      const strokeWeight = segmentStrokeWeight(map.getZoom() ?? 11);
+      for (const { line, segment } of lines) {
+        const appearance = segmentMapAppearance(
+          segment,
+          selectedSegmentId,
+          selectedHiddenRoadGroupId,
+        );
+        line.setOptions({
+          strokeWeight: Math.max(1, strokeWeight + appearance.weightOffset),
+        });
+      }
+    };
+    const zoomListener = map.addListener('zoom_changed', updateStrokeWeight);
+    return () => {
+      zoomListener.remove();
+      for (const { line } of lines) {
+        google.maps.event.clearInstanceListeners(line);
+        line.setMap(null);
+      }
+    };
+  }, [
+    drawing,
+    onSelectHiddenRoadGroup,
+    onSelectSegment,
+    segments,
+    selectedHiddenRoadGroupId,
+    selectedSegmentId,
+    showHiddenRoads,
+    status,
+  ]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready') {
+      return;
+    }
+    const polygons = exclusions.map((exclusion) => {
+      const editable = exclusion.id === selectedExclusionId && !drawing;
+      const enabled = exclusion.enabled;
+      const polygon = new google.maps.Polygon({
+        map,
+        paths: exclusion.geometry.coordinates[0].slice(0, -1).map(latLng),
+        fillColor: enabled ? '#a9403a' : '#77736c',
+        fillOpacity: enabled ? (editable ? 0.3 : 0.2) : 0,
+        strokeColor: enabled ? '#a9403a' : '#77736c',
+        strokeOpacity: enabled || editable ? 0.95 : 0.5,
+        strokeWeight: editable ? 3 : 2,
+        editable,
+        clickable: true,
+        zIndex: editable ? 4 : enabled ? 3 : 2,
+      });
+      polygon.addListener('click', () => onSelectExclusion(exclusion.id));
+      if (editable) {
+        const path = polygon.getPath();
+        const update = () => onExclusionChange(exclusion.id, positions(path));
+        path.addListener('set_at', update);
+        path.addListener('insert_at', update);
+        path.addListener('remove_at', update);
+      }
+      return polygon;
+    });
+    return () => {
+      for (const polygon of polygons) {
+        google.maps.event.clearInstanceListeners(polygon);
+        google.maps.event.clearInstanceListeners(polygon.getPath());
+        polygon.setMap(null);
+      }
+    };
+  }, [drawing, exclusions, onExclusionChange, onSelectExclusion, selectedExclusionId, status]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready') {
+      return;
+    }
+    map.setOptions({ draggableCursor: drawing ? 'crosshair' : null });
+    return () => map.setOptions({ draggableCursor: null });
+  }, [drawing, status]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready' || !drawingShapeKind) {
+      return;
+    }
+    const shape =
+      drawingShapeKind === 'line'
+        ? new google.maps.Polyline({
+            map,
+            path: drawingPointsRef.current.map(latLng),
+            strokeColor: '#a9403a',
+            strokeOpacity: 0.95,
+            strokeWeight: 3,
+            editable: true,
+            draggable: true,
+            zIndex: 4,
+          })
+        : new google.maps.Polygon({
+            map,
+            paths: drawingPointsRef.current.map(latLng),
+            fillColor: '#a9403a',
+            fillOpacity: 0.25,
+            strokeColor: '#a9403a',
+            strokeOpacity: 1,
+            strokeWeight: 3,
+            editable: true,
+            draggable: true,
+            zIndex: 4,
+          });
+    const path = shape.getPath();
+    const update = () => {
+      if (syncingDrawingPathRef.current) {
+        return;
+      }
+      const nextPoints = positions(path);
+      if (!samePositions(nextPoints, drawingPointsRef.current)) {
+        drawingPointsRef.current = nextPoints;
+        drawingPointsChangeRef.current(nextPoints);
+      }
+    };
+    const listeners = [
+      path.addListener('set_at', update),
+      path.addListener('insert_at', update),
+      path.addListener('remove_at', update),
+      shape.addListener('dragend', update),
+    ];
+    drawingPathRef.current = path;
+    return () => {
+      for (const listener of listeners) {
+        listener.remove();
+      }
+      if (drawingPathRef.current === path) {
+        drawingPathRef.current = null;
+      }
+      shape.setMap(null);
+    };
+  }, [drawingShapeKind, status]);
+
+  useEffect(() => {
+    const path = drawingPathRef.current;
+    if (!path || !drawingShapeKind || samePositions(positions(path), drawingPoints)) {
+      return;
+    }
+    syncingDrawingPathRef.current = true;
+    path.clear();
+    for (const point of drawingPoints) {
+      path.push(new google.maps.LatLng(point[1], point[0]));
+    }
+    syncingDrawingPathRef.current = false;
+  }, [drawingPoints, drawingShapeKind]);
+
+  if (!apiKey) {
+    return (
+      <div className="map-unavailable" role="status">
+        <strong>Interactive map unavailable</strong>
+        <span>Add the browser map key described in ENVIRONMENTS.md.</span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div
+        aria-label="Interactive outreach territory map"
+        className="google-map"
+        onKeyDown={(event) => {
+          if (drawing && event.key === 'Enter' && mapRef.current?.getCenter()) {
+            event.preventDefault();
+            const point = mapRef.current.getCenter();
+            if (point) {
+              onAddDrawingPoint([point.lng(), point.lat()]);
+            }
+          }
+        }}
+        ref={elementRef}
+        role="application"
+      />
+      {status === 'loading' && <span className="map-loading">Loading map…</span>}
+      {status === 'error' && <span className="map-loading">Google map could not load.</span>}
+    </>
+  );
+}

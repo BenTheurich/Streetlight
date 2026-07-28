@@ -1,0 +1,8488 @@
+{
+  "metadata": {
+    "overture_release": "historical-unverified-prototype",
+    "extracted_on": "2026-07-27",
+    "church": {
+      "address": "31087 Nicolas Rd, Temecula, CA 92591, United States",
+      "lat": 33.54293,
+      "lon": -117.116885
+    },
+    "service_radius_miles": 10.0,
+    "packet_bbox": [
+      -117.123,
+      33.539,
+      -117.112,
+      33.553
+    ],
+    "packet_target_homes": 50,
+    "route_streets": [
+      "Diego Drive",
+      "Seraphina Road"
+    ],
+    "sources": {
+      "addresses": "historical-unverified-prototype",
+      "transportation": "historical-unverified-prototype"
+    },
+    "attribution": "OpenStreetMap contributors, Overture Maps Foundation"
+  },
+  "addresses": [
+    {
+      "number": "39750",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.1136245727539,
+      "lat": 33.53917694091797
+    },
+    {
+      "number": "39751",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11308288574219,
+      "lat": 33.53901672363281
+    },
+    {
+      "number": "39774",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11355590820312,
+      "lat": 33.53936004638672
+    },
+    {
+      "number": "39775",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11302185058594,
+      "lat": 33.5391960144043
+    },
+    {
+      "number": "39786",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.113525390625,
+      "lat": 33.53953170776367
+    },
+    {
+      "number": "39798",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11346435546875,
+      "lat": 33.53971481323242
+    },
+    {
+      "number": "39805",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11290740966797,
+      "lat": 33.539344787597656
+    },
+    {
+      "number": "39810",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11324310302734,
+      "lat": 33.53981399536133
+    },
+    {
+      "number": "39821",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11271667480469,
+      "lat": 33.539432525634766
+    },
+    {
+      "number": "39822",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11304473876953,
+      "lat": 33.53986740112305
+    },
+    {
+      "number": "39834",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11285400390625,
+      "lat": 33.53993606567383
+    },
+    {
+      "number": "39843",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11253356933594,
+      "lat": 33.53948974609375
+    },
+    {
+      "number": "39846",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.1126480102539,
+      "lat": 33.54001235961914
+    },
+    {
+      "number": "39857",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11235046386719,
+      "lat": 33.53955841064453
+    },
+    {
+      "number": "39858",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11247253417969,
+      "lat": 33.54008102416992
+    },
+    {
+      "number": "39869",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11216735839844,
+      "lat": 33.53963088989258
+    },
+    {
+      "number": "39870",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11229705810547,
+      "lat": 33.5401496887207
+    },
+    {
+      "number": "39882",
+      "street": "AMBERLEY CIR",
+      "postcode": "92591",
+      "lon": -117.11212921142578,
+      "lat": 33.54022216796875
+    },
+    {
+      "number": "30871",
+      "street": "ANDREWS WAY",
+      "postcode": "92591",
+      "lon": -117.1204605102539,
+      "lat": 33.54740905761719
+    },
+    {
+      "number": "30872",
+      "street": "ANDREWS WAY",
+      "postcode": "92591",
+      "lon": -117.1204605102539,
+      "lat": 33.54794692993164
+    },
+    {
+      "number": "30884",
+      "street": "ANDREWS WAY",
+      "postcode": "92591",
+      "lon": -117.12025451660156,
+      "lat": 33.547943115234375
+    },
+    {
+      "number": "30885",
+      "street": "ANDREWS WAY",
+      "postcode": "92591",
+      "lon": -117.12023162841797,
+      "lat": 33.54740905761719
+    },
+    {
+      "number": "30896",
+      "street": "ANDREWS WAY",
+      "postcode": "92591",
+      "lon": -117.12005615234375,
+      "lat": 33.54793930053711
+    },
+    {
+      "number": "30897",
+      "street": "ANDREWS WAY",
+      "postcode": "92591",
+      "lon": -117.12004852294922,
+      "lat": 33.54740905761719
+    },
+    {
+      "number": "30908",
+      "street": "ANDREWS WAY",
+      "postcode": "92591",
+      "lon": -117.119873046875,
+      "lat": 33.54794692993164
+    },
+    {
+      "number": "30909",
+      "street": "ANDREWS WAY",
+      "postcode": "92591",
+      "lon": -117.11981964111328,
+      "lat": 33.54740524291992
+    },
+    {
+      "number": "30920",
+      "street": "ANDREWS WAY",
+      "postcode": "92591",
+      "lon": -117.11963653564453,
+      "lat": 33.5479736328125
+    },
+    {
+      "number": "30932",
+      "street": "ANDREWS WAY",
+      "postcode": "92591",
+      "lon": -117.119384765625,
+      "lat": 33.547943115234375
+    },
+    {
+      "number": "31744",
+      "street": "CALLE GIRASOL",
+      "postcode": "92591",
+      "lon": -117.11202239990234,
+      "lat": 33.540889739990234
+    },
+    {
+      "number": "39835",
+      "street": "CALLE MEDUSA",
+      "postcode": "92591",
+      "lon": -117.11351776123047,
+      "lat": 33.54038619995117
+    },
+    {
+      "number": "39865",
+      "street": "CALLE MEDUSA",
+      "postcode": "92591",
+      "lon": -117.1145248413086,
+      "lat": 33.53996658325195
+    },
+    {
+      "number": "39930",
+      "street": "CALLE MEDUSA",
+      "postcode": "92591",
+      "lon": -117.1144790649414,
+      "lat": 33.54090881347656
+    },
+    {
+      "number": "40045",
+      "street": "CALLE MEDUSA",
+      "postcode": "92591",
+      "lon": -117.11599731445312,
+      "lat": 33.539573669433594
+    },
+    {
+      "number": "40065",
+      "street": "CALLE MEDUSA",
+      "postcode": "92591",
+      "lon": -117.11723327636719,
+      "lat": 33.53959655761719
+    },
+    {
+      "number": "39150",
+      "street": "CHANDLER DR",
+      "postcode": "92591",
+      "lon": -117.11857604980469,
+      "lat": 33.55290603637695
+    },
+    {
+      "number": "39170",
+      "street": "CHANDLER DR",
+      "postcode": "92591",
+      "lon": -117.11852264404297,
+      "lat": 33.55265426635742
+    },
+    {
+      "number": "39180",
+      "street": "CHANDLER DR",
+      "postcode": "92591",
+      "lon": -117.11847686767578,
+      "lat": 33.55247497558594
+    },
+    {
+      "number": "39190",
+      "street": "CHANDLER DR",
+      "postcode": "92591",
+      "lon": -117.11843872070312,
+      "lat": 33.5522346496582
+    },
+    {
+      "number": "39372",
+      "street": "CHECKER CT",
+      "postcode": "92563",
+      "lon": -117.12297821044922,
+      "lat": 33.54835510253906
+    },
+    {
+      "number": "39382",
+      "street": "CHECKER CT",
+      "postcode": "92563",
+      "lon": -117.12294006347656,
+      "lat": 33.54813003540039
+    },
+    {
+      "number": "39392",
+      "street": "CHECKER CT",
+      "postcode": "92563",
+      "lon": -117.12293243408203,
+      "lat": 33.54792404174805
+    },
+    {
+      "number": "39402",
+      "street": "CHECKER CT",
+      "postcode": "92563",
+      "lon": -117.12293243408203,
+      "lat": 33.54765701293945
+    },
+    {
+      "number": "39412",
+      "street": "CHECKER CT",
+      "postcode": "92563",
+      "lon": -117.12293243408203,
+      "lat": 33.5474853515625
+    },
+    {
+      "number": "39422",
+      "street": "CHECKER CT",
+      "postcode": "92563",
+      "lon": -117.12293243408203,
+      "lat": 33.54732131958008
+    },
+    {
+      "number": "39432",
+      "street": "CHECKER CT",
+      "postcode": "92563",
+      "lon": -117.12293243408203,
+      "lat": 33.547157287597656
+    },
+    {
+      "number": "39442",
+      "street": "CHECKER CT",
+      "postcode": "92563",
+      "lon": -117.1229019165039,
+      "lat": 33.54696273803711
+    },
+    {
+      "number": "39452",
+      "street": "CHECKER CT",
+      "postcode": "92563",
+      "lon": -117.12296295166016,
+      "lat": 33.54667282104492
+    },
+    {
+      "number": "39079",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11571502685547,
+      "lat": 33.55292892456055
+    },
+    {
+      "number": "39089",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11572265625,
+      "lat": 33.55278778076172
+    },
+    {
+      "number": "39099",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11575317382812,
+      "lat": 33.55263900756836
+    },
+    {
+      "number": "39102",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.1152114868164,
+      "lat": 33.552520751953125
+    },
+    {
+      "number": "39109",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11575317382812,
+      "lat": 33.552486419677734
+    },
+    {
+      "number": "39112",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11522674560547,
+      "lat": 33.55234146118164
+    },
+    {
+      "number": "39119",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11575317382812,
+      "lat": 33.552345275878906
+    },
+    {
+      "number": "39122",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11520385742188,
+      "lat": 33.55220031738281
+    },
+    {
+      "number": "39129",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11575317382812,
+      "lat": 33.55220413208008
+    },
+    {
+      "number": "39132",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.1152114868164,
+      "lat": 33.55205154418945
+    },
+    {
+      "number": "39139",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11576080322266,
+      "lat": 33.552059173583984
+    },
+    {
+      "number": "39142",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11521911621094,
+      "lat": 33.5518913269043
+    },
+    {
+      "number": "39149",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.1157455444336,
+      "lat": 33.55190658569336
+    },
+    {
+      "number": "39152",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.115234375,
+      "lat": 33.55175018310547
+    },
+    {
+      "number": "39159",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.1157455444336,
+      "lat": 33.55176544189453
+    },
+    {
+      "number": "39162",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11521911621094,
+      "lat": 33.55160140991211
+    },
+    {
+      "number": "39169",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11573791503906,
+      "lat": 33.55162048339844
+    },
+    {
+      "number": "39172",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11524200439453,
+      "lat": 33.55146408081055
+    },
+    {
+      "number": "39179",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11578369140625,
+      "lat": 33.551448822021484
+    },
+    {
+      "number": "39182",
+      "street": "CROWN RANCH RD",
+      "postcode": "92591",
+      "lon": -117.11528778076172,
+      "lat": 33.551307678222656
+    },
+    {
+      "number": "39250",
+      "street": "DEPUTY RD",
+      "postcode": "92591",
+      "lon": -117.11302947998047,
+      "lat": 33.5466423034668
+    },
+    {
+      "number": "39280",
+      "street": "DEPUTY RD",
+      "postcode": "92591",
+      "lon": -117.11283111572266,
+      "lat": 33.545066833496094
+    },
+    {
+      "number": "39444",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11927032470703,
+      "lat": 33.547752380371094
+    },
+    {
+      "number": "39456",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.1192855834961,
+      "lat": 33.547523498535156
+    },
+    {
+      "number": "39468",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11931610107422,
+      "lat": 33.547332763671875
+    },
+    {
+      "number": "39480",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11933135986328,
+      "lat": 33.547157287597656
+    },
+    {
+      "number": "39483",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11992645263672,
+      "lat": 33.54712677001953
+    },
+    {
+      "number": "39492",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11935424804688,
+      "lat": 33.546974182128906
+    },
+    {
+      "number": "39493",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11993408203125,
+      "lat": 33.54692077636719
+    },
+    {
+      "number": "39504",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11935424804688,
+      "lat": 33.54679489135742
+    },
+    {
+      "number": "39509",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11994934082031,
+      "lat": 33.54673767089844
+    },
+    {
+      "number": "39516",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11937713623047,
+      "lat": 33.54661178588867
+    },
+    {
+      "number": "39523",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.1199722290039,
+      "lat": 33.54655456542969
+    },
+    {
+      "number": "39528",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11937713623047,
+      "lat": 33.54643249511719
+    },
+    {
+      "number": "39535",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.1199722290039,
+      "lat": 33.546363830566406
+    },
+    {
+      "number": "39540",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.119384765625,
+      "lat": 33.5462532043457
+    },
+    {
+      "number": "39545",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.1199951171875,
+      "lat": 33.546180725097656
+    },
+    {
+      "number": "39552",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.1194076538086,
+      "lat": 33.546077728271484
+    },
+    {
+      "number": "39559",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.1199951171875,
+      "lat": 33.545997619628906
+    },
+    {
+      "number": "39564",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11941528320312,
+      "lat": 33.5458984375
+    },
+    {
+      "number": "39571",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.12002563476562,
+      "lat": 33.545806884765625
+    },
+    {
+      "number": "39576",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11943054199219,
+      "lat": 33.545719146728516
+    },
+    {
+      "number": "39583",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.12003326416016,
+      "lat": 33.545623779296875
+    },
+    {
+      "number": "39588",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11943817138672,
+      "lat": 33.5455436706543
+    },
+    {
+      "number": "39597",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.12004852294922,
+      "lat": 33.545440673828125
+    },
+    {
+      "number": "39600",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11943054199219,
+      "lat": 33.54536819458008
+    },
+    {
+      "number": "39607",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.12007904052734,
+      "lat": 33.545257568359375
+    },
+    {
+      "number": "39612",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11944580078125,
+      "lat": 33.545188903808594
+    },
+    {
+      "number": "39621",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.12008666992188,
+      "lat": 33.545074462890625
+    },
+    {
+      "number": "39626",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11944580078125,
+      "lat": 33.545013427734375
+    },
+    {
+      "number": "39640",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11945343017578,
+      "lat": 33.54484176635742
+    },
+    {
+      "number": "39654",
+      "street": "DIEGO DR",
+      "postcode": "92591",
+      "lon": -117.11944580078125,
+      "lat": 33.54467010498047
+    },
+    {
+      "number": "30763",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.1228256225586,
+      "lat": 33.54580307006836
+    },
+    {
+      "number": "30768",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12281036376953,
+      "lat": 33.54627990722656
+    },
+    {
+      "number": "30773",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12261199951172,
+      "lat": 33.545841217041016
+    },
+    {
+      "number": "30778",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12261962890625,
+      "lat": 33.54634094238281
+    },
+    {
+      "number": "30779",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12240600585938,
+      "lat": 33.5458984375
+    },
+    {
+      "number": "30787",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12220764160156,
+      "lat": 33.54597473144531
+    },
+    {
+      "number": "30788",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12239074707031,
+      "lat": 33.54642105102539
+    },
+    {
+      "number": "30799",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12200927734375,
+      "lat": 33.54605484008789
+    },
+    {
+      "number": "30810",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12200164794922,
+      "lat": 33.546653747558594
+    },
+    {
+      "number": "30811",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12179565429688,
+      "lat": 33.54613494873047
+    },
+    {
+      "number": "30820",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12177276611328,
+      "lat": 33.54667663574219
+    },
+    {
+      "number": "30825",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12158966064453,
+      "lat": 33.54616165161133
+    },
+    {
+      "number": "30830",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12154388427734,
+      "lat": 33.54666519165039
+    },
+    {
+      "number": "30839",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.1213607788086,
+      "lat": 33.5461540222168
+    },
+    {
+      "number": "30840",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12133026123047,
+      "lat": 33.546653747558594
+    },
+    {
+      "number": "30849",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12114715576172,
+      "lat": 33.5461540222168
+    },
+    {
+      "number": "30850",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12110900878906,
+      "lat": 33.54664611816406
+    },
+    {
+      "number": "30859",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12093353271484,
+      "lat": 33.546146392822266
+    },
+    {
+      "number": "30860",
+      "street": "EASTGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12089538574219,
+      "lat": 33.54664993286133
+    },
+    {
+      "number": "31202",
+      "street": "ENFIELD LN",
+      "postcode": "92591",
+      "lon": -117.1149673461914,
+      "lat": 33.53914260864258
+    },
+    {
+      "number": "31214",
+      "street": "ENFIELD LN",
+      "postcode": "92591",
+      "lon": -117.11474609375,
+      "lat": 33.53919219970703
+    },
+    {
+      "number": "31226",
+      "street": "ENFIELD LN",
+      "postcode": "92591",
+      "lon": -117.11453247070312,
+      "lat": 33.53924560546875
+    },
+    {
+      "number": "31238",
+      "street": "ENFIELD LN",
+      "postcode": "92591",
+      "lon": -117.11430358886719,
+      "lat": 33.53929901123047
+    },
+    {
+      "number": "31244",
+      "street": "ENFIELD LN",
+      "postcode": "92591",
+      "lon": -117.1141128540039,
+      "lat": 33.53934860229492
+    },
+    {
+      "number": "31252",
+      "street": "ENFIELD LN",
+      "postcode": "92591",
+      "lon": -117.1138687133789,
+      "lat": 33.539451599121094
+    },
+    {
+      "number": "30758",
+      "street": "EVIAN DR",
+      "postcode": "92563",
+      "lon": -117.12234497070312,
+      "lat": 33.551700592041016
+    },
+    {
+      "number": "30768",
+      "street": "EVIAN DR",
+      "postcode": "92563",
+      "lon": -117.12212371826172,
+      "lat": 33.551719665527344
+    },
+    {
+      "number": "30778",
+      "street": "EVIAN DR",
+      "postcode": "92563",
+      "lon": -117.1219253540039,
+      "lat": 33.55174255371094
+    },
+    {
+      "number": "30788",
+      "street": "EVIAN DR",
+      "postcode": "92563",
+      "lon": -117.12171936035156,
+      "lat": 33.55177307128906
+    },
+    {
+      "number": "30798",
+      "street": "EVIAN DR",
+      "postcode": "92563",
+      "lon": -117.12150573730469,
+      "lat": 33.55180358886719
+    },
+    {
+      "number": "30808",
+      "street": "EVIAN DR",
+      "postcode": "92563",
+      "lon": -117.12128448486328,
+      "lat": 33.55182647705078
+    },
+    {
+      "number": "30818",
+      "street": "EVIAN DR",
+      "postcode": "92563",
+      "lon": -117.12108612060547,
+      "lat": 33.551856994628906
+    },
+    {
+      "number": "39600",
+      "street": "GATLIN ST",
+      "postcode": "92591",
+      "lon": -117.11740112304688,
+      "lat": 33.54502487182617
+    },
+    {
+      "number": "30754",
+      "street": "GRAND VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12284851074219,
+      "lat": 33.54529571533203
+    },
+    {
+      "number": "30755",
+      "street": "GRAND VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12259674072266,
+      "lat": 33.544891357421875
+    },
+    {
+      "number": "30756",
+      "street": "GRAND VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12274169921875,
+      "lat": 33.545494079589844
+    },
+    {
+      "number": "30759",
+      "street": "GRAND VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12277221679688,
+      "lat": 33.5450439453125
+    },
+    {
+      "number": "30763",
+      "street": "GRAND VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12235260009766,
+      "lat": 33.544891357421875
+    },
+    {
+      "number": "30764",
+      "street": "GRAND VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12245178222656,
+      "lat": 33.545501708984375
+    },
+    {
+      "number": "30770",
+      "street": "GRAND VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12223052978516,
+      "lat": 33.54556655883789
+    },
+    {
+      "number": "30771",
+      "street": "GRAND VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12213897705078,
+      "lat": 33.54500961303711
+    },
+    {
+      "number": "30784",
+      "street": "GRAND VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12197875976562,
+      "lat": 33.54561996459961
+    },
+    {
+      "number": "39240",
+      "street": "GREENWOOD LN",
+      "postcode": "92591",
+      "lon": -117.11483001708984,
+      "lat": 33.549930572509766
+    },
+    {
+      "number": "39250",
+      "street": "GREENWOOD LN",
+      "postcode": "92591",
+      "lon": -117.11571502685547,
+      "lat": 33.55007553100586
+    },
+    {
+      "number": "39310",
+      "street": "GREENWOOD LN",
+      "postcode": "92591",
+      "lon": -117.11497497558594,
+      "lat": 33.54926300048828
+    },
+    {
+      "number": "39198",
+      "street": "HALF MOON CIR",
+      "postcode": "92563",
+      "lon": -117.12297058105469,
+      "lat": 33.55156707763672
+    },
+    {
+      "number": "39208",
+      "street": "HALF MOON CIR",
+      "postcode": "92563",
+      "lon": -117.12286376953125,
+      "lat": 33.55140686035156
+    },
+    {
+      "number": "39218",
+      "street": "HALF MOON CIR",
+      "postcode": "92563",
+      "lon": -117.1227798461914,
+      "lat": 33.55122375488281
+    },
+    {
+      "number": "39228",
+      "street": "HALF MOON CIR",
+      "postcode": "92563",
+      "lon": -117.12272644042969,
+      "lat": 33.551029205322266
+    },
+    {
+      "number": "39238",
+      "street": "HALF MOON CIR",
+      "postcode": "92563",
+      "lon": -117.1227035522461,
+      "lat": 33.55083465576172
+    },
+    {
+      "number": "39258",
+      "street": "HALF MOON CIR",
+      "postcode": "92563",
+      "lon": -117.1227035522461,
+      "lat": 33.55048370361328
+    },
+    {
+      "number": "39268",
+      "street": "HALF MOON CIR",
+      "postcode": "92563",
+      "lon": -117.1227035522461,
+      "lat": 33.5503044128418
+    },
+    {
+      "number": "39278",
+      "street": "HALF MOON CIR",
+      "postcode": "92563",
+      "lon": -117.12272644042969,
+      "lat": 33.55012512207031
+    },
+    {
+      "number": "39288",
+      "street": "HALF MOON CIR",
+      "postcode": "92563",
+      "lon": -117.12281036376953,
+      "lat": 33.54995346069336
+    },
+    {
+      "number": "39298",
+      "street": "HALF MOON CIR",
+      "postcode": "92563",
+      "lon": -117.12285614013672,
+      "lat": 33.54977035522461
+    },
+    {
+      "number": "39308",
+      "street": "HALF MOON CIR",
+      "postcode": "92563",
+      "lon": -117.12297058105469,
+      "lat": 33.54960250854492
+    },
+    {
+      "number": "39160",
+      "street": "HIDDED CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11248016357422,
+      "lat": 33.55194854736328
+    },
+    {
+      "number": "39097",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11298370361328,
+      "lat": 33.55280303955078
+    },
+    {
+      "number": "39100",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11246490478516,
+      "lat": 33.55278396606445
+    },
+    {
+      "number": "39107",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11299896240234,
+      "lat": 33.55266189575195
+    },
+    {
+      "number": "39110",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11247253417969,
+      "lat": 33.552635192871094
+    },
+    {
+      "number": "39117",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11299133300781,
+      "lat": 33.55251693725586
+    },
+    {
+      "number": "39120",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11248779296875,
+      "lat": 33.552494049072266
+    },
+    {
+      "number": "39127",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11300659179688,
+      "lat": 33.55237579345703
+    },
+    {
+      "number": "39130",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11248779296875,
+      "lat": 33.5523567199707
+    },
+    {
+      "number": "39137",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11299896240234,
+      "lat": 33.5522346496582
+    },
+    {
+      "number": "39140",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11248779296875,
+      "lat": 33.552223205566406
+    },
+    {
+      "number": "39147",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.1130142211914,
+      "lat": 33.552093505859375
+    },
+    {
+      "number": "39150",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11248016357422,
+      "lat": 33.552085876464844
+    },
+    {
+      "number": "39157",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11300659179688,
+      "lat": 33.55195236206055
+    },
+    {
+      "number": "39167",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11302185058594,
+      "lat": 33.55180740356445
+    },
+    {
+      "number": "39170",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11249542236328,
+      "lat": 33.55181121826172
+    },
+    {
+      "number": "39177",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11302185058594,
+      "lat": 33.55167007446289
+    },
+    {
+      "number": "39180",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11249542236328,
+      "lat": 33.551673889160156
+    },
+    {
+      "number": "39187",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.1130142211914,
+      "lat": 33.551536560058594
+    },
+    {
+      "number": "39190",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11248779296875,
+      "lat": 33.55154037475586
+    },
+    {
+      "number": "39197",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11300659179688,
+      "lat": 33.551387786865234
+    },
+    {
+      "number": "39200",
+      "street": "HIDDEN CREEK LN",
+      "postcode": "92591",
+      "lon": -117.11248016357422,
+      "lat": 33.5513916015625
+    },
+    {
+      "number": "30794",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12223052978516,
+      "lat": 33.54915237426758
+    },
+    {
+      "number": "30799",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12200927734375,
+      "lat": 33.548641204833984
+    },
+    {
+      "number": "30804",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.1219711303711,
+      "lat": 33.549156188964844
+    },
+    {
+      "number": "30811",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.1218032836914,
+      "lat": 33.54867172241211
+    },
+    {
+      "number": "30816",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12173461914062,
+      "lat": 33.549156188964844
+    },
+    {
+      "number": "30823",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12158203125,
+      "lat": 33.54867172241211
+    },
+    {
+      "number": "30828",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12153625488281,
+      "lat": 33.549156188964844
+    },
+    {
+      "number": "30835",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12136840820312,
+      "lat": 33.548675537109375
+    },
+    {
+      "number": "30840",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.1213150024414,
+      "lat": 33.549156188964844
+    },
+    {
+      "number": "30847",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12115478515625,
+      "lat": 33.54866409301758
+    },
+    {
+      "number": "30852",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.1211166381836,
+      "lat": 33.549171447753906
+    },
+    {
+      "number": "30864",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12088012695312,
+      "lat": 33.54915237426758
+    },
+    {
+      "number": "30865",
+      "street": "HIGHLAND VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12090301513672,
+      "lat": 33.548675537109375
+    },
+    {
+      "number": "30735",
+      "street": "HILLCREST DR",
+      "postcode": "92591",
+      "lon": -117.12296295166016,
+      "lat": 33.54401779174805
+    },
+    {
+      "number": "30745",
+      "street": "HILLCREST DR",
+      "postcode": "92591",
+      "lon": -117.12274169921875,
+      "lat": 33.54404067993164
+    },
+    {
+      "number": "30752",
+      "street": "HILLCREST DR",
+      "postcode": "92591",
+      "lon": -117.12259674072266,
+      "lat": 33.54457473754883
+    },
+    {
+      "number": "30757",
+      "street": "HILLCREST DR",
+      "postcode": "92591",
+      "lon": -117.12252807617188,
+      "lat": 33.54404067993164
+    },
+    {
+      "number": "30762",
+      "street": "HILLCREST DR",
+      "postcode": "92591",
+      "lon": -117.12238311767578,
+      "lat": 33.54456329345703
+    },
+    {
+      "number": "30772",
+      "street": "HILLCREST DR",
+      "postcode": "92591",
+      "lon": -117.12215423583984,
+      "lat": 33.544593811035156
+    },
+    {
+      "number": "30779",
+      "street": "HILLCREST DR",
+      "postcode": "92591",
+      "lon": -117.12206268310547,
+      "lat": 33.544044494628906
+    },
+    {
+      "number": "30793",
+      "street": "HILLCREST DR",
+      "postcode": "92591",
+      "lon": -117.121826171875,
+      "lat": 33.54404067993164
+    },
+    {
+      "number": "30807",
+      "street": "HILLCREST DR",
+      "postcode": "92591",
+      "lon": -117.12158966064453,
+      "lat": 33.54401397705078
+    },
+    {
+      "number": "30817",
+      "street": "HILLCREST DR",
+      "postcode": "92591",
+      "lon": -117.12136840820312,
+      "lat": 33.54408264160156
+    },
+    {
+      "number": "31190",
+      "street": "INDIAN SUMMER RD",
+      "postcode": "92591",
+      "lon": -117.11528778076172,
+      "lat": 33.54593276977539
+    },
+    {
+      "number": "31249",
+      "street": "INDIAN SUMMER RD",
+      "postcode": "92591",
+      "lon": -117.11431884765625,
+      "lat": 33.54436111450195
+    },
+    {
+      "number": "31250",
+      "street": "INDIAN SUMMER RD",
+      "postcode": "92591",
+      "lon": -117.11442565917969,
+      "lat": 33.54591751098633
+    },
+    {
+      "number": "30868",
+      "street": "JONS PL",
+      "postcode": "92591",
+      "lon": -117.12068176269531,
+      "lat": 33.54484176635742
+    },
+    {
+      "number": "30880",
+      "street": "JONS PL",
+      "postcode": "92591",
+      "lon": -117.12044525146484,
+      "lat": 33.544830322265625
+    },
+    {
+      "number": "30894",
+      "street": "JONS PL",
+      "postcode": "92591",
+      "lon": -117.12022399902344,
+      "lat": 33.54481887817383
+    },
+    {
+      "number": "30910",
+      "street": "JONS PL",
+      "postcode": "92591",
+      "lon": -117.12000274658203,
+      "lat": 33.544822692871094
+    },
+    {
+      "number": "39293",
+      "street": "KIMBERLY LN",
+      "postcode": "92591",
+      "lon": -117.11373138427734,
+      "lat": 33.54801940917969
+    },
+    {
+      "number": "31059",
+      "street": "LAZY K DR",
+      "postcode": "92591",
+      "lon": -117.11726379394531,
+      "lat": 33.55234146118164
+    },
+    {
+      "number": "31069",
+      "street": "LAZY K DR",
+      "postcode": "92591",
+      "lon": -117.1170883178711,
+      "lat": 33.552371978759766
+    },
+    {
+      "number": "31079",
+      "street": "LAZY K DR",
+      "postcode": "92591",
+      "lon": -117.11690521240234,
+      "lat": 33.55236053466797
+    },
+    {
+      "number": "31089",
+      "street": "LAZY K DR",
+      "postcode": "92591",
+      "lon": -117.11676025390625,
+      "lat": 33.5523796081543
+    },
+    {
+      "number": "31099",
+      "street": "LAZY K DR",
+      "postcode": "92591",
+      "lon": -117.11656951904297,
+      "lat": 33.55237579345703
+    },
+    {
+      "number": "39515",
+      "street": "LEIFER RD",
+      "postcode": "92591",
+      "lon": -117.1178970336914,
+      "lat": 33.548465728759766
+    },
+    {
+      "number": "39340",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11227416992188,
+      "lat": 33.547481536865234
+    },
+    {
+      "number": "39361",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11331176757812,
+      "lat": 33.54974365234375
+    },
+    {
+      "number": "39370",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11316680908203,
+      "lat": 33.54753494262695
+    },
+    {
+      "number": "39390",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11377716064453,
+      "lat": 33.54668045043945
+    },
+    {
+      "number": "39401",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11453247070312,
+      "lat": 33.54849624633789
+    },
+    {
+      "number": "39415",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11546325683594,
+      "lat": 33.5481071472168
+    },
+    {
+      "number": "39421",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11753845214844,
+      "lat": 33.54911422729492
+    },
+    {
+      "number": "39430",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11603546142578,
+      "lat": 33.54884338378906
+    },
+    {
+      "number": "39450",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11470031738281,
+      "lat": 33.54636001586914
+    },
+    {
+      "number": "39451",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11566162109375,
+      "lat": 33.54778289794922
+    },
+    {
+      "number": "39511",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.1171875,
+      "lat": 33.54764938354492
+    },
+    {
+      "number": "39519",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.1178207397461,
+      "lat": 33.54672622680664
+    },
+    {
+      "number": "39520",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.1152572631836,
+      "lat": 33.54692077636719
+    },
+    {
+      "number": "39525",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11770629882812,
+      "lat": 33.546180725097656
+    },
+    {
+      "number": "39611",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11620330810547,
+      "lat": 33.54487609863281
+    },
+    {
+      "number": "39622",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11559295654297,
+      "lat": 33.54476547241211
+    },
+    {
+      "number": "39633",
+      "street": "LIEFER RD",
+      "postcode": "92591",
+      "lon": -117.11637878417969,
+      "lat": 33.54428482055664
+    },
+    {
+      "number": "39077",
+      "street": "LONESOME SPUR CIR",
+      "postcode": "92591",
+      "lon": -117.11751556396484,
+      "lat": 33.552947998046875
+    },
+    {
+      "number": "39080",
+      "street": "LONESOME SPUR CIR",
+      "postcode": "92591",
+      "lon": -117.11701965332031,
+      "lat": 33.5528678894043
+    },
+    {
+      "number": "39087",
+      "street": "LONESOME SPUR CIR",
+      "postcode": "92591",
+      "lon": -117.11753845214844,
+      "lat": 33.552791595458984
+    },
+    {
+      "number": "39107",
+      "street": "LONESOME SPUR CIR",
+      "postcode": "92591",
+      "lon": -117.11748504638672,
+      "lat": 33.55244827270508
+    },
+    {
+      "number": "39090",
+      "street": "LONESOME SPUR CT",
+      "postcode": "92591",
+      "lon": -117.11701202392578,
+      "lat": 33.55271530151367
+    },
+    {
+      "number": "39097",
+      "street": "LONESOME SPUR CT",
+      "postcode": "92591",
+      "lon": -117.1175537109375,
+      "lat": 33.552616119384766
+    },
+    {
+      "number": "39560",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12128448486328,
+      "lat": 33.545860290527344
+    },
+    {
+      "number": "39574",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12107849121094,
+      "lat": 33.54570007324219
+    },
+    {
+      "number": "39575",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12162780761719,
+      "lat": 33.54583740234375
+    },
+    {
+      "number": "39588",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12103271484375,
+      "lat": 33.545528411865234
+    },
+    {
+      "number": "39589",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12173461914062,
+      "lat": 33.545650482177734
+    },
+    {
+      "number": "39602",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12110137939453,
+      "lat": 33.54534912109375
+    },
+    {
+      "number": "39603",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12168884277344,
+      "lat": 33.54542541503906
+    },
+    {
+      "number": "39616",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12114715576172,
+      "lat": 33.5451774597168
+    },
+    {
+      "number": "39630",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12118530273438,
+      "lat": 33.54499816894531
+    },
+    {
+      "number": "39631",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12178802490234,
+      "lat": 33.54507827758789
+    },
+    {
+      "number": "39644",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.1212387084961,
+      "lat": 33.54481887817383
+    },
+    {
+      "number": "39645",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.121826171875,
+      "lat": 33.544898986816406
+    },
+    {
+      "number": "39658",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12127685546875,
+      "lat": 33.544639587402344
+    },
+    {
+      "number": "39659",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.1218490600586,
+      "lat": 33.54471969604492
+    },
+    {
+      "number": "39672",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12130737304688,
+      "lat": 33.54446029663086
+    },
+    {
+      "number": "39673",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12187957763672,
+      "lat": 33.544498443603516
+    },
+    {
+      "number": "39686",
+      "street": "MEADOW VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12130737304688,
+      "lat": 33.54427719116211
+    },
+    {
+      "number": "39121",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11468505859375,
+      "lat": 33.55238723754883
+    },
+    {
+      "number": "39124",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11449432373047,
+      "lat": 33.552406311035156
+    },
+    {
+      "number": "39131",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11486053466797,
+      "lat": 33.55222702026367
+    },
+    {
+      "number": "39134",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11431121826172,
+      "lat": 33.5522575378418
+    },
+    {
+      "number": "39141",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11480712890625,
+      "lat": 33.55202865600586
+    },
+    {
+      "number": "39144",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11431884765625,
+      "lat": 33.552066802978516
+    },
+    {
+      "number": "39151",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11475372314453,
+      "lat": 33.55188751220703
+    },
+    {
+      "number": "39154",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11429595947266,
+      "lat": 33.551910400390625
+    },
+    {
+      "number": "39161",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11478424072266,
+      "lat": 33.551727294921875
+    },
+    {
+      "number": "39164",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11429595947266,
+      "lat": 33.55174255371094
+    },
+    {
+      "number": "39171",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11477661132812,
+      "lat": 33.551570892333984
+    },
+    {
+      "number": "39174",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11431121826172,
+      "lat": 33.55158233642578
+    },
+    {
+      "number": "39181",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11476135253906,
+      "lat": 33.551414489746094
+    },
+    {
+      "number": "39184",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11430358886719,
+      "lat": 33.551422119140625
+    },
+    {
+      "number": "39191",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11479187011719,
+      "lat": 33.55124282836914
+    },
+    {
+      "number": "39194",
+      "street": "MOUNTAIN SKY CIR",
+      "postcode": "92591",
+      "lon": -117.11428833007812,
+      "lat": 33.551239013671875
+    },
+    {
+      "number": "30725",
+      "street": "MURRIETA HOT SPRINGS RD",
+      "postcode": "92563",
+      "lon": -117.12286376953125,
+      "lat": 33.55234909057617
+    },
+    {
+      "number": "31050",
+      "street": "NICHOLAS RD",
+      "postcode": "92591",
+      "lon": -117.1170883178711,
+      "lat": 33.54332733154297
+    },
+    {
+      "number": "31087",
+      "street": "NICHOLAS RD",
+      "postcode": "92591",
+      "lon": -117.1165542602539,
+      "lat": 33.54157638549805
+    },
+    {
+      "number": "30885",
+      "street": "NICOLAS RD",
+      "postcode": "92591",
+      "lon": -117.12104797363281,
+      "lat": 33.54058837890625
+    },
+    {
+      "number": "31041",
+      "street": "NICOLAS RD",
+      "postcode": "92591",
+      "lon": -117.11781311035156,
+      "lat": 33.540504455566406
+    },
+    {
+      "number": "31061",
+      "street": "NICOLAS RD",
+      "postcode": "92591",
+      "lon": -117.11724090576172,
+      "lat": 33.5413703918457
+    },
+    {
+      "number": "31143",
+      "street": "NICOLAS RD",
+      "postcode": "92591",
+      "lon": -117.11587524414062,
+      "lat": 33.54165267944336
+    },
+    {
+      "number": "31205",
+      "street": "NICOLAS RD",
+      "postcode": "92591",
+      "lon": -117.1142349243164,
+      "lat": 33.5423583984375
+    },
+    {
+      "number": "31220",
+      "street": "NICOLAS RD",
+      "postcode": "92591",
+      "lon": -117.11348724365234,
+      "lat": 33.54549789428711
+    },
+    {
+      "number": "31225",
+      "street": "NICOLAS RD",
+      "postcode": "92591",
+      "lon": -117.11516571044922,
+      "lat": 33.54212188720703
+    },
+    {
+      "number": "31253",
+      "street": "NICOLAS RD",
+      "postcode": "92591",
+      "lon": -117.11317443847656,
+      "lat": 33.54258346557617
+    },
+    {
+      "number": "31255",
+      "street": "NICOLAS RD",
+      "postcode": "92591",
+      "lon": -117.1122055053711,
+      "lat": 33.542945861816406
+    },
+    {
+      "number": "39377",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12257385253906,
+      "lat": 33.548858642578125
+    },
+    {
+      "number": "39395",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12252807617188,
+      "lat": 33.54857635498047
+    },
+    {
+      "number": "39409",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12252044677734,
+      "lat": 33.54839324951172
+    },
+    {
+      "number": "39421",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12252044677734,
+      "lat": 33.5482292175293
+    },
+    {
+      "number": "39433",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12252807617188,
+      "lat": 33.548065185546875
+    },
+    {
+      "number": "39445",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12252044677734,
+      "lat": 33.547874450683594
+    },
+    {
+      "number": "39459",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12251281738281,
+      "lat": 33.547691345214844
+    },
+    {
+      "number": "39471",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12252044677734,
+      "lat": 33.54752731323242
+    },
+    {
+      "number": "39483",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12252807617188,
+      "lat": 33.54736328125
+    },
+    {
+      "number": "39495",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.1225357055664,
+      "lat": 33.54719924926758
+    },
+    {
+      "number": "39507",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12255096435547,
+      "lat": 33.54703140258789
+    },
+    {
+      "number": "39519",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12256622314453,
+      "lat": 33.54684829711914
+    },
+    {
+      "number": "39531",
+      "street": "NORTHGATE PKWY",
+      "postcode": "92591",
+      "lon": -117.12255096435547,
+      "lat": 33.54664993286133
+    },
+    {
+      "number": "30751",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.12240600585938,
+      "lat": 33.55207824707031
+    },
+    {
+      "number": "30756",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.1224594116211,
+      "lat": 33.552303314208984
+    },
+    {
+      "number": "30761",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.1221923828125,
+      "lat": 33.552001953125
+    },
+    {
+      "number": "30771",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.12194061279297,
+      "lat": 33.55205535888672
+    },
+    {
+      "number": "30776",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.1219482421875,
+      "lat": 33.55253601074219
+    },
+    {
+      "number": "30781",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.12174224853516,
+      "lat": 33.55208969116211
+    },
+    {
+      "number": "30791",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.12155151367188,
+      "lat": 33.5521240234375
+    },
+    {
+      "number": "30796",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.1217269897461,
+      "lat": 33.55259704589844
+    },
+    {
+      "number": "30801",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.12136840820312,
+      "lat": 33.552154541015625
+    },
+    {
+      "number": "30806",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.12152862548828,
+      "lat": 33.55265426635742
+    },
+    {
+      "number": "30811",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.12117004394531,
+      "lat": 33.55218505859375
+    },
+    {
+      "number": "30816",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.12134552001953,
+      "lat": 33.55270767211914
+    },
+    {
+      "number": "30826",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.12116241455078,
+      "lat": 33.552764892578125
+    },
+    {
+      "number": "30836",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.12098693847656,
+      "lat": 33.55282211303711
+    },
+    {
+      "number": "30841",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.1207504272461,
+      "lat": 33.55215072631836
+    },
+    {
+      "number": "30846",
+      "street": "PARK POINT CT",
+      "postcode": "92563",
+      "lon": -117.12076568603516,
+      "lat": 33.55291748046875
+    },
+    {
+      "number": "30798",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12202453613281,
+      "lat": 33.54833984375
+    },
+    {
+      "number": "30801",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12199401855469,
+      "lat": 33.547855377197266
+    },
+    {
+      "number": "30810",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.1218032836914,
+      "lat": 33.54834747314453
+    },
+    {
+      "number": "30813",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12179565429688,
+      "lat": 33.5478630065918
+    },
+    {
+      "number": "30822",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12157440185547,
+      "lat": 33.5483512878418
+    },
+    {
+      "number": "30825",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12158966064453,
+      "lat": 33.54786682128906
+    },
+    {
+      "number": "30834",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12138366699219,
+      "lat": 33.54835510253906
+    },
+    {
+      "number": "30837",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12137603759766,
+      "lat": 33.54786682128906
+    },
+    {
+      "number": "30846",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12116241455078,
+      "lat": 33.548362731933594
+    },
+    {
+      "number": "30849",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12117004394531,
+      "lat": 33.547855377197266
+    },
+    {
+      "number": "30858",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12091064453125,
+      "lat": 33.54835510253906
+    },
+    {
+      "number": "30861",
+      "street": "PARK VISTA CIR",
+      "postcode": "92591",
+      "lon": -117.12090301513672,
+      "lat": 33.54786682128906
+    },
+    {
+      "number": "39656",
+      "street": "PARKVIEW DR",
+      "postcode": "92591",
+      "lon": -117.12293243408203,
+      "lat": 33.54473114013672
+    },
+    {
+      "number": "39670",
+      "street": "PARKVIEW DR",
+      "postcode": "92591",
+      "lon": -117.12286376953125,
+      "lat": 33.54450607299805
+    },
+    {
+      "number": "30856",
+      "street": "SANDPIPER LN",
+      "postcode": "92591",
+      "lon": -117.12054443359375,
+      "lat": 33.5529670715332
+    },
+    {
+      "number": "30876",
+      "street": "SANDPIPER LN",
+      "postcode": "92591",
+      "lon": -117.12004852294922,
+      "lat": 33.55287170410156
+    },
+    {
+      "number": "39207",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.12104797363281,
+      "lat": 33.55145263671875
+    },
+    {
+      "number": "39217",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.12100982666016,
+      "lat": 33.55125045776367
+    },
+    {
+      "number": "39227",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.1209716796875,
+      "lat": 33.55106735229492
+    },
+    {
+      "number": "39237",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.1209716796875,
+      "lat": 33.550899505615234
+    },
+    {
+      "number": "39242",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12034606933594,
+      "lat": 33.55077362060547
+    },
+    {
+      "number": "39247",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.12096405029297,
+      "lat": 33.55072784423828
+    },
+    {
+      "number": "39252",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.1203384399414,
+      "lat": 33.55060958862305
+    },
+    {
+      "number": "39257",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.12096405029297,
+      "lat": 33.550559997558594
+    },
+    {
+      "number": "39262",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12033081054688,
+      "lat": 33.55044174194336
+    },
+    {
+      "number": "39267",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.12096405029297,
+      "lat": 33.550384521484375
+    },
+    {
+      "number": "39272",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12033081054688,
+      "lat": 33.550270080566406
+    },
+    {
+      "number": "39277",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.1209716796875,
+      "lat": 33.550193786621094
+    },
+    {
+      "number": "39282",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12032318115234,
+      "lat": 33.55009460449219
+    },
+    {
+      "number": "39287",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.1209716796875,
+      "lat": 33.55000305175781
+    },
+    {
+      "number": "39292",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12032318115234,
+      "lat": 33.5499153137207
+    },
+    {
+      "number": "39297",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.1209716796875,
+      "lat": 33.549808502197266
+    },
+    {
+      "number": "39302",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12032318115234,
+      "lat": 33.54973602294922
+    },
+    {
+      "number": "39317",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.1209716796875,
+      "lat": 33.549617767333984
+    },
+    {
+      "number": "39322",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12032318115234,
+      "lat": 33.549556732177734
+    },
+    {
+      "number": "39337",
+      "street": "SERAPHINA RD",
+      "postcode": "92563",
+      "lon": -117.12096405029297,
+      "lat": 33.54942321777344
+    },
+    {
+      "number": "39342",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.1203384399414,
+      "lat": 33.54937744140625
+    },
+    {
+      "number": "39352",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.1203384399414,
+      "lat": 33.54920196533203
+    },
+    {
+      "number": "39362",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.1203384399414,
+      "lat": 33.54902267456055
+    },
+    {
+      "number": "39482",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12036895751953,
+      "lat": 33.547142028808594
+    },
+    {
+      "number": "39494",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12037658691406,
+      "lat": 33.546939849853516
+    },
+    {
+      "number": "39508",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12036895751953,
+      "lat": 33.546749114990234
+    },
+    {
+      "number": "39522",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12037658691406,
+      "lat": 33.546566009521484
+    },
+    {
+      "number": "39532",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12039184570312,
+      "lat": 33.54637908935547
+    },
+    {
+      "number": "39544",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12039947509766,
+      "lat": 33.54619216918945
+    },
+    {
+      "number": "39558",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12039947509766,
+      "lat": 33.546016693115234
+    },
+    {
+      "number": "39570",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12042999267578,
+      "lat": 33.54583740234375
+    },
+    {
+      "number": "39584",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12045288085938,
+      "lat": 33.545654296875
+    },
+    {
+      "number": "39596",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12046813964844,
+      "lat": 33.54547882080078
+    },
+    {
+      "number": "39604",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12049865722656,
+      "lat": 33.5452995300293
+    },
+    {
+      "number": "39618",
+      "street": "SERAPHINA RD",
+      "postcode": "92591",
+      "lon": -117.12054443359375,
+      "lat": 33.54511260986328
+    },
+    {
+      "number": "39156",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11940002441406,
+      "lat": 33.5526008605957
+    },
+    {
+      "number": "39161",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.12049102783203,
+      "lat": 33.552371978759766
+    },
+    {
+      "number": "39166",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11988067626953,
+      "lat": 33.55238342285156
+    },
+    {
+      "number": "39171",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.1204605102539,
+      "lat": 33.55216979980469
+    },
+    {
+      "number": "39176",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11981964111328,
+      "lat": 33.552215576171875
+    },
+    {
+      "number": "39181",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.12042236328125,
+      "lat": 33.5519905090332
+    },
+    {
+      "number": "39186",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11974334716797,
+      "lat": 33.55205535888672
+    },
+    {
+      "number": "39191",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.1203842163086,
+      "lat": 33.55180740356445
+    },
+    {
+      "number": "39196",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11966705322266,
+      "lat": 33.55189895629883
+    },
+    {
+      "number": "39201",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.12026977539062,
+      "lat": 33.55167007446289
+    },
+    {
+      "number": "39206",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11958312988281,
+      "lat": 33.5517463684082
+    },
+    {
+      "number": "39216",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11949157714844,
+      "lat": 33.551578521728516
+    },
+    {
+      "number": "39236",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11934661865234,
+      "lat": 33.551204681396484
+    },
+    {
+      "number": "39256",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11927795410156,
+      "lat": 33.55101013183594
+    },
+    {
+      "number": "39261",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11988067626953,
+      "lat": 33.55080795288086
+    },
+    {
+      "number": "39266",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11921691894531,
+      "lat": 33.55084228515625
+    },
+    {
+      "number": "39271",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11986541748047,
+      "lat": 33.550628662109375
+    },
+    {
+      "number": "39276",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11914825439453,
+      "lat": 33.5506706237793
+    },
+    {
+      "number": "39286",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.1191177368164,
+      "lat": 33.55050277709961
+    },
+    {
+      "number": "39291",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11984252929688,
+      "lat": 33.55044937133789
+    },
+    {
+      "number": "39296",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11912536621094,
+      "lat": 33.55032730102539
+    },
+    {
+      "number": "39301",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11985778808594,
+      "lat": 33.55027389526367
+    },
+    {
+      "number": "39306",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.119140625,
+      "lat": 33.55015563964844
+    },
+    {
+      "number": "39311",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11985778808594,
+      "lat": 33.55009078979492
+    },
+    {
+      "number": "39316",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11914825439453,
+      "lat": 33.549991607666016
+    },
+    {
+      "number": "39321",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11985778808594,
+      "lat": 33.54991149902344
+    },
+    {
+      "number": "39326",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.119140625,
+      "lat": 33.54982376098633
+    },
+    {
+      "number": "39331",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.1198501586914,
+      "lat": 33.54973602294922
+    },
+    {
+      "number": "39336",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11915588378906,
+      "lat": 33.549652099609375
+    },
+    {
+      "number": "39341",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.1198501586914,
+      "lat": 33.549556732177734
+    },
+    {
+      "number": "39346",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.1191635131836,
+      "lat": 33.54947280883789
+    },
+    {
+      "number": "39351",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.1198501586914,
+      "lat": 33.54937744140625
+    },
+    {
+      "number": "39356",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11915588378906,
+      "lat": 33.54929733276367
+    },
+    {
+      "number": "39361",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11986541748047,
+      "lat": 33.549198150634766
+    },
+    {
+      "number": "39366",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11917114257812,
+      "lat": 33.54911804199219
+    },
+    {
+      "number": "39371",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11986541748047,
+      "lat": 33.54901885986328
+    },
+    {
+      "number": "39376",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11917877197266,
+      "lat": 33.54894256591797
+    },
+    {
+      "number": "39386",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.11917877197266,
+      "lat": 33.548763275146484
+    },
+    {
+      "number": "39396",
+      "street": "SHREE RD",
+      "postcode": "92591",
+      "lon": -117.119140625,
+      "lat": 33.54854965209961
+    },
+    {
+      "number": "31026",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11779022216797,
+      "lat": 33.55133056640625
+    },
+    {
+      "number": "31033",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11776733398438,
+      "lat": 33.551029205322266
+    },
+    {
+      "number": "31036",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11762237548828,
+      "lat": 33.55146026611328
+    },
+    {
+      "number": "31043",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11756134033203,
+      "lat": 33.55095291137695
+    },
+    {
+      "number": "31046",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11744689941406,
+      "lat": 33.55146789550781
+    },
+    {
+      "number": "31053",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11734008789062,
+      "lat": 33.55101013183594
+    },
+    {
+      "number": "31056",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11727905273438,
+      "lat": 33.55145263671875
+    },
+    {
+      "number": "31063",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11719512939453,
+      "lat": 33.55107879638672
+    },
+    {
+      "number": "31066",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11711883544922,
+      "lat": 33.55146789550781
+    },
+    {
+      "number": "31073",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11702728271484,
+      "lat": 33.55110549926758
+    },
+    {
+      "number": "31083",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11685943603516,
+      "lat": 33.55113220214844
+    },
+    {
+      "number": "31086",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11680603027344,
+      "lat": 33.55154037475586
+    },
+    {
+      "number": "31093",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11668395996094,
+      "lat": 33.551143646240234
+    },
+    {
+      "number": "31096",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11658477783203,
+      "lat": 33.55155563354492
+    },
+    {
+      "number": "31103",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11650848388672,
+      "lat": 33.55116653442383
+    },
+    {
+      "number": "31113",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11632537841797,
+      "lat": 33.55115509033203
+    },
+    {
+      "number": "31123",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11614990234375,
+      "lat": 33.55113220214844
+    },
+    {
+      "number": "31133",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.115966796875,
+      "lat": 33.551082611083984
+    },
+    {
+      "number": "31143",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11579132080078,
+      "lat": 33.55104064941406
+    },
+    {
+      "number": "31147",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11773681640625,
+      "lat": 33.55119323730469
+    },
+    {
+      "number": "31153",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11554718017578,
+      "lat": 33.55095672607422
+    },
+    {
+      "number": "31163",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.1153564453125,
+      "lat": 33.5509147644043
+    },
+    {
+      "number": "31173",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11518096923828,
+      "lat": 33.55089569091797
+    },
+    {
+      "number": "31183",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.1150131225586,
+      "lat": 33.55088424682617
+    },
+    {
+      "number": "31193",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11483764648438,
+      "lat": 33.55088806152344
+    },
+    {
+      "number": "31203",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11466979980469,
+      "lat": 33.55085754394531
+    },
+    {
+      "number": "31213",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11451721191406,
+      "lat": 33.550865173339844
+    },
+    {
+      "number": "31223",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11434936523438,
+      "lat": 33.55086898803711
+    },
+    {
+      "number": "31233",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.1141586303711,
+      "lat": 33.55088424682617
+    },
+    {
+      "number": "31243",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11400604248047,
+      "lat": 33.550899505615234
+    },
+    {
+      "number": "31253",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11382293701172,
+      "lat": 33.55092239379883
+    },
+    {
+      "number": "31263",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11365509033203,
+      "lat": 33.550933837890625
+    },
+    {
+      "number": "31273",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11345672607422,
+      "lat": 33.55094909667969
+    },
+    {
+      "number": "31283",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11331176757812,
+      "lat": 33.550968170166016
+    },
+    {
+      "number": "31293",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11312866210938,
+      "lat": 33.55097579956055
+    },
+    {
+      "number": "31303",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11296081542969,
+      "lat": 33.551029205322266
+    },
+    {
+      "number": "31323",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11263275146484,
+      "lat": 33.551025390625
+    },
+    {
+      "number": "31333",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11248016357422,
+      "lat": 33.551025390625
+    },
+    {
+      "number": "31343",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11231994628906,
+      "lat": 33.55101776123047
+    },
+    {
+      "number": "31353",
+      "street": "SKYLINE DR",
+      "postcode": "92591",
+      "lon": -117.11215209960938,
+      "lat": 33.55100631713867
+    },
+    {
+      "number": "30863",
+      "street": "SONIA LN",
+      "postcode": "92591",
+      "lon": -117.12044525146484,
+      "lat": 33.54829025268555
+    },
+    {
+      "number": "30868",
+      "street": "SONIA LN",
+      "postcode": "92591",
+      "lon": -117.12044525146484,
+      "lat": 33.54876708984375
+    },
+    {
+      "number": "30873",
+      "street": "SONIA LN",
+      "postcode": "92591",
+      "lon": -117.12022399902344,
+      "lat": 33.54829406738281
+    },
+    {
+      "number": "30878",
+      "street": "SONIA LN",
+      "postcode": "92591",
+      "lon": -117.12022399902344,
+      "lat": 33.54876708984375
+    },
+    {
+      "number": "30883",
+      "street": "SONIA LN",
+      "postcode": "92591",
+      "lon": -117.12001037597656,
+      "lat": 33.54829025268555
+    },
+    {
+      "number": "30888",
+      "street": "SONIA LN",
+      "postcode": "92591",
+      "lon": -117.11997985839844,
+      "lat": 33.54876708984375
+    },
+    {
+      "number": "30893",
+      "street": "SONIA LN",
+      "postcode": "92591",
+      "lon": -117.11979675292969,
+      "lat": 33.54828643798828
+    },
+    {
+      "number": "30898",
+      "street": "SONIA LN",
+      "postcode": "92591",
+      "lon": -117.11974334716797,
+      "lat": 33.54876708984375
+    },
+    {
+      "number": "30903",
+      "street": "SONIA LN",
+      "postcode": "92591",
+      "lon": -117.11954498291016,
+      "lat": 33.54826354980469
+    },
+    {
+      "number": "30913",
+      "street": "SONIA LN",
+      "postcode": "92591",
+      "lon": -117.1192626953125,
+      "lat": 33.54833984375
+    },
+    {
+      "number": "39985",
+      "street": "STAMOS CT",
+      "postcode": "92591",
+      "lon": -117.11225128173828,
+      "lat": 33.53924560546875
+    },
+    {
+      "number": "40011",
+      "street": "STAMOS CT",
+      "postcode": "92591",
+      "lon": -117.11247253417969,
+      "lat": 33.53911590576172
+    },
+    {
+      "number": "29224",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12138366699219,
+      "lat": 33.551063537597656
+    },
+    {
+      "number": "39204",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.1214370727539,
+      "lat": 33.551422119140625
+    },
+    {
+      "number": "39209",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12208557128906,
+      "lat": 33.55131530761719
+    },
+    {
+      "number": "39214",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12140655517578,
+      "lat": 33.55124282836914
+    },
+    {
+      "number": "39219",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12203979492188,
+      "lat": 33.551124572753906
+    },
+    {
+      "number": "39229",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12203979492188,
+      "lat": 33.550960540771484
+    },
+    {
+      "number": "39234",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12139892578125,
+      "lat": 33.55089569091797
+    },
+    {
+      "number": "39239",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12203216552734,
+      "lat": 33.5507926940918
+    },
+    {
+      "number": "39244",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12136840820312,
+      "lat": 33.55074691772461
+    },
+    {
+      "number": "39249",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12201690673828,
+      "lat": 33.55062484741211
+    },
+    {
+      "number": "39254",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12138366699219,
+      "lat": 33.55056381225586
+    },
+    {
+      "number": "39259",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12203216552734,
+      "lat": 33.55045700073242
+    },
+    {
+      "number": "39264",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12139892578125,
+      "lat": 33.55039596557617
+    },
+    {
+      "number": "39269",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12203979492188,
+      "lat": 33.55029296875
+    },
+    {
+      "number": "39274",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12137603759766,
+      "lat": 33.55024719238281
+    },
+    {
+      "number": "39279",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12195587158203,
+      "lat": 33.55012512207031
+    },
+    {
+      "number": "39284",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12139129638672,
+      "lat": 33.5500602722168
+    },
+    {
+      "number": "39289",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12197875976562,
+      "lat": 33.5499382019043
+    },
+    {
+      "number": "39294",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12138366699219,
+      "lat": 33.549888610839844
+    },
+    {
+      "number": "39304",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12147521972656,
+      "lat": 33.54964828491211
+    },
+    {
+      "number": "39314",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12164306640625,
+      "lat": 33.54951095581055
+    },
+    {
+      "number": "39324",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12189483642578,
+      "lat": 33.549476623535156
+    },
+    {
+      "number": "39334",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12211608886719,
+      "lat": 33.54948806762695
+    },
+    {
+      "number": "39344",
+      "street": "SUGARCANE DR",
+      "postcode": "92563",
+      "lon": -117.12232971191406,
+      "lat": 33.54949188232422
+    },
+    {
+      "number": "39005",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11664581298828,
+      "lat": 33.552852630615234
+    },
+    {
+      "number": "39088",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11610412597656,
+      "lat": 33.55286407470703
+    },
+    {
+      "number": "39095",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11665344238281,
+      "lat": 33.552711486816406
+    },
+    {
+      "number": "39098",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11612701416016,
+      "lat": 33.55269241333008
+    },
+    {
+      "number": "39108",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11614990234375,
+      "lat": 33.55255126953125
+    },
+    {
+      "number": "39118",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11616516113281,
+      "lat": 33.552398681640625
+    },
+    {
+      "number": "39128",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11616516113281,
+      "lat": 33.5522575378418
+    },
+    {
+      "number": "39135",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11663818359375,
+      "lat": 33.5521354675293
+    },
+    {
+      "number": "39138",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11616516113281,
+      "lat": 33.55210494995117
+    },
+    {
+      "number": "39145",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11663055419922,
+      "lat": 33.551979064941406
+    },
+    {
+      "number": "39148",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11616516113281,
+      "lat": 33.55195236206055
+    },
+    {
+      "number": "39155",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11664581298828,
+      "lat": 33.551815032958984
+    },
+    {
+      "number": "39158",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11617279052734,
+      "lat": 33.55179977416992
+    },
+    {
+      "number": "39168",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11617279052734,
+      "lat": 33.55167007446289
+    },
+    {
+      "number": "39178",
+      "street": "SUNDANCE CIR",
+      "postcode": "92591",
+      "lon": -117.11614990234375,
+      "lat": 33.55150604248047
+    },
+    {
+      "number": "30864",
+      "street": "SUZI LN",
+      "postcode": "92591",
+      "lon": -117.12051391601562,
+      "lat": 33.55141830444336
+    },
+    {
+      "number": "30869",
+      "street": "SUZI LN",
+      "postcode": "92591",
+      "lon": -117.12042999267578,
+      "lat": 33.55097961425781
+    },
+    {
+      "number": "30884",
+      "street": "SUZI LN",
+      "postcode": "92591",
+      "lon": -117.12025451660156,
+      "lat": 33.55144500732422
+    },
+    {
+      "number": "30889",
+      "street": "SUZI LN",
+      "postcode": "92591",
+      "lon": -117.12013244628906,
+      "lat": 33.55100631713867
+    },
+    {
+      "number": "30904",
+      "street": "SUZI LN",
+      "postcode": "92591",
+      "lon": -117.1200180053711,
+      "lat": 33.551490783691406
+    },
+    {
+      "number": "30909",
+      "street": "SUZI LN",
+      "postcode": "92591",
+      "lon": -117.1198501586914,
+      "lat": 33.551048278808594
+    },
+    {
+      "number": "30802",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12200164794922,
+      "lat": 33.54753494262695
+    },
+    {
+      "number": "30803",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.1220474243164,
+      "lat": 33.547035217285156
+    },
+    {
+      "number": "30814",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12179565429688,
+      "lat": 33.54753112792969
+    },
+    {
+      "number": "30815",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12181854248047,
+      "lat": 33.54703140258789
+    },
+    {
+      "number": "30826",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12157440185547,
+      "lat": 33.54752731323242
+    },
+    {
+      "number": "30827",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12161254882812,
+      "lat": 33.547019958496094
+    },
+    {
+      "number": "30838",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12135314941406,
+      "lat": 33.547523498535156
+    },
+    {
+      "number": "30839",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12139129638672,
+      "lat": 33.5470085144043
+    },
+    {
+      "number": "30850",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12112426757812,
+      "lat": 33.547523498535156
+    },
+    {
+      "number": "30851",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12116241455078,
+      "lat": 33.5469856262207
+    },
+    {
+      "number": "30862",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12089538574219,
+      "lat": 33.54750061035156
+    },
+    {
+      "number": "30863",
+      "street": "TERRACE VIEW CIR",
+      "postcode": "92591",
+      "lon": -117.12091827392578,
+      "lat": 33.54698181152344
+    },
+    {
+      "number": "39118",
+      "street": "TRIPLE SPRING LN",
+      "postcode": "92591",
+      "lon": -117.11341094970703,
+      "lat": 33.5524787902832
+    },
+    {
+      "number": "39088",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11331939697266,
+      "lat": 33.5529899597168
+    },
+    {
+      "number": "39094",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11334991455078,
+      "lat": 33.55276107788086
+    },
+    {
+      "number": "39108",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11338806152344,
+      "lat": 33.552616119384766
+    },
+    {
+      "number": "39115",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11384582519531,
+      "lat": 33.55253219604492
+    },
+    {
+      "number": "39125",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11386108398438,
+      "lat": 33.552391052246094
+    },
+    {
+      "number": "39128",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11341857910156,
+      "lat": 33.552337646484375
+    },
+    {
+      "number": "39135",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11387634277344,
+      "lat": 33.552242279052734
+    },
+    {
+      "number": "39138",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.1134262084961,
+      "lat": 33.55220031738281
+    },
+    {
+      "number": "39145",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11388397216797,
+      "lat": 33.552085876464844
+    },
+    {
+      "number": "39148",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.1134262084961,
+      "lat": 33.55205535888672
+    },
+    {
+      "number": "39155",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.1139144897461,
+      "lat": 33.55193328857422
+    },
+    {
+      "number": "39158",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11343383789062,
+      "lat": 33.55192184448242
+    },
+    {
+      "number": "39165",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11392974853516,
+      "lat": 33.55177307128906
+    },
+    {
+      "number": "39168",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11343383789062,
+      "lat": 33.55177688598633
+    },
+    {
+      "number": "39175",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11392974853516,
+      "lat": 33.55162048339844
+    },
+    {
+      "number": "39178",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11343383789062,
+      "lat": 33.55162048339844
+    },
+    {
+      "number": "39185",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11389923095703,
+      "lat": 33.551448822021484
+    },
+    {
+      "number": "39188",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11341094970703,
+      "lat": 33.55148696899414
+    },
+    {
+      "number": "39195",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11386108398438,
+      "lat": 33.551265716552734
+    },
+    {
+      "number": "39198",
+      "street": "TRIPLE SPRINGS LN",
+      "postcode": "92591",
+      "lon": -117.11335754394531,
+      "lat": 33.55131149291992
+    },
+    {
+      "number": "39099",
+      "street": "TWIN CREEK DR",
+      "postcode": "92591",
+      "lon": -117.11212158203125,
+      "lat": 33.55278015136719
+    },
+    {
+      "number": "39109",
+      "street": "TWIN CREEK DR",
+      "postcode": "92591",
+      "lon": -117.11212158203125,
+      "lat": 33.55263137817383
+    },
+    {
+      "number": "39119",
+      "street": "TWIN CREEK DR",
+      "postcode": "92591",
+      "lon": -117.11212158203125,
+      "lat": 33.552490234375
+    },
+    {
+      "number": "39129",
+      "street": "TWIN CREEK DR",
+      "postcode": "92591",
+      "lon": -117.11213684082031,
+      "lat": 33.5523567199707
+    },
+    {
+      "number": "39139",
+      "street": "TWIN CREEK DR",
+      "postcode": "92591",
+      "lon": -117.11213684082031,
+      "lat": 33.55221939086914
+    },
+    {
+      "number": "39149",
+      "street": "TWIN CREEK DR",
+      "postcode": "92591",
+      "lon": -117.11212921142578,
+      "lat": 33.55208206176758
+    },
+    {
+      "number": "39159",
+      "street": "TWIN CREEK DR",
+      "postcode": "92591",
+      "lon": -117.11212921142578,
+      "lat": 33.55194854736328
+    },
+    {
+      "number": "39169",
+      "street": "TWIN CREEK DR",
+      "postcode": "92591",
+      "lon": -117.11212921142578,
+      "lat": 33.55182647705078
+    },
+    {
+      "number": "39179",
+      "street": "TWIN CREEK DR",
+      "postcode": "92591",
+      "lon": -117.11214447021484,
+      "lat": 33.55167007446289
+    },
+    {
+      "number": "39189",
+      "street": "TWIN CREEK DR",
+      "postcode": "92591",
+      "lon": -117.11214447021484,
+      "lat": 33.551536560058594
+    },
+    {
+      "number": "39199",
+      "street": "TWIN CREEK DR",
+      "postcode": "92591",
+      "lon": -117.1121597290039,
+      "lat": 33.5513916015625
+    },
+    {
+      "number": "31177",
+      "street": "WHISTLING ACRES DR",
+      "postcode": "92591",
+      "lon": -117.11530303955078,
+      "lat": 33.55278396606445
+    },
+    {
+      "number": "31187",
+      "street": "WHISTLING ACRES DR",
+      "postcode": "92591",
+      "lon": -117.11511993408203,
+      "lat": 33.55278396606445
+    },
+    {
+      "number": "31197",
+      "street": "WHISTLING ACRES DR",
+      "postcode": "92591",
+      "lon": -117.11497497558594,
+      "lat": 33.55277633666992
+    },
+    {
+      "number": "31207",
+      "street": "WHISTLING ACRES DR",
+      "postcode": "92591",
+      "lon": -117.11479187011719,
+      "lat": 33.552764892578125
+    },
+    {
+      "number": "31217",
+      "street": "WHISTLING ACRES DR",
+      "postcode": "92591",
+      "lon": -117.1146240234375,
+      "lat": 33.55276870727539
+    },
+    {
+      "number": "31227",
+      "street": "WHISTLING ACRES DR",
+      "postcode": "92591",
+      "lon": -117.11446380615234,
+      "lat": 33.55276107788086
+    },
+    {
+      "number": "31237",
+      "street": "WHISTLING ACRES DR",
+      "postcode": "92591",
+      "lon": -117.11431121826172,
+      "lat": 33.55274963378906
+    },
+    {
+      "number": "31247",
+      "street": "WHISTLING ACRES DR",
+      "postcode": "92591",
+      "lon": -117.11415100097656,
+      "lat": 33.55275344848633
+    },
+    {
+      "number": "31257",
+      "street": "WHISTLING ACRES DR",
+      "postcode": "92591",
+      "lon": -117.11396789550781,
+      "lat": 33.55274963378906
+    },
+    {
+      "number": "31267",
+      "street": "WHISTLING ACRES DR",
+      "postcode": "92591",
+      "lon": -117.11381530761719,
+      "lat": 33.5527458190918
+    }
+  ],
+  "segments": [
+    {
+      "id": "00770a17-bc2f-4397-9c56-31eb7d35240d",
+      "name": null,
+      "class": "footway",
+      "subclass": "crosswalk",
+      "coordinates": [
+        [
+          -117.1230276,
+          33.5526053
+        ],
+        [
+          -117.1229801,
+          33.5525256
+        ],
+        [
+          -117.1229105,
+          33.5524088
+        ],
+        [
+          -117.1228688,
+          33.5523389
+        ],
+        [
+          -117.1229728,
+          33.5522974
+        ],
+        [
+          -117.1230714,
+          33.552255
+        ],
+        [
+          -117.1231145,
+          33.5523273
+        ],
+        [
+          -117.1231841,
+          33.552444
+        ],
+        [
+          -117.1232302,
+          33.5525214
+        ]
+      ]
+    },
+    {
+      "id": "01c01022-f69b-4a7c-9be5-075f229ec1a3",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1150294,
+          33.5396591
+        ],
+        [
+          -117.115066,
+          33.5396715
+        ],
+        [
+          -117.1150798,
+          33.5396883
+        ],
+        [
+          -117.1150939,
+          33.5397478
+        ],
+        [
+          -117.1150552,
+          33.5398362
+        ],
+        [
+          -117.1150307,
+          33.5398733
+        ],
+        [
+          -117.1150405,
+          33.5399027
+        ],
+        [
+          -117.1150385,
+          33.5399468
+        ],
+        [
+          -117.1150148,
+          33.5399795
+        ],
+        [
+          -117.1150286,
+          33.5400289
+        ],
+        [
+          -117.1150374,
+          33.5400669
+        ],
+        [
+          -117.1150571,
+          33.5400908
+        ],
+        [
+          -117.1150708,
+          33.5401566
+        ],
+        [
+          -117.1150634,
+          33.5401927
+        ],
+        [
+          -117.1150447,
+          33.540221
+        ],
+        [
+          -117.1150261,
+          33.5402306
+        ],
+        [
+          -117.1149976,
+          33.5402418
+        ],
+        [
+          -117.1149622,
+          33.5402542
+        ],
+        [
+          -117.1149055,
+          33.5402748
+        ],
+        [
+          -117.1148528,
+          33.5402976
+        ],
+        [
+          -117.1148016,
+          33.5403115
+        ],
+        [
+          -117.1147318,
+          33.5403486
+        ],
+        [
+          -117.1146665,
+          33.5403712
+        ],
+        [
+          -117.1146143,
+          33.540395
+        ],
+        [
+          -117.1145524,
+          33.5404293
+        ],
+        [
+          -117.1144696,
+          33.5404516
+        ],
+        [
+          -117.1143938,
+          33.540489
+        ],
+        [
+          -117.1143439,
+          33.5405105
+        ],
+        [
+          -117.1142713,
+          33.5404947
+        ],
+        [
+          -117.1141821,
+          33.5404557
+        ],
+        [
+          -117.1141096,
+          33.5404577
+        ],
+        [
+          -117.1138983,
+          33.5403997
+        ],
+        [
+          -117.1137894,
+          33.540368
+        ]
+      ]
+    },
+    {
+      "id": "0d90a2d9-f3b2-4082-bb32-0123bc6cb828",
+      "name": null,
+      "class": "footway",
+      "subclass": "crosswalk",
+      "coordinates": [
+        [
+          -117.116935,
+          33.5423812
+        ],
+        [
+          -117.1169996,
+          33.5423759
+        ],
+        [
+          -117.1171069,
+          33.542367
+        ]
+      ]
+    },
+    {
+      "id": "1630a964-5093-4e62-8dbd-3b22f00c5fbe",
+      "name": null,
+      "class": "footway",
+      "subclass": "sidewalk",
+      "coordinates": [
+        [
+          -117.1166654,
+          33.5415777
+        ],
+        [
+          -117.1166889,
+          33.5415631
+        ],
+        [
+          -117.1167053,
+          33.5415472
+        ],
+        [
+          -117.1167131,
+          33.5415264
+        ],
+        [
+          -117.1167096,
+          33.5414989
+        ],
+        [
+          -117.1167082,
+          33.5414728
+        ],
+        [
+          -117.1167061,
+          33.5414465
+        ],
+        [
+          -117.1167049,
+          33.5414076
+        ],
+        [
+          -117.1167049,
+          33.541386
+        ],
+        [
+          -117.116715,
+          33.5413679
+        ],
+        [
+          -117.1167215,
+          33.5413468
+        ],
+        [
+          -117.1167281,
+          33.5413338
+        ],
+        [
+          -117.1167307,
+          33.541312
+        ],
+        [
+          -117.1167355,
+          33.5412995
+        ],
+        [
+          -117.1167236,
+          33.5412888
+        ],
+        [
+          -117.1167105,
+          33.5412828
+        ],
+        [
+          -117.1167039,
+          33.5412754
+        ],
+        [
+          -117.1167018,
+          33.5412664
+        ]
+      ]
+    },
+    {
+      "id": "19cb3d9f-a135-45e9-852e-aede451790cb",
+      "name": null,
+      "class": "path",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1163416,
+          33.5420552
+        ],
+        [
+          -117.1163192,
+          33.5418972
+        ]
+      ]
+    },
+    {
+      "id": "27b823c2-cad7-4df2-afb7-99638015e301",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1134637,
+          33.5407073
+        ],
+        [
+          -117.1134319,
+          33.5407499
+        ],
+        [
+          -117.1134145,
+          33.5407618
+        ],
+        [
+          -117.1134055,
+          33.5407775
+        ],
+        [
+          -117.1134145,
+          33.5407837
+        ],
+        [
+          -117.1134174,
+          33.5407925
+        ],
+        [
+          -117.1134146,
+          33.5408082
+        ],
+        [
+          -117.1134118,
+          33.5408292
+        ],
+        [
+          -117.1134139,
+          33.5408419
+        ],
+        [
+          -117.1134116,
+          33.5408567
+        ]
+      ]
+    },
+    {
+      "id": "3434618d-8636-4e48-a1c6-244079e69537",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1172654,
+          33.540913
+        ],
+        [
+          -117.1172841,
+          33.5410345
+        ]
+      ]
+    },
+    {
+      "id": "3afa9ee7-278e-49ab-bfc9-bb3af6569571",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1169169,
+          33.5397517
+        ],
+        [
+          -117.1169604,
+          33.5397186
+        ]
+      ]
+    },
+    {
+      "id": "5c458403-7f76-4905-a97b-d4f1f29921df",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1137929,
+          33.5402553
+        ],
+        [
+          -117.113837,
+          33.5403039
+        ],
+        [
+          -117.1139625,
+          33.540326
+        ],
+        [
+          -117.1140113,
+          33.5402817
+        ],
+        [
+          -117.1140111,
+          33.5402667
+        ]
+      ]
+    },
+    {
+      "id": "5f9c5c08-9180-4068-bb98-eab335fba6da",
+      "name": null,
+      "class": "footway",
+      "subclass": "sidewalk",
+      "coordinates": [
+        [
+          -117.1166673,
+          33.5418826
+        ],
+        [
+          -117.116647,
+          33.5418862
+        ],
+        [
+          -117.1166214,
+          33.5418924
+        ],
+        [
+          -117.1165863,
+          33.5419025
+        ],
+        [
+          -117.1165756,
+          33.5419059
+        ],
+        [
+          -117.1165677,
+          33.5418671
+        ],
+        [
+          -117.1165626,
+          33.5418165
+        ],
+        [
+          -117.1165542,
+          33.5417757
+        ],
+        [
+          -117.1165473,
+          33.5417267
+        ],
+        [
+          -117.1165464,
+          33.5416992
+        ],
+        [
+          -117.1165561,
+          33.54167
+        ],
+        [
+          -117.1165786,
+          33.5416513
+        ],
+        [
+          -117.1166048,
+          33.5416433
+        ],
+        [
+          -117.1166271,
+          33.5416381
+        ],
+        [
+          -117.1166464,
+          33.5416273
+        ],
+        [
+          -117.1166789,
+          33.541628
+        ],
+        [
+          -117.1166879,
+          33.5416293
+        ],
+        [
+          -117.1166924,
+          33.541629
+        ]
+      ]
+    },
+    {
+      "id": "6106eec5-ab9f-4e2d-996c-bdae03343b18",
+      "name": null,
+      "class": "path",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.116899,
+          33.5392395
+        ],
+        [
+          -117.1168941,
+          33.5393027
+        ],
+        [
+          -117.1168899,
+          33.5394087
+        ],
+        [
+          -117.1168418,
+          33.5395941
+        ],
+        [
+          -117.1168339,
+          33.5396965
+        ],
+        [
+          -117.1168485,
+          33.5397691
+        ],
+        [
+          -117.1168845,
+          33.539825
+        ]
+      ]
+    },
+    {
+      "id": "798670a7-3d5d-4320-89a0-b1b719e782c3",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1150564,
+          33.5377673
+        ],
+        [
+          -117.1150713,
+          33.5379959
+        ],
+        [
+          -117.1151127,
+          33.5382648
+        ],
+        [
+          -117.1151626,
+          33.5386159
+        ],
+        [
+          -117.1152095,
+          33.5388913
+        ],
+        [
+          -117.1152069,
+          33.5390638
+        ]
+      ]
+    },
+    {
+      "id": "7994a331-4f30-412f-a284-aa45d428115e",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.113351,
+          33.5405789
+        ],
+        [
+          -117.113332,
+          33.5405944
+        ]
+      ]
+    },
+    {
+      "id": "7b499803-4460-4381-87ef-ea21f769286d",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1151371,
+          33.5389948
+        ],
+        [
+          -117.1152069,
+          33.5390638
+        ],
+        [
+          -117.1152092,
+          33.5390661
+        ],
+        [
+          -117.1152223,
+          33.5391509
+        ],
+        [
+          -117.1152983,
+          33.5395692
+        ]
+      ]
+    },
+    {
+      "id": "7f0159e2-d4b7-4b15-b17f-83e24da6c98a",
+      "name": null,
+      "class": "footway",
+      "subclass": "sidewalk",
+      "coordinates": [
+        [
+          -117.1168183,
+          33.5416168
+        ],
+        [
+          -117.1166924,
+          33.541629
+        ],
+        [
+          -117.1166624,
+          33.5418505
+        ],
+        [
+          -117.1166673,
+          33.5418826
+        ],
+        [
+          -117.1166751,
+          33.5419334
+        ]
+      ]
+    },
+    {
+      "id": "7f25f8a7-1716-47f3-9aee-75a50a8c8173",
+      "name": null,
+      "class": "path",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1165434,
+          33.539099
+        ],
+        [
+          -117.1166283,
+          33.5391915
+        ],
+        [
+          -117.1166692,
+          33.539298
+        ],
+        [
+          -117.116637,
+          33.5394119
+        ],
+        [
+          -117.1166062,
+          33.539457
+        ],
+        [
+          -117.1165903,
+          33.539466
+        ]
+      ]
+    },
+    {
+      "id": "830469ea-8c45-43b4-a024-618f715ead0d",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1149113,
+          33.5396859
+        ],
+        [
+          -117.1149994,
+          33.5396828
+        ],
+        [
+          -117.1150184,
+          33.5396743
+        ],
+        [
+          -117.1150294,
+          33.5396591
+        ],
+        [
+          -117.1150607,
+          33.5396351
+        ],
+        [
+          -117.1150559,
+          33.5396073
+        ],
+        [
+          -117.1149842,
+          33.5395545
+        ]
+      ]
+    },
+    {
+      "id": "974bf517-2cba-497c-a674-28c38a745ab9",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1131708,
+          33.5403839
+        ],
+        [
+          -117.1131751,
+          33.5404227
+        ],
+        [
+          -117.113197,
+          33.5404451
+        ]
+      ]
+    },
+    {
+      "id": "a422e800-4c3c-4478-b84e-81843d11c6a5",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1170211,
+          33.541377
+        ],
+        [
+          -117.1170313,
+          33.5413683
+        ],
+        [
+          -117.1170497,
+          33.5413521
+        ],
+        [
+          -117.1170732,
+          33.5413402
+        ],
+        [
+          -117.1170926,
+          33.5413757
+        ]
+      ]
+    },
+    {
+      "id": "a7ab0222-5619-4d91-8553-2696b5447245",
+      "name": null,
+      "class": "footway",
+      "subclass": "crosswalk",
+      "coordinates": [
+        [
+          -117.1172887,
+          33.5408721
+        ],
+        [
+          -117.117315,
+          33.5410635
+        ],
+        [
+          -117.1173341,
+          33.5411995
+        ]
+      ]
+    },
+    {
+      "id": "c5ac8b25-2929-418e-bba0-251eb978fa6c",
+      "name": null,
+      "class": "footway",
+      "subclass": "sidewalk",
+      "coordinates": [
+        [
+          -117.1153417,
+          33.5409296
+        ],
+        [
+          -117.1154111,
+          33.5413645
+        ],
+        [
+          -117.1154969,
+          33.5419342
+        ],
+        [
+          -117.1155616,
+          33.5423262
+        ],
+        [
+          -117.1156222,
+          33.5428177
+        ],
+        [
+          -117.1156455,
+          33.5429727
+        ]
+      ]
+    },
+    {
+      "id": "c65e2752-9809-4987-8a48-87fb08b91fd6",
+      "name": null,
+      "class": "footway",
+      "subclass": "sidewalk",
+      "coordinates": [
+        [
+          -117.1165786,
+          33.5416513
+        ],
+        [
+          -117.1165817,
+          33.5416348
+        ],
+        [
+          -117.1165871,
+          33.5416206
+        ],
+        [
+          -117.1165995,
+          33.5415961
+        ],
+        [
+          -117.1166045,
+          33.5415842
+        ],
+        [
+          -117.1166095,
+          33.5415723
+        ],
+        [
+          -117.1166147,
+          33.5415663
+        ],
+        [
+          -117.1166168,
+          33.5415598
+        ],
+        [
+          -117.1166207,
+          33.5415512
+        ],
+        [
+          -117.1166217,
+          33.5415472
+        ],
+        [
+          -117.1166221,
+          33.5415455
+        ],
+        [
+          -117.1166347,
+          33.5415512
+        ],
+        [
+          -117.1166469,
+          33.5415567
+        ],
+        [
+          -117.1166528,
+          33.5415665
+        ],
+        [
+          -117.1166622,
+          33.5415738
+        ],
+        [
+          -117.1166654,
+          33.5415777
+        ],
+        [
+          -117.1166716,
+          33.5415853
+        ],
+        [
+          -117.1166762,
+          33.5415941
+        ],
+        [
+          -117.1166836,
+          33.5416062
+        ],
+        [
+          -117.1166899,
+          33.5416159
+        ],
+        [
+          -117.1166924,
+          33.541629
+        ]
+      ]
+    },
+    {
+      "id": "c9d6d1d2-88e8-4321-9af2-2e8938dbe586",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1202143,
+          33.5490843
+        ],
+        [
+          -117.1201495,
+          33.5490798
+        ],
+        [
+          -117.120131,
+          33.5490668
+        ],
+        [
+          -117.1201352,
+          33.5489687
+        ],
+        [
+          -117.1201387,
+          33.5489524
+        ],
+        [
+          -117.1201599,
+          33.5489472
+        ],
+        [
+          -117.1202439,
+          33.5489492
+        ]
+      ]
+    },
+    {
+      "id": "cb3f2b4a-d8af-4ee9-abcb-dd03ec582a03",
+      "name": null,
+      "class": "footway",
+      "subclass": "sidewalk",
+      "coordinates": [
+        [
+          -117.1159112,
+          33.5422033
+        ],
+        [
+          -117.1158899,
+          33.5419554
+        ]
+      ]
+    },
+    {
+      "id": "cedb0243-4326-44be-a5df-92127b1c8651",
+      "name": null,
+      "class": "footway",
+      "subclass": "sidewalk",
+      "coordinates": [
+        [
+          -117.1156873,
+          33.5422315
+        ],
+        [
+          -117.1160278,
+          33.5421909
+        ],
+        [
+          -117.11606,
+          33.5421658
+        ],
+        [
+          -117.1160951,
+          33.542153
+        ],
+        [
+          -117.1161304,
+          33.5421574
+        ],
+        [
+          -117.1161737,
+          33.542163
+        ],
+        [
+          -117.116198,
+          33.5421739
+        ],
+        [
+          -117.1162167,
+          33.5421908
+        ],
+        [
+          -117.1162277,
+          33.542212
+        ]
+      ]
+    },
+    {
+      "id": "dd97e09f-a0e1-40e7-8356-d02f258c403d",
+      "name": null,
+      "class": "footway",
+      "subclass": "sidewalk",
+      "coordinates": [
+        [
+          -117.1154318,
+          33.5404197
+        ],
+        [
+          -117.1154734,
+          33.5407741
+        ],
+        [
+          -117.1155489,
+          33.5412913
+        ],
+        [
+          -117.1156873,
+          33.5422315
+        ],
+        [
+          -117.1157003,
+          33.5423201
+        ],
+        [
+          -117.1157872,
+          33.5429124
+        ],
+        [
+          -117.115814,
+          33.5429538
+        ],
+        [
+          -117.1158475,
+          33.5429795
+        ],
+        [
+          -117.1158851,
+          33.5429929
+        ],
+        [
+          -117.1159347,
+          33.5429929
+        ],
+        [
+          -117.1162415,
+          33.5429532
+        ],
+        [
+          -117.1168668,
+          33.5428722
+        ],
+        [
+          -117.1169057,
+          33.5428554
+        ],
+        [
+          -117.1169392,
+          33.542842
+        ],
+        [
+          -117.1169741,
+          33.5428107
+        ],
+        [
+          -117.1169915,
+          33.5427738
+        ],
+        [
+          -117.1169835,
+          33.5427302
+        ],
+        [
+          -117.116935,
+          33.5423812
+        ],
+        [
+          -117.116883,
+          33.5420075
+        ],
+        [
+          -117.11684,
+          33.5416985
+        ],
+        [
+          -117.1168252,
+          33.5416314
+        ],
+        [
+          -117.1167903,
+          33.5415521
+        ],
+        [
+          -117.1167421,
+          33.541447
+        ],
+        [
+          -117.1167447,
+          33.541409
+        ],
+        [
+          -117.1167675,
+          33.5413699
+        ],
+        [
+          -117.1168011,
+          33.5413352
+        ],
+        [
+          -117.116822,
+          33.5413222
+        ],
+        [
+          -117.1168373,
+          33.5413129
+        ],
+        [
+          -117.1168587,
+          33.5413106
+        ],
+        [
+          -117.1168797,
+          33.5413094
+        ],
+        [
+          -117.116908,
+          33.5413122
+        ],
+        [
+          -117.1169389,
+          33.5413134
+        ],
+        [
+          -117.1169667,
+          33.5413225
+        ],
+        [
+          -117.1169746,
+          33.5413274
+        ],
+        [
+          -117.1169903,
+          33.541337
+        ],
+        [
+          -117.1170106,
+          33.5413558
+        ],
+        [
+          -117.1170211,
+          33.541377
+        ],
+        [
+          -117.1170265,
+          33.5413966
+        ],
+        [
+          -117.1170234,
+          33.5414302
+        ],
+        [
+          -117.1170212,
+          33.5414588
+        ],
+        [
+          -117.1170116,
+          33.5415079
+        ],
+        [
+          -117.1170072,
+          33.5415272
+        ],
+        [
+          -117.1169996,
+          33.5415538
+        ],
+        [
+          -117.1170038,
+          33.5415712
+        ],
+        [
+          -117.1169947,
+          33.5415993
+        ],
+        [
+          -117.1169905,
+          33.5416229
+        ],
+        [
+          -117.1169941,
+          33.5416497
+        ],
+        [
+          -117.1169985,
+          33.5416647
+        ],
+        [
+          -117.1170091,
+          33.5417429
+        ],
+        [
+          -117.1170156,
+          33.541809
+        ],
+        [
+          -117.1170277,
+          33.5418489
+        ],
+        [
+          -117.1170348,
+          33.5419207
+        ],
+        [
+          -117.1170432,
+          33.5419652
+        ],
+        [
+          -117.1170493,
+          33.5420291
+        ],
+        [
+          -117.1170535,
+          33.5420616
+        ],
+        [
+          -117.1170636,
+          33.5421291
+        ],
+        [
+          -117.1170719,
+          33.5421506
+        ],
+        [
+          -117.1170787,
+          33.542181
+        ],
+        [
+          -117.1171023,
+          33.5422242
+        ],
+        [
+          -117.117109,
+          33.5422713
+        ],
+        [
+          -117.1171166,
+          33.5423246
+        ],
+        [
+          -117.1171172,
+          33.5423372
+        ],
+        [
+          -117.1171069,
+          33.542367
+        ],
+        [
+          -117.1171069,
+          33.5424231
+        ],
+        [
+          -117.1171148,
+          33.5424814
+        ],
+        [
+          -117.11713,
+          33.5425689
+        ],
+        [
+          -117.1171406,
+          33.5426406
+        ],
+        [
+          -117.1171543,
+          33.5427083
+        ],
+        [
+          -117.1171652,
+          33.5427357
+        ],
+        [
+          -117.1172078,
+          33.5427743
+        ],
+        [
+          -117.1172424,
+          33.542797
+        ],
+        [
+          -117.1172718,
+          33.5428093
+        ],
+        [
+          -117.1172934,
+          33.542816
+        ]
+      ]
+    },
+    {
+      "id": "ea2186a2-940c-49ef-ab87-bbd6f91ed7ae",
+      "name": null,
+      "class": "path",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1183718,
+          33.551789
+        ],
+        [
+          -117.118336,
+          33.5517637
+        ],
+        [
+          -117.1183179,
+          33.5517525
+        ],
+        [
+          -117.1183048,
+          33.5517257
+        ],
+        [
+          -117.1182945,
+          33.5516889
+        ],
+        [
+          -117.118298,
+          33.5516568
+        ],
+        [
+          -117.1183108,
+          33.5516236
+        ],
+        [
+          -117.1183289,
+          33.5515944
+        ],
+        [
+          -117.1183319,
+          33.5515903
+        ],
+        [
+          -117.1183428,
+          33.5515735
+        ],
+        [
+          -117.1183578,
+          33.551558
+        ],
+        [
+          -117.1183979,
+          33.5515316
+        ],
+        [
+          -117.1184464,
+          33.551507
+        ],
+        [
+          -117.1184861,
+          33.5514938
+        ],
+        [
+          -117.1185532,
+          33.5514698
+        ],
+        [
+          -117.1186371,
+          33.5514353
+        ],
+        [
+          -117.1186915,
+          33.5514058
+        ],
+        [
+          -117.1187202,
+          33.5513854
+        ],
+        [
+          -117.1187599,
+          33.5513456
+        ],
+        [
+          -117.1188073,
+          33.5513
+        ],
+        [
+          -117.1188246,
+          33.5512833
+        ]
+      ]
+    },
+    {
+      "id": "ead66507-eb75-4faf-8454-90ea135a04f5",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1171998,
+          33.5394982
+        ],
+        [
+          -117.1171471,
+          33.539557
+        ],
+        [
+          -117.1170955,
+          33.5395462
+        ],
+        [
+          -117.1170207,
+          33.5396205
+        ]
+      ]
+    },
+    {
+      "id": "f2b490c9-f572-497d-a79b-77f6c86bfe2d",
+      "name": null,
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1135053,
+          33.5402217
+        ],
+        [
+          -117.1135399,
+          33.5402648
+        ],
+        [
+          -117.1135785,
+          33.5403428
+        ],
+        [
+          -117.1136053,
+          33.5403661
+        ],
+        [
+          -117.1136167,
+          33.5403935
+        ],
+        [
+          -117.1135995,
+          33.5404232
+        ],
+        [
+          -117.1135621,
+          33.5404341
+        ]
+      ]
+    },
+    {
+      "id": "f3d64f0b-ee6a-4d40-8fcd-591bd1c14101",
+      "name": null,
+      "class": "footway",
+      "subclass": "sidewalk",
+      "coordinates": [
+        [
+          -117.1166217,
+          33.5415472
+        ],
+        [
+          -117.116603,
+          33.5415168
+        ],
+        [
+          -117.1165922,
+          33.5415043
+        ]
+      ]
+    },
+    {
+      "id": "fe2810c7-3317-44af-b046-b83d29a9035a",
+      "name": null,
+      "class": "footway",
+      "subclass": "sidewalk",
+      "coordinates": [
+        [
+          -117.1170072,
+          33.5415272
+        ],
+        [
+          -117.1170157,
+          33.5415286
+        ],
+        [
+          -117.1170222,
+          33.5415302
+        ],
+        [
+          -117.1170236,
+          33.5415303
+        ],
+        [
+          -117.117048,
+          33.5415325
+        ],
+        [
+          -117.1170743,
+          33.541538
+        ],
+        [
+          -117.1171047,
+          33.5415445
+        ]
+      ]
+    },
+    {
+      "id": "091b130c-02bb-4633-b04e-ac41e0ec6424",
+      "name": "Amberley Circle",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1109119,
+          33.5382102
+        ],
+        [
+          -117.1109762,
+          33.5395874
+        ],
+        [
+          -117.1117326,
+          33.5399675
+        ],
+        [
+          -117.1130898,
+          33.5394846
+        ],
+        [
+          -117.1133419,
+          33.5388854
+        ]
+      ]
+    },
+    {
+      "id": "c6926c34-2a05-430b-96b1-3c7542b6ad78",
+      "name": "Calle Girasol",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1113797,
+          33.5424437
+        ],
+        [
+          -117.1116148,
+          33.5428826
+        ],
+        [
+          -117.1119681,
+          33.5434046
+        ],
+        [
+          -117.1122174,
+          33.5438122
+        ]
+      ]
+    },
+    {
+      "id": "91d4b64a-5bfe-4636-814a-1bae1b92c077",
+      "name": "Calle Medusa",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1151312,
+          33.5389465
+        ],
+        [
+          -117.1151371,
+          33.5389948
+        ],
+        [
+          -117.1151599,
+          33.5391584
+        ],
+        [
+          -117.1151746,
+          33.5392638
+        ]
+      ]
+    },
+    {
+      "id": "a889f046-f643-4ca8-9e0f-822fef066995",
+      "name": "Calle Medusa",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1151746,
+          33.5392638
+        ],
+        [
+          -117.115197,
+          33.5394279
+        ],
+        [
+          -117.1152291,
+          33.5396556
+        ],
+        [
+          -117.1153265,
+          33.5403306
+        ],
+        [
+          -117.1154666,
+          33.5413043
+        ],
+        [
+          -117.1155184,
+          33.5416604
+        ],
+        [
+          -117.1156136,
+          33.5423157
+        ],
+        [
+          -117.1157454,
+          33.5431411
+        ]
+      ]
+    },
+    {
+      "id": "454aada3-c1ac-4d2a-b4a8-54c16ebda4b8",
+      "name": "Chandler Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1196686,
+          33.5513191
+        ],
+        [
+          -117.1189776,
+          33.551541
+        ],
+        [
+          -117.1184568,
+          33.5517082
+        ],
+        [
+          -117.1187113,
+          33.5522023
+        ],
+        [
+          -117.118882,
+          33.5526132
+        ],
+        [
+          -117.118969,
+          33.5528623
+        ],
+        [
+          -117.1190189,
+          33.5529843
+        ],
+        [
+          -117.1191561,
+          33.5532821
+        ]
+      ]
+    },
+    {
+      "id": "e5e521d4-3633-4ca1-a9b9-dcb95c63efc4",
+      "name": "Crown Ranch Road",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1155781,
+          33.5512139
+        ],
+        [
+          -117.1155108,
+          33.5514316
+        ],
+        [
+          -117.1154819,
+          33.5516066
+        ],
+        [
+          -117.1154659,
+          33.5517509
+        ],
+        [
+          -117.1154627,
+          33.5519633
+        ],
+        [
+          -117.1154803,
+          33.5522425
+        ],
+        [
+          -117.1154803,
+          33.5524575
+        ],
+        [
+          -117.1154499,
+          33.5529825
+        ]
+      ]
+    },
+    {
+      "id": "f521bbe0-d15b-4367-b779-d7ce5e4da94f",
+      "name": "Crown Ranch Road",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1154499,
+          33.5529825
+        ],
+        [
+          -117.1154402,
+          33.5532483
+        ],
+        [
+          -117.115421,
+          33.5533819
+        ],
+        [
+          -117.1153601,
+          33.5537024
+        ]
+      ]
+    },
+    {
+      "id": "604f21d8-d300-47eb-82fa-d705267843e4",
+      "name": "Deputy Road",
+      "class": "track",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1135357,
+          33.5477799
+        ],
+        [
+          -117.1135038,
+          33.5471479
+        ],
+        [
+          -117.1132357,
+          33.5458296
+        ],
+        [
+          -117.1130838,
+          33.545083
+        ],
+        [
+          -117.112973,
+          33.544491
+        ]
+      ]
+    },
+    {
+      "id": "8235e3b4-477f-41f8-814c-241d2ce98764",
+      "name": "Diego Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1206951,
+          33.5476587
+        ],
+        [
+          -117.1206345,
+          33.5476581
+        ],
+        [
+          -117.1195851,
+          33.5476483
+        ],
+        [
+          -117.1196261,
+          33.5469276
+        ],
+        [
+          -117.1196671,
+          33.5465783
+        ],
+        [
+          -117.1196924,
+          33.5462273
+        ],
+        [
+          -117.1197002,
+          33.5458601
+        ],
+        [
+          -117.1197314,
+          33.5455465
+        ],
+        [
+          -117.1197587,
+          33.5450672
+        ],
+        [
+          -117.1197587,
+          33.5448543
+        ],
+        [
+          -117.1197556,
+          33.5445846
+        ],
+        [
+          -117.1202768,
+          33.5445808
+        ],
+        [
+          -117.1204735,
+          33.5445733
+        ],
+        [
+          -117.1206079,
+          33.5445789
+        ],
+        [
+          -117.1209093,
+          33.5446189
+        ],
+        [
+          -117.1209694,
+          33.5446269
+        ]
+      ]
+    },
+    {
+      "id": "64d8bbd6-3141-4acf-827c-886cddd7a51d",
+      "name": "Eastgate Parkway",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.12206,
+          33.546291
+        ],
+        [
+          -117.1222179,
+          33.5462222
+        ],
+        [
+          -117.1223247,
+          33.5461757
+        ],
+        [
+          -117.1224455,
+          33.5461291
+        ],
+        [
+          -117.1225792,
+          33.5460841
+        ],
+        [
+          -117.122689,
+          33.5460609
+        ],
+        [
+          -117.1228188,
+          33.5460417
+        ],
+        [
+          -117.1229955,
+          33.5460276
+        ],
+        [
+          -117.1234953,
+          33.5460217
+        ]
+      ]
+    },
+    {
+      "id": "a2c94159-2208-4e86-b80f-a777952d3709",
+      "name": "Eastgate Parkway",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1207096,
+          33.5463928
+        ],
+        [
+          -117.1208529,
+          33.5463925
+        ],
+        [
+          -117.1216419,
+          33.5463911
+        ],
+        [
+          -117.1217497,
+          33.546382
+        ],
+        [
+          -117.1218615,
+          33.5463612
+        ],
+        [
+          -117.1219364,
+          33.546337
+        ],
+        [
+          -117.12206,
+          33.546291
+        ]
+      ]
+    },
+    {
+      "id": "7c5561ed-34a7-4da3-8913-4610acf2338e",
+      "name": "Evian Drive",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1225131,
+          33.551421
+        ],
+        [
+          -117.1223929,
+          33.551448
+        ],
+        [
+          -117.1222355,
+          33.5514834
+        ],
+        [
+          -117.1220977,
+          33.5515083
+        ],
+        [
+          -117.1217715,
+          33.5515501
+        ]
+      ]
+    },
+    {
+      "id": "fc0567c4-b3be-4648-aa28-55b55615d44d",
+      "name": "Evian Drive",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1217715,
+          33.5515501
+        ],
+        [
+          -117.1210716,
+          33.5516398
+        ],
+        [
+          -117.1209248,
+          33.5516673
+        ],
+        [
+          -117.1208131,
+          33.5516882
+        ]
+      ]
+    },
+    {
+      "id": "68f9eec6-40e1-4acc-b981-cb36f35fe72c",
+      "name": "Grand View Circle",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1224383,
+          33.545159
+        ],
+        [
+          -117.1222211,
+          33.5452213
+        ],
+        [
+          -117.122115,
+          33.5452437
+        ],
+        [
+          -117.1220071,
+          33.5452554
+        ],
+        [
+          -117.1218831,
+          33.5452575
+        ],
+        [
+          -117.1217605,
+          33.545249
+        ],
+        [
+          -117.1214434,
+          33.5452042
+        ]
+      ]
+    },
+    {
+      "id": "d30c069e-c80d-401f-ae91-3e9873cd438b",
+      "name": "Greenwood Lane",
+      "class": "track",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.114426,
+          33.5477394
+        ],
+        [
+          -117.1153846,
+          33.5491573
+        ],
+        [
+          -117.1153758,
+          33.54935
+        ],
+        [
+          -117.1151324,
+          33.5495389
+        ],
+        [
+          -117.1141606,
+          33.5499974
+        ]
+      ]
+    },
+    {
+      "id": "c819dd09-363a-4262-b6f7-d7af8f3d3e0b",
+      "name": "Hidden Creek Lane",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1127622,
+          33.5512107
+        ],
+        [
+          -117.1127262,
+          33.5519136
+        ],
+        [
+          -117.1127322,
+          33.5521374
+        ],
+        [
+          -117.1127282,
+          33.5523695
+        ],
+        [
+          -117.1127081,
+          33.5526967
+        ],
+        [
+          -117.1127101,
+          33.5529171
+        ]
+      ]
+    },
+    {
+      "id": "e6af55ac-7842-4a35-ac43-a1db6cca8feb",
+      "name": "Hidden Creek Lane",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1127101,
+          33.5529171
+        ],
+        [
+          -117.1127161,
+          33.5533813
+        ],
+        [
+          -117.1127141,
+          33.5537052
+        ]
+      ]
+    },
+    {
+      "id": "63842ca5-d3a3-408a-b340-6add06a5805e",
+      "name": "Highland Vista Circle",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1222858,
+          33.54882
+        ],
+        [
+          -117.1219941,
+          33.548884
+        ],
+        [
+          -117.1218693,
+          33.5489027
+        ],
+        [
+          -117.1217595,
+          33.5489058
+        ],
+        [
+          -117.1209959,
+          33.5489048
+        ]
+      ]
+    },
+    {
+      "id": "3bd02a85-3618-411e-b80a-055f03a2d35c",
+      "name": "Indian Summer Road",
+      "class": "track",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1159422,
+          33.5449907
+        ],
+        [
+          -117.1150219,
+          33.5451254
+        ],
+        [
+          -117.1149428,
+          33.5452165
+        ]
+      ]
+    },
+    {
+      "id": "de0a8e0e-1052-4b66-99ff-b1f3ef1c3609",
+      "name": "Kimberly Lane",
+      "class": "track",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1123595,
+          33.5478683
+        ],
+        [
+          -117.1123948,
+          33.5483144
+        ],
+        [
+          -117.1124564,
+          33.549138
+        ],
+        [
+          -117.1125322,
+          33.5495271
+        ],
+        [
+          -117.1125245,
+          33.5497483
+        ],
+        [
+          -117.1124838,
+          33.5498286
+        ],
+        [
+          -117.1124307,
+          33.5499155
+        ],
+        [
+          -117.1123848,
+          33.5499906
+        ],
+        [
+          -117.1123665,
+          33.5501444
+        ],
+        [
+          -117.1123603,
+          33.5503013
+        ],
+        [
+          -117.1123114,
+          33.5503869
+        ]
+      ]
+    },
+    {
+      "id": "de2fd6ca-46d4-405c-8695-39f8a8043525",
+      "name": "Lazy K Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1163835,
+          33.5525739
+        ],
+        [
+          -117.1172597,
+          33.5525868
+        ]
+      ]
+    },
+    {
+      "id": "b9ccc823-a8f9-44b4-8b07-3b20200c2855",
+      "name": "Liefer Road",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1064754,
+          33.5459851
+        ],
+        [
+          -117.1065218,
+          33.546072
+        ],
+        [
+          -117.1069879,
+          33.5469435
+        ],
+        [
+          -117.1070708,
+          33.547063
+        ],
+        [
+          -117.1071332,
+          33.5471176
+        ],
+        [
+          -117.1071514,
+          33.547126
+        ],
+        [
+          -117.1076505,
+          33.547356
+        ],
+        [
+          -117.1081405,
+          33.5475014
+        ],
+        [
+          -117.108322,
+          33.5475637
+        ],
+        [
+          -117.1090516,
+          33.5478388
+        ],
+        [
+          -117.1092593,
+          33.5479109
+        ],
+        [
+          -117.1094584,
+          33.54798
+        ],
+        [
+          -117.1098101,
+          33.548012
+        ],
+        [
+          -117.1119466,
+          33.5478916
+        ],
+        [
+          -117.112078,
+          33.5478842
+        ],
+        [
+          -117.1123595,
+          33.5478683
+        ],
+        [
+          -117.1135357,
+          33.5477799
+        ],
+        [
+          -117.113731,
+          33.547771
+        ],
+        [
+          -117.1142669,
+          33.5477466
+        ],
+        [
+          -117.114426,
+          33.5477394
+        ],
+        [
+          -117.1149591,
+          33.5474491
+        ],
+        [
+          -117.1153641,
+          33.5472285
+        ],
+        [
+          -117.1158883,
+          33.5469138
+        ],
+        [
+          -117.1159426,
+          33.5467467
+        ],
+        [
+          -117.115984,
+          33.5465551
+        ],
+        [
+          -117.115983,
+          33.5462647
+        ],
+        [
+          -117.1159816,
+          33.5458513
+        ],
+        [
+          -117.1159422,
+          33.5449907
+        ],
+        [
+          -117.115905,
+          33.5446497
+        ],
+        [
+          -117.1158943,
+          33.5445649
+        ],
+        [
+          -117.1158097,
+          33.5436309
+        ],
+        [
+          -117.1158007,
+          33.5435314
+        ],
+        [
+          -117.1157973,
+          33.5434943
+        ],
+        [
+          -117.1157639,
+          33.5432618
+        ],
+        [
+          -117.1157551,
+          33.5432046
+        ],
+        [
+          -117.1157454,
+          33.5431411
+        ]
+      ]
+    },
+    {
+      "id": "7a7ecb58-f6ab-4095-a050-a2936753c674",
+      "name": "Lonesome Spur Circle",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1173343,
+          33.5536879
+        ],
+        [
+          -117.1173061,
+          33.5535679
+        ],
+        [
+          -117.1172832,
+          33.5530841
+        ],
+        [
+          -117.1172597,
+          33.5525868
+        ]
+      ]
+    },
+    {
+      "id": "4a3d43dc-298b-4f63-bbe5-2cbb5e7f2d10",
+      "name": "Meadow View Circle",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1223062,
+          33.5442923
+        ],
+        [
+          -117.1216389,
+          33.5442926
+        ],
+        [
+          -117.1214434,
+          33.5452042
+        ]
+      ]
+    },
+    {
+      "id": "7f46ccd9-5287-4659-a931-292b4cce6520",
+      "name": "Meadow View Circle",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1214434,
+          33.5452042
+        ],
+        [
+          -117.1214185,
+          33.5453207
+        ],
+        [
+          -117.1213853,
+          33.545522
+        ]
+      ]
+    },
+    {
+      "id": "7d6860de-ad45-489e-bae6-4924abae9977",
+      "name": "Mountain Sky Circle",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1146001,
+          33.5521636
+        ],
+        [
+          -117.1145424,
+          33.5519031
+        ],
+        [
+          -117.1145794,
+          33.5510854
+        ]
+      ]
+    },
+    {
+      "id": "37ce2c4a-af4c-4624-ad23-2a935fa0a935",
+      "name": "Murrieta Hot Springs Road",
+      "class": "primary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1230175,
+          33.5523651
+        ],
+        [
+          -117.1229105,
+          33.5524088
+        ],
+        [
+          -117.1197,
+          33.5536946
+        ],
+        [
+          -117.1194358,
+          33.5538047
+        ]
+      ]
+    },
+    {
+      "id": "3eb70be0-5828-44fa-8dc6-5f5330dd0ad2",
+      "name": "Murrieta Hot Springs Road",
+      "class": "primary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1195053,
+          33.5539139
+        ],
+        [
+          -117.1196521,
+          33.5538541
+        ],
+        [
+          -117.119939,
+          33.5537369
+        ],
+        [
+          -117.1215655,
+          33.5530893
+        ],
+        [
+          -117.1221518,
+          33.5528538
+        ],
+        [
+          -117.1229527,
+          33.5525368
+        ],
+        [
+          -117.1229801,
+          33.5525256
+        ],
+        [
+          -117.1230906,
+          33.5524802
+        ]
+      ]
+    },
+    {
+      "id": "ce3d7d45-95cb-4b45-b49f-17642e72590e",
+      "name": "New Meadow Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1145477,
+          33.552972
+        ],
+        [
+          -117.1145284,
+          33.5531846
+        ],
+        [
+          -117.1144995,
+          33.5533221
+        ],
+        [
+          -117.1144498,
+          33.5534637
+        ],
+        [
+          -117.1143903,
+          33.5537116
+        ]
+      ]
+    },
+    {
+      "id": "41ed839e-9ea2-4da4-bc89-7f744a977008",
+      "name": "Nicolas Road",
+      "class": "secondary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1157454,
+          33.5431411
+        ],
+        [
+          -117.1149609,
+          33.5432415
+        ],
+        [
+          -117.1133029,
+          33.5434644
+        ],
+        [
+          -117.113096,
+          33.5434995
+        ],
+        [
+          -117.1122174,
+          33.5438122
+        ]
+      ]
+    },
+    {
+      "id": "4a1d1ad3-da2c-4dc3-8d9e-14cf8dc58c9f",
+      "name": "Nicolas Road",
+      "class": "secondary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1170952,
+          33.5429659
+        ],
+        [
+          -117.1166737,
+          33.5430223
+        ],
+        [
+          -117.1162571,
+          33.5430756
+        ],
+        [
+          -117.1157454,
+          33.5431411
+        ]
+      ]
+    },
+    {
+      "id": "8c8d4dd7-e72d-4fd2-a554-0a0d230e04c5",
+      "name": "Nicolas Road",
+      "class": "secondary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1122174,
+          33.5438122
+        ],
+        [
+          -117.1119225,
+          33.5439247
+        ],
+        [
+          -117.1113202,
+          33.5441561
+        ],
+        [
+          -117.1109321,
+          33.5443052
+        ],
+        [
+          -117.1108042,
+          33.5443516
+        ],
+        [
+          -117.1092491,
+          33.5449264
+        ],
+        [
+          -117.1074892,
+          33.5455981
+        ],
+        [
+          -117.1064754,
+          33.5459851
+        ]
+      ]
+    },
+    {
+      "id": "bff21a14-fc86-4183-baf6-6f48e931c08a",
+      "name": "Nicolas Road",
+      "class": "secondary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1233913,
+          33.5406273
+        ],
+        [
+          -117.1231931,
+          33.5406765
+        ],
+        [
+          -117.1230519,
+          33.5407082
+        ],
+        [
+          -117.122776,
+          33.54077
+        ],
+        [
+          -117.1222151,
+          33.5409144
+        ],
+        [
+          -117.1218964,
+          33.5410336
+        ],
+        [
+          -117.1215993,
+          33.5411816
+        ],
+        [
+          -117.1213165,
+          33.5413395
+        ],
+        [
+          -117.1208196,
+          33.5416592
+        ],
+        [
+          -117.1202813,
+          33.5420365
+        ],
+        [
+          -117.1200245,
+          33.5422023
+        ],
+        [
+          -117.119771,
+          33.5423461
+        ],
+        [
+          -117.1194791,
+          33.5424809
+        ],
+        [
+          -117.1192482,
+          33.5425697
+        ],
+        [
+          -117.1189842,
+          33.54266
+        ],
+        [
+          -117.1187428,
+          33.5427228
+        ],
+        [
+          -117.1184531,
+          33.5427899
+        ],
+        [
+          -117.1182093,
+          33.5428281
+        ],
+        [
+          -117.1181866,
+          33.542831
+        ],
+        [
+          -117.1170952,
+          33.5429659
+        ]
+      ]
+    },
+    {
+      "id": "0a22312a-6b3e-4fbf-ba67-cf45c9eab68a",
+      "name": "Northgate Parkway",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1223717,
+          33.5489793
+        ],
+        [
+          -117.1223852,
+          33.5490661
+        ],
+        [
+          -117.12247,
+          33.5491534
+        ],
+        [
+          -117.1225688,
+          33.5492316
+        ],
+        [
+          -117.1226886,
+          33.5493032
+        ],
+        [
+          -117.1227576,
+          33.549305
+        ]
+      ]
+    },
+    {
+      "id": "4b96233c-f15e-4514-a053-62a208f4fcf0",
+      "name": "Northgate Parkway",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1222063,
+          33.5480829
+        ],
+        [
+          -117.1221997,
+          33.5479548
+        ],
+        [
+          -117.1221997,
+          33.5478103
+        ],
+        [
+          -117.122206,
+          33.5476335
+        ],
+        [
+          -117.1222331,
+          33.54729
+        ]
+      ]
+    },
+    {
+      "id": "60201bda-0c45-4886-996d-fc2624f41437",
+      "name": "Northgate Parkway",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1223717,
+          33.5489793
+        ],
+        [
+          -117.1223233,
+          33.5488945
+        ],
+        [
+          -117.1222858,
+          33.54882
+        ]
+      ]
+    },
+    {
+      "id": "6cb15f55-cfba-462a-9077-8c933ced88c6",
+      "name": "Northgate Parkway",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1227576,
+          33.549305
+        ],
+        [
+          -117.1227328,
+          33.549242
+        ],
+        [
+          -117.1226257,
+          33.5491763
+        ],
+        [
+          -117.1225439,
+          33.5491102
+        ],
+        [
+          -117.1224528,
+          33.5490157
+        ],
+        [
+          -117.1223717,
+          33.5489793
+        ]
+      ]
+    },
+    {
+      "id": "6f15ccc8-834f-4b44-8b5b-c2d7450686ac",
+      "name": "Northgate Parkway",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1222331,
+          33.54729
+        ],
+        [
+          -117.1222634,
+          33.5469077
+        ],
+        [
+          -117.1222634,
+          33.5467943
+        ],
+        [
+          -117.1222509,
+          33.5466779
+        ],
+        [
+          -117.1222259,
+          33.5465947
+        ],
+        [
+          -117.1221885,
+          33.5465052
+        ],
+        [
+          -117.12206,
+          33.546291
+        ]
+      ]
+    },
+    {
+      "id": "7ba41401-cb7e-4406-a0de-4c7939befded",
+      "name": "Northgate Parkway",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1222858,
+          33.54882
+        ],
+        [
+          -117.1222559,
+          33.5487368
+        ],
+        [
+          -117.1222409,
+          33.5486474
+        ],
+        [
+          -117.1222284,
+          33.5485122
+        ],
+        [
+          -117.1222063,
+          33.5480829
+        ]
+      ]
+    },
+    {
+      "id": "efbe1a3a-ef2b-42e2-91ed-ed6815d0d504",
+      "name": "Park Point Court",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1221281,
+          33.5523041
+        ],
+        [
+          -117.1218326,
+          33.5523174
+        ],
+        [
+          -117.1210277,
+          33.5524738
+        ]
+      ]
+    },
+    {
+      "id": "2cf56182-60b1-4b63-a879-63fa579ce7da",
+      "name": "Park Vista Circle",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1222063,
+          33.5480829
+        ],
+        [
+          -117.1216894,
+          33.5481022
+        ],
+        [
+          -117.1209978,
+          33.5481015
+        ]
+      ]
+    },
+    {
+      "id": "ea43c8fe-1ccf-4cb0-a9ac-e457ee46b53e",
+      "name": "Parkview Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1234953,
+          33.5460217
+        ],
+        [
+          -117.1234953,
+          33.5455912
+        ],
+        [
+          -117.1234889,
+          33.5454687
+        ],
+        [
+          -117.1234749,
+          33.5453697
+        ],
+        [
+          -117.1234455,
+          33.5452659
+        ],
+        [
+          -117.123404,
+          33.5451535
+        ],
+        [
+          -117.1232181,
+          33.5446754
+        ],
+        [
+          -117.123075,
+          33.5442707
+        ],
+        [
+          -117.1227722,
+          33.544292
+        ],
+        [
+          -117.1223062,
+          33.5442923
+        ]
+      ]
+    },
+    {
+      "id": "293a8b4c-53e7-43ad-b859-5180e1cd988e",
+      "name": "Peggy Lou lane",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1151746,
+          33.5392638
+        ],
+        [
+          -117.1143895,
+          33.5395673
+        ],
+        [
+          -117.1137954,
+          33.5397584
+        ],
+        [
+          -117.113672,
+          33.5398277
+        ],
+        [
+          -117.1136197,
+          33.5398791
+        ],
+        [
+          -117.113495,
+          33.54003
+        ],
+        [
+          -117.1134266,
+          33.5401306
+        ],
+        [
+          -117.1133045,
+          33.5401452
+        ],
+        [
+          -117.1132133,
+          33.5401955
+        ],
+        [
+          -117.1131785,
+          33.5402279
+        ],
+        [
+          -117.113149,
+          33.5403106
+        ],
+        [
+          -117.113149,
+          33.5403486
+        ]
+      ]
+    },
+    {
+      "id": "29b69a87-bbb3-4a5e-a348-2f122b66956d",
+      "name": "Polo Creek Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1127101,
+          33.5529171
+        ],
+        [
+          -117.1118326,
+          33.5528988
+        ]
+      ]
+    },
+    {
+      "id": "6b6f592a-9afb-4409-a931-f3a4621919e5",
+      "name": "Rita Way",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.123484,
+          33.5437819
+        ],
+        [
+          -117.1229646,
+          33.5437959
+        ],
+        [
+          -117.1223061,
+          33.5438006
+        ]
+      ]
+    },
+    {
+      "id": "c8118581-88f2-413c-8300-888c824cf50b",
+      "name": "Rita Way",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1223061,
+          33.5438006
+        ],
+        [
+          -117.121426,
+          33.5438069
+        ],
+        [
+          -117.1212793,
+          33.543808
+        ],
+        [
+          -117.1212017,
+          33.5438327
+        ]
+      ]
+    },
+    {
+      "id": "f740646e-cd64-4830-9979-1f0233f4473b",
+      "name": "Roripaugh Ranch Community Walking Path",
+      "class": "footway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1172832,
+          33.5530841
+        ],
+        [
+          -117.117502,
+          33.5530645
+        ],
+        [
+          -117.1175817,
+          33.5530478
+        ],
+        [
+          -117.1177448,
+          33.5530463
+        ],
+        [
+          -117.1178109,
+          33.5530093
+        ],
+        [
+          -117.1178644,
+          33.5529339
+        ],
+        [
+          -117.1178979,
+          33.5528455
+        ],
+        [
+          -117.1179087,
+          33.5527519
+        ],
+        [
+          -117.1178372,
+          33.5526372
+        ],
+        [
+          -117.1177801,
+          33.5525021
+        ],
+        [
+          -117.1176714,
+          33.5523828
+        ],
+        [
+          -117.1175102,
+          33.552228
+        ],
+        [
+          -117.1174649,
+          33.5521993
+        ],
+        [
+          -117.1172484,
+          33.5521639
+        ],
+        [
+          -117.1169993,
+          33.552151
+        ],
+        [
+          -117.1169277,
+          33.5521344
+        ],
+        [
+          -117.1168852,
+          33.5520914
+        ],
+        [
+          -117.1168707,
+          33.5519993
+        ],
+        [
+          -117.1168915,
+          33.5518891
+        ],
+        [
+          -117.1170074,
+          33.5516981
+        ],
+        [
+          -117.1171252,
+          33.5516838
+        ],
+        [
+          -117.1174531,
+          33.5516694
+        ],
+        [
+          -117.1176352,
+          33.5516641
+        ],
+        [
+          -117.1177031,
+          33.5516332
+        ],
+        [
+          -117.1178408,
+          33.5515705
+        ],
+        [
+          -117.117964,
+          33.5514958
+        ],
+        [
+          -117.1179848,
+          33.5514482
+        ],
+        [
+          -117.1180238,
+          33.5511689
+        ],
+        [
+          -117.1180328,
+          33.5510753
+        ],
+        [
+          -117.1180002,
+          33.5509749
+        ],
+        [
+          -117.1179359,
+          33.5508745
+        ],
+        [
+          -117.1178562,
+          33.5508307
+        ],
+        [
+          -117.1175374,
+          33.5507318
+        ],
+        [
+          -117.1173652,
+          33.5507816
+        ],
+        [
+          -117.1171506,
+          33.5508466
+        ],
+        [
+          -117.1168933,
+          33.5508934
+        ],
+        [
+          -117.1167919,
+          33.5508624
+        ],
+        [
+          -117.1166759,
+          33.5508103
+        ],
+        [
+          -117.1164087,
+          33.5508254
+        ],
+        [
+          -117.1160228,
+          33.5508851
+        ],
+        [
+          -117.1158408,
+          33.5508564
+        ],
+        [
+          -117.1156234,
+          33.5507892
+        ],
+        [
+          -117.115492,
+          33.5506956
+        ],
+        [
+          -117.1153978,
+          33.5506344
+        ],
+        [
+          -117.1152348,
+          33.550605
+        ],
+        [
+          -117.1150418,
+          33.5506616
+        ],
+        [
+          -117.1149358,
+          33.5506661
+        ],
+        [
+          -117.114684,
+          33.5506586
+        ],
+        [
+          -117.1143081,
+          33.5506556
+        ],
+        [
+          -117.1141858,
+          33.550642
+        ],
+        [
+          -117.1140509,
+          33.5506118
+        ],
+        [
+          -117.1139612,
+          33.5506239
+        ],
+        [
+          -117.113838,
+          33.5506911
+        ],
+        [
+          -117.1137166,
+          33.550753
+        ],
+        [
+          -117.1134895,
+          33.5507779
+        ],
+        [
+          -117.1129669,
+          33.5508171
+        ],
+        [
+          -117.1125421,
+          33.5508133
+        ],
+        [
+          -117.1122966,
+          33.5508066
+        ],
+        [
+          -117.1120828,
+          33.550793
+        ],
+        [
+          -117.1117676,
+          33.5508035
+        ],
+        [
+          -117.1114723,
+          33.5508172
+        ],
+        [
+          -117.1113763,
+          33.5508217
+        ],
+        [
+          -117.1110502,
+          33.5508413
+        ],
+        [
+          -117.1105918,
+          33.5508579
+        ],
+        [
+          -117.1103599,
+          33.5508451
+        ],
+        [
+          -117.1098744,
+          33.550836
+        ],
+        [
+          -117.1095148,
+          33.5508217
+        ],
+        [
+          -117.1091389,
+          33.5507681
+        ],
+        [
+          -117.1090402,
+          33.5507371
+        ],
+        [
+          -117.1088608,
+          33.5506269
+        ],
+        [
+          -117.1087285,
+          33.5505952
+        ],
+        [
+          -117.1084822,
+          33.5505801
+        ],
+        [
+          -117.108243,
+          33.5505929
+        ],
+        [
+          -117.1080954,
+          33.5505808
+        ],
+        [
+          -117.1078436,
+          33.5505476
+        ],
+        [
+          -117.1076407,
+          33.5505046
+        ],
+        [
+          -117.107522,
+          33.5505084
+        ],
+        [
+          -117.1072964,
+          33.5505786
+        ],
+        [
+          -117.107089,
+          33.5505023
+        ],
+        [
+          -117.1069568,
+          33.5504819
+        ],
+        [
+          -117.1067919,
+          33.5505038
+        ],
+        [
+          -117.1065781,
+          33.5505967
+        ],
+        [
+          -117.1064975,
+          33.5506292
+        ],
+        [
+          -117.1062973,
+          33.5506714
+        ],
+        [
+          -117.1060328,
+          33.550756
+        ],
+        [
+          -117.1057457,
+          33.5507809
+        ],
+        [
+          -117.1053661,
+          33.5507733
+        ],
+        [
+          -117.105012,
+          33.5507439
+        ],
+        [
+          -117.1046687,
+          33.5507258
+        ],
+        [
+          -117.104512,
+          33.5507077
+        ],
+        [
+          -117.1044159,
+          33.550682
+        ],
+        [
+          -117.1041433,
+          33.5505688
+        ],
+        [
+          -117.1039286,
+          33.5505061
+        ],
+        [
+          -117.1038235,
+          33.5504827
+        ],
+        [
+          -117.103732,
+          33.5504955
+        ],
+        [
+          -117.1035998,
+          33.5505408
+        ],
+        [
+          -117.1034694,
+          33.5506057
+        ],
+        [
+          -117.103377,
+          33.550648
+        ],
+        [
+          -117.1033027,
+          33.5508209
+        ],
+        [
+          -117.1032203,
+          33.5509251
+        ],
+        [
+          -117.1031904,
+          33.5510459
+        ],
+        [
+          -117.1031523,
+          33.5512874
+        ],
+        [
+          -117.1030771,
+          33.5513954
+        ],
+        [
+          -117.1029693,
+          33.5515901
+        ],
+        [
+          -117.1028978,
+          33.5517683
+        ],
+        [
+          -117.1029231,
+          33.5518113
+        ],
+        [
+          -117.1029983,
+          33.5518393
+        ],
+        [
+          -117.1031097,
+          33.5518672
+        ],
+        [
+          -117.1033436,
+          33.5519464
+        ]
+      ]
+    },
+    {
+      "id": "168abafe-0cb1-425e-bbf5-1bccf9e77283",
+      "name": "Salt Point Court",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1230135,
+          33.5506565
+        ],
+        [
+          -117.1225018,
+          33.5506694
+        ],
+        [
+          -117.1223683,
+          33.5506698
+        ]
+      ]
+    },
+    {
+      "id": "66a9bba3-66f2-451a-93d4-64c394a49856",
+      "name": "Santa Gertrudis Trail Nicolas Road Extension",
+      "class": "cycleway",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1235332,
+          33.5407242
+        ],
+        [
+          -117.1234056,
+          33.5407516
+        ],
+        [
+          -117.1232198,
+          33.5407915
+        ],
+        [
+          -117.1227856,
+          33.5408504
+        ],
+        [
+          -117.1223118,
+          33.5409815
+        ],
+        [
+          -117.1220173,
+          33.5410886
+        ],
+        [
+          -117.1217117,
+          33.5412252
+        ],
+        [
+          -117.1213904,
+          33.5413974
+        ],
+        [
+          -117.1206661,
+          33.5418901
+        ],
+        [
+          -117.120393,
+          33.5420698
+        ],
+        [
+          -117.1199803,
+          33.542295
+        ],
+        [
+          -117.1194379,
+          33.5425544
+        ],
+        [
+          -117.1189535,
+          33.5427215
+        ],
+        [
+          -117.1185676,
+          33.5428201
+        ],
+        [
+          -117.1178814,
+          33.542931
+        ],
+        [
+          -117.1169051,
+          33.543047
+        ],
+        [
+          -117.1159523,
+          33.5431833
+        ],
+        [
+          -117.1157551,
+          33.5432046
+        ],
+        [
+          -117.1156683,
+          33.543214
+        ],
+        [
+          -117.1146899,
+          33.5433304
+        ],
+        [
+          -117.113522,
+          33.5434833
+        ],
+        [
+          -117.1128624,
+          33.5436322
+        ],
+        [
+          -117.1120395,
+          33.5439444
+        ],
+        [
+          -117.1113702,
+          33.5442193
+        ],
+        [
+          -117.1109787,
+          33.54438
+        ],
+        [
+          -117.1108481,
+          33.5444321
+        ]
+      ]
+    },
+    {
+      "id": "20ca7a12-a902-4cbd-a617-97c0bd1a5a37",
+      "name": "Seraphina Road",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1206951,
+          33.5476587
+        ],
+        [
+          -117.1207096,
+          33.5463928
+        ]
+      ]
+    },
+    {
+      "id": "3f85b2ad-1c3e-497e-9d30-79dbaa779b12",
+      "name": "Seraphina Road",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1208131,
+          33.5516882
+        ],
+        [
+          -117.1207831,
+          33.551592
+        ],
+        [
+          -117.1207472,
+          33.5514642
+        ],
+        [
+          -117.1207268,
+          33.5513546
+        ],
+        [
+          -117.1206971,
+          33.5511711
+        ]
+      ]
+    },
+    {
+      "id": "5b2b83fe-41d5-47b2-8950-ee97f039f8d9",
+      "name": "Seraphina Road",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1209694,
+          33.5446269
+        ],
+        [
+          -117.121095,
+          33.5440701
+        ],
+        [
+          -117.1211378,
+          33.5438866
+        ],
+        [
+          -117.1212017,
+          33.5438327
+        ]
+      ]
+    },
+    {
+      "id": "5c96c915-1e6d-4838-8085-e5ccc86a2256",
+      "name": "Seraphina Road",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1207096,
+          33.5463928
+        ],
+        [
+          -117.120714,
+          33.5460042
+        ],
+        [
+          -117.1207971,
+          33.5454403
+        ],
+        [
+          -117.1209694,
+          33.5446269
+        ]
+      ]
+    },
+    {
+      "id": "89c10a36-6522-46da-8dde-49963fde9da4",
+      "name": "Seraphina Road",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1206786,
+          33.54852
+        ],
+        [
+          -117.1206951,
+          33.5476587
+        ]
+      ]
+    },
+    {
+      "id": "e44774d8-6414-4324-9018-c27b1b9a1fc6",
+      "name": "Seraphina Road",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1206971,
+          33.5511711
+        ],
+        [
+          -117.1206783,
+          33.5510388
+        ],
+        [
+          -117.1206618,
+          33.5508655
+        ],
+        [
+          -117.1206519,
+          33.5506839
+        ],
+        [
+          -117.1206632,
+          33.5493222
+        ],
+        [
+          -117.1206786,
+          33.54852
+        ]
+      ]
+    },
+    {
+      "id": "e82f03c4-316f-420f-b660-06998057404b",
+      "name": "Seraphina Road",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1210277,
+          33.5524738
+        ],
+        [
+          -117.1209608,
+          33.5522026
+        ],
+        [
+          -117.1209199,
+          33.5520312
+        ],
+        [
+          -117.1208131,
+          33.5516882
+        ]
+      ]
+    },
+    {
+      "id": "3e648614-455b-40b0-bc64-f74226577ef5",
+      "name": "Shree Road",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1210277,
+          33.5524738
+        ],
+        [
+          -117.1206456,
+          33.5525492
+        ],
+        [
+          -117.1206357,
+          33.5525511
+        ],
+        [
+          -117.1202306,
+          33.552631
+        ],
+        [
+          -117.1201876,
+          33.5523756
+        ],
+        [
+          -117.1201697,
+          33.5522683
+        ],
+        [
+          -117.1201208,
+          33.5521335
+        ],
+        [
+          -117.1200429,
+          33.5519813
+        ],
+        [
+          -117.1198952,
+          33.5517559
+        ],
+        [
+          -117.1198143,
+          33.5516319
+        ],
+        [
+          -117.1197335,
+          33.5514913
+        ],
+        [
+          -117.119707,
+          33.551421
+        ],
+        [
+          -117.1196686,
+          33.5513191
+        ]
+      ]
+    },
+    {
+      "id": "da6c8160-d55a-4c38-8c06-d15391741587",
+      "name": "Shree Road",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1196686,
+          33.5513191
+        ],
+        [
+          -117.1196413,
+          33.551232
+        ],
+        [
+          -117.1196107,
+          33.5511345
+        ],
+        [
+          -117.1195758,
+          33.5509922
+        ],
+        [
+          -117.1195347,
+          33.5507956
+        ],
+        [
+          -117.1195149,
+          33.5506192
+        ],
+        [
+          -117.1195069,
+          33.5504953
+        ],
+        [
+          -117.1195039,
+          33.5503533
+        ],
+        [
+          -117.1195139,
+          33.5493983
+        ],
+        [
+          -117.1195039,
+          33.5485149
+        ],
+        [
+          -117.1206137,
+          33.5485197
+        ],
+        [
+          -117.1206786,
+          33.54852
+        ]
+      ]
+    },
+    {
+      "id": "4ba98abc-a21e-47aa-859f-b9b0aac32ad1",
+      "name": "Skyline Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1164108,
+          33.5513504
+        ],
+        [
+          -117.1160289,
+          33.5513243
+        ],
+        [
+          -117.1158035,
+          33.5512825
+        ],
+        [
+          -117.1155781,
+          33.5512139
+        ]
+      ]
+    },
+    {
+      "id": "57970daf-588d-4e91-86fb-80e518f45bb8",
+      "name": "Skyline Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1145794,
+          33.5510854
+        ],
+        [
+          -117.1147732,
+          33.551095
+        ],
+        [
+          -117.1149641,
+          33.5511122
+        ],
+        [
+          -117.1153929,
+          33.551184
+        ],
+        [
+          -117.1154874,
+          33.5511993
+        ],
+        [
+          -117.1155781,
+          33.5512139
+        ]
+      ]
+    },
+    {
+      "id": "a4a77f0b-da8c-423f-b24b-be59acb5a0e1",
+      "name": "Skyline Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1164108,
+          33.5513504
+        ],
+        [
+          -117.1165671,
+          33.5513556
+        ],
+        [
+          -117.1168555,
+          33.5513183
+        ],
+        [
+          -117.1171833,
+          33.5512645
+        ],
+        [
+          -117.117548,
+          33.5512217
+        ]
+      ]
+    },
+    {
+      "id": "d6fe769e-ea24-4f1a-b27b-d40b64cd8840",
+      "name": "Skyline Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1136137,
+          33.5511656
+        ],
+        [
+          -117.1139002,
+          33.5511272
+        ],
+        [
+          -117.1142148,
+          33.5510955
+        ],
+        [
+          -117.1143965,
+          33.5510869
+        ],
+        [
+          -117.1145794,
+          33.5510854
+        ]
+      ]
+    },
+    {
+      "id": "f42f6743-bffd-4552-a5fa-4813b1af51fd",
+      "name": "Skyline Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1127622,
+          33.5512107
+        ],
+        [
+          -117.1130307,
+          33.5512123
+        ],
+        [
+          -117.1130778,
+          33.5512102
+        ],
+        [
+          -117.1132972,
+          33.5512007
+        ],
+        [
+          -117.1136137,
+          33.5511656
+        ]
+      ]
+    },
+    {
+      "id": "dd5d91f5-6a1d-452b-b659-28e59c7f227f",
+      "name": "Southgate Way",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1223062,
+          33.5442923
+        ],
+        [
+          -117.1223061,
+          33.5438686
+        ],
+        [
+          -117.1223061,
+          33.5438006
+        ]
+      ]
+    },
+    {
+      "id": "3be021ae-080a-4c17-93f1-106c57892610",
+      "name": "Sugarcane Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1225057,
+          33.5498191
+        ],
+        [
+          -117.1224254,
+          33.5497984
+        ],
+        [
+          -117.1222527,
+          33.5497614
+        ],
+        [
+          -117.122108,
+          33.549739
+        ],
+        [
+          -117.1217227,
+          33.5497306
+        ],
+        [
+          -117.1217456,
+          33.5499944
+        ],
+        [
+          -117.1217506,
+          33.5504943
+        ],
+        [
+          -117.1217157,
+          33.5511265
+        ],
+        [
+          -117.1217197,
+          33.5512264
+        ],
+        [
+          -117.1217366,
+          33.5513453
+        ],
+        [
+          -117.1217715,
+          33.5515501
+        ]
+      ]
+    },
+    {
+      "id": "2fbfc611-2d64-4604-a35a-e816b4f22bfa",
+      "name": "Sundance Circle",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1163795,
+          33.5529418
+        ],
+        [
+          -117.1163835,
+          33.5525739
+        ]
+      ]
+    },
+    {
+      "id": "b9fd0749-4136-41dc-97b0-ffc2b439ccd8",
+      "name": "Sundance Circle",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1163835,
+          33.5525739
+        ],
+        [
+          -117.116392,
+          33.5517834
+        ],
+        [
+          -117.1163983,
+          33.5515304
+        ],
+        [
+          -117.1164108,
+          33.5513504
+        ]
+      ]
+    },
+    {
+      "id": "4d976b3e-ff6a-412a-b65f-2724cbb83684",
+      "name": "Suzi Lane",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1206971,
+          33.5511711
+        ],
+        [
+          -117.1206315,
+          33.5511782
+        ],
+        [
+          -117.1205877,
+          33.551183
+        ],
+        [
+          -117.1201946,
+          33.5512257
+        ],
+        [
+          -117.119962,
+          33.551259
+        ],
+        [
+          -117.1196686,
+          33.5513191
+        ]
+      ]
+    },
+    {
+      "id": "fb02ffd6-71d8-4e63-97da-1be307b36f3f",
+      "name": "Terrace View Circle",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1222331,
+          33.54729
+        ],
+        [
+          -117.1210272,
+          33.5472335
+        ]
+      ]
+    },
+    {
+      "id": "c4bfea1d-8bb1-4533-8e1a-338bcfa741ee",
+      "name": "Triple Springs Lane",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1136137,
+          33.5511656
+        ],
+        [
+          -117.1136923,
+          33.5516227
+        ],
+        [
+          -117.1136955,
+          33.5517549
+        ],
+        [
+          -117.1136426,
+          33.55234
+        ],
+        [
+          -117.1135814,
+          33.5529607
+        ]
+      ]
+    },
+    {
+      "id": "91b82b8d-33cc-4e11-9e88-d3a0c9d8b0f0",
+      "name": "Twin Creek Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1118326,
+          33.5528988
+        ],
+        [
+          -117.1118426,
+          33.5517851
+        ],
+        [
+          -117.1118445,
+          33.5517196
+        ],
+        [
+          -117.1118653,
+          33.551189
+        ],
+        [
+          -117.1124817,
+          33.5512007
+        ],
+        [
+          -117.1127622,
+          33.5512107
+        ]
+      ]
+    },
+    {
+      "id": "39f4ca87-08c9-483f-896e-a5cc19f19918",
+      "name": "Whistling Acres Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1154499,
+          33.5529825
+        ],
+        [
+          -117.1149502,
+          33.5529767
+        ],
+        [
+          -117.1145477,
+          33.552972
+        ]
+      ]
+    },
+    {
+      "id": "79a19846-5952-4d61-9b32-e2f69cee866e",
+      "name": "Whistling Acres Drive",
+      "class": "residential",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1145477,
+          33.552972
+        ],
+        [
+          -117.1135814,
+          33.5529607
+        ]
+      ]
+    },
+    {
+      "id": "17295039-a6be-48e2-9574-37ab5e2e0770",
+      "name": "Willows Avenue",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1225057,
+          33.5498191
+        ],
+        [
+          -117.1225546,
+          33.5497007
+        ],
+        [
+          -117.1226501,
+          33.5494991
+        ],
+        [
+          -117.1227576,
+          33.549305
+        ]
+      ]
+    },
+    {
+      "id": "302fb672-c2c4-42ff-bb9f-61f840c51207",
+      "name": "Willows Avenue",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1223683,
+          33.5506698
+        ],
+        [
+          -117.1223681,
+          33.5505728
+        ],
+        [
+          -117.1223751,
+          33.5503971
+        ],
+        [
+          -117.1223968,
+          33.5502231
+        ],
+        [
+          -117.122446,
+          33.5500191
+        ],
+        [
+          -117.1225057,
+          33.5498191
+        ]
+      ]
+    },
+    {
+      "id": "3a8ed18d-ad00-4c22-b742-5a6df9fd1df4",
+      "name": "Willows Avenue",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1225131,
+          33.551421
+        ],
+        [
+          -117.1224845,
+          33.5513408
+        ],
+        [
+          -117.1224347,
+          33.5511746
+        ],
+        [
+          -117.1223947,
+          33.5509786
+        ],
+        [
+          -117.1223713,
+          33.5507594
+        ],
+        [
+          -117.1223683,
+          33.5506698
+        ]
+      ]
+    },
+    {
+      "id": "cd2b1d65-db1d-4553-98e7-350aee53c317",
+      "name": "Willows Avenue",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1227576,
+          33.549305
+        ],
+        [
+          -117.1228583,
+          33.5491611
+        ],
+        [
+          -117.1229872,
+          33.5489972
+        ],
+        [
+          -117.1231298,
+          33.5488477
+        ],
+        [
+          -117.1232829,
+          33.5487046
+        ],
+        [
+          -117.1235887,
+          33.5484687
+        ]
+      ]
+    },
+    {
+      "id": "e5f9a233-b503-4df4-9fc3-389513c6bb3f",
+      "name": "Willows Avenue",
+      "class": "tertiary",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1230175,
+          33.5523651
+        ],
+        [
+          -117.1229728,
+          33.5522974
+        ],
+        [
+          -117.1229459,
+          33.5522509
+        ],
+        [
+          -117.122831,
+          33.5520458
+        ],
+        [
+          -117.1227246,
+          33.551858
+        ],
+        [
+          -117.1226252,
+          33.5516824
+        ],
+        [
+          -117.1225565,
+          33.5515406
+        ],
+        [
+          -117.1225131,
+          33.551421
+        ]
+      ]
+    },
+    {
+      "id": "2f7045bc-3972-44c4-81e5-d034bb8aa4b8",
+      "name": "service road",
+      "class": "track",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1189776,
+          33.551541
+        ],
+        [
+          -117.1189423,
+          33.5514636
+        ],
+        [
+          -117.1189123,
+          33.5513975
+        ],
+        [
+          -117.1188899,
+          33.5513545
+        ],
+        [
+          -117.1188738,
+          33.5513256
+        ],
+        [
+          -117.1188584,
+          33.5512993
+        ],
+        [
+          -117.1188406,
+          33.5512755
+        ],
+        [
+          -117.1188329,
+          33.551268
+        ],
+        [
+          -117.1187648,
+          33.551209
+        ],
+        [
+          -117.1186816,
+          33.5511647
+        ],
+        [
+          -117.118594,
+          33.5511264
+        ],
+        [
+          -117.1185003,
+          33.5510836
+        ],
+        [
+          -117.1184357,
+          33.5510482
+        ],
+        [
+          -117.118372,
+          33.55099
+        ],
+        [
+          -117.1183535,
+          33.5509756
+        ],
+        [
+          -117.1183418,
+          33.550969
+        ]
+      ]
+    },
+    {
+      "id": "44efdf57-5161-4a06-9787-cb800d18a85a",
+      "name": "service road",
+      "class": "track",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1183418,
+          33.550969
+        ],
+        [
+          -117.1183403,
+          33.5506423
+        ]
+      ]
+    },
+    {
+      "id": "4dd9455a-b8f5-46a2-85e2-d92470335866",
+      "name": "service road",
+      "class": "track",
+      "subclass": null,
+      "coordinates": [
+        [
+          -117.1183298,
+          33.5511768
+        ],
+        [
+          -117.1183318,
+          33.5510735
+        ],
+        [
+          -117.1183318,
+          33.550993
+        ],
+        [
+          -117.1183346,
+          33.5509803
+        ],
+        [
+          -117.1183418,
+          33.550969
+        ]
+      ]
+    }
+  ]
+}

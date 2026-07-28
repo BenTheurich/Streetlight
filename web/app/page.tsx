@@ -1,12 +1,27 @@
-export default function Page() {
+import { getFoundationSummary } from '@/lib/database';
+
+export const dynamic = 'force-dynamic';
+
+export default function CoverageDashboardPage() {
+  const summary = getFoundationSummary();
+
   return (
-    <section>
-      <h1>Welcome to Streetlight</h1>
-      <p className="notice">Next.js 14 + TypeScript admin shell is ready.</p>
-      <ul>
-        <li>API: <code>http://localhost:4000/healthz</code></li>
-        <li>Admin: <code>/admin</code> (guarded)</li>
-      </ul>
-    </section>
+    <div className="dashboard-page">
+      <header className="dashboard-header">
+        <span className="wordmark">Streetlight</span>
+        <a href="/territory">Territory setup</a>
+      </header>
+      <main>
+        <p className="eyebrow">Coverage dashboard</p>
+        <h1>{summary.territoryName}</h1>
+        <p>
+          The coverage heatmap arrives in Phase 3. Territory setup is available now as its own
+          administration page.
+        </p>
+        <a className="primary-link" href="/territory">
+          Open Territory Setup
+        </a>
+      </main>
+    </div>
   );
 }
