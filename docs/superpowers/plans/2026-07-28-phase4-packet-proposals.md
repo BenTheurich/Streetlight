@@ -781,7 +781,7 @@ git diff --check
 
 Expected: all pass, and the build lists `/packets` plus `/api/packet-proposals`.
 
-- [ ] **Step 6: Commit the proposal page**
+- [x] **Step 6: Commit the proposal page**
 
 ```powershell
 git add web/app/packets/page.tsx web/components/PacketGenerator.tsx web/components/PacketProposalMap.tsx web/components/PacketGenerator.test.mjs web/components/CoverageDashboard.tsx web/app/globals.css web/package.json
@@ -801,7 +801,7 @@ git commit -m "feat: add packet proposal review page"
 - Produces: normalizer-version-5 pilot data, recorded automated/browser evidence, and Phase 4
   status `Awaiting human review`.
 
-- [ ] **Step 1: Run the complete automated gate before external data**
+- [x] **Step 1: Run the complete automated gate before external data**
 
 From the repository root:
 
@@ -817,7 +817,7 @@ git diff --check
 Expected: every command passes. Query the canonical database and record the pre-refresh import
 generation and normalizer version.
 
-- [ ] **Step 2: Reimport the canonical pilot once**
+- [x] **Step 2: Reimport the canonical pilot once**
 
 Start the real app with its configured environment. Open Territory Setup and save the unchanged
 address, radius, square/circle selection, exclusions, activations, and exact segment exclusions.
@@ -840,7 +840,7 @@ Expected: normalizer version `5`, generation increased exactly once, and usable 
 greater than zero. Confirm the saved boundary, enabled/disabled polygons, manual activations, exact
 segment exclusions, coverage history, and active packet references remain intact.
 
-- [ ] **Step 3: Perform the real-browser acceptance check**
+- [x] **Step 3: Perform the real-browser acceptance check**
 
 Open `/` and confirm **Generate packets** navigates to `/packets`. On `/packets`:
 
@@ -857,7 +857,7 @@ Open `/` and confirm **Generate packets** navigates to `/packets`. On `/packets`
 Query `batches`, `packets`, `packet_segments`, and `coverage_events` before and after. Their row
 counts must not change. Check browser console and server output for errors.
 
-- [ ] **Step 4: Record operation and evidence**
+- [x] **Step 4: Record operation and evidence**
 
 Add a short README section describing:
 
@@ -878,13 +878,13 @@ In `IMPLEMENTATION_PLAN.md`, set Phase 4 to `Awaiting human review` and record:
 - the exact remaining founder review: grouping, tract counts, highlighted segments, outward
   progression, and starting points.
 
-- [ ] **Step 5: Request focused code review and resolve findings**
+- [x] **Step 5: Request focused code review and resolve findings**
 
 Review the full Phase 4 diff against `PRODUCT.md`, the approved design, and this plan. Every
 important finding must receive one focused regression before correction. Re-run the complete
 automated gate and the affected browser step after corrections.
 
-- [ ] **Step 6: Commit evidence and stop**
+- [x] **Step 6: Commit evidence and stop**
 
 ```powershell
 git add README.md IMPLEMENTATION_PLAN.md

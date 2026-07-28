@@ -42,7 +42,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
 | 2 | Territory setup | Phase 1 | Complete | Founder approved the interactive territory setup, Overture import quality controls, hidden-road activation, toggleable polygon and exact-segment exclusions, and circle/square boundaries on July 28, 2026; 59 Node checks, 25 Python checks, lint, typecheck, production build, and browser review pass |
 | 3 | Coverage history and heatmap | Phase 2 | Complete | Founder approved the full imported-territory heatmap and merged it on July 28, 2026; 84 Node checks, 25 Python checks, lint, typecheck, production build, database invariants, and real-browser acceptance pass. |
-| 4 | Packet selection | Phase 3 | In progress | None |
+| 4 | Packet selection | Phase 3 | Awaiting human review | Tasks 1-4: `942e060`, `9c60567`, `1ee7f5d`, `8ed89ee`; automated, canonical-data, and browser evidence recorded below |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
 | 6 | Reconciliation and corrections | Phase 5 | Pending | None |
 | 7 | Authentication and church isolation | Phase 6 | Pending | None |
@@ -378,9 +378,27 @@ Use one fixed synthetic street graph and one saved real-area fixture.
 
 Generate mixed packet sizes, inspect each proposal on the map, regenerate the same request, and confirm the output does not change.
 
+### Implementation evidence
+
+- Tasks 1-4 were committed as `942e060`, `9c60567`, `1ee7f5d`, and `8ed89ee`; focused review
+  warning fix: `e7411bf`.
+- 26 Python importer tests and 96 Node application tests pass. Lint, typecheck, and the production
+  build pass; the build includes `/packets` and `/api/packet-proposals`.
+- The unchanged canonical territory was imported once from generation 3 / normalizer 4 to
+  generation 4 / normalizer 5. It retained 10,663 usable assigned addresses. Boundary settings,
+  exclusions, manual activations, exact-segment exclusions, and empty workflow tables were
+  unchanged.
+- Browser acceptance used one 30-tract packet and two 15-tract packets. All three proposals had
+  connected highlights, written starting addresses, Google pins, estimates, and street summaries.
+  Repeating the API request returned byte-identical JSON with 20 unique selected segments.
+- Before and after repeated generation, `coverage_events`, `batches`, `packets`, and
+  `packet_segments` each contained zero rows. Phase 4 generation made no reservation or workflow
+  write.
+
 ### Human review
 
-The founder checks grouping, tract counts, highlighted segments, and the proposed starting point.
+The founder checks grouping, tract counts, highlighted segments, outward progression from the
+church, and proposed starting points.
 
 ### Completion condition
 

@@ -77,3 +77,9 @@ geographic bands while leaving the far edge never covered.
 
 `pnpm db:seed` and `pnpm dev` never add fake outreach, batches, packets, or demo IDs to the
 founder's `web/data/streetlight.db`; representative data exists only in the explicit demo file.
+
+## Packet proposal review
+
+From Coverage, select **Generate packets**, enter one or more quantity and tract-target rows, select
+**Generate proposals**, then select each proposal card to inspect its map and starting address.
+Proposals are read-only and do not reserve streets until Phase 5.
