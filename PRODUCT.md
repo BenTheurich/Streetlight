@@ -107,7 +107,10 @@ The main map colors segments by time since last coverage:
 - Yellow: more recent
 - Green: most recent
 
-The exact time thresholds and visual palette remain design decisions. The meaning and order of the colors do not.
+Each territory stores the day when segments transition to yellow, orange, and red. The defaults are
+90, 180, and 365 days. Administrators may edit those three ascending thresholds. The meaning and
+order of the colors do not change, and never-covered segments are always red. The exact visual
+palette remains a design decision.
 
 ## Packet generation
 
@@ -257,7 +260,6 @@ The following are implementation choices, not founder decisions:
 - PDF rendering method
 - Payment provider
 - Exact packet-generation algorithm
-- Heatmap time thresholds
 - Logo, typography, and final visual design
 
 Choose the smallest stack that supports a hosted multi-church service, deterministic geospatial work, printable packets, backups, and low operating cost. Do not preserve an existing dependency or service merely because it appears in the repository.
