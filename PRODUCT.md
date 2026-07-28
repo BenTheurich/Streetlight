@@ -2,6 +2,7 @@
 
 Status: approved founder direction  
 Approved: 2026-07-27
+Updated: 2026-07-28
 
 ## Authority
 
@@ -90,7 +91,14 @@ The tracked coverage unit is a short street segment rather than an individual ho
 - Completing a packet records a coverage event for every included segment.
 - Coverage history must be retained. Correcting a mistake records the correction instead of silently replacing history.
 
-An administrator creates a territory from an address and circular radius, then adjusts the radius and draws exclusion polygons. The outer boundary remains circular and is not reshaped as a freeform polygon. The administrator can exclude highways, commercial districts, rivers, apartment complexes, areas assigned elsewhere, and other unsuitable locations.
+An administrator creates a territory from an address, boundary distance, and either a circle or
+square outer boundary, then adjusts that boundary and draws exclusion polygons. The circle uses
+the selected distance as its radius. The square uses the exact latitude-aware bounding box that
+encloses that circle for the Overture import. The outer boundary is not reshaped as a freeform
+polygon. Segments outside the selected boundary are not displayed. Gray segments are always
+inside the selected boundary but excluded by an enabled exclusion polygon or exact-segment
+override. The administrator can exclude highways, commercial districts, rivers, apartment
+complexes, areas assigned elsewhere, and other unsuitable locations.
 
 The main map colors segments by time since last coverage:
 
@@ -187,7 +195,7 @@ Included:
 - Administrator authentication
 - Church workspace setup
 - Territory creation and correction
-- Editable territory radius
+- Editable territory boundary shape and distance
 - Toggleable and deletable exclusion areas
 - Reversible exact-segment exclusions
 - Coverage heatmap

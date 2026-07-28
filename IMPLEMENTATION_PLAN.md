@@ -40,7 +40,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 |---:|---|---|---|---|
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
-| 2 | Territory setup | Phase 1 | Awaiting human review | Exact-segment exclusion, hidden-road activation, and toggleable/deletable exclusion areas pass automated and browser checks |
+| 2 | Territory setup | Phase 1 | In progress | Founder approved a circle/square outer-boundary amendment on July 28, 2026; prior Phase 2 behavior remains verified |
 | 3 | Coverage history and heatmap | Phase 2 | Pending | None |
 | 4 | Packet selection | Phase 3 | Pending | None |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
@@ -140,14 +140,18 @@ Create and correct one church outreach territory.
 
 ### Agent work
 
-- Accept a church address and radius.
+- Accept a church address, boundary distance, and circle or square boundary shape.
 - Import and display the street segments proven in Phase 0.
-- Store estimated residential home counts.
+- Normalize and store street geometry and residential home counts for the complete Overture
+  bounding-box footprint.
 - Display the territory in an interactive Google Maps JavaScript API map.
-- Allow the administrator to adjust a circular territory with live radius controls.
+- Allow the administrator to switch between the circle and its exact enclosing Overture bounding
+  box and adjust the shared distance with live controls.
 - Allow the administrator to create, name, reshape, and remove polygon exclusion zones.
 - Allow each exclusion zone to be enabled or disabled without deleting its saved geometry.
-- Display eligible segments in the page accent color and excluded segments in gray.
+- Do not display segments outside the selected outer boundary.
+- Display eligible segments inside the boundary in the page accent color and excluded segments
+  inside the boundary in gray.
 - Retain every imported Overture road as active or hidden.
 - Automatically activate high-confidence residential roads.
 - Allow the administrator to preview and activate a complete hidden road group.
@@ -160,9 +164,11 @@ Create and correct one church outreach territory.
 ### Automated checks
 
 - Imported segments belong to the correct church.
-- Segments not entirely inside the radius are excluded.
+- Segments not entirely inside the selected circle or square are omitted from the map and totals.
+- Gray segments are inside the selected boundary and excluded by a polygon or exact-segment
+  override.
 - Any segment that touches or crosses an exclusion polygon is excluded from eligible home totals.
-- Radius and exclusion-polygon changes persist after reload.
+- Boundary shape, boundary distance, and exclusion-polygon changes persist after reload.
 - Disabled exclusion polygons remain stored but do not affect eligibility totals.
 - Saving a deletion removes only the selected exclusion.
 - Cancelling draft changes leaves the stored territory unchanged.
@@ -170,18 +176,22 @@ Create and correct one church outreach territory.
 - A saved manual activation remains active after a later import.
 - A saved segment exclusion affects only the exact selected segment and survives a reimport only
   while that segment's geometry remains unchanged.
-- Restoring a segment does not override the radius or an enabled exclusion polygon.
+- Restoring a segment does not override the outer boundary or an enabled exclusion polygon.
+- Switching between circle and square within the imported footprint does not trigger another
+  import.
 - Failed imports preserve the prior active and hidden road sets.
 - Territory totals equal the eligible segment totals.
 
 ### Browser check
 
-Create a territory, adjust its radius, draw and reshape an exclusion polygon, save, reload the
-page, and verify that the same map and totals return. Confirm that cancelling a second set of
-changes restores the saved territory. Confirm that address evidence activates Hillsdale Heights,
-then show hidden roads, activate another known candidate, save, reload, and verify that the
-complete road remains active after another import. Select one orange segment, exclude it, verify
-that only its tracts leave the totals, save and reload, then select the gray segment and restore it.
+Create a territory, switch between circle and square, adjust its distance, draw and reshape an
+exclusion polygon, save, reload the page, and verify that the same map and totals return. Confirm
+that outside-circle segments disappear rather than turning gray and that cancelling a second set
+of changes restores the saved territory. Confirm that address evidence activates Hillsdale
+Heights, then show hidden roads, activate another known candidate, save, reload, and verify that
+the complete road remains active after another import. Select one orange segment, exclude it,
+verify that only its tracts leave the totals, save and reload, then select the gray segment and
+restore it.
 
 ### Phase 2 evidence
 
@@ -224,17 +234,19 @@ Verified July 28, 2026 with pinned Overture release `2026-06-17.0`:
 
 ### Human review
 
-The founder inspects the area around the church, adjusts the radius, draws a known exclusion,
-and confirms that affected segments turn gray and disappear from eligibility. The founder then
-confirms that Hillsdale Heights is active, shows hidden roads, activates a known uncertain road,
-saves, reloads, and confirms that the road remains active. The founder then clicks one orange
-segment, excludes and saves it, reloads, and confirms that the same gray segment can be restored.
+The founder inspects the area around the church, switches between circle and square, adjusts the
+boundary distance, and confirms that segments outside the selected boundary are not displayed.
+The founder draws a known exclusion and confirms that affected segments turn gray and disappear
+from eligibility. The founder then confirms that Hillsdale Heights is active, shows hidden roads,
+activates a known uncertain road, saves, reloads, and confirms that the road remains active. The
+founder then clicks one orange segment, excludes and saves it, reloads, and confirms that the same
+gray segment can be restored.
 
 ### Completion condition
 
-The founder can make the stored territory match the church's real outreach area by adjusting
-the radius, drawing exclusion polygons, activating retained Overture roads, and excluding or
-restoring exact individual segments without editing the database.
+The founder can make the stored territory match the church's real outreach area by selecting a
+circle or square boundary, adjusting its distance, drawing exclusion polygons, activating retained
+Overture roads, and excluding or restoring exact individual segments without editing the database.
 
 ## Phase 3: Coverage history and heatmap
 
@@ -281,7 +293,7 @@ Generate deterministic packet proposals from eligible street segments.
 - Accept requested packet quantities and approximate home counts.
 - Start with the oldest eligible segments.
 - Prefer compact, connected segment groups.
-- Exclude segments outside the territory radius, touching or crossing exclusion areas, or
+- Exclude segments outside the territory boundary, touching or crossing exclusion areas, or
   reserved by active packets.
 - Prevent a segment from appearing in two proposed packets in the same generation.
 - Produce selected segments, a proposed starting address, a street list, and an estimated tract count.
