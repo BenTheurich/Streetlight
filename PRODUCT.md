@@ -74,9 +74,16 @@ The tracked coverage unit is a short street segment rather than an individual ho
 - Administrator-activated roads remain active through later imports. A later source refresh may
   update matching geometry but cannot silently hide an approved road; if the source road
   disappears, Streetlight preserves the last approved geometry.
-- Exclusion polygons remain the first-release method for removing unsuitable roads. Drawing
-  roads, changing road geometry, deactivating individual roads, and correcting home counts are
-  outside the first release.
+- Exclusion polygons remain the first-release method for removing unsuitable areas. For an
+  unsuitable individual segment, an administrator can select that exact segment and exclude it
+  without deleting or changing its imported geometry.
+- A manually excluded segment remains visible in gray and can be selected and restored. It does
+  not contribute to territory eligibility, tract totals, or packet generation while excluded.
+  Segment exclusion and restoration follow the territory editor's explicit Save and Cancel model.
+- A saved segment exclusion survives later imports while the exact imported segment still exists.
+  A materially changed or replacement segment does not inherit the exclusion.
+- Drawing roads, changing road geometry, deactivating a complete named road, and correcting home
+  counts are outside the first release.
 - An administrator can enable, disable, reshape, rename, or delete an exclusion polygon. A
   disabled polygon remains stored and appears as a faint outline in the territory editor, but it
   does not affect segment eligibility or tract totals.
@@ -182,6 +189,7 @@ Included:
 - Territory creation and correction
 - Editable territory radius
 - Toggleable and deletable exclusion areas
+- Reversible exact-segment exclusions
 - Coverage heatmap
 - Deterministic packet generation
 - Batch preview and finalization
