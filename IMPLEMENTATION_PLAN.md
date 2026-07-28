@@ -42,7 +42,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
 | 2 | Territory setup | Phase 1 | Complete | Founder approved the interactive territory setup, Overture import quality controls, hidden-road activation, toggleable polygon and exact-segment exclusions, and circle/square boundaries on July 28, 2026; 59 Node checks, 25 Python checks, lint, typecheck, production build, and browser review pass |
 | 3 | Coverage history and heatmap | Phase 2 | Complete | Founder approved the full imported-territory heatmap and merged it on July 28, 2026; 84 Node checks, 25 Python checks, lint, typecheck, production build, database invariants, and real-browser acceptance pass. |
-| 4 | Packet selection | Phase 3 | Awaiting human review | Deterministic proposals and the founder-approved shared-map review workspace are implemented; automated, canonical-data, and browser evidence is recorded below |
+| 4 | Packet selection | Phase 3 | Complete | Founder approved the deterministic packet proposals and orphan-prevention behavior and merged Phase 4 locally on July 28, 2026; automated, canonical-data, and browser evidence is recorded below |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
 | 6 | Reconciliation and corrections | Phase 5 | Pending | None |
 | 7 | Authentication and church isolation | Phase 6 | Pending | None |
