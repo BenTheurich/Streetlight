@@ -215,6 +215,14 @@ The first dashboard contains:
 - Generate Batch action
 - Reconcile Batch action
 
+The administrator website uses one persistent map workspace at `/`. Coverage, Generate Packets,
+and Territory Setup are tools in that workspace rather than separate pages. Switching tools keeps
+the map camera, Map/Satellite choice, and each tool's in-progress state. Coverage and Generate
+Packets share the complete heatmap; a selected packet adds a distinct review highlight and
+starting pin above it. Territory Setup replaces the heatmap treatment with its editing overlays.
+The saved church location uses the founder-supplied church marker in every tool, and the header
+uses the founder-supplied logo beside the `STREETLIGHT` text.
+
 Advanced charts, leaderboards, volunteer statistics, and a report builder are outside the first release.
 
 ## First release scope

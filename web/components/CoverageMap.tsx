@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { CoverageLegendItem } from '@/lib/coverage';
 import type { CoverageWorkspaceSegment } from '@/lib/database';
-import { latLng, loadGoogleMaps } from '@/lib/google-maps-browser';
-import type { Position } from '@/lib/territory-geometry';
+import { latLng } from '@/lib/google-maps-browser';
 import { segmentStrokeWeight } from '@/lib/territory-map-style';
 
-const colors = {
+export const coverageColors = {
   red: '#B4473D',
   orange: '#D66B2D',
   yellow: '#D2A128',
@@ -16,8 +15,9 @@ const colors = {
 };
 
 type CoverageMapProps = {
-  apiKey: string;
-  center: Position;
+  active: boolean;
+  interactive: boolean;
+  map: google.maps.Map | null;
   legend: CoverageLegendItem[];
   segments: CoverageWorkspaceSegment[];
   selectedSegmentId: string | null;
@@ -25,100 +25,41 @@ type CoverageMapProps = {
 };
 
 export function CoverageMap({
-  apiKey,
-  center,
+  active,
+  interactive,
+  map,
   legend,
   segments,
   selectedSegmentId,
   onSelectSegment,
 }: CoverageMapProps) {
-  const elementRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
   const linesRef = useRef<Array<{ id: string; line: google.maps.Polyline }>>([]);
   const fittedRef = useRef(false);
-  const centerRef = useRef(center);
-  const mapCenterRef = useRef<Position | null>(null);
   const selectedSegmentRef = useRef(selectedSegmentId);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(apiKey ? 'loading' : 'error');
 
   selectedSegmentRef.current = selectedSegmentId;
-  centerRef.current = center;
 
   useEffect(() => {
-    if (!apiKey || !elementRef.current) return;
-    let disposed = false;
-    loadGoogleMaps(apiKey)
-      .then((maps) => {
-        if (disposed || !elementRef.current) return;
-        mapRef.current = new maps.Map(elementRef.current, {
-          center: latLng(centerRef.current),
-          zoom: 11,
-          mapId: 'DEMO_MAP_ID',
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-          clickableIcons: false,
-        });
-        fittedRef.current = false;
-        mapCenterRef.current = centerRef.current;
-        setStatus('ready');
-      })
-      .catch(() => {
-        if (!disposed) setStatus('error');
-      });
-    return () => {
-      disposed = true;
-      if (mapRef.current) google.maps.event.clearInstanceListeners(mapRef.current);
-      mapRef.current = null;
-    };
-  }, [apiKey]);
-
-  useEffect(() => {
-    const previous = mapCenterRef.current;
-    if (!previous || previous[0] !== center[0] || previous[1] !== center[1]) {
-      mapRef.current?.panTo(latLng(center));
-      mapCenterRef.current = center;
-    }
-  }, [center]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || status !== 'ready') return;
-    let disposed = false;
-    let marker: google.maps.marker.AdvancedMarkerElement | null = null;
-    void google.maps.importLibrary('marker').then((library) => {
-      if (disposed) return;
-      const { AdvancedMarkerElement } = library as google.maps.MarkerLibrary;
-      marker = new AdvancedMarkerElement({ map, position: latLng(center), title: 'Church' });
-    });
-    return () => {
-      disposed = true;
-      if (marker) marker.map = null;
-    };
-  }, [center, status]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || status !== 'ready') return;
+    if (!active || !map) return;
     const bounds = new google.maps.LatLngBounds();
     const lines = segments.map((segment) => {
       const line = new google.maps.Polyline({
         map,
         path: segment.geometry.coordinates.map(latLng),
-        strokeColor: segment.eligible ? colors[segment.coverageClass] : colors.gray,
+        strokeColor: segment.eligible ? coverageColors[segment.coverageClass] : coverageColors.gray,
         strokeOpacity: segment.eligible ? 0.68 : 0.42,
         strokeWeight: segmentStrokeWeight(map.getZoom() ?? 11),
-        clickable: true,
+        clickable: interactive,
         zIndex: 2,
       });
       for (const point of segment.geometry.coordinates) bounds.extend(latLng(point));
-      line.addListener('click', () => onSelectSegment(segment.id));
+      if (interactive) line.addListener('click', () => onSelectSegment(segment.id));
       return line;
     });
     linesRef.current = lines.map((line, index) => ({ id: segments[index].id, line }));
     const initialWeight = segmentStrokeWeight(map.getZoom() ?? 11);
     for (const { id, line } of linesRef.current) {
-      const selected = id === selectedSegmentRef.current;
+      const selected = interactive && id === selectedSegmentRef.current;
       line.setOptions({
         strokeWeight: initialWeight + (selected ? 2 : 0),
         zIndex: selected ? 3 : 2,
@@ -131,7 +72,9 @@ export function CoverageMap({
     const updateStrokeWeight = () => {
       const weight = segmentStrokeWeight(map.getZoom() ?? 11);
       for (const { id, line } of linesRef.current) {
-        line.setOptions({ strokeWeight: weight + (id === selectedSegmentRef.current ? 2 : 0) });
+        line.setOptions({
+          strokeWeight: weight + (interactive && id === selectedSegmentRef.current ? 2 : 0),
+        });
       }
     };
     const zoomListener = map.addListener('zoom_changed', updateStrokeWeight);
@@ -143,44 +86,28 @@ export function CoverageMap({
         line.setMap(null);
       }
     };
-  }, [onSelectSegment, segments, status]);
+  }, [active, interactive, map, onSelectSegment, segments]);
 
   useEffect(() => {
-    const weight = segmentStrokeWeight(mapRef.current?.getZoom() ?? 11);
+    if (!interactive) return;
+    const weight = segmentStrokeWeight(map?.getZoom() ?? 11);
     for (const { id, line } of linesRef.current) {
       const selected = id === selectedSegmentId;
       line.setOptions({ strokeWeight: weight + (selected ? 2 : 0), zIndex: selected ? 3 : 2 });
     }
-  }, [selectedSegmentId]);
+  }, [interactive, map, selectedSegmentId]);
 
-  if (!apiKey) {
-    return (
-      <div className="map-unavailable" role="status">
-        <strong>Interactive map unavailable</strong>
-        <span>Add the browser map key described in ENVIRONMENTS.md.</span>
-      </div>
-    );
-  }
+  if (!active) return null;
 
   return (
-    <>
-      <div
-        aria-label="Coverage heatmap"
-        className="google-map"
-        ref={elementRef}
-        role="application"
-      />
-      {status === 'loading' && <span className="map-loading">Loading map…</span>}
-      {status === 'error' && <span className="map-loading">Google map could not load.</span>}
-      <fieldset className="map-legend coverage-legend">
-        <legend className="sr-only">Coverage heatmap legend</legend>
-        {legend.map((item) => (
-          <span key={item.coverageClass}>
-            <i style={{ background: colors[item.coverageClass] }} />
-            {item.label}
-          </span>
-        ))}
-      </fieldset>
-    </>
+    <fieldset className="map-legend coverage-legend">
+      <legend className="sr-only">Coverage heatmap legend</legend>
+      {legend.map((item) => (
+        <span key={item.coverageClass}>
+          <i style={{ background: coverageColors[item.coverageClass] }} />
+          {item.label}
+        </span>
+      ))}
+    </fieldset>
   );
 }

@@ -1,72 +1,54 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { latLng, loadGoogleMaps } from '@/lib/google-maps-browser';
+import { useEffect } from 'react';
+import { latLng } from '@/lib/google-maps-browser';
 import type { PacketProposal } from '@/lib/packet-selection';
-import type { Position } from '@/lib/territory-geometry';
 import { segmentStrokeWeight } from '@/lib/territory-map-style';
 
 type PacketProposalMapProps = {
-  apiKey: string;
-  center: Position;
+  active: boolean;
+  map: google.maps.Map | null;
   proposal: PacketProposal | null;
 };
 
-export function PacketProposalMap({ apiKey, center, proposal }: PacketProposalMapProps) {
-  const elementRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(apiKey ? 'loading' : 'error');
-
+export function PacketProposalMap({ active, map, proposal }: PacketProposalMapProps) {
   useEffect(() => {
-    if (!apiKey || !elementRef.current) return;
-    let disposed = false;
-    loadGoogleMaps(apiKey)
-      .then((maps) => {
-        if (disposed || !elementRef.current) return;
-        mapRef.current = new maps.Map(elementRef.current, {
-          center: latLng(center),
-          zoom: 11,
-          mapId: 'DEMO_MAP_ID',
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-          clickableIcons: false,
-        });
-        setStatus('ready');
-      })
-      .catch(() => {
-        if (!disposed) setStatus('error');
-      });
-    return () => {
-      disposed = true;
-      if (mapRef.current) google.maps.event.clearInstanceListeners(mapRef.current);
-      mapRef.current = null;
-    };
-  }, [apiKey, center]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || status !== 'ready' || !proposal) return;
+    if (!active || !map || !proposal) return;
     let disposed = false;
     let marker: google.maps.marker.AdvancedMarkerElement | null = null;
     const bounds = new google.maps.LatLngBounds();
-    const lines = proposal.segments.map((segment) => {
-      const line = new google.maps.Polyline({
+    const lines = proposal.segments.flatMap((segment) => {
+      const path = segment.geometry.coordinates.map(latLng);
+      const baseWeight = Math.max(5, segmentStrokeWeight(map.getZoom() ?? 11) + 2);
+      const halo = new google.maps.Polyline({
         map,
-        path: segment.geometry.coordinates.map(latLng),
-        strokeColor: '#D66B2D',
-        strokeOpacity: 0.72,
-        strokeWeight: segmentStrokeWeight(map.getZoom() ?? 11),
+        path,
+        strokeColor: '#FFFFFF',
+        strokeOpacity: 0.95,
+        strokeWeight: baseWeight + 4,
         clickable: false,
+        zIndex: 10,
+      });
+      const highlight = new google.maps.Polyline({
+        map,
+        path,
+        strokeColor: '#1769FF',
+        strokeOpacity: 0.92,
+        strokeWeight: baseWeight,
+        clickable: false,
+        zIndex: 11,
       });
       for (const point of segment.geometry.coordinates) bounds.extend(latLng(point));
-      return line;
+      return [halo, highlight];
     });
     bounds.extend(latLng(proposal.start.position));
-    map.fitBounds(bounds, 48);
+    map.fitBounds(bounds, 56);
     const zoomListener = map.addListener('zoom_changed', () => {
-      const weight = segmentStrokeWeight(map.getZoom() ?? 11);
-      for (const line of lines) line.setOptions({ strokeWeight: weight });
+      const weight = Math.max(5, segmentStrokeWeight(map.getZoom() ?? 11) + 2);
+      for (let index = 0; index < lines.length; index += 2) {
+        lines[index].setOptions({ strokeWeight: weight + 4 });
+        lines[index + 1].setOptions({ strokeWeight: weight });
+      }
     });
     void google.maps.importLibrary('marker').then((library) => {
       if (disposed) return;
@@ -75,6 +57,7 @@ export function PacketProposalMap({ apiKey, center, proposal }: PacketProposalMa
         map,
         position: latLng(proposal.start.position),
         title: 'Starting address',
+        zIndex: 30,
       });
     });
     return () => {
@@ -83,27 +66,7 @@ export function PacketProposalMap({ apiKey, center, proposal }: PacketProposalMa
       for (const line of lines) line.setMap(null);
       if (marker) marker.map = null;
     };
-  }, [proposal, status]);
+  }, [active, map, proposal]);
 
-  if (!apiKey) {
-    return (
-      <div className="map-unavailable" role="status">
-        <strong>Interactive map unavailable</strong>
-        <span>Add the browser map key described in ENVIRONMENTS.md.</span>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <div
-        aria-label="Selected packet proposal"
-        className="google-map"
-        ref={elementRef}
-        role="application"
-      />
-      {status === 'loading' && <span className="map-loading">Loading map…</span>}
-      {status === 'error' && <span className="map-loading">Google map could not load.</span>}
-    </>
-  );
+  return null;
 }

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ExclusionArea, TerritorySegment } from '@/lib/database';
-import { latLng, loadGoogleMaps } from '@/lib/google-maps-browser';
+import { latLng } from '@/lib/google-maps-browser';
 import { type BoundaryShape, type Position, territoryBoundary } from '@/lib/territory-geometry';
 import {
   segmentMapAppearance,
@@ -25,7 +25,8 @@ function samePositions(first: Position[], second: Position[]): boolean {
 }
 
 type TerritoryMapProps = {
-  apiKey: string;
+  active: boolean;
+  map: google.maps.Map | null;
   center: Position;
   radiusMiles: number;
   boundaryShape: BoundaryShape;
@@ -46,7 +47,8 @@ type TerritoryMapProps = {
 };
 
 export function TerritoryMap({
-  apiKey,
+  active,
+  map,
   center,
   radiusMiles,
   boundaryShape,
@@ -65,99 +67,55 @@ export function TerritoryMap({
   onSelectHiddenRoadGroup,
   onSelectSegment,
 }: TerritoryMapProps) {
-  const elementRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const centerRef = useRef(center);
   const drawingRef = useRef(drawing);
   const drawingPointsRef = useRef(drawingPoints);
   const drawingPathRef = useRef<google.maps.MVCArray<google.maps.LatLng> | null>(null);
   const syncingDrawingPathRef = useRef(false);
   const addPointRef = useRef(onAddDrawingPoint);
   const drawingPointsChangeRef = useRef(onDrawingPointsChange);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(apiKey ? 'loading' : 'error');
+  const previousCenterRef = useRef(center);
   const drawingShapeKind =
     drawing && drawingPoints.length > 0 ? (drawingPoints.length < 3 ? 'line' : 'polygon') : null;
 
-  centerRef.current = center;
   drawingRef.current = drawing;
   drawingPointsRef.current = drawingPoints;
   addPointRef.current = onAddDrawingPoint;
   drawingPointsChangeRef.current = onDrawingPointsChange;
 
   useEffect(() => {
-    if (!apiKey || !elementRef.current) {
-      return;
-    }
-    let disposed = false;
-    loadGoogleMaps(apiKey)
-      .then((maps) => {
-        if (disposed || !elementRef.current) {
-          return;
-        }
-        const map = new maps.Map(elementRef.current, {
-          center: latLng(centerRef.current),
-          zoom: 11,
-          mapId: 'DEMO_MAP_ID',
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-          clickableIcons: false,
-        });
-        map.addListener('click', (event: google.maps.MapMouseEvent) => {
-          if (drawingRef.current && event.latLng) {
-            addPointRef.current([event.latLng.lng(), event.latLng.lat()]);
-          }
-        });
-        mapRef.current = map;
-        setStatus('ready');
-      })
-      .catch(() => {
-        if (!disposed) {
-          setStatus('error');
-        }
-      });
-    return () => {
-      disposed = true;
-      if (mapRef.current) {
-        google.maps.event.clearInstanceListeners(mapRef.current);
+    if (!active || !map) return;
+    const clickListener = map.addListener('click', (event: google.maps.MapMouseEvent) => {
+      if (drawingRef.current && event.latLng) {
+        addPointRef.current([event.latLng.lng(), event.latLng.lat()]);
       }
-      mapRef.current = null;
-    };
-  }, [apiKey]);
-
-  useEffect(() => {
-    mapRef.current?.panTo(latLng(center));
-  }, [center]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || status !== 'ready') {
-      return;
-    }
-    let disposed = false;
-    let marker: google.maps.marker.AdvancedMarkerElement | null = null;
-    void google.maps.importLibrary('marker').then((library) => {
-      if (disposed) {
-        return;
-      }
-      const { AdvancedMarkerElement } = library as google.maps.MarkerLibrary;
-      marker = new AdvancedMarkerElement({
-        map,
-        position: latLng(center),
-        title: 'Church',
-      });
     });
-    return () => {
-      disposed = true;
-      if (marker) {
-        marker.map = null;
+    const mapElement = map.getDiv();
+    const addCenterPoint = (event: KeyboardEvent) => {
+      if (drawingRef.current && event.key === 'Enter') {
+        const point = map.getCenter();
+        if (point) {
+          event.preventDefault();
+          addPointRef.current([point.lng(), point.lat()]);
+        }
       }
     };
-  }, [center, status]);
+    mapElement.addEventListener('keydown', addCenterPoint);
+    return () => {
+      clickListener.remove();
+      mapElement.removeEventListener('keydown', addCenterPoint);
+    };
+  }, [active, map]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || status !== 'ready') {
+    const previous = previousCenterRef.current;
+    previousCenterRef.current = center;
+    if (active && map && (previous[0] !== center[0] || previous[1] !== center[1])) {
+      map.panTo(latLng(center));
+    }
+  }, [active, center, map]);
+
+  useEffect(() => {
+    if (!active || !map) {
       return;
     }
     const boundary = territoryBoundary(center, radiusMiles, boundaryShape);
@@ -191,13 +149,10 @@ export function TerritoryMap({
       fill.setMap(null);
       ring.setMap(null);
     };
-  }, [boundaryShape, center, radiusMiles, status]);
+  }, [active, boundaryShape, center, map, radiusMiles]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || status !== 'ready') {
-      return;
-    }
+    if (!active || !map) return;
     const visibleSegments = segments.filter((segment) =>
       segmentVisibleOnMap(segment, showHiddenRoads),
     );
@@ -248,21 +203,19 @@ export function TerritoryMap({
       }
     };
   }, [
+    active,
     drawing,
+    map,
     onSelectHiddenRoadGroup,
     onSelectSegment,
     segments,
     selectedHiddenRoadGroupId,
     selectedSegmentId,
     showHiddenRoads,
-    status,
   ]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || status !== 'ready') {
-      return;
-    }
+    if (!active || !map) return;
     const polygons = exclusions.map((exclusion) => {
       const editable = exclusion.id === selectedExclusionId && !drawing;
       const enabled = exclusion.enabled;
@@ -295,22 +248,16 @@ export function TerritoryMap({
         polygon.setMap(null);
       }
     };
-  }, [drawing, exclusions, onExclusionChange, onSelectExclusion, selectedExclusionId, status]);
+  }, [active, drawing, exclusions, map, onExclusionChange, onSelectExclusion, selectedExclusionId]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || status !== 'ready') {
-      return;
-    }
+    if (!active || !map) return;
     map.setOptions({ draggableCursor: drawing ? 'crosshair' : null });
     return () => map.setOptions({ draggableCursor: null });
-  }, [drawing, status]);
+  }, [active, drawing, map]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || status !== 'ready' || !drawingShapeKind) {
-      return;
-    }
+    if (!active || !map || !drawingShapeKind) return;
     const shape =
       drawingShapeKind === 'line'
         ? new google.maps.Polyline({
@@ -362,7 +309,7 @@ export function TerritoryMap({
       }
       shape.setMap(null);
     };
-  }, [drawingShapeKind, status]);
+  }, [active, drawingShapeKind, map]);
 
   useEffect(() => {
     const path = drawingPathRef.current;
@@ -377,34 +324,5 @@ export function TerritoryMap({
     syncingDrawingPathRef.current = false;
   }, [drawingPoints, drawingShapeKind]);
 
-  if (!apiKey) {
-    return (
-      <div className="map-unavailable" role="status">
-        <strong>Interactive map unavailable</strong>
-        <span>Add the browser map key described in ENVIRONMENTS.md.</span>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <div
-        aria-label="Interactive outreach territory map"
-        className="google-map"
-        onKeyDown={(event) => {
-          if (drawing && event.key === 'Enter' && mapRef.current?.getCenter()) {
-            event.preventDefault();
-            const point = mapRef.current.getCenter();
-            if (point) {
-              onAddDrawingPoint([point.lng(), point.lat()]);
-            }
-          }
-        }}
-        ref={elementRef}
-        role="application"
-      />
-      {status === 'loading' && <span className="map-loading">Loading map…</span>}
-      {status === 'error' && <span className="map-loading">Google map could not load.</span>}
-    </>
-  );
+  return null;
 }

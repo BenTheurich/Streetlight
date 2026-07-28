@@ -9,6 +9,10 @@ function json(body: unknown, status = 200): Response {
   return Response.json(body, { status });
 }
 
+export function GET(): Response {
+  return json(getCoverageWorkspace());
+}
+
 export async function POST(request: Request): Promise<Response> {
   let body: unknown;
   try {

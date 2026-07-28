@@ -10,7 +10,7 @@ import {
   getTerritoryWorkspace,
   recordCoverageCompletion,
 } from '../../../lib/database.ts';
-import { PATCH, POST } from './route.ts';
+import { GET, PATCH, POST } from './route.ts';
 
 function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-coverage-route-'));
@@ -54,6 +54,23 @@ function thresholdRequest(body: unknown): Request {
     body: JSON.stringify(body),
   });
 }
+
+test('GET returns the current coverage workspace without mutation', async () => {
+  await withDatabase(async (filename) => {
+    const before = eventCount(filename);
+
+    const response = GET();
+
+    assert.equal(response.status, 200);
+    const workspace = (await response.json()) as {
+      center: [number, number];
+      segments: Array<{ id: string }>;
+    };
+    assert.equal(workspace.center.length, 2);
+    assert.ok(workspace.segments.length > 0);
+    assert.equal(eventCount(filename), before);
+  });
+});
 
 test('POST correction appends exactly one date correction and returns refreshed coverage', async () => {
   await withDatabase(async (filename) => {

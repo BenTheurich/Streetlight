@@ -42,7 +42,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
 | 2 | Territory setup | Phase 1 | Complete | Founder approved the interactive territory setup, Overture import quality controls, hidden-road activation, toggleable polygon and exact-segment exclusions, and circle/square boundaries on July 28, 2026; 59 Node checks, 25 Python checks, lint, typecheck, production build, and browser review pass |
 | 3 | Coverage history and heatmap | Phase 2 | Complete | Founder approved the full imported-territory heatmap and merged it on July 28, 2026; 84 Node checks, 25 Python checks, lint, typecheck, production build, database invariants, and real-browser acceptance pass. |
-| 4 | Packet selection | Phase 3 | Awaiting human review | Tasks 1-4: `942e060`, `9c60567`, `1ee7f5d`, `8ed89ee`; automated, canonical-data, and browser evidence recorded below |
+| 4 | Packet selection | Phase 3 | Awaiting human review | Deterministic proposals and the founder-approved shared-map review workspace are implemented; automated, canonical-data, and browser evidence is recorded below |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
 | 6 | Reconciliation and corrections | Phase 5 | Pending | None |
 | 7 | Authentication and church isolation | Phase 6 | Pending | None |
@@ -394,6 +394,19 @@ Generate mixed packet sizes, inspect each proposal on the map, regenerate the sa
 - Before and after repeated generation, `coverage_events`, `batches`, `packets`, and
   `packet_segments` each contained zero rows. Phase 4 generation made no reservation or workflow
   write.
+- The founder-approved shared-map amendment is recorded in
+  `docs/superpowers/specs/2026-07-28-shared-map-workspace-design.md`. `/` now owns one persistent
+  Google map for Coverage, Generate Packets, and Territory Setup; `/packets` and `/territory`
+  return 404. The complete heatmap remains beneath a selected electric-blue packet overlay.
+- The supplied Streetlight logo and 44-pixel church marker are present, and Google's native Map /
+  Satellite control persists across tools. Packet proposals and unsaved territory changes survive
+  temporary tool switches.
+- 96 Node checks and 26 Python importer checks pass. Lint, typecheck, and the production build pass;
+  the production route list contains `/` and the three workflow APIs without separate packet or
+  territory pages.
+- Real-browser acceptance confirmed one map canvas across all three tools, Map/Satellite
+  persistence, heatmap visibility in packet review, tight packet fitting, distinct church and
+  starting markers, territory overlays, and retained packet and territory draft state.
 
 ### Human review
 

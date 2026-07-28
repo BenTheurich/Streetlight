@@ -136,6 +136,15 @@ textarea {
   align-items: center;
 }
 
+.brand {
+  gap: 0.55rem;
+}
+
+.brand img {
+  display: block;
+  object-fit: contain;
+}
+
 .phase-label {
   margin-left: 1rem;
   padding-left: 1rem;
@@ -169,6 +178,29 @@ textarea {
   gap: 1rem;
 }
 
+.workspace-tools {
+  display: flex;
+  gap: 0.25rem;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.workspace-tools button {
+  min-height: 32px;
+  padding: 0.4rem 0.65rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.workspace-tools button.active {
+  background: var(--ink);
+  color: white;
+}
+
 .territory-workspace {
   display: grid;
   height: calc(100vh - 58px);
@@ -191,6 +223,17 @@ textarea {
 
 .google-map {
   background: #e8ece6;
+}
+
+.map-overlay-root {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.map-overlay-root > * {
+  pointer-events: auto;
 }
 
 .map-unavailable {
@@ -240,6 +283,7 @@ textarea {
 }
 
 .map-modes {
+  top: 62px;
   left: 15px;
   display: flex;
   gap: 4px;
@@ -354,6 +398,10 @@ textarea {
   grid-template-rows: auto 1fr auto;
   border-left: 1px solid var(--line);
   background: var(--panel);
+}
+
+.territory-sidebar[hidden] {
+  display: none;
 }
 
 .sidebar-title {
