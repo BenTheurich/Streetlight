@@ -63,6 +63,9 @@ The tracked coverage unit is a short street segment rather than an individual ho
 - Every selected segment includes residential homes on both sides of the street.
 - Streetlight never assigns only one side of a selected segment.
 - A turn of about 90 degrees can define a segment boundary. A packet can still contain multiple connected segments across those boundaries.
+- Overture connector points and slight bends do not create segment boundaries by themselves.
+  No normalized segment may contain more than 100 estimated homes; a longer road is split as
+  needed while retaining every assigned address.
 - Territory boundaries and ignore zones exclude whole segments from packet selection.
 - Address data supplies estimated home counts and packet starting addresses. Retain the house
   number, street, available locality and postcode, and point coordinate for each address assigned

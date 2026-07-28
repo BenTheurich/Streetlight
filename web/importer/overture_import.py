@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 ALWAYS_KEEP = {"residential", "living_street"}
 KEEP_WITH_ADDRESS = {"primary", "secondary", "tertiary", "unclassified"}
 MAX_ADDRESS_DISTANCE_METERS = 40
+MAX_SEGMENT_HOMES = 100
 OVERTURE_RELEASE = "2026-06-17.0"
 TURN_SPLIT_DEGREES = 85
 EARTH_RADIUS_MILES = 3958.7613
@@ -174,6 +175,81 @@ def _distance_to_line(point, coordinates):
     return best
 
 
+def _distance_along_line(point, coordinates):
+    scale_x = math.cos(math.radians(point[1]))
+    px, py = point[0] * scale_x, point[1]
+    traversed = 0
+    best = (math.inf, 0)
+    for start, end in zip(coordinates, coordinates[1:]):
+        ax, ay = start[0] * scale_x, start[1]
+        bx, by = end[0] * scale_x, end[1]
+        dx, dy = bx - ax, by - ay
+        length_squared = dx * dx + dy * dy
+        amount = (
+            max(0, min(1, ((px - ax) * dx + (py - ay) * dy) / length_squared))
+            if length_squared
+            else 0
+        )
+        distance = math.hypot(px - (ax + amount * dx), py - (ay + amount * dy))
+        if distance < best[0]:
+            best = (distance, traversed + amount * _segment_length(start, end))
+        traversed += _segment_length(start, end)
+    return best[1]
+
+
+def _split_overfull_segment(segment):
+    if segment["address_count"] <= MAX_SEGMENT_HOMES:
+        return [segment]
+    ordered = sorted(
+        segment["addresses"],
+        key=lambda address: (
+            _distance_along_line(address["position"], segment["coordinates"]),
+            address["position"],
+            address["number"] or "",
+        ),
+    )
+    chunks = [
+        ordered[index : index + MAX_SEGMENT_HOMES]
+        for index in range(0, len(ordered), MAX_SEGMENT_HOMES)
+    ]
+    total_length = sum(
+        _segment_length(start, end)
+        for start, end in zip(segment["coordinates"], segment["coordinates"][1:])
+    )
+    if total_length:
+        targets = []
+        for index in range(1, len(chunks)):
+            previous = _distance_along_line(
+                chunks[index - 1][-1]["position"], segment["coordinates"]
+            )
+            following = _distance_along_line(
+                chunks[index][0]["position"], segment["coordinates"]
+            )
+            candidate = (previous + following) / 2 / total_length
+            minimum = targets[-1] + 1e-9 if targets else 1e-9
+            maximum = 1 - (len(chunks) - index) * 1e-9
+            targets.append(max(minimum, min(candidate, maximum)))
+        parts = _connector_parts(
+            [segment["coordinates"]],
+            [
+                {"connector_id": f"capacity-{index}", "at": target}
+                for index, target in enumerate(targets)
+            ],
+        )[0]
+    else:
+        parts = [segment["coordinates"] for _ in chunks]
+    return [
+        {
+            **segment,
+            "coordinates": coordinates,
+            "address_count": len(addresses),
+            "addresses": addresses,
+            "capacity_part_index": index,
+        }
+        for index, (coordinates, addresses) in enumerate(zip(parts, chunks))
+    ]
+
+
 def _assign_road_groups(segments):
     parents = list(range(len(segments)))
 
@@ -292,15 +368,10 @@ def normalize_features(roads, addresses):
         has_name_evidence = name is not None
         if name is None:
             name = "Unnamed road"
-        connector_parts = _connector_parts(
-            _lines(road_feature["geometry"]),
-            road_feature["properties"].get("connectors", []),
-        )
         parts = [
             part
-            for line_parts in connector_parts
-            for connector_part in line_parts
-            for part in _split_turns(connector_part)
+            for line in _lines(road_feature["geometry"])
+            for part in _split_turns(line)
         ]
         for part_index, coordinates in enumerate(parts):
             segment_id = f"overture:{road_feature['id']}:{part_index}"
@@ -352,6 +423,25 @@ def normalize_features(roads, addresses):
                     }
                 )
                 assigned_address_indexes.add(address_item["index"])
+
+    segments = [
+        split
+        for segment in segments
+        for split in _split_overfull_segment(segment)
+    ]
+    source_parts = {}
+    for segment in segments:
+        source_parts.setdefault(segment["source_id"], []).append(segment)
+    for source_segments in source_parts.values():
+        source_segments.sort(
+            key=lambda segment: (
+                segment["part_index"],
+                segment.get("capacity_part_index", 0),
+            )
+        )
+        for part_index, segment in enumerate(source_segments):
+            segment["part_index"] = part_index
+            segment["segment_id"] = f"overture:{segment['source_id']}:{part_index}"
 
     _assign_road_groups(segments)
 
@@ -577,7 +667,7 @@ def main(argv=None, download=download_features):
                 "center": [args.longitude, args.latitude],
                 "radiusMiles": args.radius_miles,
                 "completedAt": datetime.now(timezone.utc).isoformat(),
-                "normalizerVersion": 5,
+                "normalizerVersion": 6,
                 **normalize_features(roads, addresses),
             },
             separators=(",", ":"),

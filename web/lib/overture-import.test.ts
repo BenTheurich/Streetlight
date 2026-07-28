@@ -13,7 +13,7 @@ const validOutput = {
   center: requestedCenter,
   radiusMiles: 1,
   completedAt: '2026-07-27T12:00:00.000Z',
-  normalizerVersion: 5,
+  normalizerVersion: 6,
   quality: {
     totalAddresses: 12,
     assignedAddresses: 10,
@@ -140,6 +140,10 @@ test('rejects malformed JSON and every invalid import field', () => {
     {
       ...validOutput,
       segments: [{ ...validOutput.segments[0], estimatedHomes: 1.5 }],
+    },
+    {
+      ...validOutput,
+      segments: [{ ...validOutput.segments[0], estimatedHomes: 101 }],
     },
     {
       ...validOutput,

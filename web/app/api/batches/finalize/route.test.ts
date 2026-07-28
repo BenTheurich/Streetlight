@@ -45,7 +45,7 @@ function preparePacketGraph(filename: string): void {
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',
-    normalizerVersion: 5,
+    normalizerVersion: 6,
     quality: {
       totalAddresses: 2,
       assignedAddresses: 2,

@@ -144,6 +144,8 @@ Create and correct one church outreach territory.
 - Import and display the street segments proven in Phase 0.
 - Normalize and store street geometry and residential home counts for the complete Overture
   bounding-box footprint.
+- Continue road geometry through Overture connector points and slight bends, splitting at turns
+  of about 90 degrees or as needed to cap every normalized segment at 100 estimated homes.
 - Display the territory in an interactive Google Maps JavaScript API map.
 - Allow the administrator to switch between the circle and its exact enclosing Overture bounding
   box and adjust the shared distance with live controls.
@@ -233,6 +235,10 @@ Verified July 28, 2026 with pinned Overture release `2026-06-17.0`:
   once. At 1.9 miles, the saved test data contains 14,833 addresses, of which 10,663 matched a
   road. The square preview showed 10,343 eligible tracts across 1,845 segments; the circle preview
   hid the corner geometry and showed 8,727 eligible tracts across 1,553 segments.
+- Normalizer version 6 removes connector-only boundaries while retaining the 85-degree turn rule
+  and enforcing a hard 100-home maximum. On the saved 1.9-mile footprint it reduced 6,440
+  normalized segments to 3,993 while preserving all 10,932 assigned homes; the largest resulting
+  segment contained 48 homes.
 - Browser checks passed live shape switching, complete-boundary rendering, shape persistence after
   reload, no reimport when switching within the saved footprint, and Cancel restoration. The saved
   local territory was returned to its original circle afterward.

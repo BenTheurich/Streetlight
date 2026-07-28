@@ -36,7 +36,7 @@ test('proof data and an expanded footprint require imports', () => {
         center: draft.center,
         radiusMiles: 0.5,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 5,
+        normalizerVersion: 6,
         quality: {
           totalAddresses: 12,
           assignedAddresses: 10,
@@ -60,7 +60,7 @@ test('shape changes, exclusions, and radius reductions reuse a current footprint
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 5,
+        normalizerVersion: 6,
         quality: {
           totalAddresses: 12,
           assignedAddresses: 10,
@@ -104,7 +104,7 @@ test('a different pinned Overture release requires an import', () => {
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 5,
+        normalizerVersion: 6,
         quality: {
           totalAddresses: 12,
           assignedAddresses: 10,
@@ -126,7 +126,7 @@ test('shifted drafts reuse only containing imported footprints', () => {
     center: draft.center,
     radiusMiles: 2,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 5,
+    normalizerVersion: 6,
     quality: {
       totalAddresses: 12,
       assignedAddresses: 10,
@@ -170,7 +170,7 @@ test('legacy and mismatched normalizer versions require replacement', () => {
     center: draft.center,
     radiusMiles: 2,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 5,
+    normalizerVersion: 6,
     quality: {
       totalAddresses: 12,
       assignedAddresses: 10,
@@ -192,5 +192,6 @@ test('legacy and mismatched normalizer versions require replacement', () => {
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 2 }, draft), true);
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 3 }, draft), true);
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 4 }, draft), true);
+  assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 5 }, draft), true);
   assert.equal(needsTerritoryImport(current, draft), false);
 });

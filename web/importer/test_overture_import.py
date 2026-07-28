@@ -401,7 +401,7 @@ class NormalizeFeaturesTest(TestCase):
             ],
         )
 
-    def test_splits_at_interior_connector_linear_references(self):
+    def test_does_not_split_a_straight_road_at_interior_connectors(self):
         roads = [
             road(
                 "connected",
@@ -421,10 +421,54 @@ class NormalizeFeaturesTest(TestCase):
         self.assertEqual(
             [(item["id"], item["geometry"]["coordinates"]) for item in result],
             [
-                ("overture:connected:0", [[0, 0], [0.001, 0.0]]),
-                ("overture:connected:1", [[0.001, 0.0], [0.002, 0]]),
+                ("overture:connected:0", [[0, 0], [0.002, 0]]),
             ],
         )
+
+    def test_splits_long_roads_so_no_segment_exceeds_one_hundred_homes(self):
+        roads = [
+            road(
+                "long",
+                "residential",
+                "Long Road",
+                [[0, 0], [0.002, 0]],
+            )
+        ]
+        addresses = [
+            address(
+                "Long Road",
+                0.00001 + index * 0.0000198,
+                0.00001,
+                number=str(index + 1),
+            )
+            for index in range(101)
+        ]
+
+        result = normalize_features(roads, addresses)["segments"]
+
+        self.assertEqual([item["estimatedHomes"] for item in result], [100, 1])
+        self.assertEqual(sum(len(item["addresses"]) for item in result), 101)
+        self.assertEqual(result[0]["geometry"]["coordinates"][0], [0, 0])
+        self.assertEqual(result[-1]["geometry"]["coordinates"][-1], [0.002, 0])
+
+    def test_home_cap_preserves_addresses_that_share_the_same_position(self):
+        roads = [
+            road(
+                "dense",
+                "residential",
+                "Dense Road",
+                [[0, 0], [0.002, 0]],
+            )
+        ]
+        addresses = [
+            address("Dense Road", 0.001, 0.00001, number=str(index + 1))
+            for index in range(201)
+        ]
+
+        result = normalize_features(roads, addresses)["segments"]
+
+        self.assertEqual([item["estimatedHomes"] for item in result], [100, 100, 1])
+        self.assertEqual(sum(len(item["addresses"]) for item in result), 201)
 
     def test_multilines_produce_stable_order_ids_and_exact_output_contract(self):
         roads = [
@@ -832,7 +876,7 @@ class ImportBoundaryTest(TestCase):
         self.assertEqual(parsed["release"], OVERTURE_RELEASE)
         self.assertEqual(parsed["center"], [-117.1274, 33.5107])
         self.assertEqual(parsed["radiusMiles"], 1)
-        self.assertEqual(parsed["normalizerVersion"], 5)
+        self.assertEqual(parsed["normalizerVersion"], 6)
         self.assertEqual(parsed["quality"], {
             "totalAddresses": 0,
             "assignedAddresses": 0,

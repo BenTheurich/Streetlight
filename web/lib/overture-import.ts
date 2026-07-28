@@ -39,7 +39,7 @@ export type ImportedTerritoryInput = {
   center: Position;
   radiusMiles: number;
   completedAt: string;
-  normalizerVersion: 5;
+  normalizerVersion: 6;
   quality: ImportQuality;
   segments: ImportedTerritorySegment[];
 };
@@ -152,7 +152,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     !Number.isFinite(value.radiusMiles) ||
     (value.radiusMiles as number) <= 0 ||
     !isIsoTimestamp(value.completedAt) ||
-    value.normalizerVersion !== 5 ||
+    value.normalizerVersion !== 6 ||
     !isSuccessfulImportQuality(value.quality) ||
     !Array.isArray(value.segments) ||
     value.segments.length === 0
@@ -188,6 +188,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
       segment.streetName.trim() === '' ||
       !Number.isInteger(segment.estimatedHomes) ||
       (segment.estimatedHomes as number) < 0 ||
+      (segment.estimatedHomes as number) > 100 ||
       (segment.activationKind !== 'automatic' && segment.activationKind !== 'hidden') ||
       !Array.isArray(segment.addresses) ||
       !segment.addresses.every(isImportedAddress) ||
@@ -228,7 +229,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     center: value.center,
     radiusMiles: value.radiusMiles as number,
     completedAt: value.completedAt,
-    normalizerVersion: 5,
+    normalizerVersion: 6,
     quality: {
       totalAddresses: value.quality.totalAddresses as number,
       assignedAddresses: value.quality.assignedAddresses as number,
