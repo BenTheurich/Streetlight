@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "biome check .",
-    "test": "node --experimental-strip-types --test app/api/coverage/route.test.ts app/api/packet-proposals/route.test.ts components/CoverageDashboard.test.mjs db/database.test.mjs lib/coverage.test.ts lib/google-maps-browser.test.ts lib/google-maps-server.test.ts lib/overture-import.test.ts lib/packet-selection.test.ts lib/territory-client.test.ts lib/territory-geometry.test.ts lib/territory-import.test.ts lib/territory-map-style.test.ts lib/territory.test.ts",
+    "test": "node --experimental-strip-types --test app/api/batches/finalize/route.test.ts app/api/coverage/route.test.ts app/api/packet-proposals/route.test.ts app/api/packets/pdf/route.test.ts components/CoverageDashboard.test.mjs db/database.test.mjs lib/batch-finalization.test.ts lib/coverage.test.ts lib/google-maps-browser.test.ts lib/google-maps-server.test.ts lib/overture-import.test.ts lib/packet-pdf.test.ts lib/packet-selection.test.ts lib/territory-client.test.ts lib/territory-geometry.test.ts lib/territory-import.test.ts lib/territory-map-style.test.ts lib/territory.test.ts",
     "db:migrate": "node db/migrate.mjs",
     "db:seed": "node db/seed.mjs",
     "coverage:demo": "node db/seed-coverage-demo.mjs --serve",

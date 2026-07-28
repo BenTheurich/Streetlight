@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { getPacketDownloadSelection } from '../../../../lib/database.ts';
+import { getGoogleMapsServerKey } from '../../../../lib/google-maps-server.ts';
 import { renderPacketMap, renderPacketPdf } from '../../../../lib/packet-pdf.ts';
 
 export async function GET(request: Request): Promise<Response> {
@@ -8,7 +9,7 @@ export async function GET(request: Request): Promise<Response> {
   if (scope !== 'newest' && scope !== 'active') {
     return Response.json({ error: 'Invalid packet download scope' }, { status: 400 });
   }
-  const apiKey = process.env.GOOGLE_MAPS_STATIC_API_KEY;
+  const apiKey = getGoogleMapsServerKey();
   if (!apiKey) {
     return Response.json({ error: 'Packet maps are not configured' }, { status: 503 });
   }

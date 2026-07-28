@@ -1,11 +1,12 @@
 import { finalizePacketBatch } from '../../../../lib/database.ts';
 import {
+  type PacketFinalizationInput,
   PacketProposalConflictError,
   parsePacketFinalizationInput,
 } from '../../../../lib/packet-finalization.ts';
 
 export async function POST(request: Request): Promise<Response> {
-  let input;
+  let input: PacketFinalizationInput;
   try {
     input = parsePacketFinalizationInput(await request.json());
   } catch {

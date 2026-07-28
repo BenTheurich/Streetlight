@@ -74,10 +74,7 @@ function preparePacketGraph(filename: string): void {
           street: 'Packet Road',
           locality: 'Temecula',
           postcode: '92591',
-          position: [-117.1169 + index * 0.0001, 33.5429 + index * 0.0001] as [
-            number,
-            number,
-          ],
+          position: [-117.1169 + index * 0.0001, 33.5429 + index * 0.0001] as [number, number],
         },
       ],
     })),

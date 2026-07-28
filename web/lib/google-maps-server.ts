@@ -30,7 +30,7 @@ export function getGoogleMapsBrowserKey(): string {
   return configuredValue('GOOGLE_MAPS_BROWSER_API_KEY');
 }
 
-function getGoogleMapsServerKey(): string {
+export function getGoogleMapsServerKey(): string {
   return (
     configuredValue('GOOGLE_MAPS_SERVER_API_KEY') || configuredValue('GOOGLE_MAPS_STATIC_API_KEY')
   );

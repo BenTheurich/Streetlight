@@ -43,7 +43,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 2 | Territory setup | Phase 1 | Complete | Founder approved the interactive territory setup, Overture import quality controls, hidden-road activation, toggleable polygon and exact-segment exclusions, and circle/square boundaries on July 28, 2026; 59 Node checks, 25 Python checks, lint, typecheck, production build, and browser review pass |
 | 3 | Coverage history and heatmap | Phase 2 | Complete | Founder approved the full imported-territory heatmap and merged it on July 28, 2026; 84 Node checks, 25 Python checks, lint, typecheck, production build, database invariants, and real-browser acceptance pass. |
 | 4 | Packet selection | Phase 3 | Complete | Founder approved the deterministic packet proposals and orphan-prevention behavior and merged Phase 4 locally on July 28, 2026; automated, canonical-data, and browser evidence is recorded below |
-| 5 | Batch finalization and PDF | Phase 4 | In progress | Founder approved the finalization, download-scope, naming, persistence, and PDF design on July 28, 2026; implementation has not begun |
+| 5 | Batch finalization and PDF | Phase 4 | Awaiting human review | Atomic finalization, stable packet reservations, newest/all-active downloads, and map-first Letter PDFs are implemented; 119 Node checks, 26 Python checks, Biome, TypeScript, production build, isolated-browser finalization/reload, and rendered-PDF inspection pass |
 | 6 | Reconciliation and corrections | Phase 5 | Pending | None |
 | 7 | Authentication and church isolation | Phase 6 | Pending | None |
 | 8 | Deployment and recovery | Phase 7 | Pending | None |
@@ -474,6 +474,16 @@ Turn approved proposals into reserved packets and printable output.
 ### Browser and print check
 
 Preview a batch, finalize it, download it twice, compare packet identifiers, render every PDF page, and print a sample page.
+
+### Evidence
+
+- The isolated pilot-data review finalized one 28-tract packet in about 1.5 seconds, reserved its
+  segments, automatically downloaded the PDF, and retained both download choices after reload.
+- The Google Roads and Static Maps PDF request completed in about 1.3 seconds. The rendered PDF is
+  one US Letter page with the stable packet code, 28-tract estimate, starting address, navigation
+  QR, Google road labels, highlighted segments, starting pin, and Streetlight footer.
+- The complete repository check passes: 119 Node tests, 26 Python importer tests, Biome,
+  TypeScript, and the Next.js production build.
 
 ### Human review
 
