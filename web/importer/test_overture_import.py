@@ -553,24 +553,31 @@ class ImportCompletenessTest(TestCase):
         self.assertEqual(result["quality"]["unmatchedAddresses"], 3)
         self.assertEqual(result["quality"]["unresolvedClusters"], 1)
 
-    def test_out_of_circle_addresses_do_not_enter_the_unresolved_gate(self):
+    def test_bounding_box_corner_addresses_are_normalized_outside_the_circle(self):
+        roads = [
+            road(
+                "corner",
+                "residential",
+                "Corner Lane",
+                [[-116.988, 33.512], [-116.987, 33.513]],
+            )
+        ]
         addresses = [
-            address("Outside Lane", -116.9, 33.5),
-            address("Outside Ln", -116.8998, 33.5),
-            address("Outside Lane", -116.8996, 33.5),
+            address("Corner Lane", -116.9875, 33.5125),
         ]
 
         result = normalize_features(
-            [], addresses, center=self.center, radius_miles=self.radius_miles
+            roads, addresses, center=self.center, radius_miles=self.radius_miles
         )
 
         self.assertEqual(result["quality"], {
-            "totalAddresses": 0,
-            "assignedAddresses": 0,
+            "totalAddresses": 1,
+            "assignedAddresses": 1,
             "inferredRoads": 0,
             "unmatchedAddresses": 0,
             "unresolvedClusters": 0,
         })
+        self.assertEqual(result["segments"][0]["estimatedHomes"], 1)
 
 
 class ImportBoundaryTest(TestCase):
@@ -721,7 +728,7 @@ class ImportBoundaryTest(TestCase):
         self.assertEqual(parsed["release"], OVERTURE_RELEASE)
         self.assertEqual(parsed["center"], [-117.1274, 33.5107])
         self.assertEqual(parsed["radiusMiles"], 1)
-        self.assertEqual(parsed["normalizerVersion"], 3)
+        self.assertEqual(parsed["normalizerVersion"], 4)
         self.assertEqual(parsed["quality"], {
             "totalAddresses": 0,
             "assignedAddresses": 0,

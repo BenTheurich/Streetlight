@@ -13,7 +13,7 @@ const validOutput = {
   center: requestedCenter,
   radiusMiles: 1,
   completedAt: '2026-07-27T12:00:00.000Z',
-  normalizerVersion: 3,
+  normalizerVersion: 4,
   quality: {
     totalAddresses: 12,
     assignedAddresses: 10,

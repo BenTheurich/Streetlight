@@ -1,9 +1,15 @@
-import { type Polygon, type Position, polygonIsSimple } from './territory-geometry.ts';
+import {
+  type BoundaryShape,
+  type Polygon,
+  type Position,
+  polygonIsSimple,
+} from './territory-geometry.ts';
 
 export type TerritoryDraftInput = {
   originAddress: string;
   center: Position;
   radiusMiles: number;
+  boundaryShape: BoundaryShape;
   activatedRoadGroupIds: string[];
   excludedSegmentIds: string[];
   exclusions: Array<{
@@ -85,7 +91,10 @@ export function parseTerritoryDraft(value: unknown): TerritoryDraftInput {
     value.radiusMiles < 1 ||
     value.radiusMiles > 20
   ) {
-    throw new Error('Radius must be between 1 and 20 miles');
+    throw new Error('Boundary distance must be between 1 and 20 miles');
+  }
+  if (value.boundaryShape !== 'circle' && value.boundaryShape !== 'square') {
+    throw new Error('Boundary shape is invalid');
   }
   if (!Array.isArray(value.exclusions) || value.exclusions.length > 100) {
     throw new Error('Invalid exclusion areas');
@@ -140,6 +149,7 @@ export function parseTerritoryDraft(value: unknown): TerritoryDraftInput {
     originAddress: parseText(value.originAddress, 'Church address', 300, true),
     center: parsePosition(value.center),
     radiusMiles: value.radiusMiles,
+    boundaryShape: value.boundaryShape,
     activatedRoadGroupIds,
     excludedSegmentIds,
     exclusions,

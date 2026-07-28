@@ -2,8 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { ExclusionArea, TerritorySegment } from '@/lib/database';
-import { circleBoundary, type Position } from '@/lib/territory-geometry';
-import { segmentMapAppearance, segmentStrokeWeight } from '@/lib/territory-map-style';
+import { type BoundaryShape, type Position, territoryBoundary } from '@/lib/territory-geometry';
+import {
+  segmentMapAppearance,
+  segmentStrokeWeight,
+  segmentVisibleOnMap,
+} from '@/lib/territory-map-style';
 
 let mapsPromise: Promise<typeof google.maps> | undefined;
 
@@ -53,6 +57,7 @@ type TerritoryMapProps = {
   apiKey: string;
   center: Position;
   radiusMiles: number;
+  boundaryShape: BoundaryShape;
   segments: TerritorySegment[];
   exclusions: ExclusionArea[];
   selectedExclusionId: string | null;
@@ -73,6 +78,7 @@ export function TerritoryMap({
   apiKey,
   center,
   radiusMiles,
+  boundaryShape,
   segments,
   exclusions,
   selectedExclusionId,
@@ -183,10 +189,10 @@ export function TerritoryMap({
     if (!map || status !== 'ready') {
       return;
     }
-    const fill = new google.maps.Circle({
+    const boundary = territoryBoundary(center, radiusMiles, boundaryShape);
+    const fill = new google.maps.Polygon({
       map,
-      center: latLng(center),
-      radius: radiusMiles * 1609.344,
+      paths: boundary.coordinates[0].map(latLng),
       fillColor: '#df6d32',
       fillOpacity: 0.025,
       strokeOpacity: 0,
@@ -194,7 +200,7 @@ export function TerritoryMap({
     });
     const ring = new google.maps.Polyline({
       map,
-      path: circleBoundary(center, radiusMiles).coordinates[0].map(latLng),
+      path: boundary.coordinates[0].map(latLng),
       strokeOpacity: 0,
       clickable: false,
       icons: [
@@ -214,15 +220,15 @@ export function TerritoryMap({
       fill.setMap(null);
       ring.setMap(null);
     };
-  }, [center, radiusMiles, status]);
+  }, [boundaryShape, center, radiusMiles, status]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || status !== 'ready') {
       return;
     }
-    const visibleSegments = segments.filter(
-      (segment) => segment.active || segment.manuallyExcluded || showHiddenRoads,
+    const visibleSegments = segments.filter((segment) =>
+      segmentVisibleOnMap(segment, showHiddenRoads),
     );
     const lines = visibleSegments.map((segment) => {
       const appearance = segmentMapAppearance(

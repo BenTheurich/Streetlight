@@ -3,12 +3,12 @@ import { DatabaseSync } from 'node:sqlite';
 import type { ImportedTerritoryInput } from './overture-import.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import {
-  circleBoundary,
   type LineString,
-  lineInsideCircle,
+  lineInsideTerritoryBoundary,
   lineIntersectsPolygon,
   type Polygon,
   type Position,
+  territoryBoundary,
 } from './territory-geometry.ts';
 import type { TerritoryImportMetadata } from './territory-import.ts';
 
@@ -31,6 +31,7 @@ type TerritoryRow = {
   center_latitude: number;
   center_longitude: number;
   radius_meters: number;
+  boundary_shape: 'circle' | 'square';
   import_kind: 'proof' | 'overture';
   import_release: string | null;
   import_center_latitude: number | null;
@@ -90,9 +91,10 @@ export type TerritorySegment = {
   estimatedHomes: number;
   activationKind: 'automatic' | 'hidden' | 'manual';
   active: boolean;
+  withinBoundary: boolean;
   manuallyExcluded: boolean;
   eligible: boolean;
-  excludedReason: 'hidden' | 'radius' | 'exclusion' | 'segment' | null;
+  excludedReason: 'hidden' | 'boundary' | 'exclusion' | 'segment' | null;
 };
 
 export type TerritoryWorkspace = {
@@ -102,6 +104,7 @@ export type TerritoryWorkspace = {
   originAddress: string;
   center: Position;
   radiusMiles: number;
+  boundaryShape: 'circle' | 'square';
   import: TerritoryImportMetadata;
   exclusions: ExclusionArea[];
   segments: TerritorySegment[];
@@ -166,7 +169,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
     const territory = database
       .prepare(
         `SELECT t.id, c.name AS church_name, t.name, t.origin_address,
-          t.center_latitude, t.center_longitude, t.radius_meters,
+          t.center_latitude, t.center_longitude, t.radius_meters, t.boundary_shape,
           t.import_kind, t.import_release, t.import_center_latitude,
           t.import_center_longitude, t.import_radius_meters, t.import_completed_at,
           t.import_total_addresses, t.import_assigned_addresses, t.import_inferred_roads,
@@ -201,6 +204,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
     );
     const center: Position = [territory.center_longitude, territory.center_latitude];
     const radiusMiles = territory.radius_meters / 1609.344;
+    const boundaryShape = territory.boundary_shape;
     const imported: TerritoryImportMetadata =
       territory.import_kind === 'proof'
         ? {
@@ -253,7 +257,12 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
         .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as SegmentRow[]
     ).map((row): TerritorySegment => {
       const geometry = parseGeometry<LineString>(row.geometry_geojson);
-      const outsideRadius = !lineInsideCircle(geometry, center, radiusMiles);
+      const withinBoundary = lineInsideTerritoryBoundary(
+        geometry,
+        center,
+        radiusMiles,
+        boundaryShape,
+      );
       const excluded = exclusions.some(
         (area) => area.enabled && lineIntersectsPolygon(geometry, area.geometry),
       );
@@ -269,12 +278,13 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
         estimatedHomes: row.estimated_homes,
         activationKind: row.activation_kind,
         active,
+        withinBoundary,
         manuallyExcluded,
-        eligible: active && !outsideRadius && !excluded && !manuallyExcluded,
-        excludedReason: !active
-          ? 'hidden'
-          : outsideRadius
-            ? 'radius'
+        eligible: active && withinBoundary && !excluded && !manuallyExcluded,
+        excludedReason: !withinBoundary
+          ? 'boundary'
+          : !active
+            ? 'hidden'
             : excluded
               ? 'exclusion'
               : manuallyExcluded
@@ -290,14 +300,15 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
       originAddress: territory.origin_address,
       center,
       radiusMiles,
+      boundaryShape,
       import: imported,
       exclusions,
       segments,
       totals: {
-        allSegments: segments.filter((segment) => segment.active).length,
+        allSegments: segments.filter((segment) => segment.active && segment.withinBoundary).length,
         eligibleSegments: segments.filter((segment) => segment.eligible).length,
         allHomes: segments
-          .filter((segment) => segment.active)
+          .filter((segment) => segment.active && segment.withinBoundary)
           .reduce((total, segment) => total + segment.estimatedHomes, 0),
         eligibleHomes: segments
           .filter((segment) => segment.eligible)
@@ -327,7 +338,7 @@ export function saveTerritoryDraft(
       .prepare(
         `UPDATE territories
         SET origin_address = ?, center_longitude = ?, center_latitude = ?,
-          radius_meters = ?, boundary_geojson = ?
+          radius_meters = ?, boundary_shape = ?, boundary_geojson = ?
         WHERE id = ? AND church_id = ?`,
       )
       .run(
@@ -335,7 +346,8 @@ export function saveTerritoryDraft(
         draft.center[0],
         draft.center[1],
         draft.radiusMiles * 1609.344,
-        JSON.stringify(circleBoundary(draft.center, draft.radiusMiles)),
+        draft.boundaryShape,
+        JSON.stringify(territoryBoundary(draft.center, draft.radiusMiles, draft.boundaryShape)),
         PILOT_TERRITORY_ID,
         PILOT_CHURCH_ID,
       );

@@ -30,6 +30,7 @@ const segments: TerritorySegment[] = [
     estimatedHomes: 10,
     activationKind: 'automatic',
     active: true,
+    withinBoundary: true,
     manuallyExcluded: false,
     eligible: true,
     excludedReason: null,
@@ -43,13 +44,14 @@ const segments: TerritorySegment[] = [
     geometry: {
       type: 'LineString',
       coordinates: [
-        [0, 0.03],
-        [0, 0.04],
+        [0.012, 0.012],
+        [0.013, 0.013],
       ],
     },
     estimatedHomes: 20,
     activationKind: 'automatic',
     active: true,
+    withinBoundary: true,
     manuallyExcluded: false,
     eligible: true,
     excludedReason: null,
@@ -70,6 +72,7 @@ const segments: TerritorySegment[] = [
     estimatedHomes: 5,
     activationKind: 'automatic',
     active: true,
+    withinBoundary: true,
     manuallyExcluded: false,
     eligible: true,
     excludedReason: null,
@@ -90,6 +93,7 @@ const segments: TerritorySegment[] = [
     estimatedHomes: 7,
     activationKind: 'hidden',
     active: false,
+    withinBoundary: true,
     manuallyExcluded: false,
     eligible: false,
     excludedReason: 'hidden',
@@ -100,6 +104,7 @@ const draft: TerritoryDraftInput = {
   originAddress: 'Church',
   center: [0, 0],
   radiusMiles: 1,
+  boundaryShape: 'circle',
   activatedRoadGroupIds: [],
   excludedSegmentIds: [],
   exclusions: [
@@ -123,27 +128,53 @@ const draft: TerritoryDraftInput = {
   ],
 };
 
-test('live territory derivation distinguishes radius and polygon exclusions', () => {
+test('circle derivation omits outside segments and distinguishes polygon exclusions', () => {
   const result = deriveTerritory(segments, draft);
 
   assert.deepEqual(
-    result.segments.map(({ id, eligible, excludedReason }) => ({
+    result.segments.map(({ id, withinBoundary, eligible, excludedReason }) => ({
       id,
+      withinBoundary,
       eligible,
       excludedReason,
     })),
     [
-      { id: 'inside', eligible: true, excludedReason: null },
-      { id: 'outside', eligible: false, excludedReason: 'radius' },
-      { id: 'touched', eligible: false, excludedReason: 'exclusion' },
-      { id: 'hidden', eligible: false, excludedReason: 'hidden' },
+      { id: 'inside', withinBoundary: true, eligible: true, excludedReason: null },
+      { id: 'outside', withinBoundary: false, eligible: false, excludedReason: 'boundary' },
+      { id: 'touched', withinBoundary: true, eligible: false, excludedReason: 'exclusion' },
+      { id: 'hidden', withinBoundary: true, eligible: false, excludedReason: 'hidden' },
+    ],
+  );
+  assert.deepEqual(result.totals, {
+    allSegments: 2,
+    eligibleSegments: 1,
+    allHomes: 15,
+    eligibleHomes: 10,
+  });
+});
+
+test('square derivation includes corner segments from the same imported footprint', () => {
+  const result = deriveTerritory(segments, { ...draft, boundaryShape: 'square' });
+
+  assert.deepEqual(
+    result.segments.map(({ id, withinBoundary, eligible, excludedReason }) => ({
+      id,
+      withinBoundary,
+      eligible,
+      excludedReason,
+    })),
+    [
+      { id: 'inside', withinBoundary: true, eligible: true, excludedReason: null },
+      { id: 'outside', withinBoundary: true, eligible: true, excludedReason: null },
+      { id: 'touched', withinBoundary: true, eligible: false, excludedReason: 'exclusion' },
+      { id: 'hidden', withinBoundary: true, eligible: false, excludedReason: 'hidden' },
     ],
   );
   assert.deepEqual(result.totals, {
     allSegments: 3,
-    eligibleSegments: 1,
+    eligibleSegments: 2,
     allHomes: 35,
-    eligibleHomes: 10,
+    eligibleHomes: 30,
   });
 });
 
@@ -160,9 +191,9 @@ test('a disabled exclusion reports its potential impact without changing eligibi
     [{ eligible: true, excludedReason: null }],
   );
   assert.deepEqual(result.totals, {
-    allSegments: 3,
+    allSegments: 2,
     eligibleSegments: 2,
-    allHomes: 35,
+    allHomes: 15,
     eligibleHomes: 15,
   });
   assert.deepEqual(
@@ -195,9 +226,9 @@ test('a draft road-group activation includes every hidden segment in that group'
     [{ active: true, eligible: true, activationKind: 'manual', excludedReason: null }],
   );
   assert.deepEqual(result.totals, {
-    allSegments: 4,
+    allSegments: 3,
     eligibleSegments: 2,
-    allHomes: 42,
+    allHomes: 22,
     eligibleHomes: 17,
   });
 });
@@ -329,6 +360,10 @@ test('unfinished drawing points count as unsaved territory changes', () => {
   assert.equal(hasUnsavedTerritoryChanges(draft, structuredClone(draft), [[0, 0]]), true);
   assert.equal(
     hasUnsavedTerritoryChanges(draft, { ...structuredClone(draft), radiusMiles: 2 }, []),
+    true,
+  );
+  assert.equal(
+    hasUnsavedTerritoryChanges(draft, { ...structuredClone(draft), boundaryShape: 'square' }, []),
     true,
   );
 });

@@ -444,6 +444,44 @@ textarea {
   color: var(--muted);
 }
 
+.boundary-shape-control {
+  min-width: 0;
+  margin: 1.15rem 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.boundary-shape-control legend {
+  margin-bottom: 0.45rem;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.boundary-shape-control div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #faf7f0;
+}
+
+.boundary-shape-control button {
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.boundary-shape-control button.active {
+  background: var(--ink);
+  color: white;
+}
+
 .radius-control {
   margin-top: 1.15rem;
 }

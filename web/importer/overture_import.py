@@ -32,24 +32,6 @@ def canonical_street_name(value: str) -> str:
     return " ".join(SUFFIXES.get(word, word) for word in words)
 
 
-def _in_circle(point, center, radius_miles):
-    if center is None or radius_miles is None:
-        return True
-    longitude, latitude = point
-    center_longitude, center_latitude = center
-    latitude_delta = math.radians(latitude - center_latitude)
-    longitude_delta = math.radians(longitude - center_longitude)
-    distance = 2 * math.asin(
-        math.sqrt(
-            math.sin(latitude_delta / 2) ** 2
-            + math.cos(math.radians(latitude))
-            * math.cos(math.radians(center_latitude))
-            * math.sin(longitude_delta / 2) ** 2
-        )
-    )
-    return distance * EARTH_RADIUS_MILES <= radius_miles
-
-
 def _inferred_display_name(value):
     return " ".join(
         DISPLAY_SUFFIXES.get(word, word.title())
@@ -241,7 +223,7 @@ def _assign_road_groups(segments):
 def normalize_features(roads, addresses, center=None, radius_miles=None):
     segments = []
     candidate_classes = ALWAYS_KEEP | KEEP_WITH_ADDRESS
-    in_circle_addresses = [
+    footprint_addresses = [
         {
             "index": index,
             "street": address_feature["properties"]["street"],
@@ -251,7 +233,6 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
             "point": address_feature["geometry"]["coordinates"],
         }
         for index, address_feature in enumerate(addresses)
-        if _in_circle(address_feature["geometry"]["coordinates"], center, radius_miles)
     ]
     inferred_roads = 0
 
@@ -261,7 +242,7 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
         if name is None and road_class in ALWAYS_KEEP:
             nearby = [
                 address_item
-                for address_item in in_circle_addresses
+                for address_item in footprint_addresses
                 if min(
                     _distance_to_line(address_item["point"], line)
                     for line in _lines(road_feature["geometry"])
@@ -326,7 +307,7 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
             )
 
     assigned_address_indexes = set()
-    for address_item in in_circle_addresses:
+    for address_item in footprint_addresses:
         candidates = [
             segment
             for segment in segments
@@ -353,7 +334,7 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
     _assign_road_groups(segments)
 
     unresolved_counts = {}
-    for address_item in in_circle_addresses:
+    for address_item in footprint_addresses:
         if address_item["index"] not in assigned_address_indexes:
             unresolved_counts[address_item["canonical_name"]] = (
                 unresolved_counts.get(address_item["canonical_name"], 0) + 1
@@ -396,10 +377,10 @@ def normalize_features(roads, addresses, center=None, radius_miles=None):
     return {
         "segments": result,
         "quality": {
-            "totalAddresses": len(in_circle_addresses),
+            "totalAddresses": len(footprint_addresses),
             "assignedAddresses": len(assigned_address_indexes),
             "inferredRoads": inferred_roads,
-            "unmatchedAddresses": len(in_circle_addresses)
+            "unmatchedAddresses": len(footprint_addresses)
             - len(assigned_address_indexes),
             "unresolvedClusters": len(unresolved_clusters),
         },
@@ -550,7 +531,7 @@ def main(argv=None, download=download_features):
                 "center": [args.longitude, args.latitude],
                 "radiusMiles": args.radius_miles,
                 "completedAt": datetime.now(timezone.utc).isoformat(),
-                "normalizerVersion": 3,
+                "normalizerVersion": 4,
                 **normalize_features(
                     roads,
                     addresses,

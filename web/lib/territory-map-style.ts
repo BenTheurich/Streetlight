@@ -10,6 +10,17 @@ type SegmentMapInput = {
   manuallyExcluded: boolean;
 };
 
+export function segmentVisibleOnMap(
+  segment: {
+    active: boolean;
+    withinBoundary: boolean;
+    manuallyExcluded: boolean;
+  },
+  showHiddenRoads: boolean,
+): boolean {
+  return segment.withinBoundary && (segment.active || segment.manuallyExcluded || showHiddenRoads);
+}
+
 export function segmentMapAppearance(
   segment: SegmentMapInput,
   selectedSegmentId: string | null,

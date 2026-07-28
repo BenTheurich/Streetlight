@@ -10,6 +10,8 @@ export type Polygon = {
   coordinates: Position[][];
 };
 
+export type BoundaryShape = 'circle' | 'square';
+
 const EARTH_RADIUS_MILES = 3958.7613;
 const EPSILON = 1e-10;
 
@@ -62,6 +64,54 @@ export function circleBoundary(center: Position, radiusMiles: number, vertices =
     points.push([(nextLongitude * 180) / Math.PI, (nextLatitude * 180) / Math.PI]);
   }
   return closePolygon(points);
+}
+
+export function territoryBoundary(
+  center: Position,
+  radiusMiles: number,
+  shape: BoundaryShape,
+): Polygon {
+  if (shape === 'circle') {
+    return circleBoundary(center, radiusMiles);
+  }
+  const angularDistance = radiusMiles / EARTH_RADIUS_MILES;
+  const latitudeDelta = (angularDistance * 180) / Math.PI;
+  const latitude = (center[1] * Math.PI) / 180;
+  const longitudeDelta =
+    Math.abs(center[1]) + latitudeDelta >= 90
+      ? 180
+      : (Math.asin(Math.sin(angularDistance) / Math.cos(latitude)) * 180) / Math.PI;
+  const crossesAntimeridian = center[0] - longitudeDelta < -180 || center[0] + longitudeDelta > 180;
+  const west = crossesAntimeridian ? -180 : center[0] - longitudeDelta;
+  const east = crossesAntimeridian ? 180 : center[0] + longitudeDelta;
+  const south = center[1] - latitudeDelta;
+  const north = center[1] + latitudeDelta;
+  return closePolygon([
+    [west, south],
+    [east, south],
+    [east, north],
+    [west, north],
+  ]);
+}
+
+export function lineInsideTerritoryBoundary(
+  line: LineString,
+  center: Position,
+  radiusMiles: number,
+  shape: BoundaryShape,
+): boolean {
+  if (shape === 'circle') {
+    return lineInsideCircle(line, center, radiusMiles);
+  }
+  const [westSouth, eastSouth, eastNorth] = territoryBoundary(center, radiusMiles, 'square')
+    .coordinates[0];
+  return line.coordinates.every(
+    ([longitude, latitude]) =>
+      longitude >= westSouth[0] - EPSILON &&
+      longitude <= eastSouth[0] + EPSILON &&
+      latitude >= westSouth[1] - EPSILON &&
+      latitude <= eastNorth[1] + EPSILON,
+  );
 }
 
 function pointOnLine(point: Position, start: Position, end: Position): boolean {

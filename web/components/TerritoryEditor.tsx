@@ -115,19 +115,24 @@ export function TerritoryEditor({
   const canSave = isDirty || importRequired;
   const radiusError =
     !Number.isFinite(Number(radiusInput)) || Number(radiusInput) < 1 || Number(radiusInput) > 20
-      ? 'Enter a radius from 1 to 20 miles.'
+      ? 'Enter a boundary distance from 1 to 20 miles.'
       : '';
   const selectedExclusion =
     draft.exclusions.find((area) => area.id === selectedExclusionId) ?? null;
   const selectedHiddenRoadSegments = selectedHiddenRoadGroupId
     ? live.segments.filter(
-        (segment) => !segment.active && segment.roadGroupId === selectedHiddenRoadGroupId,
+        (segment) =>
+          segment.withinBoundary &&
+          !segment.active &&
+          segment.roadGroupId === selectedHiddenRoadGroupId,
       )
     : [];
   const selectedSegment =
     live.segments.find(
       (segment) =>
-        segment.id === selectedSegmentId && (segment.eligible || segment.manuallyExcluded),
+        segment.withinBoundary &&
+        segment.id === selectedSegmentId &&
+        (segment.eligible || segment.manuallyExcluded),
     ) ?? null;
 
   useEffect(() => {
@@ -341,6 +346,7 @@ export function TerritoryEditor({
         >
           <TerritoryMap
             apiKey={mapsApiKey}
+            boundaryShape={draft.boundaryShape}
             center={draft.center}
             drawing={mode === 'draw'}
             drawingPoints={drawingPoints}
@@ -424,7 +430,7 @@ export function TerritoryEditor({
         <aside aria-busy={saving} className="territory-sidebar" inert={saving}>
           <div className="sidebar-title">
             <h1>Territory Setup</h1>
-            <p>Start with a radius around the church, then remove unsuitable areas.</p>
+            <p>Choose an outer boundary, then remove unsuitable areas.</p>
           </div>
 
           <div className="sidebar-scroll">
@@ -478,7 +484,7 @@ export function TerritoryEditor({
                   {pendingAddress && (
                     <div className="address-confirm">
                       <strong>{pendingAddress.formattedAddress}</strong>
-                      <p>Using this location recenters the radius. Excluded areas stay put.</p>
+                      <p>Using this location recenters the boundary. Excluded areas stay put.</p>
                       <button onClick={confirmAddress} type="button">
                         Use this address
                       </button>
@@ -487,11 +493,28 @@ export function TerritoryEditor({
                 </div>
               )}
 
+              <fieldset className="boundary-shape-control">
+                <legend>Boundary shape</legend>
+                <div>
+                  {(['circle', 'square'] as const).map((shape) => (
+                    <button
+                      aria-pressed={draft.boundaryShape === shape}
+                      className={draft.boundaryShape === shape ? 'active' : ''}
+                      key={shape}
+                      onClick={() => setDraft((current) => ({ ...current, boundaryShape: shape }))}
+                      type="button"
+                    >
+                      {shape === 'circle' ? 'Circle' : 'Square'}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
               <div className="radius-control">
                 <div className="section-row">
-                  <h2>Radius</h2>
+                  <h2>Boundary distance</h2>
                   <label>
-                    <span className="sr-only">Radius in miles</span>
+                    <span className="sr-only">Boundary distance in miles</span>
                     <input
                       aria-describedby={radiusError ? 'radius-error' : undefined}
                       max="20"
@@ -511,7 +534,7 @@ export function TerritoryEditor({
                   </label>
                 </div>
                 <input
-                  aria-label="Territory radius"
+                  aria-label="Territory boundary distance"
                   max="20"
                   min="1"
                   onChange={(event) => {
@@ -572,7 +595,7 @@ export function TerritoryEditor({
                       setNotice(
                         exclude
                           ? 'Segment excluded in this draft. Save changes to keep it.'
-                          : 'Segment restored in this draft. Radius and excluded areas still apply.',
+                          : 'Segment restored in this draft. Boundary and excluded areas still apply.',
                       );
                     }}
                     type="button"

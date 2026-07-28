@@ -57,7 +57,7 @@ function importedTerritory(segments) {
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 3,
+    normalizerVersion: 4,
     quality: {
       totalAddresses: 12,
       assignedAddresses: 10,
@@ -134,6 +134,58 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
   }
 });
 
+test('circle and square boundary shapes persist and control whole-segment eligibility', () => {
+  withDatabase((filename) => {
+    const initial = getTerritoryWorkspace(filename);
+    assert.equal(initial.boundaryShape, 'circle');
+    const corner = {
+      ...importedSegment('corner', 'Corner Road', 'residential', 8),
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [initial.center[0] + 0.012, initial.center[1] + 0.012],
+          [initial.center[0] + 0.013, initial.center[1] + 0.013],
+        ],
+      },
+    };
+    const baseDraft = {
+      originAddress: initial.originAddress,
+      center: initial.center,
+      radiusMiles: 1,
+      boundaryShape: 'circle',
+      activatedRoadGroupIds: [],
+      excludedSegmentIds: [],
+      exclusions: [],
+    };
+
+    saveTerritoryDraft(baseDraft, {
+      filename,
+      imported: { ...importedTerritory([corner]), radiusMiles: 1 },
+    });
+    const circle = getTerritoryWorkspace(filename);
+    assert.equal(circle.segments[0].withinBoundary, false);
+    assert.equal(circle.segments[0].excludedReason, 'boundary');
+    assert.deepEqual(circle.totals, {
+      allSegments: 0,
+      eligibleSegments: 0,
+      allHomes: 0,
+      eligibleHomes: 0,
+    });
+
+    saveTerritoryDraft({ ...baseDraft, boundaryShape: 'square' }, { filename });
+    const square = getTerritoryWorkspace(filename);
+    assert.equal(square.boundaryShape, 'square');
+    assert.equal(square.segments[0].withinBoundary, true);
+    assert.equal(square.segments[0].eligible, true);
+    assert.deepEqual(square.totals, {
+      allSegments: 1,
+      eligibleSegments: 1,
+      allHomes: 8,
+      eligibleHomes: 8,
+    });
+  });
+});
+
 test('import quality columns accept only nullable non-negative integers', () => {
   const database = openDatabase(':memory:');
   try {
@@ -208,6 +260,7 @@ test('an imported save atomically replaces proof segments and records its footpr
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: workspace.exclusions,
       },
       { filename, imported },
@@ -278,6 +331,7 @@ test('hidden road groups stay out of totals until the saved draft activates them
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: [],
         activatedRoadGroupIds: [],
       },
@@ -315,6 +369,7 @@ test('hidden road groups stay out of totals until the saved draft activates them
         originAddress: hidden.originAddress,
         center: hidden.center,
         radiusMiles: hidden.radiusMiles,
+        boundaryShape: hidden.boundaryShape,
         exclusions: hidden.exclusions,
         activatedRoadGroupIds: [hiddenGroup],
       },
@@ -348,6 +403,7 @@ test('saving a segment exclusion persists only the exact selected segment', () =
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: [],
         activatedRoadGroupIds: [],
         excludedSegmentIds: [],
@@ -366,6 +422,7 @@ test('saving a segment exclusion persists only the exact selected segment', () =
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: [],
         activatedRoadGroupIds: [],
         excludedSegmentIds: ['one'],
@@ -404,6 +461,7 @@ test('reimport preserves an exclusion only while the exact segment geometry rema
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: [],
         activatedRoadGroupIds: [],
         excludedSegmentIds: [],
@@ -415,6 +473,7 @@ test('reimport preserves an exclusion only while the exact segment geometry rema
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: [],
         activatedRoadGroupIds: [],
         excludedSegmentIds: ['one'],
@@ -427,6 +486,7 @@ test('reimport preserves an exclusion only while the exact segment geometry rema
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: [],
         activatedRoadGroupIds: [],
         excludedSegmentIds: ['one'],
@@ -455,6 +515,7 @@ test('reimport preserves an exclusion only while the exact segment geometry rema
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: [],
         activatedRoadGroupIds: [],
         excludedSegmentIds: ['one'],
@@ -482,6 +543,7 @@ test('reimport keeps an administrator-approved source active when its group iden
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: [],
         activatedRoadGroupIds: [originalGroup],
       },
@@ -494,6 +556,7 @@ test('reimport keeps an administrator-approved source active when its group iden
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: [],
         activatedRoadGroupIds: [originalGroup],
       },
@@ -534,6 +597,7 @@ test('reimport preserves the last approved geometry when Overture drops its sour
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: [],
         activatedRoadGroupIds: [approvedGroup],
       },
@@ -545,6 +609,7 @@ test('reimport preserves the last approved geometry when Overture drops its sour
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: [],
         activatedRoadGroupIds: [approvedGroup],
       },
@@ -588,6 +653,7 @@ test('reimport preserves coverage and finalized packet references to retired seg
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: workspace.exclusions,
       },
       {
@@ -660,6 +726,7 @@ test('reimport preserves coverage and finalized packet references to retired seg
         originAddress: workspace.originAddress,
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
         exclusions: workspace.exclusions,
       },
       {
@@ -736,6 +803,7 @@ test('a replacement failure preserves the complete saved workspace', () => {
         originAddress: initial.originAddress,
         center: initial.center,
         radiusMiles: initial.radiusMiles,
+        boundaryShape: initial.boundaryShape,
         exclusions: initial.exclusions,
       },
       {
@@ -758,6 +826,7 @@ test('a replacement failure preserves the complete saved workspace', () => {
             originAddress: 'Rollback Address',
             center: [-117.2, 33.6],
             radiusMiles: 5,
+            boundaryShape: 'circle',
             exclusions: [
               {
                 id: 'rollback-exclusion',

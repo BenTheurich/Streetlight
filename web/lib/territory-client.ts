@@ -1,6 +1,10 @@
 import type { ExclusionArea, TerritorySegment, TerritoryWorkspace } from './database.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
-import { lineInsideCircle, lineIntersectsPolygon, type Position } from './territory-geometry.ts';
+import {
+  lineInsideTerritoryBoundary,
+  lineIntersectsPolygon,
+  type Position,
+} from './territory-geometry.ts';
 
 const VERTEX_KEY_STEP = 0.00005;
 
@@ -51,6 +55,7 @@ export function territoryDraftFromWorkspace(workspace: TerritoryWorkspace): Terr
     originAddress: workspace.originAddress,
     center: [...workspace.center],
     radiusMiles: workspace.radiusMiles,
+    boundaryShape: workspace.boundaryShape,
     activatedRoadGroupIds: [
       ...new Set(
         workspace.segments
@@ -73,7 +78,12 @@ export function deriveTerritory(
   const activatedRoadGroupIds = new Set(draft.activatedRoadGroupIds);
   const excludedSegmentIds = new Set(draft.excludedSegmentIds ?? []);
   const segments = importedSegments.map((segment): TerritorySegment => {
-    const outsideRadius = !lineInsideCircle(segment.geometry, draft.center, draft.radiusMiles);
+    const withinBoundary = lineInsideTerritoryBoundary(
+      segment.geometry,
+      draft.center,
+      draft.radiusMiles,
+      draft.boundaryShape,
+    );
     const excluded = draft.exclusions.some(
       (area) => area.enabled && lineIntersectsPolygon(segment.geometry, area.geometry),
     );
@@ -84,12 +94,13 @@ export function deriveTerritory(
       ...segment,
       activationKind: manuallyActivated ? 'manual' : segment.activationKind,
       active,
+      withinBoundary,
       manuallyExcluded,
-      eligible: active && !outsideRadius && !excluded && !manuallyExcluded,
-      excludedReason: !active
-        ? 'hidden'
-        : outsideRadius
-          ? 'radius'
+      eligible: active && withinBoundary && !excluded && !manuallyExcluded,
+      excludedReason: !withinBoundary
+        ? 'boundary'
+        : !active
+          ? 'hidden'
           : excluded
             ? 'exclusion'
             : manuallyExcluded
@@ -100,10 +111,10 @@ export function deriveTerritory(
   return {
     segments,
     totals: {
-      allSegments: segments.filter((segment) => segment.active).length,
+      allSegments: segments.filter((segment) => segment.active && segment.withinBoundary).length,
       eligibleSegments: segments.filter((segment) => segment.eligible).length,
       allHomes: segments
-        .filter((segment) => segment.active)
+        .filter((segment) => segment.active && segment.withinBoundary)
         .reduce((total, segment) => total + segment.estimatedHomes, 0),
       eligibleHomes: segments
         .filter((segment) => segment.eligible)
@@ -117,7 +128,10 @@ export function affectedByExclusion(
   exclusion: ExclusionArea,
 ): { segments: number; homes: number } {
   const affected = segments.filter(
-    (segment) => segment.active && lineIntersectsPolygon(segment.geometry, exclusion.geometry),
+    (segment) =>
+      segment.active &&
+      segment.withinBoundary &&
+      lineIntersectsPolygon(segment.geometry, exclusion.geometry),
   );
   return {
     segments: affected.length,

@@ -83,3 +83,30 @@ test('segment map appearance makes only actionable roads selectable and emphasiz
     false,
   );
 });
+
+test('map visibility omits every segment outside the boundary before applying hidden-road controls', () => {
+  const visible = (
+    territoryMapStyle as typeof territoryMapStyle & {
+      segmentVisibleOnMap?: (
+        segment: {
+          active: boolean;
+          withinBoundary: boolean;
+          manuallyExcluded: boolean;
+        },
+        showHiddenRoads: boolean,
+      ) => boolean;
+    }
+  ).segmentVisibleOnMap;
+  assert.equal(typeof visible, 'function');
+  assert.ok(visible);
+
+  const active = { active: true, withinBoundary: true, manuallyExcluded: false };
+  assert.equal(visible(active, false), true);
+  assert.equal(visible({ ...active, withinBoundary: false }, true), false);
+  assert.equal(visible({ ...active, active: false }, false), false);
+  assert.equal(visible({ ...active, active: false }, true), true);
+  assert.equal(
+    visible({ active: false, withinBoundary: false, manuallyExcluded: true }, true),
+    false,
+  );
+});
