@@ -115,7 +115,10 @@ export function CoverageDashboard({ initialData, mapsApiKey }: CoverageDashboard
           <span className="phase-label">Coverage</span>
           {workspace.dataMode === 'demo' && <span className="demo-data-label">Demo data</span>}
         </div>
-        <a href="/territory">Territory setup</a>
+        <nav className="header-actions">
+          <a href="/packets">Generate packets</a>
+          <a href="/territory">Territory setup</a>
+        </nav>
       </header>
       <main className="territory-workspace coverage-workspace">
         <section className="map-panel">

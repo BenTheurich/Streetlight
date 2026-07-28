@@ -669,7 +669,7 @@ git diff --check
 
 Expected: all pass.
 
-- [ ] **Step 5: Commit the read-only boundary**
+- [x] **Step 5: Commit the read-only boundary**
 
 ```powershell
 git add web/app/api/packet-proposals/route.ts web/app/api/packet-proposals/route.test.ts web/lib/database.ts web/db/database.test.mjs web/package.json
@@ -694,7 +694,7 @@ git commit -m "feat: expose packet proposal previews"
 - Produces: an accessible `/packets` page with mixed request rows, read-only proposal cards, one
   focused interactive map, and a standard unlabeled Google starting pin.
 
-- [ ] **Step 1: Write the failing page-contract test**
+- [x] **Step 1: Write the failing page-contract test**
 
 Read the component sources and assert they contain:
 
@@ -710,7 +710,7 @@ assert.match(coverage, /href="\/packets"/);
 Add `components/PacketGenerator.test.mjs` to the package test command. Run the single test; expected:
 FAIL because the files and link do not exist.
 
-- [ ] **Step 2: Create the server page and native request form**
+- [x] **Step 2: Create the server page and native request form**
 
 `web/app/packets/page.tsx` loads only the Google browser key and renders `PacketGenerator`; proposal
 data remains request-driven.
@@ -730,7 +730,7 @@ On submit:
 Keep the form editable after generation. Submitting unchanged values replaces state with the
 identical response. Do not persist form rows.
 
-- [ ] **Step 3: Render read-only proposal review cards**
+- [x] **Step 3: Render read-only proposal review cards**
 
 Each button card shows:
 
@@ -747,7 +747,7 @@ packets, render its warning under the list.
 Use church-specific terms `tracts` and `outreach`. Add **Back to coverage** in the header and change
 the Coverage header to include **Generate packets** plus **Territory setup**.
 
-- [ ] **Step 4: Render one selected packet on Google Maps**
+- [x] **Step 4: Render one selected packet on Google Maps**
 
 Reuse `loadGoogleMaps`, `latLng`, and `segmentStrokeWeight`. Create the map once with the same
 controls disabled as the coverage map. For the selected proposal:
@@ -761,7 +761,7 @@ controls disabled as the coverage map. For the selected proposal:
 The map has `aria-label="Selected packet proposal"` and remains the majority column. Do not render
 the heatmap legend, internal IDs, individual home markers, QR code, or route instructions.
 
-- [ ] **Step 5: Add only page-specific layout styles**
+- [x] **Step 5: Add only page-specific layout styles**
 
 Reuse `.territory-page`, `.territory-header`, `.territory-workspace`, `.map-panel`,
 `.territory-sidebar`, `.sidebar-scroll`, and existing form/button styles. Add narrowly named

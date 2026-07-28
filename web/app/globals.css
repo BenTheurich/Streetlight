@@ -164,6 +164,11 @@ textarea {
   text-decoration: none;
 }
 
+.header-actions {
+  display: flex;
+  gap: 1rem;
+}
+
 .territory-workspace {
   display: grid;
   height: calc(100vh - 58px);
@@ -952,6 +957,105 @@ textarea {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.45rem;
+}
+
+.packet-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.packet-request-row {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.45rem;
+}
+
+.packet-request-row label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.packet-remove {
+  min-height: 38px;
+  padding-inline: 0.55rem;
+}
+
+.packet-form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.packet-results {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.packet-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: white;
+}
+
+.packet-card.selected {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 1px var(--orange);
+}
+
+.packet-card-button {
+  display: grid;
+  width: 100%;
+  gap: 0.2rem;
+  border: 0;
+  border-radius: 0;
+  background: white;
+  color: var(--ink);
+  text-align: left;
+}
+
+.packet-card-button strong {
+  font-size: 0.75rem;
+}
+
+.packet-card-button span,
+.packet-card-detail p,
+.packet-card-detail strong,
+.packet-warning {
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.packet-card-detail {
+  padding: 0.65rem 0.8rem 0.75rem;
+  border-top: 1px solid #e1dbd0;
+  background: #faf7f0;
+}
+
+.packet-card-detail strong,
+.packet-card-detail p {
+  display: block;
+  margin: 0;
+}
+
+.packet-card-detail strong {
+  color: var(--ink);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.packet-card-detail p + strong {
+  margin-top: 0.55rem;
+}
+
+.packet-warning {
+  margin: 0.2rem 0 0;
+  color: #9a421f;
 }
 
 @media (max-width: 900px) {
