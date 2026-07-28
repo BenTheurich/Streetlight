@@ -13,3 +13,14 @@ test('packet page exposes only the approved read-only proposal workflow', () => 
   assert.doesNotMatch(generator, /Finalize|QR code|walking route|end point/i);
   assert.match(coverage, /href="\/packets"/);
 });
+
+test('packet map opens over the saved territory before a proposal exists', () => {
+  const page = readFileSync(new URL('../app/packets/page.tsx', import.meta.url), 'utf8');
+  const generator = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
+  const map = readFileSync(new URL('./PacketProposalMap.tsx', import.meta.url), 'utf8');
+
+  assert.match(page, /getTerritoryWorkspace/);
+  assert.match(generator, /<PacketProposalMap apiKey=\{mapsApiKey\} center=\{center\}/);
+  assert.match(map, /center: latLng\(center\)/);
+  assert.doesNotMatch(map, /center:\s*\{\s*lat:\s*0,\s*lng:\s*0\s*\}/);
+});

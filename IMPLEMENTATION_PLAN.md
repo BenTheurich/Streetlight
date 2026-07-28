@@ -382,7 +382,7 @@ Generate mixed packet sizes, inspect each proposal on the map, regenerate the sa
 
 - Tasks 1-4 were committed as `942e060`, `9c60567`, `1ee7f5d`, and `8ed89ee`; focused review
   warning fix: `e7411bf`.
-- 26 Python importer tests and 96 Node application tests pass. Lint, typecheck, and the production
+- 26 Python importer tests and 97 Node application tests pass. Lint, typecheck, and the production
   build pass; the build includes `/packets` and `/api/packet-proposals`.
 - The unchanged canonical territory was imported once from generation 3 / normalizer 4 to
   generation 4 / normalizer 5. It retained 10,663 usable assigned addresses. Boundary settings,

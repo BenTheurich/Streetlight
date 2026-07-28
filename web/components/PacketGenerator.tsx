@@ -2,9 +2,11 @@
 
 import { type FormEvent, useRef, useState } from 'react';
 import type { PacketGenerationResult } from '@/lib/packet-selection';
+import type { Position } from '@/lib/territory-geometry';
 import { PacketProposalMap } from './PacketProposalMap';
 
 type PacketGeneratorProps = {
+  center: Position;
   mapsApiKey: string;
 };
 
@@ -16,7 +18,7 @@ type RequestRow = {
 
 const initialRow: RequestRow = { id: 0, quantity: '1', targetHomes: '30' };
 
-export function PacketGenerator({ mapsApiKey }: PacketGeneratorProps) {
+export function PacketGenerator({ center, mapsApiKey }: PacketGeneratorProps) {
   const [rows, setRows] = useState<RequestRow[]>([initialRow]);
   const [result, setResult] = useState<PacketGenerationResult | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -87,7 +89,7 @@ export function PacketGenerator({ mapsApiKey }: PacketGeneratorProps) {
       </header>
       <main className="territory-workspace">
         <section className="map-panel">
-          <PacketProposalMap apiKey={mapsApiKey} proposal={selected} />
+          <PacketProposalMap apiKey={mapsApiKey} center={center} proposal={selected} />
         </section>
         <aside className="territory-sidebar">
           <div className="sidebar-title">

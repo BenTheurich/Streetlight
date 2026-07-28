@@ -3,14 +3,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { latLng, loadGoogleMaps } from '@/lib/google-maps-browser';
 import type { PacketProposal } from '@/lib/packet-selection';
+import type { Position } from '@/lib/territory-geometry';
 import { segmentStrokeWeight } from '@/lib/territory-map-style';
 
 type PacketProposalMapProps = {
   apiKey: string;
+  center: Position;
   proposal: PacketProposal | null;
 };
 
-export function PacketProposalMap({ apiKey, proposal }: PacketProposalMapProps) {
+export function PacketProposalMap({ apiKey, center, proposal }: PacketProposalMapProps) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(apiKey ? 'loading' : 'error');
@@ -22,8 +24,8 @@ export function PacketProposalMap({ apiKey, proposal }: PacketProposalMapProps) 
       .then((maps) => {
         if (disposed || !elementRef.current) return;
         mapRef.current = new maps.Map(elementRef.current, {
-          center: { lat: 0, lng: 0 },
-          zoom: 2,
+          center: latLng(center),
+          zoom: 11,
           mapId: 'DEMO_MAP_ID',
           mapTypeControl: false,
           streetViewControl: false,
@@ -40,7 +42,7 @@ export function PacketProposalMap({ apiKey, proposal }: PacketProposalMapProps) 
       if (mapRef.current) google.maps.event.clearInstanceListeners(mapRef.current);
       mapRef.current = null;
     };
-  }, [apiKey]);
+  }, [apiKey, center]);
 
   useEffect(() => {
     const map = mapRef.current;
