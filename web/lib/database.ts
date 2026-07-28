@@ -3,10 +3,14 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import {
   type CoverageClass,
+  type CoverageLegendItem,
   type CoverageRoot,
+  type CoverageThresholds,
   calendarDateInTimeZone,
   classifyCoverage,
+  coverageLegend,
   deriveCoverageSegments,
+  parseCoverageThresholds,
   validateCoverageDate,
 } from './coverage.ts';
 import type { ImportedTerritoryInput } from './overture-import.ts';
@@ -139,16 +143,23 @@ export type CoverageWorkspace = {
   center: Position;
   asOf: string;
   activePackets: number;
+  thresholds: CoverageThresholds;
+  legend: CoverageLegendItem[];
+  dataMode: 'canonical' | 'demo';
   segments: CoverageWorkspaceSegment[];
   totals: { eligibleHomes: number };
 };
 
-function openWorkspaceDatabase(filename?: string): DatabaseSync {
-  const database = new DatabaseSync(
+function workspaceDatabaseFilename(filename?: string): string {
+  return (
     filename ??
-      process.env.STREETLIGHT_DATABASE_PATH ??
-      path.join(process.cwd(), 'data', 'streetlight.db'),
+    process.env.STREETLIGHT_DATABASE_PATH ??
+    path.join(process.cwd(), 'data', 'streetlight.db')
   );
+}
+
+function openWorkspaceDatabase(filename?: string): DatabaseSync {
+  const database = new DatabaseSync(workspaceDatabaseFilename(filename));
   database.exec('PRAGMA foreign_keys = ON');
   return database;
 }
@@ -166,6 +177,26 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
   const territory = getTerritoryWorkspace(filename);
   const database = openWorkspaceDatabase(filename);
   try {
+    const thresholdRow = database
+      .prepare(
+        `SELECT coverage_yellow_after_days, coverage_orange_after_days,
+          coverage_red_after_days
+        FROM territories
+        WHERE id = ? AND church_id = ?`,
+      )
+      .get(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as
+      | {
+          coverage_yellow_after_days: number;
+          coverage_orange_after_days: number;
+          coverage_red_after_days: number;
+        }
+      | undefined;
+    if (!thresholdRow) throw new Error('Territory not found');
+    const thresholds = parseCoverageThresholds({
+      yellowAfterDays: thresholdRow.coverage_yellow_after_days,
+      orangeAfterDays: thresholdRow.coverage_orange_after_days,
+      redAfterDays: thresholdRow.coverage_red_after_days,
+    });
     const events = database
       .prepare(
         `SELECT ce.id, s.import_segment_id AS segment_id, ce.rowid AS sequence,
@@ -220,6 +251,12 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
       center: territory.center,
       asOf,
       activePackets,
+      thresholds,
+      legend: coverageLegend(thresholds),
+      dataMode:
+        path.basename(workspaceDatabaseFilename(filename)).toLowerCase() === 'coverage-demo.db'
+          ? 'demo'
+          : 'canonical',
       segments: territory.segments
         .filter(
           (segment) => segment.excludedReason !== 'boundary' && segment.excludedReason !== 'hidden',
@@ -235,12 +272,41 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
             eligible: segment.eligible,
             excludedReason: segment.excludedReason,
             lastCoveredOn: coverage.lastCoveredOn,
-            coverageClass: classifyCoverage(coverage.lastCoveredOn, asOf),
+            coverageClass: classifyCoverage(coverage.lastCoveredOn, asOf, thresholds),
             roots: coverage.roots,
           };
         }),
       totals: { eligibleHomes: territory.totals.eligibleHomes },
     };
+  } finally {
+    database.close();
+  }
+}
+
+export function saveCoverageThresholds(value: CoverageThresholds, filename?: string): void {
+  const thresholds = parseCoverageThresholds(value);
+  const database = openWorkspaceDatabase(filename);
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    const result = database
+      .prepare(
+        `UPDATE territories
+        SET coverage_yellow_after_days = ?, coverage_orange_after_days = ?,
+          coverage_red_after_days = ?
+        WHERE id = ? AND church_id = ?`,
+      )
+      .run(
+        thresholds.yellowAfterDays,
+        thresholds.orangeAfterDays,
+        thresholds.redAfterDays,
+        PILOT_TERRITORY_ID,
+        PILOT_CHURCH_ID,
+      );
+    if (result.changes !== 1) throw new Error('Territory not found');
+    database.exec('COMMIT');
+  } catch (error) {
+    database.exec('ROLLBACK');
+    throw error;
   } finally {
     database.close();
   }

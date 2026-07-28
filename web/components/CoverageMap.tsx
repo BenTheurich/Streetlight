@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { CoverageLegendItem } from '@/lib/coverage';
 import type { CoverageWorkspaceSegment } from '@/lib/database';
 import { latLng, loadGoogleMaps } from '@/lib/google-maps-browser';
 import type { Position } from '@/lib/territory-geometry';
@@ -17,6 +18,7 @@ const colors = {
 type CoverageMapProps = {
   apiKey: string;
   center: Position;
+  legend: CoverageLegendItem[];
   segments: CoverageWorkspaceSegment[];
   selectedSegmentId: string | null;
   onSelectSegment: (id: string) => void;
@@ -25,6 +27,7 @@ type CoverageMapProps = {
 export function CoverageMap({
   apiKey,
   center,
+  legend,
   segments,
   selectedSegmentId,
   onSelectSegment,
@@ -171,10 +174,10 @@ export function CoverageMap({
       {status === 'error' && <span className="map-loading">Google map could not load.</span>}
       <fieldset className="map-legend coverage-legend">
         <legend className="sr-only">Coverage heatmap legend</legend>
-        {Object.entries(colors).map(([name, color]) => (
-          <span key={name}>
-            <i style={{ background: color }} />
-            {name === 'gray' ? 'Excluded' : name}
+        {legend.map((item) => (
+          <span key={item.coverageClass}>
+            <i style={{ background: colors[item.coverageClass] }} />
+            {item.label}
           </span>
         ))}
       </fieldset>

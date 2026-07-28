@@ -1,5 +1,9 @@
-import { parseCorrectionRequest } from '../../../lib/coverage.ts';
-import { appendCoverageCorrection, getCoverageWorkspace } from '../../../lib/database.ts';
+import { parseCorrectionRequest, parseCoverageThresholds } from '../../../lib/coverage.ts';
+import {
+  appendCoverageCorrection,
+  getCoverageWorkspace,
+  saveCoverageThresholds,
+} from '../../../lib/database.ts';
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status });
@@ -24,5 +28,21 @@ export async function POST(request: Request): Promise<Response> {
       return json({ error: message }, 404);
     }
     return json({ error: 'Invalid correction request' }, 400);
+  }
+}
+
+export async function PATCH(request: Request): Promise<Response> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'Invalid heatmap ranges' }, 400);
+  }
+
+  try {
+    saveCoverageThresholds(parseCoverageThresholds(body));
+    return json(getCoverageWorkspace());
+  } catch {
+    return json({ error: 'Invalid heatmap ranges' }, 400);
   }
 }

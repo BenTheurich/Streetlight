@@ -11,6 +11,7 @@ import {
   getFoundationSummary,
   getTerritoryWorkspace,
   recordCoverageCompletion,
+  saveCoverageThresholds,
   saveTerritoryDraft,
 } from '../lib/database.ts';
 import { migrateDatabase, openDatabase } from './migrate.mjs';
@@ -1311,6 +1312,71 @@ test('coverage boundary appends corrections, retains retired logical history, an
   });
 });
 
+test('coverage thresholds persist per territory without changing coverage totals', () => {
+  withDatabase((filename) => {
+    const before = getCoverageWorkspace(filename, '2026-07-28');
+    assert.deepEqual(before.thresholds, {
+      yellowAfterDays: 90,
+      orangeAfterDays: 180,
+      redAfterDays: 365,
+    });
+    assert.equal(before.dataMode, 'canonical');
+    const segment = before.segments.find((candidate) => candidate.eligible);
+    assert.ok(segment);
+    recordCoverageCompletion(segment.id, '2026-05-29', filename);
+    const beforeThresholdChange = getCoverageWorkspace(filename, '2026-07-28');
+    assert.equal(
+      beforeThresholdChange.segments.find((candidate) => candidate.id === segment.id).coverageClass,
+      'green',
+    );
+    const coveredHomes = countEligibleHomesCovered(
+      beforeThresholdChange.segments,
+      beforeThresholdChange.asOf,
+      90,
+    );
+
+    saveCoverageThresholds(
+      { yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 90 },
+      filename,
+    );
+    const after = getCoverageWorkspace(filename, '2026-07-28');
+    assert.deepEqual(after.thresholds, {
+      yellowAfterDays: 30,
+      orangeAfterDays: 60,
+      redAfterDays: 90,
+    });
+    assert.deepEqual(
+      after.legend.map(({ label }) => label),
+      [
+        'Green: 0-29 days',
+        'Yellow: 30-59 days',
+        'Orange: 60-89 days',
+        'Red: 90+ days or never',
+        'Excluded',
+      ],
+    );
+    assert.equal(
+      after.segments.find((candidate) => candidate.id === segment.id).coverageClass,
+      'orange',
+    );
+    assert.equal(after.totals.eligibleHomes, before.totals.eligibleHomes);
+    assert.equal(countEligibleHomesCovered(after.segments, after.asOf, 90), coveredHomes);
+
+    const database = openDatabase(filename);
+    assert.throws(
+      () =>
+        database
+          .prepare(
+            `UPDATE territories
+            SET coverage_yellow_after_days = 60, coverage_orange_after_days = 60`,
+          )
+          .run(),
+      /CHECK constraint failed/,
+    );
+    database.close();
+  });
+});
+
 test('coverage demo recreates only its isolated database with stable representative review data', async () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-coverage-demo-'));
   const filename = path.join(directory, 'coverage-demo.db');
@@ -1329,6 +1395,7 @@ test('coverage demo recreates only its isolated database with stable representat
     first.close();
 
     const workspace = getCoverageWorkspace(filename, asOf);
+    assert.equal(workspace.dataMode, 'demo');
     assert.deepEqual(
       [...new Set(workspace.segments.map((segment) => segment.coverageClass))].sort(),
       ['green', 'orange', 'red', 'yellow'],

@@ -300,14 +300,32 @@ Load seeded events, inspect every heatmap color, change the selected period, cor
   90-day metric from 21 homes to the expected 5 homes at 30 days, selected a gray exact-exclusion
   with retained history, undid and restored its completion, confirmed persistence after reload,
   opened Territory Setup, and reported no console errors.
+- The July 28 heatmap-settings amendment adds migration 012 and saves strictly ascending yellow,
+  orange, and red transition days per territory. The legend now states the resulting day ranges;
+  never-covered remains red and the selected-period metric is unchanged. Focused route tests prove
+  valid persistence and invalid-request no-mutation behavior.
+- The complete Phase 2 Overture database was recovered into the main checkout after ignored backups
+  were created for both database files. Before and after recovery it contains release
+  `2026-06-17.0`, generation 3, 14,833 imported addresses, 10,663 assigned homes, 6,373 current
+  segments (1,938 automatic, 4,431 hidden, and 4 manually activated), and the same disabled
+  exclusion polygon. Legacy coverage migration names were mapped to migrations 010 and 011 only
+  after their complete columns, indexes, and triggers exactly matched a fresh main schema after
+  whitespace normalization.
+- The amendment passes 82 Node checks, Biome, TypeScript, and the Next.js production build. A real
+  browser loaded the canonical database with 8,727 eligible tracts across 1,553 visible segments,
+  saved custom 91/181/366-day transitions, confirmed the new ranges after reload, rejected invalid
+  ordering without persistence, restored the 90/180/365 defaults, and loaded Territory Setup with
+  the 10,663-of-14,833 address-match summary and hidden-road controls intact.
 
 ### Human review
 
-If the current review server is no longer running, start it with
-`pnpm --dir web coverage:demo` and open `http://localhost:3001`. Inspect every heatmap color,
-change the selected period, select streets from the map and native control, manually change one
-date, undo one completion, reload, and confirm that newest versus oldest areas are clear without
-instructions.
+Start the canonical application with `pnpm --dir web dev` and open `http://localhost:3000`. Confirm
+the recovered territory streets appear, save valid heatmap ranges, reload, verify invalid ordering
+is rejected, and open Territory Setup to inspect hidden-road and exclusion controls.
+
+Optionally run `pnpm --dir web coverage:demo` at `http://localhost:3001` to inspect every heatmap
+color and history state. The page must be visibly labeled `Demo data`; changing demo dates or
+ranges must not affect the canonical database.
 
 ### Completion condition
 

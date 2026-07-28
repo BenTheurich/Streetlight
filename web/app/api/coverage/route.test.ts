@@ -5,8 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../db/migrate.mjs';
 import { seedDatabase } from '../../../db/seed.mjs';
-import { getTerritoryWorkspace, recordCoverageCompletion } from '../../../lib/database.ts';
-import { POST } from './route.ts';
+import {
+  getCoverageWorkspace,
+  getTerritoryWorkspace,
+  recordCoverageCompletion,
+} from '../../../lib/database.ts';
+import { PATCH, POST } from './route.ts';
 
 function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-coverage-route-'));
@@ -38,6 +42,14 @@ function eventCount(filename: string): number {
 function request(body: unknown): Request {
   return new Request('http://streetlight.local/api/coverage', {
     method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+function thresholdRequest(body: unknown): Request {
+  return new Request('http://streetlight.local/api/coverage', {
+    method: 'PATCH',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
@@ -120,6 +132,47 @@ test('POST correction rejects any completion-shaped or inexact body without muta
       const response = await POST(request(body));
       assert.equal(response.status, 400);
       assert.equal(eventCount(filename), before);
+    }
+  });
+});
+
+test('PATCH heatmap ranges persists all three thresholds and returns refreshed coverage', async () => {
+  await withDatabase(async () => {
+    const response = await PATCH(
+      thresholdRequest({ yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 90 }),
+    );
+
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).thresholds, {
+      yellowAfterDays: 30,
+      orangeAfterDays: 60,
+      redAfterDays: 90,
+    });
+    assert.deepEqual(getCoverageWorkspace().thresholds, {
+      yellowAfterDays: 30,
+      orangeAfterDays: 60,
+      redAfterDays: 90,
+    });
+  });
+});
+
+test('PATCH heatmap ranges rejects inexact and invalid values without mutation', async () => {
+  await withDatabase(async () => {
+    for (const body of [
+      { yellowAfterDays: 0, orangeAfterDays: 60, redAfterDays: 90 },
+      { yellowAfterDays: 60, orangeAfterDays: 60, redAfterDays: 90 },
+      { yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 3651 },
+      { yellowAfterDays: 30.5, orangeAfterDays: 60, redAfterDays: 90 },
+      { yellowAfterDays: 30, orangeAfterDays: 60 },
+      { yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 90, extra: true },
+    ]) {
+      const response = await PATCH(thresholdRequest(body));
+      assert.equal(response.status, 400);
+      assert.deepEqual(getCoverageWorkspace().thresholds, {
+        yellowAfterDays: 90,
+        orangeAfterDays: 180,
+        redAfterDays: 365,
+      });
     }
   });
 });

@@ -1,5 +1,22 @@
 export type CoverageClass = 'red' | 'orange' | 'yellow' | 'green';
 
+export type CoverageThresholds = {
+  yellowAfterDays: number;
+  orangeAfterDays: number;
+  redAfterDays: number;
+};
+
+export type CoverageLegendItem = {
+  coverageClass: CoverageClass | 'gray';
+  label: string;
+};
+
+export const DEFAULT_COVERAGE_THRESHOLDS: CoverageThresholds = {
+  yellowAfterDays: 90,
+  orangeAfterDays: 180,
+  redAfterDays: 365,
+};
+
 export type CoverageEvent = {
   id: string;
   segmentId: string;
@@ -97,6 +114,37 @@ export function parseCorrectionRequest(value: unknown, asOf: string): Correction
   return { eventId, coveredOn };
 }
 
+export function parseCoverageThresholds(value: unknown): CoverageThresholds {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.keys(value).length !== 3 ||
+    !Object.hasOwn(value, 'yellowAfterDays') ||
+    !Object.hasOwn(value, 'orangeAfterDays') ||
+    !Object.hasOwn(value, 'redAfterDays')
+  ) {
+    throw new Error('Invalid heatmap ranges');
+  }
+  const { yellowAfterDays, orangeAfterDays, redAfterDays } = value as Record<string, unknown>;
+  if (
+    !Number.isInteger(yellowAfterDays) ||
+    !Number.isInteger(orangeAfterDays) ||
+    !Number.isInteger(redAfterDays) ||
+    (yellowAfterDays as number) < 1 ||
+    (redAfterDays as number) > 3650 ||
+    (yellowAfterDays as number) >= (orangeAfterDays as number) ||
+    (orangeAfterDays as number) >= (redAfterDays as number)
+  ) {
+    throw new Error('Invalid heatmap ranges');
+  }
+  return {
+    yellowAfterDays: yellowAfterDays as number,
+    orangeAfterDays: orangeAfterDays as number,
+    redAfterDays: redAfterDays as number,
+  };
+}
+
 export function deriveCoverageSegments(
   events: CoverageEvent[],
   asOf: string,
@@ -151,13 +199,39 @@ export function deriveCoverageSegments(
   return [...segments.values()];
 }
 
-export function classifyCoverage(coveredOn: string | null, asOf: string): CoverageClass {
+export function classifyCoverage(
+  coveredOn: string | null,
+  asOf: string,
+  thresholds: CoverageThresholds = DEFAULT_COVERAGE_THRESHOLDS,
+): CoverageClass {
   if (!coveredOn) return 'red';
   const age = utcDay(asOf) - utcDay(coveredOn);
-  if (age <= 89) return 'green';
-  if (age <= 179) return 'yellow';
-  if (age <= 364) return 'orange';
+  if (age < thresholds.yellowAfterDays) return 'green';
+  if (age < thresholds.orangeAfterDays) return 'yellow';
+  if (age < thresholds.redAfterDays) return 'orange';
   return 'red';
+}
+
+export function coverageLegend(thresholds: CoverageThresholds): CoverageLegendItem[] {
+  return [
+    {
+      coverageClass: 'green',
+      label: `Green: 0-${thresholds.yellowAfterDays - 1} days`,
+    },
+    {
+      coverageClass: 'yellow',
+      label: `Yellow: ${thresholds.yellowAfterDays}-${thresholds.orangeAfterDays - 1} days`,
+    },
+    {
+      coverageClass: 'orange',
+      label: `Orange: ${thresholds.orangeAfterDays}-${thresholds.redAfterDays - 1} days`,
+    },
+    {
+      coverageClass: 'red',
+      label: `Red: ${thresholds.redAfterDays}+ days or never`,
+    },
+    { coverageClass: 'gray', label: 'Excluded' },
+  ];
 }
 
 export function countEligibleHomesCovered(

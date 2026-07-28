@@ -4,8 +4,11 @@ import {
   calendarDateInTimeZone,
   classifyCoverage,
   countEligibleHomesCovered,
+  coverageLegend,
+  DEFAULT_COVERAGE_THRESHOLDS,
   deriveCoverageSegments,
   parseCorrectionRequest,
+  parseCoverageThresholds,
   validateCoverageDate,
 } from './coverage.ts';
 
@@ -35,6 +38,58 @@ test('coverage classes use every inclusive age boundary and never-covered is red
       null,
     ].map((coveredOn) => classifyCoverage(coveredOn, asOf)),
     ['green', 'yellow', 'yellow', 'orange', 'orange', 'orange', 'red', 'red'],
+  );
+});
+
+test('custom heatmap transitions classify exact boundary days and keep never-covered red', () => {
+  const thresholds = { yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 90 };
+  assert.deepEqual(
+    ['2026-06-29', '2026-06-28', '2026-05-30', '2026-05-29', '2026-04-30', '2026-04-29', null].map(
+      (coveredOn) => classifyCoverage(coveredOn, asOf, thresholds),
+    ),
+    ['green', 'yellow', 'yellow', 'orange', 'orange', 'red', 'red'],
+  );
+});
+
+test('heatmap range requests require exactly three ascending bounded integers', () => {
+  const valid = { yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 90 };
+  assert.deepEqual(parseCoverageThresholds(valid), valid);
+  for (const request of [
+    { yellowAfterDays: 0, orangeAfterDays: 60, redAfterDays: 90 },
+    { yellowAfterDays: 60, orangeAfterDays: 60, redAfterDays: 90 },
+    { yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 3651 },
+    { yellowAfterDays: 30.5, orangeAfterDays: 60, redAfterDays: 90 },
+    { yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 90, extra: true },
+  ]) {
+    assert.throws(() => parseCoverageThresholds(request), /heatmap ranges/i);
+  }
+});
+
+test('heatmap legend explains the complete default outreach-age ranges', () => {
+  assert.deepEqual(
+    coverageLegend(DEFAULT_COVERAGE_THRESHOLDS).map(({ label }) => label),
+    [
+      'Green: 0-89 days',
+      'Yellow: 90-179 days',
+      'Orange: 180-364 days',
+      'Red: 365+ days or never',
+      'Excluded',
+    ],
+  );
+});
+
+test('heatmap legend derives every label from custom transitions', () => {
+  assert.deepEqual(
+    coverageLegend({ yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 90 }).map(
+      ({ label }) => label,
+    ),
+    [
+      'Green: 0-29 days',
+      'Yellow: 30-59 days',
+      'Orange: 60-89 days',
+      'Red: 90+ days or never',
+      'Excluded',
+    ],
   );
 });
 

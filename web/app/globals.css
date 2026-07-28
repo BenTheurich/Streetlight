@@ -144,6 +144,18 @@ textarea {
   font-size: 0.75rem;
 }
 
+.demo-data-label {
+  margin-left: 0.6rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+  background: #f2d9a6;
+  color: #6c4a12;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .territory-header a,
 .dashboard-header a {
   color: #5f5a52;
@@ -856,6 +868,48 @@ textarea {
 .coverage-field select {
   min-height: 38px;
   padding: 0.5rem 0.6rem;
+}
+
+.coverage-ranges {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.coverage-ranges label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.coverage-ranges label span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.coverage-ranges input {
+  width: 76px;
+  min-height: 34px;
+  padding: 0.35rem 0.45rem;
+}
+
+.coverage-ranges button {
+  justify-self: end;
+  min-height: 34px;
+  margin-top: 0.15rem;
+  padding: 0.4rem 0.75rem;
+}
+
+.coverage-ranges .coverage-range-error {
+  min-height: 0;
+  margin: 0;
+  color: var(--red);
+  font-size: 0.62rem;
+  line-height: 1.4;
 }
 
 .coverage-detail h2,

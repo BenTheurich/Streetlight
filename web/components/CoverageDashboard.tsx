@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { countEligibleHomesCovered } from '@/lib/coverage';
+import { type FormEvent, useState } from 'react';
+import { type CoverageThresholds, countEligibleHomesCovered } from '@/lib/coverage';
 import type { CoverageWorkspace, CoverageWorkspaceSegment } from '@/lib/database';
 import { CoverageMap } from './CoverageMap';
 
@@ -11,6 +11,11 @@ type CoverageDashboardProps = {
 };
 
 const periods = [30, 90, 180, 365];
+const rangeFields: Array<{ key: keyof CoverageThresholds; label: string }> = [
+  { key: 'yellowAfterDays', label: 'Yellow starts at' },
+  { key: 'orangeAfterDays', label: 'Orange starts at' },
+  { key: 'redAfterDays', label: 'Red starts at' },
+];
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(
@@ -27,7 +32,13 @@ export function CoverageDashboard({ initialData, mapsApiKey }: CoverageDashboard
       null,
   );
   const [dates, setDates] = useState<Record<string, string>>({});
+  const [rangeDraft, setRangeDraft] = useState({
+    yellowAfterDays: String(initialData.thresholds.yellowAfterDays),
+    orangeAfterDays: String(initialData.thresholds.orangeAfterDays),
+    redAfterDays: String(initialData.thresholds.redAfterDays),
+  });
   const [activeMutation, setActiveMutation] = useState<string | null>(null);
+  const [rangeError, setRangeError] = useState('');
   const [notice, setNotice] = useState('');
   const selected = workspace.segments.find((segment) => segment.id === selectedSegmentId) ?? null;
   const coveredHomes = countEligibleHomesCovered(workspace.segments, workspace.asOf, period);
@@ -54,6 +65,39 @@ export function CoverageDashboard({ initialData, mapsApiKey }: CoverageDashboard
     }
   }
 
+  async function saveRanges(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setActiveMutation('heatmap-ranges');
+    setRangeError('');
+    setNotice('');
+    try {
+      const response = await fetch('/api/coverage', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          yellowAfterDays: Number(rangeDraft.yellowAfterDays),
+          orangeAfterDays: Number(rangeDraft.orangeAfterDays),
+          redAfterDays: Number(rangeDraft.redAfterDays),
+        }),
+      });
+      const result = (await response.json()) as CoverageWorkspace | { error: string };
+      if (!response.ok || 'error' in result) {
+        throw new Error('error' in result ? result.error : 'Could not save heatmap ranges');
+      }
+      setWorkspace(result);
+      setRangeDraft({
+        yellowAfterDays: String(result.thresholds.yellowAfterDays),
+        orangeAfterDays: String(result.thresholds.orangeAfterDays),
+        redAfterDays: String(result.thresholds.redAfterDays),
+      });
+      setNotice('Heatmap ranges saved.');
+    } catch (error) {
+      setRangeError(error instanceof Error ? error.message : 'Could not save heatmap ranges');
+    } finally {
+      setActiveMutation(null);
+    }
+  }
+
   function rootDate(root: CoverageWorkspaceSegment['roots'][number]): string {
     return (
       dates[root.eventId] ??
@@ -69,6 +113,7 @@ export function CoverageDashboard({ initialData, mapsApiKey }: CoverageDashboard
         <div>
           <span className="wordmark">Streetlight</span>
           <span className="phase-label">Coverage</span>
+          {workspace.dataMode === 'demo' && <span className="demo-data-label">Demo data</span>}
         </div>
         <a href="/territory">Territory setup</a>
       </header>
@@ -78,6 +123,7 @@ export function CoverageDashboard({ initialData, mapsApiKey }: CoverageDashboard
             apiKey={mapsApiKey}
             center={workspace.center}
             onSelectSegment={setSelectedSegmentId}
+            legend={workspace.legend}
             segments={workspace.segments}
             selectedSegmentId={selectedSegmentId}
           />
@@ -113,6 +159,46 @@ export function CoverageDashboard({ initialData, mapsApiKey }: CoverageDashboard
                   ))}
                 </select>
               </label>
+            </section>
+            <section>
+              <h2>Heatmap ranges</h2>
+              <form className="coverage-ranges" onSubmit={(event) => void saveRanges(event)}>
+                {rangeFields.map(({ key, label }) => (
+                  <label key={key}>
+                    {label}
+                    <span>
+                      <input
+                        aria-describedby="heatmap-ranges-error"
+                        aria-invalid={rangeError ? true : undefined}
+                        max="3650"
+                        min="1"
+                        onChange={(event) => {
+                          setRangeError('');
+                          setRangeDraft((current) => ({
+                            ...current,
+                            [key]: event.target.value,
+                          }));
+                        }}
+                        required
+                        step="1"
+                        type="number"
+                        value={rangeDraft[key]}
+                      />
+                      days
+                    </span>
+                  </label>
+                ))}
+                <button disabled={activeMutation === 'heatmap-ranges'} type="submit">
+                  Save ranges
+                </button>
+                <p
+                  className="coverage-range-error"
+                  id="heatmap-ranges-error"
+                  role={rangeError ? 'alert' : undefined}
+                >
+                  {rangeError}
+                </p>
+              </form>
             </section>
             <section>
               <label className="coverage-field">

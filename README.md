@@ -60,16 +60,20 @@ changed church address without exposing that credential to the browser. See
 [ENVIRONMENTS.md](ENVIRONMENTS.md) for the required API and application restrictions.
 
 Coverage is derived from append-only outreach events. Changing a date and undoing a completion add
-correction rows; they never replace or remove the original completion. The map uses green for
-0-89 days, yellow for 90-179, orange for 180-364, and red for 365+ days or never covered.
+correction rows; they never replace or remove the original completion. Each territory saves the
+days when its map changes to yellow, orange, and red. The defaults are 90, 180, and 365 days;
+never-covered streets remain red.
 The 30/90/180/365-day home metric includes both calendar-date endpoints: a 90-day selection is
 `[asOf - 89 days, asOf]`.
 
-For founder review, run `pnpm --dir web coverage:demo` and open `http://localhost:3001`.
-It recreates only `web/data/coverage-demo.db`, then starts Next with that isolated database. The
-demo has green, yellow, orange, red, never-covered, corrected, and undone examples plus one active
-packet. Inspect every map color, change the period, select segments, change a date, undo one,
-reload, and confirm the history and totals persist.
+For canonical founder review, run `pnpm --dir web dev` and open `http://localhost:3000`. Confirm the
+saved territory streets load, edit and save the three heatmap ranges, reload, and open Territory
+Setup to inspect hidden-road and exclusion controls.
+
+For an optional review of every history state, run `pnpm --dir web coverage:demo` and open
+`http://localhost:3001`. It recreates only `web/data/coverage-demo.db`, labels the page as demo
+data, and provides green, yellow, orange, red, never-covered, corrected, and undone examples plus
+one active packet.
 
 `pnpm db:seed` and `pnpm dev` never add fake outreach, batches, packets, or demo IDs to the
 founder's `web/data/streetlight.db`; representative data exists only in the explicit demo file.
