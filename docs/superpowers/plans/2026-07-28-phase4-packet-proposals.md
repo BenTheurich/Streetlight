@@ -546,7 +546,7 @@ git diff --check
 
 Expected: all pass.
 
-- [ ] **Step 6: Commit the selector**
+- [x] **Step 6: Commit the selector**
 
 ```powershell
 git add web/lib/packet-selection.ts web/lib/packet-selection.test.ts web/package.json
@@ -588,7 +588,7 @@ POST /api/packet-proposals
 { "proposals": PacketProposal[], "warnings": string[] }
 ```
 
-- [ ] **Step 1: Write failing database-workspace tests**
+- [x] **Step 1: Write failing database-workspace tests**
 
 Import one address-backed segment, one excluded segment, and one hidden segment. Insert an active
 packet reservation referencing a retired physical version of a logical segment. Assert the packet
@@ -603,7 +603,7 @@ workspace:
 Use the existing temporary migrated database helper. Run `corepack pnpm --dir web test`; expected:
 FAIL because `getPacketGenerationWorkspace` does not exist.
 
-- [ ] **Step 2: Implement the smallest database read model**
+- [x] **Step 2: Implement the smallest database read model**
 
 Call `getCoverageWorkspace(filename, asOf)` to reuse the effective-date and heatmap rules. In one
 additional database connection:
@@ -616,7 +616,7 @@ Do not add a new table, cache, repository, adjacency table, or stored proposal.
 
 Run the database test and full web test suite; expected: PASS.
 
-- [ ] **Step 3: Write failing real-route tests with mutation counts**
+- [x] **Step 3: Write failing real-route tests with mutation counts**
 
 Create an exact request helper and call the route against a temporary migrated database. Before the
 request, use `saveTerritoryDraft` with a two-segment connected imported graph whose first and last
@@ -641,7 +641,7 @@ Assert counts are unchanged and repeated responses have identical serialized JSO
 
 with status 400 and no mutation.
 
-- [ ] **Step 4: Implement the proposal endpoint**
+- [x] **Step 4: Implement the proposal endpoint**
 
 Parse JSON, require the body to have exactly the `requests` key, validate requests with the pure
 parser, load the packet workspace, and return `generatePacketProposals`. Return:

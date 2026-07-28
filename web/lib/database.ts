@@ -14,6 +14,7 @@ import {
   validateCoverageDate,
 } from './coverage.ts';
 import type { ImportedTerritoryInput } from './overture-import.ts';
+import type { PacketAddress, PacketSelectionSegment } from './packet-selection.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import {
   type LineString,
@@ -150,6 +151,11 @@ export type CoverageWorkspace = {
   totals: { eligibleHomes: number };
 };
 
+export type PacketGenerationWorkspace = {
+  center: Position;
+  segments: PacketSelectionSegment[];
+};
+
 function workspaceDatabaseFilename(filename?: string): string {
   return (
     filename ??
@@ -277,6 +283,83 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
           };
         }),
       totals: { eligibleHomes: territory.totals.eligibleHomes },
+    };
+  } finally {
+    database.close();
+  }
+}
+
+export function getPacketGenerationWorkspace(
+  filename?: string,
+  asOf = todayForPilot(),
+): PacketGenerationWorkspace {
+  const coverage = getCoverageWorkspace(filename, asOf);
+  const database = openWorkspaceDatabase(filename);
+  try {
+    const addresses = new Map<string, PacketAddress[]>();
+    for (const row of database
+      .prepare(
+        `SELECT s.import_segment_id, a.house_number, a.street, a.locality, a.postcode,
+          a.longitude, a.latitude
+        FROM street_segments s
+        JOIN segment_addresses a ON a.street_segment_id = s.id
+        WHERE s.territory_id = ? AND s.church_id = ? AND s.is_current = 1
+        ORDER BY s.import_segment_id, a.id`,
+      )
+      .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Array<{
+      import_segment_id: string;
+      house_number: string | null;
+      street: string;
+      locality: string | null;
+      postcode: string | null;
+      longitude: number;
+      latitude: number;
+    }>) {
+      const segmentAddresses = addresses.get(row.import_segment_id) ?? [];
+      segmentAddresses.push({
+        number: row.house_number,
+        street: row.street,
+        locality: row.locality,
+        postcode: row.postcode,
+        position: [row.longitude, row.latitude],
+      });
+      addresses.set(row.import_segment_id, segmentAddresses);
+    }
+    const reserved = new Set(
+      (
+        database
+          .prepare(
+            `SELECT DISTINCT s.import_segment_id
+            FROM packet_segments ps
+            JOIN packets p ON p.id = ps.packet_id AND p.church_id = ps.church_id
+            JOIN street_segments s ON s.id = ps.street_segment_id
+            WHERE ps.church_id = ? AND s.territory_id = ? AND p.status = 'active'
+            ORDER BY s.import_segment_id`,
+          )
+          .all(PILOT_CHURCH_ID, PILOT_TERRITORY_ID) as Array<{ import_segment_id: string }>
+      ).map((row) => row.import_segment_id),
+    );
+    return {
+      center: coverage.center,
+      segments: coverage.segments.map(
+        ({
+          id,
+          streetName,
+          geometry,
+          estimatedHomes,
+          eligible,
+          coverageClass,
+        }): PacketSelectionSegment => ({
+          id,
+          streetName,
+          geometry,
+          estimatedHomes,
+          eligible,
+          reserved: reserved.has(id),
+          coverageClass,
+          addresses: addresses.get(id) ?? [],
+        }),
+      ),
     };
   } finally {
     database.close();
