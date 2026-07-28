@@ -64,10 +64,19 @@ The tracked coverage unit is a short street segment rather than an individual ho
 - A turn of about 90 degrees can define a segment boundary. A packet can still contain multiple connected segments across those boundaries.
 - Territory boundaries and ignore zones exclude whole segments from packet selection.
 - Address data supplies estimated home counts and packet starting addresses.
-- Imported street geometry and estimated home counts are read-only in the first release.
-- Administrators rely on the imported data and use exclusion polygons to remove unsuitable
-  segments; manual street-geometry and home-count correction controls are outside the first
-  release.
+- Imported street geometry and estimated home counts cannot be edited in the first release.
+- A territory import retains every Overture feature classified as a road. High-confidence
+  residential roads are active automatically; all other retained roads begin hidden.
+- On the territory editor, an administrator can preview and activate a hidden Overture road.
+  Activation applies to the complete connected named road within the territory. Address evidence
+  may supply a missing name. A genuinely unnamed road follows its connected chain until a named
+  road, intersection, or territory boundary.
+- Administrator-activated roads remain active through later imports. A later source refresh may
+  update matching geometry but cannot silently hide an approved road; if the source road
+  disappears, Streetlight preserves the last approved geometry.
+- Exclusion polygons remain the first-release method for removing unsuitable roads. Drawing
+  roads, changing road geometry, deactivating individual roads, and correcting home counts are
+  outside the first release.
 - Completing a packet records a coverage event for every included segment.
 - Coverage history must be retained. Correcting a mistake records the correction instead of silently replacing history.
 

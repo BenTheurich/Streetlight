@@ -2,6 +2,13 @@
 
 Status: approved through the founder's July 27, 2026 autonomous-execution delegation
 
+Superseded in part on July 28, 2026 by
+[the hidden-road activation design](2026-07-28-hidden-road-activation-design.md). The strict rule
+that every street-sized unmatched-address cluster must fail the complete import is replaced by a
+broad retained Overture road pool and administrator activation. Its deterministic address-name
+inference, atomic replacement, safe error handling, and Hillsdale regression evidence remain
+applicable.
+
 ## Purpose
 
 Streetlight must not silently omit a residential street because Overture supplies its geometry
@@ -20,12 +27,13 @@ The Belmont/Hillsdale example is the binding regression:
 - Imported geometry and tract estimates remain read-only.
 - Streetlight remains deterministic and AI-free.
 - Do not add manual street drawing, geometry correction, or tract-count correction.
-- Keep the accepted Overture release and residential-road scope.
+- Keep the accepted Overture release. The July 28 amendment expands storage to every Overture
+  `road` feature while retaining this document's residential rule for automatic activation.
 - A failed quality check must preserve the previously saved territory and import.
 
 ## Normalization rule
 
-The importer keeps the current candidate road classes:
+The importer keeps the current automatic-activation candidate classes:
 
 - Always eligible as residential geometry: `residential`, `living_street`.
 - Eligible only after at least one exact-name address match: `primary`, `secondary`, `tertiary`,
@@ -54,13 +62,10 @@ is assigned to at most one normalized segment:
 2. choose the nearest segment within 40 meters;
 3. break equal-distance ties by source ID and part index.
 
-After assignment, group unassigned in-circle addresses by canonical street name. A group of three
-or more is an unresolved street-sized cluster. Any unresolved cluster fails the import before the
-database transaction begins. The error names each unresolved street and its address count so the
-source rule can be diagnosed; Streetlight never presents that import as complete.
-
-One or two unmatched addresses remain visible in quality totals but do not block the import. They
-are too weak a signal to infer a road or reject an otherwise usable territory.
+After assignment, group unassigned in-circle addresses by canonical street name. Groups remain
+visible in diagnostic quality metadata, but they do not reject an otherwise structurally valid
+import. The retained hidden-road pool gives the administrator a deterministic recovery path when
+automatic name or residential-use evidence is insufficient.
 
 ## Import quality metadata
 
@@ -71,7 +76,7 @@ Every successful importer payload carries:
 - `assignedAddresses`: unique records assigned to retained segments;
 - `inferredRoads`: unnamed source roads named by the consensus rule;
 - `unmatchedAddresses`: the remaining one-off address records;
-- `unresolvedClusters`: always zero for a successful payload.
+- `unresolvedClusters`: diagnostic count of street-sized unmatched-address groups.
 
 The territory stores the normalizer version and the first four counts with the import footprint.
 Legacy imports have no normalizer version, so `needsTerritoryImport` requires one replacement even
@@ -81,11 +86,10 @@ controls or raw addresses.
 
 ## Failure and atomicity
 
-An import-quality failure exits the Python importer nonzero. The API returns the concise safe
-message `Street data import failed its completeness check. No saved changes were replaced.` and
-never exposes a Python traceback. The existing save transaction is never entered. The editor
-renders that message while preserving the browser draft, saved territory, prior segment
-generation, import timestamp, and history references.
+A structurally invalid import exits the Python importer nonzero. The API returns a concise safe
+message and never exposes a Python traceback. The existing save transaction is never entered. The
+editor renders that message while preserving the browser draft, saved territory, prior active and
+hidden segment generation, import timestamp, and history references.
 
 ## Verification
 
@@ -94,11 +98,12 @@ Automated checks cover:
 - the four Hillsdale-shaped unnamed residential roads are inferred from 29 agreeing addresses;
 - all 29 addresses are assigned exactly once;
 - ambiguous or two-address evidence does not infer a name;
-- three unassigned same-street addresses fail normalization;
+- three unassigned same-street addresses appear in diagnostic metadata without failing an
+  otherwise valid import;
 - address points outside the requested circle do not affect the gate;
 - quality metadata is validated and round-trips through SQLite;
 - an import-quality process failure preserves the saved workspace.
 
-The genuine Nicolas Road import must complete with zero unresolved clusters before Phase 3 starts.
-The resulting map is compared against the Hillsdale screenshot and the imported quality totals are
-recorded in `IMPLEMENTATION_PLAN.md`.
+The genuine Nicolas Road import must complete with all Overture roads retained as active or hidden
+before Phase 3 starts. The resulting map is compared against the Hillsdale screenshot and the
+imported quality totals are recorded in `IMPLEMENTATION_PLAN.md`.

@@ -40,7 +40,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 |---:|---|---|---|---|
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
-| 2 | Territory setup | Phase 1 | Awaiting human review | Founder approved the radius-minus-exclusions design on July 27, 2026; pinned Overture `2026-06-17.0` imported 687 segments and 3,368 homes for the 1-mile pilot, while restart persistence, exclusion/radius reuse, 1.1-mile replacement, invalid-Python preservation, and referenced-history-safe reimport passed; `pnpm check` passes lint, typecheck, 38 Node tests, 16 Python tests, and production build; real Chrome map/drawing acceptance passes |
+| 2 | Territory setup | Phase 1 | In progress | Radius-minus-exclusions implementation passed its original checks; founder reopened Phase 2 on July 28, 2026 after identifying omitted Overture road geometry and approved retaining a hidden road pool with persistent administrator activation |
 | 3 | Coverage history and heatmap | Phase 2 | Pending | None |
 | 4 | Packet selection | Phase 3 | Pending | None |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
@@ -147,7 +147,11 @@ Create and correct one church outreach territory.
 - Allow the administrator to adjust a circular territory with live radius controls.
 - Allow the administrator to create, name, reshape, and remove polygon exclusion zones.
 - Display eligible segments in the page accent color and excluded segments in gray.
-- Treat imported segment geometry and home counts as read-only.
+- Retain every imported Overture road as active or hidden.
+- Automatically activate high-confidence residential roads.
+- Allow the administrator to preview and activate a complete hidden road group.
+- Preserve administrator activations through later imports.
+- Treat imported segment geometry and home counts as non-editable.
 - Persist all changes.
 
 ### Automated checks
@@ -157,13 +161,18 @@ Create and correct one church outreach territory.
 - Any segment that touches or crosses an exclusion polygon is excluded from eligible home totals.
 - Radius and exclusion-polygon changes persist after reload.
 - Cancelling draft changes leaves the stored territory unchanged.
+- Hidden-road activation selects the complete deterministic road group.
+- A saved manual activation remains active after a later import.
+- Failed imports preserve the prior active and hidden road sets.
 - Territory totals equal the eligible segment totals.
 
 ### Browser check
 
 Create a territory, adjust its radius, draw and reshape an exclusion polygon, save, reload the
 page, and verify that the same map and totals return. Confirm that cancelling a second set of
-changes restores the saved territory.
+changes restores the saved territory. Confirm that address evidence activates Hillsdale Heights,
+then show hidden roads, activate another known candidate, save, reload, and verify that the
+complete road remains active after another import.
 
 ### Phase 2 evidence
 
@@ -193,12 +202,15 @@ Verified July 27, 2026 with pinned Overture release `2026-06-17.0`:
 ### Human review
 
 The founder inspects the area around the church, adjusts the radius, draws a known exclusion,
-and confirms that affected segments turn gray and disappear from eligibility.
+and confirms that affected segments turn gray and disappear from eligibility. The founder then
+confirms that Hillsdale Heights is active, shows hidden roads, activates a known uncertain road,
+saves, reloads, and confirms that the road remains active.
 
 ### Completion condition
 
 The founder can make the stored territory match the church's real outreach area by adjusting
-the radius and drawing exclusion polygons, without editing the database.
+the radius, drawing exclusion polygons, and activating retained Overture roads without editing
+the database.
 
 ## Phase 3: Coverage history and heatmap
 

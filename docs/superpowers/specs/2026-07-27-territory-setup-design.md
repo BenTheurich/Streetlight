@@ -6,6 +6,12 @@ Amended: July 27, 2026
 Product authority: [PRODUCT.md](../../../PRODUCT.md)
 Execution roadmap: [IMPLEMENTATION_PLAN.md](../../../IMPLEMENTATION_PLAN.md)
 
+Amended again July 28, 2026 by
+[the hidden-road activation design](2026-07-28-hidden-road-activation-design.md). That amendment
+supersedes this document where it introduces the retained hidden-road pool, its visibility toggle,
+administrator activation, and activation persistence. Radius, exclusion, draft/save, and
+non-editable geometry rules remain in force.
+
 ## Purpose
 
 Phase 2 creates and maintains one church outreach territory. It is a separate, rarely used
@@ -58,16 +64,19 @@ polygons, and church marker above that map.
 The normal map state shows:
 
 - The circular radius as a dashed accent-color line.
-- Every imported segment.
+- Every active imported segment.
 - Eligible segments as solid, semi-transparent accent-color lines.
 - Excluded segments as solid, semi-transparent gray lines.
+- Hidden candidate roads as thin, semi-transparent blue-gray lines only when `Show hidden roads`
+  is enabled.
 - Saved and draft exclusion polygons as translucent red shapes.
 - A small legend whose solid orange and gray samples match the map.
 - `Pan` and `Draw exclusion` modes.
 - Standard map zoom behavior.
 
-There is no segment-visibility toggle. Segment eligibility remains visible throughout setup so
-the administrator can understand the effect of radius and polygon changes.
+There is no visibility toggle for active segments. Their eligibility remains visible throughout
+setup so the administrator can understand the effect of radius and polygon changes. The
+July 28 amendment adds a separate `Show hidden roads` toggle for candidate activation.
 
 Segment strokes scale with the Google map zoom instead of retaining one fixed pixel width.
 They are approximately 2 pixels when zoomed out and rise gradually to a maximum of 5 pixels
@@ -161,8 +170,10 @@ The browser holds a complete territory draft containing:
 - Church address and geographic point.
 - Radius.
 - Exclusion polygon identifiers, optional names, and coordinates.
+- Draft administrator road activations.
 
-Map overlays and totals derive from the draft. The imported street data remains read-only.
+Map overlays and totals derive from the draft. Imported road geometry and home estimates remain
+non-editable.
 
 `Save changes` submits the complete draft to the server. If the saved center changes, the
 radius exceeds the loaded footprint, or the database still contains the proof-only Phase 0
@@ -193,14 +204,15 @@ bucket anonymously with the `us-west-2` region set explicitly; ambient AWS crede
 used and no Overture API key is required.
 
 Overture road `class` describes road kind and network hierarchy rather than proving whether
-homes exist along that road. Streetlight therefore uses the founder-approved
-residential-or-address-evidence rule:
+homes exist along that road. Streetlight uses the founder-approved
+residential-or-address-evidence rule to decide automatic activation:
 
 - Always retain named `residential` and `living_street` road segments.
 - Retain named `primary`, `secondary`, `tertiary`, and `unclassified` road segments only when
   at least one matching imported address point is assigned to that normalized segment.
-- Exclude every other road class, including motorway, trunk, service, path, footway, cycleway,
-  track, pedestrian, steps, and bridleway.
+- Retain all other Overture `road` features as hidden candidates.
+- Do not retain transportation features whose Overture subtype is not `road`, including paths,
+  footways, cycleways, tracks, pedestrian ways, steps, and bridleways.
 
 Address points are assigned deterministically to the nearest normalized segment with the same
 canonical street name within 40 meters. The resulting count remains an estimate. Imported
@@ -217,8 +229,8 @@ The smallest useful implementation has these responsibilities:
 - **Territory page:** loads the saved workspace and owns the draft/save/cancel lifecycle.
 - **Interactive map:** owns the Google map instance, overlays, map modes, and pointer events.
 - **Setup sidebar:** edits address, radius, polygon metadata, and page actions.
-- **Overture importer:** downloads one required footprint and applies the deterministic
-  normalization and residential-or-address-evidence rule.
+- **Overture importer:** downloads one required footprint, groups all Overture roads, and applies
+  the deterministic residential-or-address-evidence rule for automatic activation.
 - **Geometry functions:** determine radius containment, polygon intersection, validity, and
   eligible totals.
 - **Territory endpoint:** validates the complete draft, conditionally runs the importer, and
@@ -227,7 +239,8 @@ The smallest useful implementation has these responsibilities:
 The stored territory needs a center point and radius. Each exclusion needs a church ID,
 territory ID, optional name, and polygon geometry. Import metadata records the source release
 and loaded footprint. Imported segments retain source identity, geometry, road class, and
-estimated home counts without editable copies.
+estimated home counts without editable copies. They also retain active/hidden source state and
+persistent administrator activation.
 
 No provider abstraction, generalized GIS editor, or compatibility layer is required.
 
