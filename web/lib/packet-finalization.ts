@@ -13,6 +13,10 @@ export type PacketFinalizationInput = {
   customName: string | null;
 };
 
+export type ReviewedPacketGenerationResult = PacketGenerationResult & {
+  proposalFingerprint: string;
+};
+
 export type FinalizedPacket = PacketProposal & {
   id: string;
   code: string;
@@ -83,9 +87,9 @@ export function packetProposalFingerprint(proposals: PacketProposal[]): string {
   return createHash('sha256').update(JSON.stringify(stable)).digest('hex');
 }
 
-export function withProposalFingerprint(result: PacketGenerationResult): PacketGenerationResult & {
-  proposalFingerprint: string;
-} {
+export function withProposalFingerprint(
+  result: PacketGenerationResult,
+): ReviewedPacketGenerationResult {
   return {
     ...result,
     proposalFingerprint: packetProposalFingerprint(result.proposals),

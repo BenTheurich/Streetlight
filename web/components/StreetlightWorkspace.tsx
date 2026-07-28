@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
 import type { CoverageWorkspace, TerritoryWorkspace } from '@/lib/database';
-import type { PacketGenerationResult } from '@/lib/packet-selection';
+import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 import { AdminMap } from './AdminMap';
 import { CoverageDashboard } from './CoverageDashboard';
 import { CoverageMap } from './CoverageMap';
@@ -34,7 +34,7 @@ export function StreetlightWorkspace({
       initialData.segments[0]?.id ??
       null,
   );
-  const [packetResult, setPacketResult] = useState<PacketGenerationResult | null>(null);
+  const [packetResult, setPacketResult] = useState<ReviewedPacketGenerationResult | null>(null);
   const [selectedPacketIndex, setSelectedPacketIndex] = useState<number | null>(null);
   const [territory, setTerritory] = useState<TerritoryWorkspace | null>(null);
   const [territoryLoading, setTerritoryLoading] = useState(false);
@@ -69,10 +69,7 @@ export function StreetlightWorkspace({
     setSelectedSegmentId(id);
   }, []);
 
-  const refreshAfterTerritorySave = useCallback(async (saved: TerritoryWorkspace) => {
-    setTerritory(saved);
-    setPacketResult(null);
-    setSelectedPacketIndex(null);
+  const refreshCoverage = useCallback(async () => {
     const response = await fetch('/api/coverage');
     const result = (await response.json()) as CoverageWorkspace | { error: string };
     if (!response.ok || 'error' in result) {
@@ -87,6 +84,16 @@ export function StreetlightWorkspace({
           null),
     );
   }, []);
+
+  const refreshAfterTerritorySave = useCallback(
+    async (saved: TerritoryWorkspace) => {
+      setTerritory(saved);
+      setPacketResult(null);
+      setSelectedPacketIndex(null);
+      await refreshCoverage();
+    },
+    [refreshCoverage],
+  );
 
   return (
     <div className="territory-page">
@@ -141,6 +148,9 @@ export function StreetlightWorkspace({
         />
         <PacketGenerator
           active={tool === 'packets'}
+          activePackets={coverage.activePackets}
+          latestBatch={coverage.latestBatch}
+          onFinalized={refreshCoverage}
           onResultChange={setPacketResult}
           onSelectedIndexChange={setSelectedPacketIndex}
           result={packetResult}

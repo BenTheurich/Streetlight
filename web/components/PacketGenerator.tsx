@@ -1,13 +1,17 @@
 'use client';
 
 import { type FormEvent, useRef, useState } from 'react';
-import type { PacketGenerationResult } from '@/lib/packet-selection';
+import type { CoverageWorkspace } from '@/lib/database';
+import type { FinalizedBatch, ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 
 type PacketGeneratorProps = {
   active: boolean;
-  result: PacketGenerationResult | null;
+  result: ReviewedPacketGenerationResult | null;
   selectedIndex: number | null;
-  onResultChange: (result: PacketGenerationResult | null) => void;
+  latestBatch: CoverageWorkspace['latestBatch'];
+  activePackets: number;
+  onFinalized: (batch: FinalizedBatch) => Promise<void>;
+  onResultChange: (result: ReviewedPacketGenerationResult | null) => void;
   onSelectedIndexChange: (index: number | null) => void;
 };
 
@@ -19,32 +23,60 @@ type RequestRow = {
 
 const initialRow: RequestRow = { id: 0, quantity: '1', targetHomes: '30' };
 
+function downloadPacketPdf(scope: 'newest' | 'active'): void {
+  const link = document.createElement('a');
+  link.href = `/api/packets/pdf?scope=${scope}`;
+  link.download = '';
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
 export function PacketGenerator({
   active,
   result,
   selectedIndex,
+  latestBatch,
+  activePackets,
+  onFinalized,
   onResultChange,
   onSelectedIndexChange,
 }: PacketGeneratorProps) {
   const [rows, setRows] = useState<RequestRow[]>([initialRow]);
+  const [customName, setCustomName] = useState('');
   const [notice, setNotice] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [finalized, setFinalized] = useState<FinalizedBatch | null>(null);
   const nextRowId = useRef(1);
+
+  function discardResult(): void {
+    onResultChange(null);
+    onSelectedIndexChange(null);
+    setConfirming(false);
+    setFinalized(null);
+  }
 
   function updateRow(index: number, field: keyof RequestRow, value: string) {
     setRows((current) =>
       current.map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row)),
     );
+    discardResult();
+  }
+
+  function requests() {
+    return rows.map((row) => ({
+      quantity: Number(row.quantity),
+      targetHomes: Number(row.targetHomes),
+    }));
   }
 
   async function generate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const requests = rows.map((row) => ({
-      quantity: Number(row.quantity),
-      targetHomes: Number(row.targetHomes),
-    }));
+    const packetRequests = requests();
     if (
-      requests.some(
+      packetRequests.some(
         ({ quantity, targetHomes }) =>
           !Number.isSafeInteger(quantity) ||
           !Number.isSafeInteger(targetHomes) ||
@@ -57,14 +89,16 @@ export function PacketGenerator({
     }
 
     setGenerating(true);
+    setConfirming(false);
+    setFinalized(null);
     setNotice('');
     try {
       const response = await fetch('/api/packet-proposals', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ requests }),
+        body: JSON.stringify({ requests: packetRequests }),
       });
-      const next = (await response.json()) as PacketGenerationResult | { error: string };
+      const next = (await response.json()) as ReviewedPacketGenerationResult | { error: string };
       if (!response.ok || 'error' in next) {
         throw new Error('error' in next ? next.error : 'Could not generate packet proposals');
       }
@@ -82,11 +116,51 @@ export function PacketGenerator({
     }
   }
 
+  async function finalize(): Promise<void> {
+    if (!result) return;
+    setFinalizing(true);
+    setNotice('');
+    try {
+      const response = await fetch('/api/batches/finalize', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          requests: requests(),
+          proposalFingerprint: result.proposalFingerprint,
+          customName: customName.trim() || null,
+        }),
+      });
+      const batch = (await response.json()) as FinalizedBatch | { error: string };
+      if (!response.ok || 'error' in batch) {
+        throw new Error('error' in batch ? batch.error : 'Could not finalize packet batch');
+      }
+      setFinalized(batch);
+      setConfirming(false);
+      setNotice(`${batch.name} finalized. Your PDF download has started.`);
+      downloadPacketPdf('newest');
+      try {
+        await onFinalized(batch);
+      } catch {
+        setNotice(`${batch.name} finalized. Reload the page to refresh the batch totals.`);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Generate proposals again')) {
+        discardResult();
+      }
+      setNotice(error instanceof Error ? error.message : 'Could not finalize packet batch');
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
+  const proposedHomes =
+    result?.proposals.reduce((total, proposal) => total + proposal.estimatedHomes, 0) ?? 0;
+
   return (
     <aside className="territory-sidebar packet-sidebar" hidden={!active}>
       <div className="sidebar-title">
         <h1>Generate outreach packets</h1>
-        <p>Read-only proposals</p>
+        <p>Build, review, and print outreach routes.</p>
       </div>
       <div className="sidebar-scroll">
         <section>
@@ -120,9 +194,10 @@ export function PacketGenerator({
                   <button
                     aria-label={`Remove packet size ${index + 1}`}
                     className="danger packet-remove"
-                    onClick={() =>
-                      setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))
-                    }
+                    onClick={() => {
+                      setRows((current) => current.filter((_, rowIndex) => rowIndex !== index));
+                      discardResult();
+                    }}
                     type="button"
                   >
                     Remove
@@ -133,21 +208,22 @@ export function PacketGenerator({
             <div className="packet-form-actions">
               <button
                 className="secondary"
-                onClick={() =>
+                onClick={() => {
                   setRows((current) => [
                     ...current,
                     {
                       ...initialRow,
                       id: nextRowId.current++,
                     },
-                  ])
-                }
+                  ]);
+                  discardResult();
+                }}
                 type="button"
               >
                 Add packet size
               </button>
               <button disabled={generating} type="submit">
-                Generate proposals
+                {generating ? 'Generating…' : 'Generate proposals'}
               </button>
             </div>
           </form>
@@ -199,6 +275,67 @@ export function PacketGenerator({
                 {warning}
               </p>
             ))}
+            {!finalized && (
+              <div className="packet-finalize">
+                <label>
+                  Batch name <span>(optional)</span>
+                  <input
+                    maxLength={80}
+                    onChange={(event) => setCustomName(event.target.value)}
+                    placeholder="Streetlight will name it automatically"
+                    value={customName}
+                  />
+                </label>
+                {!confirming ? (
+                  <button onClick={() => setConfirming(true)} type="button">
+                    Finalize &amp; download
+                  </button>
+                ) : (
+                  <div className="packet-confirmation">
+                    <strong>Finalize this batch?</strong>
+                    <p>
+                      {result.proposals.length} packet
+                      {result.proposals.length === 1 ? '' : 's'} · {proposedHomes} estimated tracts
+                    </p>
+                    <p>These street segments will be reserved for this outreach.</p>
+                    <div>
+                      <button
+                        className="secondary"
+                        disabled={finalizing}
+                        onClick={() => setConfirming(false)}
+                        type="button"
+                      >
+                        Cancel
+                      </button>
+                      <button disabled={finalizing} onClick={() => void finalize()} type="button">
+                        {finalizing ? 'Finalizing…' : 'Confirm finalization'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+        {(latestBatch || finalized) && (
+          <section className="packet-downloads">
+            <h2>Downloads</h2>
+            <p>
+              Newest: {(finalized ?? latestBatch)?.name} · {(finalized ?? latestBatch)?.packetCount}{' '}
+              packet
+              {(finalized ?? latestBatch)?.packetCount === 1 ? '' : 's'}
+            </p>
+            <button onClick={() => downloadPacketPdf('newest')} type="button">
+              Download newest batch
+            </button>
+            <button
+              className="secondary"
+              disabled={activePackets === 0}
+              onClick={() => downloadPacketPdf('active')}
+              type="button"
+            >
+              Download all active packets ({activePackets})
+            </button>
           </section>
         )}
       </div>

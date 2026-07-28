@@ -7,6 +7,7 @@ import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
 import {
   finalizePacketBatch,
+  getCoverageWorkspace,
   getPacketDownloadSelection,
   getPacketGenerationWorkspace,
   getTerritoryWorkspace,
@@ -14,10 +15,7 @@ import {
   saveTerritoryDraft,
 } from './database.ts';
 import type { ImportedTerritoryInput } from './overture-import.ts';
-import {
-  packetProposalFingerprint,
-  type PacketFinalizationInput,
-} from './packet-finalization.ts';
+import { type PacketFinalizationInput, packetProposalFingerprint } from './packet-finalization.ts';
 import { generatePacketProposals } from './packet-selection.ts';
 
 function withDatabase(run: (filename: string) => void): void {
@@ -57,10 +55,7 @@ function preparePacketGraph(filename: string): void {
         street: 'Packet Road',
         locality: 'Temecula',
         postcode: '92591',
-        position: [-117.1169 + index * 0.0001, 33.5429 + index * 0.0001] as [
-          number,
-          number,
-        ],
+        position: [-117.1169 + index * 0.0001, 33.5429 + index * 0.0001] as [number, number],
       },
     ],
   }));
@@ -120,21 +115,27 @@ test('finalization stores the reviewed packet and reserves every segment atomica
     assert.equal(finalized.packetCount, 1);
     assert.equal(finalized.estimatedHomes, 16);
     assert.match(finalized.packets[0].code, /^TEM-20260728-[A-Z0-9]{6}-001$/);
+    assert.deepEqual(getCoverageWorkspace(filename, '2026-07-28').latestBatch, {
+      id: finalized.id,
+      name: 'Summer Outreach',
+      packetCount: 1,
+      estimatedHomes: 16,
+    });
 
     const database = openDatabase(filename);
     try {
       assert.deepEqual(
         {
           ...(database
-          .prepare(
-            `SELECT b.status AS batch_status, p.status AS packet_status, p.sequence_number,
+            .prepare(
+              `SELECT b.status AS batch_status, p.status AS packet_status, p.sequence_number,
               p.start_longitude, p.start_latitude, COUNT(ps.street_segment_id) AS segment_count
             FROM batches b
             JOIN packets p ON p.batch_id = b.id
             JOIN packet_segments ps ON ps.packet_id = p.id
             GROUP BY b.id, p.id`,
-          )
-          .get() as object),
+            )
+            .get() as object),
         },
         {
           batch_status: 'finalized',

@@ -156,6 +156,12 @@ export type CoverageWorkspace = {
   center: Position;
   asOf: string;
   activePackets: number;
+  latestBatch: {
+    id: string;
+    name: string;
+    packetCount: number;
+    estimatedHomes: number;
+  } | null;
   thresholds: CoverageThresholds;
   legend: CoverageLegendItem[];
   dataMode: 'canonical' | 'demo';
@@ -267,6 +273,25 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
         .prepare('SELECT COUNT(*) AS count FROM packets WHERE church_id = ? AND status = ?')
         .get(PILOT_CHURCH_ID, 'active') as { count: number }
     ).count;
+    const latestBatchRow = database
+      .prepare(
+        `SELECT b.id, b.name, COUNT(p.id) AS packet_count,
+          COALESCE(SUM(p.estimated_homes), 0) AS estimated_homes
+        FROM batches b
+        JOIN packets p ON p.batch_id = b.id AND p.church_id = b.church_id
+        WHERE b.church_id = ? AND b.finalized_at IS NOT NULL
+        GROUP BY b.id
+        ORDER BY b.finalized_at DESC, b.id DESC
+        LIMIT 1`,
+      )
+      .get(PILOT_CHURCH_ID) as
+      | {
+          id: string;
+          name: string;
+          packet_count: number;
+          estimated_homes: number;
+        }
+      | undefined;
 
     return {
       id: territory.id,
@@ -275,6 +300,14 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
       center: territory.center,
       asOf,
       activePackets,
+      latestBatch: latestBatchRow
+        ? {
+            id: latestBatchRow.id,
+            name: latestBatchRow.name,
+            packetCount: latestBatchRow.packet_count,
+            estimatedHomes: latestBatchRow.estimated_homes,
+          }
+        : null,
       thresholds,
       legend: coverageLegend(thresholds),
       dataMode:
