@@ -52,7 +52,7 @@ Version one has one authenticated role: administrator.
 | Active packet | A finalized packet whose street segments remain reserved. |
 | Completed packet | A packet whose paper sheet was taken and later recorded as completed during reconciliation. |
 | Last covered | The most recent reconciliation date recorded for a street segment. |
-| Exclusion area / ignore zone | A polygon that excludes an area from packet generation. The setup page uses `excluded area`; pricing may use `ignore zone`. |
+| Exclusion area / ignore zone | A saved polygon that excludes an area from packet generation while enabled. The setup page uses `excluded area`; pricing may use `ignore zone`. |
 | Priority zone | An area preferred during packet generation, subject to coverage age and packet constraints. |
 
 ## Coverage model
@@ -77,6 +77,9 @@ The tracked coverage unit is a short street segment rather than an individual ho
 - Exclusion polygons remain the first-release method for removing unsuitable roads. Drawing
   roads, changing road geometry, deactivating individual roads, and correcting home counts are
   outside the first release.
+- An administrator can enable, disable, reshape, rename, or delete an exclusion polygon. A
+  disabled polygon remains stored and appears as a faint outline in the territory editor, but it
+  does not affect segment eligibility or tract totals.
 - Completing a packet records a coverage event for every included segment.
 - Coverage history must be retained. Correcting a mistake records the correction instead of silently replacing history.
 
@@ -178,7 +181,7 @@ Included:
 - Church workspace setup
 - Territory creation and correction
 - Editable territory radius
-- Exclusion areas
+- Toggleable and deletable exclusion areas
 - Coverage heatmap
 - Deterministic packet generation
 - Batch preview and finalization

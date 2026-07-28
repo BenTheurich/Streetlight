@@ -40,7 +40,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 |---:|---|---|---|---|
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
-| 2 | Territory setup | Phase 1 | Awaiting human review | The 1.9-mile Overture import retains 6,373 road segments: 1,916 automatic and 4,457 hidden; Hillsdale Heights is automatically active, complete-group manual activation persists, all checks pass, and browser review is ready |
+| 2 | Territory setup | Phase 1 | In progress | Hidden-road activation passed its checks; founder review reopened Phase 2 on July 28, 2026 to make exclusion areas explicitly toggleable and deletable |
 | 3 | Coverage history and heatmap | Phase 2 | Pending | None |
 | 4 | Packet selection | Phase 3 | Pending | None |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
@@ -146,6 +146,7 @@ Create and correct one church outreach territory.
 - Display the territory in an interactive Google Maps JavaScript API map.
 - Allow the administrator to adjust a circular territory with live radius controls.
 - Allow the administrator to create, name, reshape, and remove polygon exclusion zones.
+- Allow each exclusion zone to be enabled or disabled without deleting its saved geometry.
 - Display eligible segments in the page accent color and excluded segments in gray.
 - Retain every imported Overture road as active or hidden.
 - Automatically activate high-confidence residential roads.
@@ -160,6 +161,8 @@ Create and correct one church outreach territory.
 - Segments not entirely inside the radius are excluded.
 - Any segment that touches or crosses an exclusion polygon is excluded from eligible home totals.
 - Radius and exclusion-polygon changes persist after reload.
+- Disabled exclusion polygons remain stored but do not affect eligibility totals.
+- Saving a deletion removes only the selected exclusion.
 - Cancelling draft changes leaves the stored territory unchanged.
 - Hidden-road activation selects the complete deterministic road group.
 - A saved manual activation remains active after a later import.
