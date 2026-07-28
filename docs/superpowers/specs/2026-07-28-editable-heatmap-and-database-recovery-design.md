@@ -53,10 +53,10 @@ error. A successful save refreshes the current workspace so the map and legend r
 
 The legend derives its labels from the saved transitions. With the defaults it reads:
 
-- `Green: 0-89 days`
-- `Yellow: 90-179 days`
-- `Orange: 180-364 days`
-- `Red: 365+ days or never`
+- `0-89 days`
+- `90-179 days`
+- `180-364 days`
+- `365+ days or never`
 - `Excluded`
 
 No custom colors, presets, reset system, live unsaved preview, or separate settings page is added.

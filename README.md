@@ -72,8 +72,8 @@ Setup to inspect hidden-road and exclusion controls.
 
 For an optional review of every history state, run `pnpm --dir web coverage:demo` and open
 `http://localhost:3001`. It recreates only `web/data/coverage-demo.db`, labels the page as demo
-data, and provides green, yellow, orange, red, never-covered, corrected, and undone examples plus
-one active packet.
+data, copies the current imported territory, and adds coherent 30-, 120-, 240-, and 500-day
+geographic bands while leaving the far edge never covered.
 
 `pnpm db:seed` and `pnpm dev` never add fake outreach, batches, packets, or demo IDs to the
 founder's `web/data/streetlight.db`; representative data exists only in the explicit demo file.

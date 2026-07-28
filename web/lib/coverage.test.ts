@@ -68,13 +68,7 @@ test('heatmap range requests require exactly three ascending bounded integers', 
 test('heatmap legend explains the complete default outreach-age ranges', () => {
   assert.deepEqual(
     coverageLegend(DEFAULT_COVERAGE_THRESHOLDS).map(({ label }) => label),
-    [
-      'Green: 0-89 days',
-      'Yellow: 90-179 days',
-      'Orange: 180-364 days',
-      'Red: 365+ days or never',
-      'Excluded',
-    ],
+    ['0-89 days', '90-179 days', '180-364 days', '365+ days or never', 'Excluded'],
   );
 });
 
@@ -83,13 +77,7 @@ test('heatmap legend derives every label from custom transitions', () => {
     coverageLegend({ yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 90 }).map(
       ({ label }) => label,
     ),
-    [
-      'Green: 0-29 days',
-      'Yellow: 30-59 days',
-      'Orange: 60-89 days',
-      'Red: 90+ days or never',
-      'Excluded',
-    ],
+    ['0-29 days', '30-59 days', '60-89 days', '90+ days or never', 'Excluded'],
   );
 });
 

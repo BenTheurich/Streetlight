@@ -1347,13 +1347,7 @@ test('coverage thresholds persist per territory without changing coverage totals
     });
     assert.deepEqual(
       after.legend.map(({ label }) => label),
-      [
-        'Green: 0-29 days',
-        'Yellow: 30-59 days',
-        'Orange: 60-89 days',
-        'Red: 90+ days or never',
-        'Excluded',
-      ],
+      ['0-29 days', '30-59 days', '60-89 days', '90+ days or never', 'Excluded'],
     );
     assert.equal(
       after.segments.find((candidate) => candidate.id === segment.id).coverageClass,
@@ -1457,6 +1451,86 @@ test('coverage demo recreates only its isolated database with stable representat
       [0, 0, 0, 0],
     );
     founder.close();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('coverage demo can copy the full empty-history territory into geographic age bands', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-full-coverage-demo-'));
+  const sourceFilename = path.join(directory, 'streetlight.db');
+  const demoFilename = path.join(directory, 'coverage-demo.db');
+  const asOf = '2026-07-28';
+  try {
+    const source = openDatabase(sourceFilename);
+    migrateDatabase(source);
+    seedDatabase(source);
+    source.prepare('UPDATE territories SET name = ?').run('Full territory source');
+    source.close();
+    const sourceBefore = readFileSync(sourceFilename);
+
+    const { seedCoverageDemo } = await import('./seed-coverage-demo.mjs');
+    seedCoverageDemo(demoFilename, asOf, sourceFilename);
+
+    assert.deepEqual(readFileSync(sourceFilename), sourceBefore);
+    const demo = openDatabase(demoFilename);
+    const copiedName = demo.prepare('SELECT name FROM territories').get().name;
+    const eventCount = demo.prepare('SELECT COUNT(*) AS count FROM coverage_events').get().count;
+    demo.close();
+    assert.equal(copiedName, 'Full territory source');
+    assert.equal(eventCount > 20, true);
+
+    const workspace = getCoverageWorkspace(demoFilename, asOf);
+    assert.equal(workspace.dataMode, 'demo');
+    assert.deepEqual(
+      [...new Set(workspace.segments.map((segment) => segment.coverageClass))].sort(),
+      ['green', 'orange', 'red', 'yellow'],
+    );
+    assert.equal(
+      workspace.segments.some((segment) => segment.lastCoveredOn === null),
+      true,
+    );
+    assert.deepEqual(
+      [
+        ...new Set(
+          workspace.segments
+            .map((segment) => segment.lastCoveredOn)
+            .filter((coveredOn) => coveredOn !== null),
+        ),
+      ].sort(),
+      ['2025-03-15', '2025-11-30', '2026-03-30', '2026-06-28'],
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('coverage demo refuses to mix fake bands with source outreach history', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-covered-demo-source-'));
+  const sourceFilename = path.join(directory, 'streetlight.db');
+  const demoFilename = path.join(directory, 'coverage-demo.db');
+  try {
+    const source = openDatabase(sourceFilename);
+    migrateDatabase(source);
+    seedDatabase(source);
+    const segment = source.prepare('SELECT id FROM street_segments ORDER BY id LIMIT 1').get();
+    source
+      .prepare(
+        `INSERT INTO coverage_events
+          (id, church_id, street_segment_id, covered_on, kind, corrects_event_id, is_void)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run('real-history', 'church-temecula-pilot', segment.id, '2026-07-01', 'completed', null, 0);
+    source.close();
+
+    const { seedCoverageDemo } = await import('./seed-coverage-demo.mjs');
+    assert.throws(
+      () => seedCoverageDemo(demoFilename, '2026-07-28', sourceFilename),
+      /empty coverage history/i,
+    );
+    const after = openDatabase(sourceFilename);
+    assert.equal(after.prepare('SELECT COUNT(*) AS count FROM coverage_events').get().count, 1);
+    after.close();
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

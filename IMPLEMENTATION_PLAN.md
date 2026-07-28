@@ -41,7 +41,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
 | 2 | Territory setup | Phase 1 | Complete | Founder approved the interactive territory setup, Overture import quality controls, hidden-road activation, toggleable polygon and exact-segment exclusions, and circle/square boundaries on July 28, 2026; 59 Node checks, 25 Python checks, lint, typecheck, production build, and browser review pass |
-| 3 | Coverage history and heatmap | Phase 2 | Awaiting human review | Rebased onto current Phase 2 main and independently audited; 75 Node checks, 25 Python checks, lint, typecheck, production build, database invariants, and real-browser acceptance pass. Founder visual approval remains. |
+| 3 | Coverage history and heatmap | Phase 2 | Awaiting human review | Rebased onto current Phase 2 main and independently audited; 84 Node checks, 25 Python checks, lint, typecheck, production build, database invariants, and real-browser acceptance pass. Founder visual approval remains. |
 | 4 | Packet selection | Phase 3 | Pending | None |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
 | 6 | Reconciliation and corrections | Phase 5 | Pending | None |
@@ -311,11 +311,15 @@ Load seeded events, inspect every heatmap color, change the selected period, cor
   exclusion polygon. Legacy coverage migration names were mapped to migrations 010 and 011 only
   after their complete columns, indexes, and triggers exactly matched a fresh main schema after
   whitespace normalization.
-- The amendment passes 82 Node checks, Biome, TypeScript, and the Next.js production build. A real
+- The amendment passes 84 Node checks, Biome, TypeScript, and the Next.js production build. A real
   browser loaded the canonical database with 8,727 eligible tracts across 1,553 visible segments,
   saved custom 91/181/366-day transitions, confirmed the new ranges after reload, rejected invalid
   ordering without persistence, restored the 90/180/365 defaults, and loaded Territory Setup with
   the 10,663-of-14,833 address-match summary and hidden-road controls intact.
+- The isolated demo now copies the complete canonical import and applies deterministic geographic
+  30-, 120-, 240-, and 500-day bands while leaving the far edge never covered. Browser review
+  showed all 1,553 visible segments with balanced heatmap colors, range-only legend labels, the
+  `Demo data` indicator, and no console errors.
 
 ### Human review
 

@@ -216,19 +216,19 @@ export function coverageLegend(thresholds: CoverageThresholds): CoverageLegendIt
   return [
     {
       coverageClass: 'green',
-      label: `Green: 0-${thresholds.yellowAfterDays - 1} days`,
+      label: `0-${thresholds.yellowAfterDays - 1} days`,
     },
     {
       coverageClass: 'yellow',
-      label: `Yellow: ${thresholds.yellowAfterDays}-${thresholds.orangeAfterDays - 1} days`,
+      label: `${thresholds.yellowAfterDays}-${thresholds.orangeAfterDays - 1} days`,
     },
     {
       coverageClass: 'orange',
-      label: `Orange: ${thresholds.orangeAfterDays}-${thresholds.redAfterDays - 1} days`,
+      label: `${thresholds.orangeAfterDays}-${thresholds.redAfterDays - 1} days`,
     },
     {
       coverageClass: 'red',
-      label: `Red: ${thresholds.redAfterDays}+ days or never`,
+      label: `${thresholds.redAfterDays}+ days or never`,
     },
     { coverageClass: 'gray', label: 'Excluded' },
   ];

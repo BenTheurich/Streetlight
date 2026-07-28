@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { copyFileSync, existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { migrateDatabase, openDatabase } from './migrate.mjs';
@@ -8,6 +8,7 @@ import { seedDatabase } from './seed.mjs';
 const churchId = 'church-temecula-pilot';
 const territoryId = 'territory-temecula-pilot';
 const defaultDemoPath = path.join(import.meta.dirname, '..', 'data', 'coverage-demo.db');
+const canonicalPath = path.join(import.meta.dirname, '..', 'data', 'streetlight.db');
 
 function utcDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('Invalid demo as-of date');
@@ -32,12 +33,125 @@ function resolveDemoPath(filename = defaultDemoPath) {
   return resolved;
 }
 
+function geometryDistanceSquared(geometryJson, center) {
+  const geometry = JSON.parse(geometryJson);
+  if (
+    geometry?.type !== 'LineString' ||
+    !Array.isArray(geometry.coordinates) ||
+    geometry.coordinates.length < 2
+  ) {
+    throw new Error('Invalid demo segment geometry');
+  }
+  const [longitude, latitude] = geometry.coordinates.reduce(
+    ([longitudeTotal, latitudeTotal], coordinate) => [
+      longitudeTotal + coordinate[0],
+      latitudeTotal + coordinate[1],
+    ],
+    [0, 0],
+  );
+  const longitudeScale = Math.cos((center.latitude * Math.PI) / 180);
+  const longitudeDelta =
+    (longitude / geometry.coordinates.length - center.longitude) * longitudeScale;
+  const latitudeDelta = latitude / geometry.coordinates.length - center.latitude;
+  return longitudeDelta * longitudeDelta + latitudeDelta * latitudeDelta;
+}
+
+function seedFullTerritoryDemo(target, sourceFilename, asOf) {
+  const source = path.resolve(sourceFilename);
+  if (source === target) throw new Error('Coverage demo source and target must differ');
+  if (!existsSync(source)) throw new Error('Coverage demo source does not exist');
+
+  const sourceDatabase = openDatabase(source);
+  try {
+    const eventCount = sourceDatabase
+      .prepare('SELECT COUNT(*) AS count FROM coverage_events')
+      .get().count;
+    if (eventCount !== 0) {
+      throw new Error('Coverage demo source must have empty coverage history');
+    }
+  } finally {
+    sourceDatabase.close();
+  }
+
+  rmSync(target, { force: true });
+  copyFileSync(source, target);
+  const database = openDatabase(target);
+  try {
+    migrateDatabase(database);
+    const center = database
+      .prepare(
+        `SELECT center_latitude AS latitude, center_longitude AS longitude
+        FROM territories WHERE id = ? AND church_id = ?`,
+      )
+      .get(territoryId, churchId);
+    if (!center) throw new Error('Coverage demo territory is missing');
+    const segments = database
+      .prepare(
+        `SELECT id, geometry_geojson
+        FROM street_segments
+        WHERE church_id = ? AND territory_id = ? AND is_current = 1
+          AND activation_kind <> 'hidden'
+        ORDER BY id`,
+      )
+      .all(churchId, territoryId)
+      .map((segment) => ({
+        ...segment,
+        distance: geometryDistanceSquared(segment.geometry_geojson, center),
+      }))
+      .sort(
+        (first, second) => first.distance - second.distance || first.id.localeCompare(second.id),
+      );
+    if (segments.length < 4) throw new Error('Coverage demo needs four active segments');
+
+    const insertEvent = database.prepare(
+      `INSERT INTO coverage_events
+        (id, church_id, street_segment_id, covered_on, kind, corrects_event_id, is_void)
+      VALUES (?, ?, ?, ?, 'completed', NULL, 0)`,
+    );
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      for (const [index, segment] of segments.entries()) {
+        const position = index / segments.length;
+        const age =
+          position < 0.2
+            ? 30
+            : position < 0.4
+              ? 120
+              : position < 0.6
+                ? 240
+                : position < 0.7
+                  ? 500
+                  : null;
+        if (age !== null) {
+          insertEvent.run(
+            `coverage-demo-band-${String(index).padStart(5, '0')}`,
+            churchId,
+            segment.id,
+            daysBefore(asOf, age),
+          );
+        }
+      }
+      database.exec('COMMIT');
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
+  } finally {
+    database.close();
+  }
+}
+
 export function seedCoverageDemo(
   filename = defaultDemoPath,
   asOf = new Date().toISOString().slice(0, 10),
+  sourceFilename,
 ) {
   const target = resolveDemoPath(filename);
   utcDate(asOf);
+  if (sourceFilename) {
+    seedFullTerritoryDemo(target, sourceFilename, asOf);
+    return target;
+  }
   rmSync(target, { force: true });
   const database = openDatabase(target);
   try {
@@ -205,7 +319,12 @@ if (isCommand) {
   if (args.length > 1) {
     throw new Error('coverage demo accepts one filename or --serve');
   }
-  const target = seedCoverageDemo(args[0] === '--serve' ? defaultDemoPath : args[0]);
+  const serving = args[0] === '--serve';
+  const target = seedCoverageDemo(
+    serving ? defaultDemoPath : args[0],
+    new Date().toISOString().slice(0, 10),
+    serving ? canonicalPath : undefined,
+  );
   console.log(`Seeded isolated coverage demo at ${target}`);
   if (args[0] === '--serve') process.exitCode = await serveDemo(target);
 }
