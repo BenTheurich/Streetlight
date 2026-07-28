@@ -382,7 +382,7 @@ Generate mixed packet sizes, inspect each proposal on the map, regenerate the sa
 
 - Tasks 1-4 were committed as `942e060`, `9c60567`, `1ee7f5d`, and `8ed89ee`; focused review
   warning fix: `e7411bf`.
-- 26 Python importer tests and 98 Node application tests pass. Lint, typecheck, and the production
+- 26 Python importer tests and 99 Node application tests pass. Lint, typecheck, and the production
   build pass; the build includes `/` and `/api/packet-proposals`.
 - The unchanged canonical territory was imported once from generation 3 / normalizer 4 to
   generation 4 / normalizer 5. It retained 10,663 usable assigned addresses. Boundary settings,
@@ -400,7 +400,7 @@ Generate mixed packet sizes, inspect each proposal on the map, regenerate the sa
   return 404. The complete heatmap remains beneath a selected electric-blue packet overlay.
 - The supplied Streetlight logo and 44-pixel church marker are present. Packet proposals, unsaved
   territory changes, and the selected Map / Satellite basemap survive temporary tool switches.
-- 98 Node checks and 26 Python importer checks pass. Lint, typecheck, and the production build pass;
+- 99 Node checks and 26 Python importer checks pass. Lint, typecheck, and the production build pass;
   the production route list contains `/` and the three workflow APIs without separate packet or
   territory pages.
 - Real-browser acceptance confirmed one map canvas across all three tools, Map/Satellite
@@ -412,7 +412,7 @@ Generate mixed packet sizes, inspect each proposal on the map, regenerate the sa
 - The pilot church coordinate was refreshed from the saved address's current Google geocode and the
   supplied pin artwork now anchors its pointed tip to that coordinate.
 - A compact Google-style Layers card opens a local two-choice Map / Satellite chooser at the
-  lower-left. It adds no thumbnail request, clears Google's attribution and compass, closes on
+  lower-right. It adds no thumbnail request, clears Google's attribution and compass, closes on
   selection, outside input, or Escape, and replaces the native horizontal map-type pills.
 - Saved Overture import squares are now reused whenever they contain the proposed territory. A
   contained center shift, radius reduction, boundary-shape change, exclusion change, or segment

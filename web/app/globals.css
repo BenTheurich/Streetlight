@@ -274,7 +274,7 @@ textarea {
 .layers-control {
   position: absolute;
   bottom: 68px;
-  left: 14px;
+  right: 14px;
   z-index: 6;
 }
 
@@ -304,19 +304,9 @@ textarea {
   inset: 0;
 }
 
-.layers-thumbnail::before,
 .layers-thumbnail::after {
   position: absolute;
   content: "";
-}
-
-.layers-thumbnail::before {
-  inset: 8px 12px 28px 42px;
-  border: 1px solid rgb(234 228 199 / 75%);
-  background:
-    repeating-linear-gradient(90deg, transparent 0 12px, rgb(205 191 150 / 55%) 13px 14px),
-    repeating-linear-gradient(0deg, transparent 0 9px, rgb(205 191 150 / 45%) 10px 11px);
-  transform: rotate(-8deg);
 }
 
 .layers-thumbnail::after {
@@ -356,7 +346,7 @@ textarea {
 .layers-chooser {
   position: absolute;
   bottom: calc(100% + 9px);
-  left: 0;
+  right: 0;
   display: grid;
   width: 216px;
   grid-template-columns: 1fr 1fr;
@@ -412,7 +402,6 @@ textarea {
 }
 
 .map-modes {
-  top: 62px;
   left: 15px;
   display: flex;
   gap: 4px;

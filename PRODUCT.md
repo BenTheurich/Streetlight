@@ -228,7 +228,7 @@ the map camera, Map/Satellite choice, and each tool's in-progress state. Coverag
 Packets share the complete heatmap; a selected packet adds a distinct review highlight and
 starting pin above it. Territory Setup replaces the heatmap treatment with its editing overlays.
 The saved church location uses the founder-supplied church marker in every tool, and the header
-uses the founder-supplied logo beside the `STREETLIGHT` text. A compact lower-left **Layers** card
+uses the founder-supplied logo beside the `STREETLIGHT` text. A compact lower-right **Layers** card
 opens the Map/Satellite chooser without loading a second map or static-map thumbnail.
 
 Advanced charts, leaderboards, volunteer statistics, and a report builder are outside the first release.

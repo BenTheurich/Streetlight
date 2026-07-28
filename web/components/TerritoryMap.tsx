@@ -5,6 +5,7 @@ import type { ExclusionArea, TerritorySegment } from '@/lib/database';
 import { latLng } from '@/lib/google-maps-browser';
 import { type BoundaryShape, type Position, territoryBoundary } from '@/lib/territory-geometry';
 import {
+  boundaryStrokePaths,
   segmentMapAppearance,
   segmentStrokeWeight,
   segmentVisibleOnMap,
@@ -127,27 +128,30 @@ export function TerritoryMap({
       strokeOpacity: 0,
       clickable: false,
     });
-    const ring = new google.maps.Polyline({
-      map,
-      path: boundary.coordinates[0].map(latLng),
-      strokeOpacity: 0,
-      clickable: false,
-      icons: [
-        {
-          icon: {
-            path: 'M 0,-1 0,1',
-            strokeColor: '#df6d32',
-            strokeOpacity: 1,
-            strokeWeight: 3,
-          },
-          offset: '0',
-          repeat: '12px',
-        },
-      ],
-    });
+    const rings = boundaryStrokePaths(boundary.coordinates[0], boundaryShape).map(
+      (path) =>
+        new google.maps.Polyline({
+          map,
+          path: path.map(latLng),
+          strokeOpacity: 0,
+          clickable: false,
+          icons: [
+            {
+              icon: {
+                path: 'M 0,-1 0,1',
+                strokeColor: '#df6d32',
+                strokeOpacity: 1,
+                strokeWeight: 3,
+              },
+              offset: boundaryShape === 'square' ? '6px' : '0',
+              repeat: '12px',
+            },
+          ],
+        }),
+    );
     return () => {
       fill.setMap(null);
-      ring.setMap(null);
+      for (const ring of rings) ring.setMap(null);
     };
   }, [active, boundaryShape, center, map, radiusMiles]);
 

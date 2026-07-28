@@ -1,3 +1,11 @@
+import type { BoundaryShape, Position } from './territory-geometry.ts';
+
+export function boundaryStrokePaths(ring: Position[], shape: BoundaryShape): Position[][] {
+  if (shape !== 'square') return [ring];
+  const corners = ring.slice(0, -1);
+  return corners.map((start, index) => [start, corners[(index + 1) % corners.length]]);
+}
+
 export function segmentStrokeWeight(zoom: number): number {
   return Math.min(5, Math.max(2, zoom - 10));
 }
