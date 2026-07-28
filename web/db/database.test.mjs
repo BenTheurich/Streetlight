@@ -163,6 +163,7 @@ test('circle and square boundary shapes persist and control whole-segment eligib
       imported: { ...importedTerritory([corner]), radiusMiles: 1 },
     });
     const circle = getTerritoryWorkspace(filename);
+    const circleSummary = getFoundationSummary(filename);
     assert.equal(circle.segments[0].withinBoundary, false);
     assert.equal(circle.segments[0].excludedReason, 'boundary');
     assert.deepEqual(circle.totals, {
@@ -171,9 +172,12 @@ test('circle and square boundary shapes persist and control whole-segment eligib
       allHomes: 0,
       eligibleHomes: 0,
     });
+    assert.equal(circleSummary.segmentCount, 0);
+    assert.equal(circleSummary.estimatedHomes, 0);
 
     saveTerritoryDraft({ ...baseDraft, boundaryShape: 'square' }, { filename });
     const square = getTerritoryWorkspace(filename);
+    const squareSummary = getFoundationSummary(filename);
     assert.equal(square.boundaryShape, 'square');
     assert.equal(square.segments[0].withinBoundary, true);
     assert.equal(square.segments[0].eligible, true);
@@ -183,6 +187,8 @@ test('circle and square boundary shapes persist and control whole-segment eligib
       allHomes: 8,
       eligibleHomes: 8,
     });
+    assert.equal(squareSummary.segmentCount, 1);
+    assert.equal(squareSummary.estimatedHomes, 8);
   });
 });
 

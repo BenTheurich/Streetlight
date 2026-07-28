@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { TerritorySegment, TerritoryWorkspace } from './database.ts';
-import * as territoryClient from './territory-client.ts';
+import type { ExclusionArea, TerritorySegment, TerritoryWorkspace } from './database.ts';
 import {
   affectedByExclusion,
   deriveTerritory,
   hasUnsavedTerritoryChanges,
   moveVertexWithArrowKey,
   nextExclusionName,
+  setSegmentExcluded,
   territoryDraftFromWorkspace,
 } from './territory-client.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
@@ -175,6 +175,41 @@ test('square derivation includes corner segments from the same imported footprin
     eligibleSegments: 2,
     allHomes: 35,
     eligibleHomes: 30,
+  });
+});
+
+test('exclusion impact follows the live draft boundary', () => {
+  const cornerExclusion: ExclusionArea = {
+    id: 'corner-exclusion',
+    name: 'Corner',
+    enabled: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [0.011, 0.011],
+          [0.014, 0.011],
+          [0.014, 0.014],
+          [0.011, 0.014],
+          [0.011, 0.011],
+        ],
+      ],
+    },
+  };
+  const circle = deriveTerritory(segments, { ...draft, exclusions: [] });
+  const square = deriveTerritory(segments, {
+    ...draft,
+    boundaryShape: 'square',
+    exclusions: [],
+  });
+
+  assert.deepEqual(affectedByExclusion(circle.segments, cornerExclusion), {
+    segments: 0,
+    homes: 0,
+  });
+  assert.deepEqual(affectedByExclusion(square.segments, cornerExclusion), {
+    segments: 1,
+    homes: 20,
   });
 });
 
@@ -369,22 +404,13 @@ test('unfinished drawing points count as unsaved territory changes', () => {
 });
 
 test('segment exclusion draft changes are exact, reversible, and duplicate-safe', () => {
-  const update = (
-    territoryClient as typeof territoryClient & {
-      setSegmentExcluded?: (
-        draft: TerritoryDraftInput,
-        segmentId: string,
-        excluded: boolean,
-      ) => TerritoryDraftInput;
-    }
-  ).setSegmentExcluded;
-  assert.equal(typeof update, 'function');
-  assert.ok(update);
-
   const withOtherExcluded = { ...draft, excludedSegmentIds: ['other'] };
-  const excluded = update(withOtherExcluded, 'inside', true);
+  const excluded = setSegmentExcluded(withOtherExcluded, 'inside', true);
   assert.deepEqual(excluded.excludedSegmentIds, ['inside', 'other']);
-  assert.deepEqual(update(excluded, 'inside', true).excludedSegmentIds, ['inside', 'other']);
-  assert.deepEqual(update(excluded, 'inside', false).excludedSegmentIds, ['other']);
+  assert.deepEqual(setSegmentExcluded(excluded, 'inside', true).excludedSegmentIds, [
+    'inside',
+    'other',
+  ]);
+  assert.deepEqual(setSegmentExcluded(excluded, 'inside', false).excludedSegmentIds, ['other']);
   assert.deepEqual(withOtherExcluded.excludedSegmentIds, ['other']);
 });

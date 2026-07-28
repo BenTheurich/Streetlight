@@ -236,7 +236,7 @@ Verified July 28, 2026 with pinned Overture release `2026-06-17.0`:
 - Browser checks passed live shape switching, complete-boundary rendering, shape persistence after
   reload, no reimport when switching within the saved footprint, and Cancel restoration. The saved
   local territory was returned to its original circle afterward.
-- Biome, TypeScript, 57 Node tests, 25 Python importer tests, the Next.js production build, and
+- Biome, TypeScript, 59 Node tests, 25 Python importer tests, the Next.js production build, and
   `git diff --check` pass. The final browser session reported no errors or warnings.
 
 ### Human review

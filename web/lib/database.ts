@@ -16,10 +16,6 @@ const PILOT_CHURCH_ID = 'church-temecula-pilot';
 const PILOT_TERRITORY_ID = 'territory-temecula-pilot';
 
 type SummaryRow = {
-  church_name: string;
-  territory_name: string;
-  segment_count: number;
-  estimated_homes: number;
   packet_count: number;
 };
 
@@ -127,35 +123,21 @@ function parseGeometry<T extends LineString | Polygon>(json: string): T {
 }
 
 export function getFoundationSummary(filename?: string): FoundationSummary {
+  const workspace = getTerritoryWorkspace(filename);
   const database = openWorkspaceDatabase(filename);
   try {
     const row = database
       .prepare(
-        `SELECT
-          c.name AS church_name,
-          t.name AS territory_name,
-          (SELECT COUNT(*) FROM street_segments s
-            WHERE s.church_id = c.id AND s.is_current = 1
-              AND s.activation_kind != 'hidden') AS segment_count,
-          (SELECT COALESCE(SUM(s.estimated_homes), 0) FROM street_segments s
-            WHERE s.church_id = c.id AND s.is_current = 1
-              AND s.activation_kind != 'hidden') AS estimated_homes,
-          (SELECT COUNT(*) FROM packets p WHERE p.church_id = c.id) AS packet_count
-        FROM churches c
-        JOIN territories t ON t.church_id = c.id
-        ORDER BY c.created_at
-        LIMIT 1`,
+        `SELECT COUNT(*) AS packet_count
+        FROM packets
+        WHERE church_id = ?`,
       )
-      .get() as SummaryRow | undefined;
-
-    if (!row) {
-      throw new Error('No local workspace found. Run pnpm db:seed.');
-    }
+      .get(PILOT_CHURCH_ID) as SummaryRow;
     return {
-      churchName: row.church_name,
-      territoryName: row.territory_name,
-      segmentCount: row.segment_count,
-      estimatedHomes: row.estimated_homes,
+      churchName: workspace.churchName,
+      territoryName: workspace.name,
+      segmentCount: workspace.totals.eligibleSegments,
+      estimatedHomes: workspace.totals.eligibleHomes,
       packetCount: row.packet_count,
     };
   } finally {

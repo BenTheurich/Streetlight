@@ -84,8 +84,8 @@ export function territoryBoundary(
   const crossesAntimeridian = center[0] - longitudeDelta < -180 || center[0] + longitudeDelta > 180;
   const west = crossesAntimeridian ? -180 : center[0] - longitudeDelta;
   const east = crossesAntimeridian ? 180 : center[0] + longitudeDelta;
-  const south = center[1] - latitudeDelta;
-  const north = center[1] + latitudeDelta;
+  const south = Math.max(-90, center[1] - latitudeDelta);
+  const north = Math.min(90, center[1] + latitudeDelta);
   return closePolygon([
     [west, south],
     [east, south],

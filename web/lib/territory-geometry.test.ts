@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import * as territoryGeometry from './territory-geometry.ts';
 import {
   circleBoundary,
   closePolygon,
   type LineString,
   lineInsideCircle,
+  lineInsideTerritoryBoundary,
   lineIntersectsPolygon,
   type Polygon,
   polygonIsSimple,
+  territoryBoundary,
 } from './territory-geometry.ts';
 
 const insideLine: LineString = {
@@ -143,25 +144,7 @@ test('a circle boundary is closed at the requested radius', () => {
 });
 
 test('square boundaries match the Overture bounding box and contain complete corner segments', () => {
-  const geometry = territoryGeometry as typeof territoryGeometry & {
-    lineInsideTerritoryBoundary?: (
-      line: LineString,
-      center: [number, number],
-      radiusMiles: number,
-      shape: 'circle' | 'square',
-    ) => boolean;
-    territoryBoundary?: (
-      center: [number, number],
-      radiusMiles: number,
-      shape: 'circle' | 'square',
-    ) => Polygon;
-  };
-  assert.equal(typeof geometry.territoryBoundary, 'function');
-  assert.equal(typeof geometry.lineInsideTerritoryBoundary, 'function');
-  assert.ok(geometry.territoryBoundary);
-  assert.ok(geometry.lineInsideTerritoryBoundary);
-
-  const boundary = geometry.territoryBoundary([-117.1274, 33.5107], 1, 'square');
+  const boundary = territoryBoundary([-117.1274, 33.5107], 1, 'square');
   const [westSouth, eastSouth, eastNorth, westNorth] = boundary.coordinates[0];
   assert.ok(Math.abs(westSouth[0] - -117.144758) < 0.000001);
   assert.ok(Math.abs(westSouth[1] - 33.496227) < 0.000001);
@@ -177,7 +160,18 @@ test('square boundaries match the Overture bounding box and contain complete cor
       [0.013, 0.013],
     ],
   };
-  assert.equal(geometry.lineInsideTerritoryBoundary(corner, [0, 0], 1, 'circle'), false);
-  assert.equal(geometry.lineInsideTerritoryBoundary(corner, [0, 0], 1, 'square'), true);
-  assert.equal(geometry.lineInsideTerritoryBoundary(crossingLine, [0, 0], 1, 'square'), false);
+  assert.equal(lineInsideTerritoryBoundary(corner, [0, 0], 1, 'circle'), false);
+  assert.equal(lineInsideTerritoryBoundary(corner, [0, 0], 1, 'square'), true);
+  assert.equal(lineInsideTerritoryBoundary(crossingLine, [0, 0], 1, 'square'), false);
+});
+
+test('square latitude bounds match the clamped Overture query near a pole', () => {
+  const boundary = territoryBoundary([12, 89.99], 20, 'square');
+  const [westSouth, eastSouth, eastNorth] = boundary.coordinates[0];
+
+  assert.equal(westSouth[0], -180);
+  assert.ok(Math.abs(westSouth[1] - 89.7005368312402) < 1e-12);
+  assert.equal(eastSouth[0], 180);
+  assert.ok(Math.abs(eastSouth[1] - 89.7005368312402) < 1e-12);
+  assert.deepEqual(eastNorth, [180, 90]);
 });

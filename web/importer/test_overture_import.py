@@ -450,9 +450,7 @@ class ImportCompletenessTest(TestCase):
                     )
                 )
 
-        result = normalize_features(
-            roads, addresses, center=self.center, radius_miles=self.radius_miles
-        )
+        result = normalize_features(roads, addresses)
 
         self.assertEqual(
             {segment["streetName"] for segment in result["segments"]},
@@ -478,9 +476,7 @@ class ImportCompletenessTest(TestCase):
             address("Short Rd", -116.9993, 33.5001),
         ]
 
-        result = normalize_features(
-            roads, addresses, center=self.center, radius_miles=self.radius_miles
-        )
+        result = normalize_features(roads, addresses)
 
         self.assertEqual(
             [
@@ -503,9 +499,7 @@ class ImportCompletenessTest(TestCase):
             address("Oak Rd", -116.9992, 33.5001),
         ]
 
-        result = normalize_features(
-            roads, addresses, center=self.center, radius_miles=self.radius_miles
-        )
+        result = normalize_features(roads, addresses)
 
         self.assertEqual(
             [
@@ -528,9 +522,7 @@ class ImportCompletenessTest(TestCase):
             address("", -116.9992, 33.5001),
         ]
 
-        result = normalize_features(
-            roads, addresses, center=self.center, radius_miles=self.radius_miles
-        )
+        result = normalize_features(roads, addresses)
 
         self.assertEqual(result["segments"][0]["activationKind"], "hidden")
         self.assertEqual(result["quality"]["unresolvedClusters"], 1)
@@ -543,9 +535,7 @@ class ImportCompletenessTest(TestCase):
         ]
 
         try:
-            result = normalize_features(
-                [], addresses, center=self.center, radius_miles=self.radius_miles
-            )
+            result = normalize_features([], addresses)
         except ValueError as error:
             self.fail(f"valid import was rejected: {error}")
 
@@ -566,9 +556,7 @@ class ImportCompletenessTest(TestCase):
             address("Corner Lane", -116.9875, 33.5125),
         ]
 
-        result = normalize_features(
-            roads, addresses, center=self.center, radius_miles=self.radius_miles
-        )
+        result = normalize_features(roads, addresses)
 
         self.assertEqual(result["quality"], {
             "totalAddresses": 1,

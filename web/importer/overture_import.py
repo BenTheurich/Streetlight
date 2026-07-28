@@ -220,7 +220,7 @@ def _assign_road_groups(segments):
         segment["road_group_id"] = group_id_by_root[find(index)]
 
 
-def normalize_features(roads, addresses, center=None, radius_miles=None):
+def normalize_features(roads, addresses):
     segments = []
     candidate_classes = ALWAYS_KEEP | KEEP_WITH_ADDRESS
     footprint_addresses = [
@@ -532,12 +532,7 @@ def main(argv=None, download=download_features):
                 "radiusMiles": args.radius_miles,
                 "completedAt": datetime.now(timezone.utc).isoformat(),
                 "normalizerVersion": 4,
-                **normalize_features(
-                    roads,
-                    addresses,
-                    center=[args.longitude, args.latitude],
-                    radius_miles=args.radius_miles,
-                ),
+                **normalize_features(roads, addresses),
             },
             separators=(",", ":"),
         )

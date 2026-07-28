@@ -681,7 +681,7 @@ export function TerritoryEditor({
               ) : (
                 <ul className="exclusion-list">
                   {draft.exclusions.map((area) => {
-                    const impact = affectedByExclusion(savedWorkspace.segments, area);
+                    const impact = affectedByExclusion(live.segments, area);
                     return (
                       <li className={area.enabled ? undefined : 'disabled'} key={area.id}>
                         <label className="exclusion-toggle">
@@ -772,16 +772,14 @@ export function TerritoryEditor({
                       {selectedExclusion.enabled ? 'Segments excluded' : 'Segments if enabled'}
                     </span>
                     <strong>
-                      {affectedByExclusion(savedWorkspace.segments, selectedExclusion).segments}
+                      {affectedByExclusion(live.segments, selectedExclusion).segments}
                     </strong>
                   </div>
                   <div className="impact-row">
                     <span>
                       {selectedExclusion.enabled ? 'Tracts removed' : 'Tracts if enabled'}
                     </span>
-                    <strong>
-                      {affectedByExclusion(savedWorkspace.segments, selectedExclusion).homes}
-                    </strong>
+                    <strong>{affectedByExclusion(live.segments, selectedExclusion).homes}</strong>
                   </div>
                   <VertexControls
                     points={selectedExclusion.geometry.coordinates[0].slice(0, -1)}
