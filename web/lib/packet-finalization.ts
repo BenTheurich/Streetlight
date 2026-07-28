@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import type {
+  PacketGenerationResult,
   PacketProposal,
   PacketSizeRequest,
-  PacketGenerationResult,
 } from './packet-selection.ts';
 import { parsePacketSizeRequests } from './packet-selection.ts';
 import type { Position } from './territory-geometry.ts';

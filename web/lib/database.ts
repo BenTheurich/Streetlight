@@ -466,11 +466,9 @@ export function finalizePacketBatch(
         proposal.start.position[1],
       );
       proposal.segments.forEach((segment, segmentSequence) => {
-        const row = segmentRow.get(
-          PILOT_CHURCH_ID,
-          PILOT_TERRITORY_ID,
-          segment.id,
-        ) as { id: string } | undefined;
+        const row = segmentRow.get(PILOT_CHURCH_ID, PILOT_TERRITORY_ID, segment.id) as
+          | { id: string }
+          | undefined;
         if (!row) throw new PacketProposalConflictError('Packet proposals changed');
         insertSegment.run(PILOT_CHURCH_ID, id, row.id, segmentSequence);
       });
