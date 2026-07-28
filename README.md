@@ -61,5 +61,4 @@ For Phase 2 review, switch between the circle and square boundary, adjust the bo
 and confirm roads outside the selected boundary disappear rather than turn gray. Draw and reshape
 an exclusion, confirm affected segments turn gray, save, reload, and then confirm that `Cancel`
 restores the last saved territory. Click one orange segment, exclude it, save and reload, then
-click the same gray segment and restore it. The phase remains awaiting founder approval; Phase 3
-must not begin yet.
+click the same gray segment and restore it. The founder approved Phase 2 on July 28, 2026.
