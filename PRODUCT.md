@@ -48,8 +48,8 @@ Version one has one authenticated role: administrator.
 | Coverage area | The church's outreach territory. |
 | Street segment | A short section of street tracked as one coverage unit. |
 | Home count | The estimated number of residential homes, and therefore tracts, assigned to a packet. |
-| Packet | One printed assignment sheet plus the matching number of tracts. |
-| Batch | A group of packets finalized and printed together. |
+| Packet | One connected volunteer assignment map and, once printed, its sheet plus the matching number of tracts. |
+| Batch | A group of packet proposals generated together and, once approved, finalized and printed together. |
 | Active packet | A finalized packet whose street segments remain reserved. |
 | Completed packet | A packet whose paper sheet was taken and later recorded as completed during reconciliation. |
 | Last covered | The most recent reconciliation date recorded for a street segment. |
@@ -64,7 +64,9 @@ The tracked coverage unit is a short street segment rather than an individual ho
 - Streetlight never assigns only one side of a selected segment.
 - A turn of about 90 degrees can define a segment boundary. A packet can still contain multiple connected segments across those boundaries.
 - Territory boundaries and ignore zones exclude whole segments from packet selection.
-- Address data supplies estimated home counts and packet starting addresses.
+- Address data supplies estimated home counts and packet starting addresses. Retain the house
+  number, street, available locality and postcode, and point coordinate for each address assigned
+  to a normalized segment. Do not retain resident names, unit identifiers, or notes.
 - Imported street geometry and estimated home counts cannot be edited in the first release.
 - A territory import retains every Overture feature classified as a road. High-confidence
   residential roads are active automatically; all other retained roads begin hidden.
@@ -114,9 +116,27 @@ palette remains a design decision.
 
 ## Packet generation
 
-The administrator requests a number of packets and an approximate home count for each packet size. A request can mix sizes, such as several smaller packets and several larger packets.
+The administrator requests a number of packets and an approximate home count for each packet size.
+A request can mix sizes, such as several smaller packets and several larger packets. The generator
+automatically matches those requested sizes to suitable connected areas.
 
-Streetlight generates compact, connected groups of street segments. It prioritizes the oldest eligible segments while respecting the territory boundary, ignore zones, active reservations, and requested home count.
+Streetlight generates compact, connected groups of street segments. Packets in one generated batch
+may be scattered anywhere in the territory, but each individual packet is one connected area.
+Streetlight respects the territory boundary, ignore zones, active reservations, and requested home
+count.
+
+Selection is heatmap-range-first. Streetlight processes red, orange, yellow, and green in that
+order, and a packet grows only through connected segments in one range. Within a range, selection
+begins nearest the church and expands outward evenly. Stable segment identifiers break otherwise
+equal choices. This makes an initially all-red territory progress outward from the church while
+preventing a single overdue street from pulling recently covered neighboring streets into its
+packet.
+
+The normal tract target is plus or minus 20 percent, but a segment is never split. An isolated old
+street may become an intentionally undersized packet rather than crossing into a newer heatmap
+range, and one indivisible segment may produce an oversized packet. If request slots remain after
+an older range is exhausted, generation continues into the next range. If the territory runs out
+of usable eligible segments, Streetlight returns fewer proposals with an explanation.
 
 A packet contains a connected set of highlighted street segments and a proposed starting point. Volunteers choose how to walk the assignment. Taking the packet commits the volunteer to cover every highlighted segment.
 
@@ -127,6 +147,9 @@ Packet map behavior:
 - A highlighted segment means covering residential homes on both sides of the street.
 - Show one proposed starting point.
 - Choose a starting house on a terminal segment. Prefer a house north of the road centerline, then the house nearest that segment's outer endpoint.
+- If neither terminal segment has a usable numbered address, choose a usable assigned address
+  elsewhere inside the packet. If the packet has no usable assigned address, reject that proposal
+  with a data warning instead of inventing an address or calling another provider.
 - Mark the starting house with Google's standard unlabeled pin.
 - Show the estimated home count once in the packet metadata, not as a map overlay.
 - Do not show a proposed walking path, walking order, directional arrows, or end point.
@@ -137,7 +160,10 @@ Packet map behavior:
 - The QR code is for navigation only. It does not open Streetlight, identify a volunteer, or report completion.
 - Print the starting address as text so the packet remains usable without scanning the QR code.
 
-Previewing packet options does not reserve territory. Reservations begin when the administrator finalizes a batch for printing.
+Phase 4 proposals are deterministic and read-only. Administrators may change quantities or target
+sizes and regenerate, but cannot move individual segments between proposals. Previewing packet
+options does not reserve territory. Reservations begin when the administrator finalizes a batch
+for printing.
 
 ## Printed output
 
@@ -259,7 +285,8 @@ The following are implementation choices, not founder decisions:
 - Hosting provider
 - PDF rendering method
 - Payment provider
-- Exact packet-generation algorithm
+- Low-level packet-selector implementation details that do not change the approved ordering,
+  tolerance, connectivity, or fallback rules
 - Logo, typography, and final visual design
 
 Choose the smallest stack that supports a hosted multi-church service, deterministic geospatial work, printable packets, backups, and low operating cost. Do not preserve an existing dependency or service merely because it appears in the repository.

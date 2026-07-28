@@ -344,13 +344,20 @@ Generate deterministic packet proposals from eligible street segments.
 ### Agent work
 
 - Accept requested packet quantities and approximate home counts.
-- Start with the oldest eligible segments.
-- Prefer compact, connected segment groups.
+- Follow the approved
+  [`Phase 4 packet proposal design`](docs/superpowers/specs/2026-07-28-phase4-packet-proposals-design.md).
+- Process heatmap ranges oldest to newest, and expand outward from the church within each range.
+- Prefer compact, connected segment groups and automatically match mixed requested sizes to the
+  geography.
+- Target plus or minus 20 percent without splitting segments; support the approved deterministic
+  undersized and indivisible-oversized exceptions.
 - Exclude segments outside the territory boundary, touching or crossing exclusion areas, or
   reserved by active packets.
 - Prevent a segment from appearing in two proposed packets in the same generation.
-- Produce selected segments, a proposed starting address, a street list, and an estimated tract count.
-- Choose the proposed starting address from an address assigned to one of the selected segments.
+- Produce selected segments, a proposed starting address, an admin-only street summary, and an
+  estimated tract count.
+- Retain assigned address points during import and apply the approved terminal-address fallback.
+- Keep proposals read-only and unreserved.
 - Use a small deterministic heuristic focused on segment grouping. Do not build a route-optimization platform.
 
 ### Automated checks
@@ -358,12 +365,14 @@ Generate deterministic packet proposals from eligible street segments.
 Use one fixed synthetic street graph and one saved real-area fixture.
 
 - Repeated runs produce the same packets.
-- Older eligible segments are selected before newer comparable segments.
+- Older heatmap ranges are selected before newer ranges.
+- An all-red territory expands outward from the church.
 - Every selected segment is eligible.
 - No segment appears twice.
 - Packet home counts are calculated from their segments.
+- Normal proposals meet the target tolerance, and both size exceptions are deterministic.
 - Every packet segment appears in the proposal map.
-- The proposed starting address belongs to the packet.
+- The proposed starting address belongs to the packet and follows the fallback order.
 
 ### Browser check
 
@@ -400,7 +409,8 @@ Turn approved proposals into reserved packets and printable output.
 - Finalization reserves every included segment once.
 - Conflicting finalization fails without a partial batch.
 - PDF page count equals packet count.
-- Each page contains the correct packet identifier, starting address, street list, home count, and QR payload.
+- Each page contains the correct packet identifier, starting address, home count, QR payload, and
+  every selected segment on the map.
 - Re-downloading does not create new packets or coverage events.
 
 ### Browser and print check
@@ -409,7 +419,8 @@ Preview a batch, finalize it, download it twice, compare packet identifiers, ren
 
 ### Human review
 
-The founder scans the QR code, checks the paper layout, reads the map and street list, and confirms that the tract count is easy to find.
+The founder scans the QR code, checks the paper layout, reads the map, and confirms that the tract
+count is easy to find.
 
 ### Completion condition
 
