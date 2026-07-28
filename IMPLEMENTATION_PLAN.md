@@ -40,7 +40,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 |---:|---|---|---|---|
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
-| 2 | Territory setup | Phase 1 | In progress | Hidden-road activation passed its checks; founder review reopened Phase 2 on July 28, 2026 to make exclusion areas explicitly toggleable and deletable |
+| 2 | Territory setup | Phase 1 | Awaiting human review | Hidden-road activation and toggleable/deletable exclusion areas pass automated and browser checks; founder review is ready |
 | 3 | Coverage history and heatmap | Phase 2 | Pending | None |
 | 4 | Packet selection | Phase 3 | Pending | None |
 | 5 | Batch finalization and PDF | Phase 4 | Pending | None |
@@ -205,8 +205,12 @@ Verified July 27, 2026 with pinned Overture release `2026-06-17.0`:
 - Browser checks passed hidden-road display, complete-group selection, draft activation,
   cancellation, explicit save, and persistence after reload. Rita Way persisted as a two-piece
   manual activation, and the browser reported no errors or warnings.
-- Biome, TypeScript, 45 Node tests, 25 Python importer tests, the Next.js production build, and
-  `git diff --check` pass.
+- Exclusion-area review added explicit enabled checkboxes and visible Delete actions. Disabling the
+  saved test polygon restored 20 segments and 102 tracts in the live draft; Save/reload preserved
+  both states, Cancel restored toggles and draft deletion, and the disabled polygon remained
+  selectable as a faint gray outline.
+- Biome, TypeScript, 48 Node tests, 25 Python importer tests, the Next.js production build, and
+  `git diff --check` pass. The final browser session reported no errors or warnings.
 
 ### Human review
 

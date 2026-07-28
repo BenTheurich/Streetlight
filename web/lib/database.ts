@@ -60,6 +60,7 @@ type SegmentRow = {
 type ExclusionRow = {
   id: string;
   name: string;
+  enabled: number;
   geometry_geojson: string;
 };
 
@@ -74,6 +75,7 @@ export type FoundationSummary = {
 export type ExclusionArea = {
   id: string;
   name: string;
+  enabled: boolean;
   geometry: Polygon;
 };
 
@@ -181,7 +183,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
     const exclusions = (
       database
         .prepare(
-          `SELECT id, name, geometry_geojson
+          `SELECT id, name, enabled, geometry_geojson
           FROM ignore_zones
           WHERE territory_id = ? AND church_id = ?
           ORDER BY created_at, id`,
@@ -191,6 +193,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
       (row): ExclusionArea => ({
         id: row.id,
         name: row.name,
+        enabled: row.enabled === 1,
         geometry: parseGeometry<Polygon>(row.geometry_geojson),
       }),
     );
@@ -249,7 +252,9 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
     ).map((row): TerritorySegment => {
       const geometry = parseGeometry<LineString>(row.geometry_geojson);
       const outsideRadius = !lineInsideCircle(geometry, center, radiusMiles);
-      const excluded = exclusions.some((area) => lineIntersectsPolygon(geometry, area.geometry));
+      const excluded = exclusions.some(
+        (area) => area.enabled && lineIntersectsPolygon(geometry, area.geometry),
+      );
       const active = row.activation_kind !== 'hidden';
       return {
         id: row.id,
@@ -336,8 +341,8 @@ export function saveTerritoryDraft(
       .run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID);
     const insert = database.prepare(
       `INSERT INTO ignore_zones
-        (id, church_id, territory_id, name, geometry_geojson)
-      VALUES (?, ?, ?, ?, ?)`,
+        (id, church_id, territory_id, name, enabled, geometry_geojson)
+      VALUES (?, ?, ?, ?, ?, ?)`,
     );
     for (const exclusion of draft.exclusions) {
       insert.run(
@@ -345,6 +350,7 @@ export function saveTerritoryDraft(
         PILOT_CHURCH_ID,
         PILOT_TERRITORY_ID,
         exclusion.name,
+        exclusion.enabled ? 1 : 0,
         JSON.stringify(exclusion.geometry),
       );
     }

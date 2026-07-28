@@ -584,6 +584,11 @@ textarea {
 }
 
 .exclusion-list li {
+  display: grid;
+  min-height: 52px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
   border-top: 1px solid #e7e1d7;
 }
 
@@ -591,13 +596,10 @@ textarea {
   border-top: 0;
 }
 
-.exclusion-list button {
-  display: grid;
+.exclusion-list .exclusion-select {
   width: 100%;
-  min-height: 48px;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 0.5rem;
+  min-width: 0;
+  min-height: 44px;
   padding: 0.45rem 0.15rem;
   border: 0;
   border-radius: 0;
@@ -606,16 +608,26 @@ textarea {
   text-align: left;
 }
 
-.exclusion-list button[aria-pressed="true"] {
+.exclusion-list .exclusion-select[aria-pressed="true"] {
   background: #f7eee9;
 }
 
-.exclusion-list i {
-  width: 11px;
-  height: 11px;
-  border: 2px solid var(--red);
-  border-radius: 3px;
-  background: rgb(169 64 58 / 22%);
+.exclusion-list li.disabled .exclusion-select[aria-pressed="true"] {
+  background: #f0efec;
+}
+
+.exclusion-toggle {
+  display: grid;
+  min-height: 38px;
+  align-items: center;
+}
+
+.exclusion-toggle input {
+  width: 16px;
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--red);
 }
 
 .exclusion-list strong,
@@ -633,9 +645,17 @@ textarea {
   font-size: 0.58rem;
 }
 
-.exclusion-list b {
-  color: #9a9388;
-  letter-spacing: 0.08em;
+.exclusion-list li.disabled strong {
+  color: var(--muted);
+}
+
+.exclusion-list .exclusion-delete {
+  min-height: 30px;
+  padding: 0.3rem 0.35rem;
+  border: 0;
+  background: transparent;
+  color: var(--red);
+  font-size: 0.58rem;
 }
 
 .exclusion-editor {

@@ -275,17 +275,18 @@ export function TerritoryMap({
     }
     const polygons = exclusions.map((exclusion) => {
       const editable = exclusion.id === selectedExclusionId && !drawing;
+      const enabled = exclusion.enabled;
       const polygon = new google.maps.Polygon({
         map,
         paths: exclusion.geometry.coordinates[0].slice(0, -1).map(latLng),
-        fillColor: '#a9403a',
-        fillOpacity: editable ? 0.3 : 0.2,
-        strokeColor: '#a9403a',
-        strokeOpacity: 0.95,
+        fillColor: enabled ? '#a9403a' : '#77736c',
+        fillOpacity: enabled ? (editable ? 0.3 : 0.2) : 0,
+        strokeColor: enabled ? '#a9403a' : '#77736c',
+        strokeOpacity: enabled || editable ? 0.95 : 0.5,
         strokeWeight: editable ? 3 : 2,
         editable,
         clickable: true,
-        zIndex: 3,
+        zIndex: editable ? 4 : enabled ? 3 : 2,
       });
       polygon.addListener('click', () => onSelectExclusion(exclusion.id));
       if (editable) {

@@ -73,6 +73,7 @@ test('exclusion changes and radius reductions reuse a current footprint', () => 
           {
             id: 'x',
             name: '',
+            enabled: true,
             geometry: {
               type: 'Polygon',
               coordinates: [

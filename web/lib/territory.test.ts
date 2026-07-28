@@ -44,7 +44,7 @@ function withDatabase(run: (filename: string) => void) {
   }
 }
 
-test('a complete territory draft persists radius, exclusions, and derived totals', () => {
+test('a persisted exclusion enabled state controls derived totals', () => {
   withDatabase((filename) => {
     const initial = getTerritoryWorkspace(filename);
     assert.equal(initial.segments.length, 55);
@@ -59,24 +59,75 @@ test('a complete territory draft persists radius, exclusions, and derived totals
         center: initial.center,
         radiusMiles: 20,
         activatedRoadGroupIds: [],
-        exclusions: [{ id: 'exclude-school', name: 'School', geometry }],
+        exclusions: [{ id: 'exclude-school', name: 'School', enabled: false, geometry }],
       },
       { filename },
     );
 
-    const saved = getTerritoryWorkspace(filename);
-    assert.equal(saved.radiusMiles, 20);
-    assert.deepEqual(saved.exclusions, [{ id: 'exclude-school', name: 'School', geometry }]);
+    const disabled = getTerritoryWorkspace(filename);
+    assert.equal(disabled.radiusMiles, 20);
+    assert.deepEqual(disabled.exclusions, [
+      { id: 'exclude-school', name: 'School', enabled: false, geometry },
+    ]);
     assert.equal(
-      saved.segments.find((segment) => segment.id === selected.id)?.excludedReason,
+      disabled.segments.find((segment) => segment.id === selected.id)?.excludedReason,
+      null,
+    );
+
+    saveTerritoryDraft(
+      {
+        originAddress: disabled.originAddress,
+        center: disabled.center,
+        radiusMiles: disabled.radiusMiles,
+        activatedRoadGroupIds: [],
+        exclusions: [{ ...disabled.exclusions[0], enabled: true }],
+      },
+      { filename },
+    );
+
+    const enabled = getTerritoryWorkspace(filename);
+    assert.equal(
+      enabled.segments.find((segment) => segment.id === selected.id)?.excludedReason,
       'exclusion',
     );
     assert.equal(
-      saved.totals.eligibleHomes,
-      saved.segments
+      enabled.totals.eligibleHomes,
+      enabled.segments
         .filter((segment) => segment.eligible)
         .reduce((total, segment) => total + segment.estimatedHomes, 0),
     );
+  });
+});
+
+test('saving a deletion removes only the omitted exclusion', () => {
+  withDatabase((filename) => {
+    const initial = getTerritoryWorkspace(filename);
+    const geometry = polygonAround(initial.segments[0].geometry);
+    const keep = { id: 'keep', name: 'Keep', enabled: true, geometry };
+    const remove = { id: 'remove', name: 'Remove', enabled: true, geometry };
+
+    saveTerritoryDraft(
+      {
+        originAddress: initial.originAddress,
+        center: initial.center,
+        radiusMiles: initial.radiusMiles,
+        activatedRoadGroupIds: [],
+        exclusions: [keep, remove],
+      },
+      { filename },
+    );
+    saveTerritoryDraft(
+      {
+        originAddress: initial.originAddress,
+        center: initial.center,
+        radiusMiles: initial.radiusMiles,
+        activatedRoadGroupIds: [],
+        exclusions: [keep],
+      },
+      { filename },
+    );
+
+    assert.deepEqual(getTerritoryWorkspace(filename).exclusions, [keep]);
   });
 });
 
@@ -91,7 +142,7 @@ test('changing the church point keeps saved exclusion coordinates unchanged', ()
         center: [-117.2, 33.6],
         radiusMiles: 5,
         activatedRoadGroupIds: [],
-        exclusions: [{ id: 'exclude-existing', name: 'Existing', geometry }],
+        exclusions: [{ id: 'exclude-existing', name: 'Existing', enabled: true, geometry }],
       },
       { filename },
     );
@@ -116,8 +167,8 @@ test('a failed complete-draft save rolls back territory and exclusions together'
           radiusMiles: 1,
           activatedRoadGroupIds: [],
           exclusions: [
-            { id: 'duplicate', name: 'First', geometry },
-            { id: 'duplicate', name: 'Second', geometry },
+            { id: 'duplicate', name: 'First', enabled: true, geometry },
+            { id: 'duplicate', name: 'Second', enabled: true, geometry },
           ],
         },
         { filename },
@@ -142,6 +193,7 @@ test('draft validation accepts the complete saved-draft contract', () => {
       {
         id: 'exclude-1',
         name: '',
+        enabled: false,
         geometry: {
           type: 'Polygon',
           coordinates: [
@@ -160,6 +212,7 @@ test('draft validation accepts the complete saved-draft contract', () => {
   assert.equal(parsed.originAddress, '31087 Nicolas Rd');
   assert.deepEqual(parsed.activatedRoadGroupIds, ['road-group:approved']);
   assert.equal(parsed.exclusions[0].name, '');
+  assert.equal(parsed.exclusions[0].enabled, false);
 });
 
 test('draft validation rejects invalid radius, duplicate IDs, and self-intersections', () => {
@@ -172,6 +225,7 @@ test('draft validation rejects invalid radius, duplicate IDs, and self-intersect
       {
         id: 'exclude-1',
         name: 'Area',
+        enabled: true,
         geometry: {
           type: 'Polygon',
           coordinates: [
@@ -195,6 +249,14 @@ test('draft validation rejects invalid radius, duplicate IDs, and self-intersect
         activatedRoadGroupIds: ['road-group:duplicate', 'road-group:duplicate'],
       }),
     /duplicate/i,
+  );
+  assert.throws(
+    () =>
+      parseTerritoryDraft({
+        ...valid,
+        exclusions: [{ ...valid.exclusions[0], enabled: 'yes' }],
+      }),
+    /enabled/i,
   );
   assert.throws(
     () =>

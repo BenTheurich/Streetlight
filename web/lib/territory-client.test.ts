@@ -100,6 +100,7 @@ const draft: TerritoryDraftInput = {
     {
       id: 'exclude-1',
       name: 'Park',
+      enabled: true,
       geometry: {
         type: 'Polygon',
         coordinates: [
@@ -138,6 +139,36 @@ test('live territory derivation distinguishes radius and polygon exclusions', ()
     allHomes: 35,
     eligibleHomes: 10,
   });
+});
+
+test('a disabled exclusion reports its potential impact without changing eligibility', () => {
+  const result = deriveTerritory(segments, {
+    ...draft,
+    exclusions: [{ ...draft.exclusions[0], enabled: false }],
+  });
+
+  assert.deepEqual(
+    result.segments
+      .filter((segment) => segment.id === 'touched')
+      .map(({ eligible, excludedReason }) => ({ eligible, excludedReason })),
+    [{ eligible: true, excludedReason: null }],
+  );
+  assert.deepEqual(result.totals, {
+    allSegments: 3,
+    eligibleSegments: 2,
+    allHomes: 35,
+    eligibleHomes: 15,
+  });
+  assert.deepEqual(
+    affectedByExclusion(segments, {
+      ...draft.exclusions[0],
+      enabled: false,
+    }),
+    {
+      segments: 1,
+      homes: 5,
+    },
+  );
 });
 
 test('a draft road-group activation includes every hidden segment in that group', () => {

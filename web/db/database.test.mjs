@@ -160,6 +160,42 @@ test('import quality columns accept only nullable non-negative integers', () => 
   }
 });
 
+test('exclusion rows default to enabled and reject invalid states', () => {
+  withDatabase((filename) => {
+    const database = openDatabase(filename);
+    try {
+      database
+        .prepare(
+          `INSERT INTO ignore_zones
+            (id, church_id, territory_id, name, geometry_geojson)
+          VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run(
+          'default-enabled',
+          'church-temecula-pilot',
+          'territory-temecula-pilot',
+          'Default enabled',
+          '{"type":"Polygon","coordinates":[[[0,0],[1,0],[0,1],[0,0]]]}',
+        );
+      assert.equal(
+        database.prepare('SELECT enabled FROM ignore_zones WHERE id = ?').get('default-enabled')
+          .enabled,
+        1,
+      );
+      database.prepare('UPDATE ignore_zones SET enabled = 0 WHERE id = ?').run('default-enabled');
+      assert.throws(
+        () =>
+          database
+            .prepare('UPDATE ignore_zones SET enabled = 2 WHERE id = ?')
+            .run('default-enabled'),
+        /CHECK constraint failed/,
+      );
+    } finally {
+      database.close();
+    }
+  });
+});
+
 test('an imported save atomically replaces proof segments and records its footprint', () => {
   withDatabase((filename) => {
     const workspace = getTerritoryWorkspace(filename);

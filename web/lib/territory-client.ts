@@ -55,8 +55,8 @@ export function deriveTerritory(
   const activatedRoadGroupIds = new Set(draft.activatedRoadGroupIds);
   const segments = importedSegments.map((segment): TerritorySegment => {
     const outsideRadius = !lineInsideCircle(segment.geometry, draft.center, draft.radiusMiles);
-    const excluded = draft.exclusions.some((area) =>
-      lineIntersectsPolygon(segment.geometry, area.geometry),
+    const excluded = draft.exclusions.some(
+      (area) => area.enabled && lineIntersectsPolygon(segment.geometry, area.geometry),
     );
     const manuallyActivated = activatedRoadGroupIds.has(segment.roadGroupId);
     const active = segment.active || manuallyActivated;

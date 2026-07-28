@@ -97,6 +97,7 @@ export function TerritoryEditor({
         {
           id: '__drawing-preview__',
           name: 'Drawing preview',
+          enabled: true,
           geometry: drawingPolygon,
         },
       ],
@@ -197,6 +198,7 @@ export function TerritoryEditor({
         {
           id,
           name: nextExclusionName(current.exclusions),
+          enabled: true,
           geometry: drawingPolygon,
         },
       ],
@@ -595,8 +597,26 @@ export function TerritoryEditor({
                   {draft.exclusions.map((area) => {
                     const impact = affectedByExclusion(savedWorkspace.segments, area);
                     return (
-                      <li key={area.id}>
+                      <li className={area.enabled ? undefined : 'disabled'} key={area.id}>
+                        <label className="exclusion-toggle">
+                          <input
+                            aria-label={`Enable ${area.name || 'unnamed excluded area'}`}
+                            checked={area.enabled}
+                            onChange={(event) =>
+                              setDraft((current) => ({
+                                ...current,
+                                exclusions: current.exclusions.map((candidate) =>
+                                  candidate.id === area.id
+                                    ? { ...candidate, enabled: event.target.checked }
+                                    : candidate,
+                                ),
+                              }))
+                            }
+                            type="checkbox"
+                          />
+                        </label>
                         <button
+                          className="exclusion-select"
                           aria-pressed={area.id === selectedExclusionId}
                           onClick={() => {
                             setSelectedExclusionId(area.id);
@@ -606,12 +626,40 @@ export function TerritoryEditor({
                           }}
                           type="button"
                         >
-                          <i />
                           <span>
                             <strong>{area.name || 'Unnamed excluded area'}</strong>
-                            <small>{impact.segments} segments excluded</small>
+                            <small>
+                              {area.enabled
+                                ? `${impact.segments} segments excluded`
+                                : `Off · would exclude ${impact.segments} segments`}
+                            </small>
                           </span>
-                          <b aria-hidden="true">•••</b>
+                        </button>
+                        <button
+                          aria-label={`Delete ${area.name || 'unnamed excluded area'}`}
+                          className="exclusion-delete"
+                          onClick={() => {
+                            if (
+                              !window.confirm(
+                                `Delete ${area.name || 'this excluded area'}? Its saved shape will be lost.`,
+                              )
+                            ) {
+                              return;
+                            }
+                            setDraft((current) => ({
+                              ...current,
+                              exclusions: current.exclusions.filter(
+                                (candidate) => candidate.id !== area.id,
+                              ),
+                            }));
+                            if (selectedExclusionId === area.id) {
+                              setSelectedExclusionId(null);
+                            }
+                            setPolygonError('');
+                          }}
+                          type="button"
+                        >
+                          Delete
                         </button>
                       </li>
                     );
@@ -639,13 +687,17 @@ export function TerritoryEditor({
                     />
                   </label>
                   <div className="impact-row">
-                    <span>Segments excluded</span>
+                    <span>
+                      {selectedExclusion.enabled ? 'Segments excluded' : 'Segments if enabled'}
+                    </span>
                     <strong>
                       {affectedByExclusion(savedWorkspace.segments, selectedExclusion).segments}
                     </strong>
                   </div>
                   <div className="impact-row">
-                    <span>Tracts removed</span>
+                    <span>
+                      {selectedExclusion.enabled ? 'Tracts removed' : 'Tracts if enabled'}
+                    </span>
                     <strong>
                       {affectedByExclusion(savedWorkspace.segments, selectedExclusion).homes}
                     </strong>
@@ -660,22 +712,6 @@ export function TerritoryEditor({
                     type="button"
                   >
                     Done editing
-                  </button>
-                  <button
-                    className="danger"
-                    onClick={() => {
-                      setDraft((current) => ({
-                        ...current,
-                        exclusions: current.exclusions.filter(
-                          (area) => area.id !== selectedExclusion.id,
-                        ),
-                      }));
-                      setSelectedExclusionId(null);
-                      setPolygonError('');
-                    }}
-                    type="button"
-                  >
-                    Delete exclusion
                   </button>
                 </div>
               )}

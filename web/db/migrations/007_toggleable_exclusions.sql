@@ -1,0 +1,3 @@
+ALTER TABLE ignore_zones
+ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1
+CHECK (enabled IN (0, 1));

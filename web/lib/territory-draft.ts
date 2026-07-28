@@ -8,6 +8,7 @@ export type TerritoryDraftInput = {
   exclusions: Array<{
     id: string;
     name: string;
+    enabled: boolean;
     geometry: Polygon;
   }>;
 };
@@ -101,10 +102,14 @@ export function parseTerritoryDraft(value: unknown): TerritoryDraftInput {
     if (ids.has(id)) {
       throw new Error('Duplicate exclusion ID');
     }
+    if (typeof candidate.enabled !== 'boolean') {
+      throw new Error('Exclusion enabled state is invalid');
+    }
     ids.add(id);
     return {
       id,
       name: parseText(candidate.name, 'Exclusion name', 100, false),
+      enabled: candidate.enabled,
       geometry: parsePolygon(candidate.geometry),
     };
   });
