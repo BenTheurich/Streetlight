@@ -273,7 +273,7 @@ textarea {
 
 .layers-control {
   position: absolute;
-  bottom: 68px;
+  bottom: 34px;
   right: 14px;
   z-index: 6;
 }
