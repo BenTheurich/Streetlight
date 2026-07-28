@@ -43,7 +43,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 2 | Territory setup | Phase 1 | Complete | Founder approved the interactive territory setup, Overture import quality controls, hidden-road activation, toggleable polygon and exact-segment exclusions, and circle/square boundaries on July 28, 2026; 59 Node checks, 25 Python checks, lint, typecheck, production build, and browser review pass |
 | 3 | Coverage history and heatmap | Phase 2 | Complete | Founder approved the full imported-territory heatmap and merged it on July 28, 2026; 84 Node checks, 25 Python checks, lint, typecheck, production build, database invariants, and real-browser acceptance pass. |
 | 4 | Packet selection | Phase 3 | Complete | Founder approved the deterministic packet proposals and orphan-prevention behavior and merged Phase 4 locally on July 28, 2026; automated, canonical-data, and browser evidence is recorded below |
-| 5 | Batch finalization and PDF | Phase 4 | Pending | None |
+| 5 | Batch finalization and PDF | Phase 4 | In progress | Founder approved the finalization, download-scope, naming, persistence, and PDF design on July 28, 2026; implementation has not begun |
 | 6 | Reconciliation and corrections | Phase 5 | Pending | None |
 | 7 | Authentication and church isolation | Phase 6 | Pending | None |
 | 8 | Deployment and recovery | Phase 7 | Pending | None |

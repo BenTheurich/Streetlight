@@ -178,6 +178,10 @@ for printing. After generation, the map highlights every proposal without starti
 a proposal focuses on that proposal alone and shows its starting pin; the administrator can return
 to the all-proposals view.
 
+Streetlight gives each finalized batch an automatic date-and-time name in the church time zone.
+Before finalizing, the administrator may replace it with an optional custom name for a special
+event. The custom name does not change the stable packet identifiers.
+
 ## Printed output
 
 A finalized batch downloads as one multi-page PDF. Each packet occupies exactly one page.
@@ -192,6 +196,11 @@ The map occupies most of the page. Street names remain readable and every highli
 Place the QR code beside the printed starting address, visually group them, and indicate that the QR opens directions. Show the estimated homes/tracts prominently at the upper left. The map contains every selected street segment and one proposed starting-point marker. The Streetlight wordmark or logo appears only in the lower-left corner of the page, outside the map, and the packet identifier appears opposite it in the lower-right corner. The page does not repeat the both-sides rule because that is part of the church's normal outreach process.
 
 The first release does not include a written street list, address ranges, an individual-address list, a map legend, volunteer details, a proposed walking path, an end point, detailed navigation, or separate packet files.
+
+After finalization, Streetlight automatically downloads the newly finalized batch. The
+administrator can later download either the complete newest finalized batch or one combined PDF
+containing every active packet across batches. The all-active download is ordered by oldest batch
+first and preserves every packet's original identifier.
 
 ## Physical distribution
 
