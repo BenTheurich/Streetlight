@@ -6,6 +6,7 @@ import {
   generatePacketProposals,
   type PacketSelectionSegment,
   parsePacketSizeRequests,
+  proposalsForMap,
 } from './packet-selection.ts';
 import type { LineString, Position } from './territory-geometry.ts';
 
@@ -68,6 +69,31 @@ function connected(segments: Array<{ geometry: LineString }>): boolean {
     if (visited.size === before) return false;
   }
 }
+
+test('packet map shows every proposal until one is selected', () => {
+  const proposals = [
+    {
+      targetHomes: 10,
+      estimatedHomes: 10,
+      coverageClass: 'red' as const,
+      segments: [],
+      start: { address: 'A', position: [0, 0] as Position },
+      streetNames: ['A'],
+    },
+    {
+      targetHomes: 20,
+      estimatedHomes: 20,
+      coverageClass: 'orange' as const,
+      segments: [],
+      start: { address: 'B', position: [1, 1] as Position },
+      streetNames: ['B'],
+    },
+  ];
+
+  assert.equal(proposalsForMap(proposals, null), proposals);
+  assert.deepEqual(proposalsForMap(proposals, 1), [proposals[1]]);
+  assert.deepEqual(proposalsForMap(proposals, 99), []);
+});
 
 test('packet-size requests accept only exact positive safe-integer rows', () => {
   const valid = [

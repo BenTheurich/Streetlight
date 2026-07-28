@@ -6,9 +6,9 @@ import type { PacketGenerationResult } from '@/lib/packet-selection';
 type PacketGeneratorProps = {
   active: boolean;
   result: PacketGenerationResult | null;
-  selectedIndex: number;
+  selectedIndex: number | null;
   onResultChange: (result: PacketGenerationResult | null) => void;
-  onSelectedIndexChange: (index: number) => void;
+  onSelectedIndexChange: (index: number | null) => void;
 };
 
 type RequestRow = {
@@ -69,7 +69,7 @@ export function PacketGenerator({
         throw new Error('error' in next ? next.error : 'Could not generate packet proposals');
       }
       onResultChange(next);
-      onSelectedIndexChange(0);
+      onSelectedIndexChange(null);
       setNotice(
         next.warnings[0] ??
           `Generated ${next.proposals.length} packet proposal${next.proposals.length === 1 ? '' : 's'}.`,
@@ -154,7 +154,18 @@ export function PacketGenerator({
         </section>
         {result && (
           <section className="packet-results">
-            <h2>Proposals</h2>
+            <div className="packet-results-header">
+              <h2>Proposals</h2>
+              {selectedIndex !== null && (
+                <button
+                  className="secondary"
+                  onClick={() => onSelectedIndexChange(null)}
+                  type="button"
+                >
+                  Show all
+                </button>
+              )}
+            </div>
             {result.proposals.map((proposal, index) => {
               const selected = index === selectedIndex;
               return (

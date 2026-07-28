@@ -21,7 +21,7 @@ Map/Satellite basemap control.
 - `/packets` and `/territory` will be removed, not retained as redirects.
 - Switching tools must preserve the Google map instance, camera, and selected basemap.
 - Coverage and packet tools show the complete coverage heatmap.
-- A selected packet appears as a high-visibility overlay above the heatmap.
+- Generated packets appear as high-visibility overlays above the heatmap until one is selected.
 - Territory Setup uses the same map but changes segment styling to territory eligibility states.
 - The supplied logo icon appears beside the existing `STREETLIGHT` text.
 - The supplied church pin marks the saved church location in every tool.
@@ -79,9 +79,9 @@ One `AdminMap` component owns:
 Switching tools updates map data and interaction options without constructing a new Google map.
 This also avoids unnecessary map loads and tile requests during ordinary navigation.
 
-Google's native Map/Satellite control is available in every mode. The selected basemap remains
-unchanged across tool switches because the map instance remains mounted. Streetlight overlays do
-not change when the basemap changes.
+Google's native Map/Satellite control is available at the lower-right in every mode. The selected
+basemap remains unchanged across tool switches because the map instance remains mounted.
+Streetlight overlays do not change when the basemap changes.
 
 If the browser map key is unavailable or Google Maps fails to load, the existing explicit
 unavailable/error state replaces the map while the sidebar remains usable.
@@ -113,10 +113,12 @@ a packet proposal is selected.
 
 - Retain the complete coverage heatmap and legend.
 - Before proposals exist, fit the map to the complete territory heatmap.
-- Draw only the selected proposal above the heatmap.
-- Render the selected proposal as a thick electric-blue centerline with a narrow white outer halo.
+- Draw every generated proposal above the heatmap until the administrator selects one.
+- Selecting a proposal draws and fits only that proposal; a **Show all** action returns to the batch
+  view.
+- Render packet proposals as thick electric-blue centerlines with a narrow white outer halo.
 - Keep the heatmap visible beneath the selected-packet overlay.
-- Show the standard red starting-address pin for the selected proposal.
+- Show the standard red starting-address pin only for the selected proposal.
 - Fit the camera tightly to the selected packet and its starting address, not to the church.
 - Preserve proposal request rows and results when another tool is opened temporarily.
 

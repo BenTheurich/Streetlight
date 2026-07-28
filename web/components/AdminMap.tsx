@@ -33,8 +33,9 @@ export function AdminMap({ apiKey, churchCenter, onMapChange }: AdminMapProps) {
           mapTypeControl: true,
           mapTypeControlOptions: {
             mapTypeIds: [maps.MapTypeId.ROADMAP, maps.MapTypeId.SATELLITE],
-            position: maps.ControlPosition.TOP_LEFT,
+            position: maps.ControlPosition.RIGHT_BOTTOM,
           },
+          cameraControl: false,
           streetViewControl: false,
           fullscreenControl: false,
           clickableIcons: false,
@@ -69,6 +70,8 @@ export function AdminMap({ apiKey, churchCenter, onMapChange }: AdminMapProps) {
       image.style.objectFit = 'contain';
       const { AdvancedMarkerElement } = library as google.maps.MarkerLibrary;
       marker = new AdvancedMarkerElement({
+        anchorLeft: '-50%',
+        anchorTop: '-84.4%',
         content: image,
         map,
         position: latLng(churchCenter),

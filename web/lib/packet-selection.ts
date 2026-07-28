@@ -43,6 +43,14 @@ export type PacketGenerationResult = {
   warnings: string[];
 };
 
+export function proposalsForMap(
+  proposals: PacketProposal[],
+  selectedIndex: number | null,
+): PacketProposal[] {
+  if (selectedIndex === null) return proposals;
+  return proposals[selectedIndex] ? [proposals[selectedIndex]] : [];
+}
+
 type TargetSlot = { targetHomes: number; order: number };
 type Prefix = {
   segments: PacketSelectionSegment[];

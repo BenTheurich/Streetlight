@@ -163,7 +163,9 @@ Packet map behavior:
 Phase 4 proposals are deterministic and read-only. Administrators may change quantities or target
 sizes and regenerate, but cannot move individual segments between proposals. Previewing packet
 options does not reserve territory. Reservations begin when the administrator finalizes a batch
-for printing.
+for printing. After generation, the map highlights every proposal without starting pins. Selecting
+a proposal focuses on that proposal alone and shows its starting pin; the administrator can return
+to the all-proposals view.
 
 ## Printed output
 

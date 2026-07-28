@@ -134,6 +134,7 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
   try {
     const workspace = getTerritoryWorkspace(filename);
     const summary = getFoundationSummary(filename);
+    assert.deepEqual(workspace.center, [-117.1164623, 33.5414958]);
     assert.equal(workspace.import.kind, 'proof');
     assert.equal(workspace.import.release, null);
     assert.equal(workspace.import.normalizerVersion, null);

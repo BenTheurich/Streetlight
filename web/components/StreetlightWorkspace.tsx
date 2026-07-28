@@ -34,13 +34,12 @@ export function StreetlightWorkspace({
       null,
   );
   const [packetResult, setPacketResult] = useState<PacketGenerationResult | null>(null);
-  const [selectedPacketIndex, setSelectedPacketIndex] = useState(0);
+  const [selectedPacketIndex, setSelectedPacketIndex] = useState<number | null>(null);
   const [territory, setTerritory] = useState<TerritoryWorkspace | null>(null);
   const [territoryLoading, setTerritoryLoading] = useState(false);
   const [territoryError, setTerritoryError] = useState('');
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [overlayRoot, setOverlayRoot] = useState<HTMLDivElement | null>(null);
-  const selectedProposal = packetResult?.proposals[selectedPacketIndex] ?? null;
 
   const loadTerritory = useCallback(async () => {
     setTerritoryLoading(true);
@@ -72,7 +71,7 @@ export function StreetlightWorkspace({
   const refreshAfterTerritorySave = useCallback(async (saved: TerritoryWorkspace) => {
     setTerritory(saved);
     setPacketResult(null);
-    setSelectedPacketIndex(0);
+    setSelectedPacketIndex(null);
     const response = await fetch('/api/coverage');
     const result = (await response.json()) as CoverageWorkspace | { error: string };
     if (!response.ok || 'error' in result) {
@@ -123,7 +122,12 @@ export function StreetlightWorkspace({
             segments={coverage.segments}
             selectedSegmentId={tool === 'coverage' ? selectedSegmentId : null}
           />
-          <PacketProposalMap active={tool === 'packets'} map={map} proposal={selectedProposal} />
+          <PacketProposalMap
+            active={tool === 'packets'}
+            map={map}
+            proposals={packetResult?.proposals ?? []}
+            selectedIndex={selectedPacketIndex}
+          />
           <div className="map-overlay-root" ref={setOverlayRoot} />
         </section>
         <CoverageDashboard

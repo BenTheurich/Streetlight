@@ -8,6 +8,7 @@ const fixture = JSON.parse(
 );
 const churchId = 'church-temecula-pilot';
 const territoryId = 'territory-temecula-pilot';
+const churchCenter = [-117.1164623, 33.5414958];
 
 export function seedDatabase(database) {
   database.exec('BEGIN IMMEDIATE');
@@ -32,8 +33,8 @@ export function seedDatabase(database) {
         territoryId,
         churchId,
         'Temecula and Murrieta',
-        fixture.territory.center[1],
-        fixture.territory.center[0],
+        churchCenter[1],
+        churchCenter[0],
         fixture.territory.radius_miles * 1609.344,
         JSON.stringify(fixture.territory.boundary),
         fixture.territory.origin_address,
@@ -47,8 +48,8 @@ export function seedDatabase(database) {
         WHERE id = ? AND origin_address = ''`,
       )
       .run(
-        fixture.territory.center[1],
-        fixture.territory.center[0],
+        churchCenter[1],
+        churchCenter[0],
         fixture.territory.radius_miles * 1609.344,
         JSON.stringify(fixture.territory.boundary),
         fixture.territory.origin_address,

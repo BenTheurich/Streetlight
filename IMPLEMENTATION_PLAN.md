@@ -383,7 +383,7 @@ Generate mixed packet sizes, inspect each proposal on the map, regenerate the sa
 - Tasks 1-4 were committed as `942e060`, `9c60567`, `1ee7f5d`, and `8ed89ee`; focused review
   warning fix: `e7411bf`.
 - 26 Python importer tests and 97 Node application tests pass. Lint, typecheck, and the production
-  build pass; the build includes `/packets` and `/api/packet-proposals`.
+  build pass; the build includes `/` and `/api/packet-proposals`.
 - The unchanged canonical territory was imported once from generation 3 / normalizer 4 to
   generation 4 / normalizer 5. It retained 10,663 usable assigned addresses. Boundary settings,
   exclusions, manual activations, exact-segment exclusions, and empty workflow tables were
@@ -401,12 +401,18 @@ Generate mixed packet sizes, inspect each proposal on the map, regenerate the sa
 - The supplied Streetlight logo and 44-pixel church marker are present, and Google's native Map /
   Satellite control persists across tools. Packet proposals and unsaved territory changes survive
   temporary tool switches.
-- 96 Node checks and 26 Python importer checks pass. Lint, typecheck, and the production build pass;
+- 97 Node checks and 26 Python importer checks pass. Lint, typecheck, and the production build pass;
   the production route list contains `/` and the three workflow APIs without separate packet or
   territory pages.
 - Real-browser acceptance confirmed one map canvas across all three tools, Map/Satellite
   persistence, heatmap visibility in packet review, tight packet fitting, distinct church and
   starting markers, territory overlays, and retained packet and territory draft state.
+- Follow-up browser acceptance generated ten proposals: all packet lines appeared together without
+  starting pins, selecting a card focused one proposal and added its pin, and **Show all** restored
+  the batch view. The sidebar scrolled through overflow, the legend stacked vertically, and
+  Google's native Map/Satellite control sat at the lower-right without the separate camera control.
+- The pilot church coordinate was refreshed from the saved address's current Google geocode and the
+  supplied pin artwork now anchors its pointed tip to that coordinate.
 
 ### Human review
 
