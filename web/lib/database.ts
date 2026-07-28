@@ -14,7 +14,19 @@ import {
   validateCoverageDate,
 } from './coverage.ts';
 import type { ImportedTerritoryInput } from './overture-import.ts';
-import type { PacketAddress, PacketSelectionSegment } from './packet-selection.ts';
+import {
+  type DownloadPacket,
+  type FinalizedBatch,
+  type PacketDownloadSelection,
+  type PacketFinalizationInput,
+  PacketProposalConflictError,
+  packetProposalFingerprint,
+} from './packet-finalization.ts';
+import {
+  generatePacketProposals,
+  type PacketAddress,
+  type PacketSelectionSegment,
+} from './packet-selection.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import {
   type LineString,
@@ -154,6 +166,12 @@ export type CoverageWorkspace = {
 export type PacketGenerationWorkspace = {
   center: Position;
   segments: PacketSelectionSegment[];
+};
+
+type FinalizePacketBatchOptions = {
+  filename?: string;
+  now?: Date;
+  asOf?: string;
 };
 
 function workspaceDatabaseFilename(filename?: string): string {
@@ -363,6 +381,190 @@ export function getPacketGenerationWorkspace(
         }),
       ),
     };
+  } finally {
+    database.close();
+  }
+}
+
+function automaticBatchName(now: Date): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: PILOT_TIME_ZONE,
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+  return `Outreach batch - ${value('month')} ${value('day')}, ${value('year')}, ${value('hour')}:${value('minute')} ${value('dayPeriod')}`;
+}
+
+function packetCode(batchId: string, sequence: number, now: Date): string {
+  const date = calendarDateInTimeZone(now, PILOT_TIME_ZONE).replaceAll('-', '');
+  const token = batchId.replaceAll('-', '').slice(0, 6).toUpperCase();
+  return `TEM-${date}-${token}-${String(sequence + 1).padStart(3, '0')}`;
+}
+
+export function finalizePacketBatch(
+  input: PacketFinalizationInput,
+  options: FinalizePacketBatchOptions = {},
+): FinalizedBatch {
+  const customName = input.customName?.trim() || null;
+  if (customName && customName.length > 80) throw new Error('Invalid batch name');
+  const now = options.now ?? new Date();
+  const finalizedAt = now.toISOString();
+  const database = openWorkspaceDatabase(options.filename);
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    const proposals = generatePacketProposals({
+      ...getPacketGenerationWorkspace(options.filename, options.asOf ?? todayForPilot()),
+      requests: input.requests,
+    }).proposals;
+    if (
+      proposals.length === 0 ||
+      packetProposalFingerprint(proposals) !== input.proposalFingerprint
+    ) {
+      throw new PacketProposalConflictError('Packet proposals changed');
+    }
+
+    const batchId = randomUUID();
+    const name = customName ?? automaticBatchName(now);
+    database
+      .prepare(
+        `INSERT INTO batches (id, church_id, name, status, finalized_at)
+        VALUES (?, ?, ?, 'finalized', ?)`,
+      )
+      .run(batchId, PILOT_CHURCH_ID, name, finalizedAt);
+    const insertPacket = database.prepare(
+      `INSERT INTO packets
+        (id, church_id, batch_id, packet_code, start_address, estimated_homes, status,
+          sequence_number, start_longitude, start_latitude)
+      VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
+    );
+    const segmentRow = database.prepare(
+      `SELECT id FROM street_segments
+      WHERE church_id = ? AND territory_id = ? AND import_segment_id = ? AND is_current = 1`,
+    );
+    const insertSegment = database.prepare(
+      `INSERT INTO packet_segments
+        (church_id, packet_id, street_segment_id, sequence_number)
+      VALUES (?, ?, ?, ?)`,
+    );
+    const packets = proposals.map((proposal, sequence) => {
+      const id = randomUUID();
+      const code = packetCode(batchId, sequence, now);
+      insertPacket.run(
+        id,
+        PILOT_CHURCH_ID,
+        batchId,
+        code,
+        proposal.start.address,
+        proposal.estimatedHomes,
+        sequence,
+        proposal.start.position[0],
+        proposal.start.position[1],
+      );
+      proposal.segments.forEach((segment, segmentSequence) => {
+        const row = segmentRow.get(
+          PILOT_CHURCH_ID,
+          PILOT_TERRITORY_ID,
+          segment.id,
+        ) as { id: string } | undefined;
+        if (!row) throw new PacketProposalConflictError('Packet proposals changed');
+        insertSegment.run(PILOT_CHURCH_ID, id, row.id, segmentSequence);
+      });
+      return { ...proposal, id, code };
+    });
+    database.exec('COMMIT');
+    return {
+      id: batchId,
+      name,
+      finalizedAt,
+      packetCount: packets.length,
+      estimatedHomes: packets.reduce((total, packet) => total + packet.estimatedHomes, 0),
+      packets,
+    };
+  } catch (error) {
+    database.exec('ROLLBACK');
+    throw error;
+  } finally {
+    database.close();
+  }
+}
+
+export function getPacketDownloadSelection(
+  scope: 'newest' | 'active',
+  filename?: string,
+): PacketDownloadSelection {
+  const database = openWorkspaceDatabase(filename);
+  try {
+    const newest =
+      scope === 'newest'
+        ? (database
+            .prepare(
+              `SELECT id FROM batches
+              WHERE church_id = ? AND finalized_at IS NOT NULL
+              ORDER BY finalized_at DESC, id DESC LIMIT 1`,
+            )
+            .get(PILOT_CHURCH_ID) as { id: string } | undefined)
+        : undefined;
+    const rows = database
+      .prepare(
+        `SELECT p.id, p.packet_code, p.batch_id, b.name AS batch_name, p.estimated_homes,
+          p.start_address, p.start_longitude, p.start_latitude
+        FROM packets p
+        JOIN batches b ON b.id = p.batch_id AND b.church_id = p.church_id
+        WHERE p.church_id = ?
+          AND (${scope === 'newest' ? 'p.batch_id = ?' : "p.status = 'active'"})
+        ORDER BY b.finalized_at, b.id, p.sequence_number, p.id`,
+      )
+      .all(PILOT_CHURCH_ID, ...(scope === 'newest' ? [newest?.id ?? ''] : [])) as Array<{
+      id: string;
+      packet_code: string;
+      batch_id: string;
+      batch_name: string;
+      estimated_homes: number;
+      start_address: string;
+      start_longitude: number | null;
+      start_latitude: number | null;
+    }>;
+    const segmentRows = database.prepare(
+      `SELECT s.import_segment_id AS id, s.geometry_geojson, s.estimated_homes
+      FROM packet_segments ps
+      JOIN street_segments s ON s.id = ps.street_segment_id
+      WHERE ps.church_id = ? AND ps.packet_id = ?
+      ORDER BY ps.sequence_number`,
+    );
+    const packets = rows.map((row): DownloadPacket => {
+      if (row.start_longitude === null || row.start_latitude === null) {
+        throw new Error('Packet starting point missing');
+      }
+      return {
+        id: row.id,
+        code: row.packet_code,
+        batchId: row.batch_id,
+        batchName: row.batch_name,
+        estimatedHomes: row.estimated_homes,
+        start: {
+          address: row.start_address,
+          position: [row.start_longitude, row.start_latitude],
+        },
+        segments: (
+          segmentRows.all(PILOT_CHURCH_ID, row.id) as Array<{
+            id: string;
+            geometry_geojson: string;
+            estimated_homes: number;
+          }>
+        ).map((segment) => ({
+          id: segment.id,
+          geometry: parseGeometry<LineString>(segment.geometry_geojson),
+          estimatedHomes: segment.estimated_homes,
+        })),
+      };
+    });
+    if (packets.length === 0) throw new Error('No packets available');
+    return { scope, packets };
   } finally {
     database.close();
   }

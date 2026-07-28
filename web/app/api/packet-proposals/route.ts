@@ -1,4 +1,5 @@
 import { getPacketGenerationWorkspace } from '../../../lib/database.ts';
+import { withProposalFingerprint } from '../../../lib/packet-finalization.ts';
 import {
   generatePacketProposals,
   type PacketSizeRequest,
@@ -25,7 +26,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const workspace = getPacketGenerationWorkspace();
-    return Response.json(generatePacketProposals({ ...workspace, requests }));
+    return Response.json(withProposalFingerprint(generatePacketProposals({ ...workspace, requests })));
   } catch {
     return Response.json({ error: 'Could not generate packet proposals' }, { status: 500 });
   }

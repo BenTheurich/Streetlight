@@ -157,6 +157,7 @@ test('POST returns deterministic read-only packet proposals', async () => {
     assert.equal(result.proposals[0].estimatedHomes, 15);
     assert.equal(result.proposals[0].segments.length, 2);
     assert.deepEqual(Object.keys(result.proposals[0].start).sort(), ['address', 'position']);
+    assert.match(result.proposalFingerprint, /^[a-f0-9]{64}$/);
     assert.equal(firstText.includes('addresses'), false);
   });
 });
