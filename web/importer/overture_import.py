@@ -223,17 +223,29 @@ def _assign_road_groups(segments):
 def normalize_features(roads, addresses):
     segments = []
     candidate_classes = ALWAYS_KEEP | KEEP_WITH_ADDRESS
-    footprint_addresses = [
-        {
-            "index": index,
-            "street": address_feature["properties"]["street"],
-            "canonical_name": canonical_street_name(
-                address_feature["properties"]["street"]
+    footprint_addresses = []
+    for index, address_feature in enumerate(addresses):
+        properties = address_feature["properties"]
+        levels = properties.get("address_levels") or []
+        locality = properties.get("postal_city") or next(
+            (
+                level.get("value")
+                for level in reversed(levels)
+                if level and level.get("value")
             ),
-            "point": address_feature["geometry"]["coordinates"],
-        }
-        for index, address_feature in enumerate(addresses)
-    ]
+            None,
+        )
+        footprint_addresses.append(
+            {
+                "index": index,
+                "number": properties.get("number"),
+                "street": properties["street"],
+                "canonical_name": canonical_street_name(properties["street"]),
+                "locality": locality,
+                "postcode": properties.get("postcode"),
+                "point": address_feature["geometry"]["coordinates"],
+            }
+        )
     inferred_roads = 0
 
     for road_feature in roads:
@@ -303,6 +315,7 @@ def normalize_features(roads, addresses):
                     "has_name_evidence": has_name_evidence,
                     "coordinates": coordinates,
                     "address_count": 0,
+                    "addresses": [],
                 }
             )
 
@@ -329,6 +342,15 @@ def normalize_features(roads, addresses):
                 <= MAX_ADDRESS_DISTANCE_METERS
             ):
                 nearest["address_count"] += 1
+                nearest["addresses"].append(
+                    {
+                        "number": address_item["number"],
+                        "street": address_item["street"],
+                        "locality": address_item["locality"],
+                        "postcode": address_item["postcode"],
+                        "position": address_item["point"],
+                    }
+                )
                 assigned_address_indexes.add(address_item["index"])
 
     _assign_road_groups(segments)
@@ -366,6 +388,16 @@ def normalize_features(roads, addresses):
                     "coordinates": segment["coordinates"],
                 },
                 "estimatedHomes": segment["address_count"],
+                "addresses": sorted(
+                    segment["addresses"],
+                    key=lambda item: (
+                        item["street"].casefold(),
+                        item["number"] is None,
+                        item["number"] or "",
+                        item["postcode"] or "",
+                        item["position"],
+                    ),
+                ),
                 "activationKind": (
                     "automatic"
                     if segment["has_name_evidence"]
@@ -446,7 +478,8 @@ def query_bbox(connection, path, west, south, east, north):
 
     rows = connection.execute(
         f"""
-        SELECT street, ST_AsGeoJSON(geometry)
+        SELECT number, street, postal_city, postcode, address_levels,
+          ST_AsGeoJSON(geometry)
         FROM read_parquet('{path}', hive_partitioning = true)
         WHERE street IS NOT NULL AND {bbox_filter}
         """,
@@ -454,10 +487,23 @@ def query_bbox(connection, path, west, south, east, north):
     ).fetchall()
     return [
         {
-            "properties": {"street": street},
+            "properties": {
+                "number": number,
+                "street": street,
+                "postal_city": postal_city,
+                "postcode": postcode,
+                "address_levels": address_levels or [],
+            },
             "geometry": json.loads(geometry),
         }
-        for street, geometry in rows
+        for (
+            number,
+            street,
+            postal_city,
+            postcode,
+            address_levels,
+            geometry,
+        ) in rows
     ]
 
 
@@ -531,7 +577,7 @@ def main(argv=None, download=download_features):
                 "center": [args.longitude, args.latitude],
                 "radiusMiles": args.radius_miles,
                 "completedAt": datetime.now(timezone.utc).isoformat(),
-                "normalizerVersion": 4,
+                "normalizerVersion": 5,
                 **normalize_features(roads, addresses),
             },
             separators=(",", ":"),

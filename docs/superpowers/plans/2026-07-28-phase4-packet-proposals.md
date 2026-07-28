@@ -104,7 +104,7 @@ CREATE INDEX segment_addresses_segment
 ON segment_addresses (street_segment_id);
 ```
 
-- [ ] **Step 1: Mark Phase 4 in progress and write failing Python address tests**
+- [x] **Step 1: Mark Phase 4 in progress and write failing Python address tests**
 
 Change only the Phase 4 status-table cell from `Pending` to `In progress`.
 
@@ -169,7 +169,7 @@ python -m unittest discover -s web/importer -p "test_*.py"
 Expected: FAIL because normalized segments do not expose addresses and the query selects only
 `street`.
 
-- [ ] **Step 2: Extend the Python importer with the minimum address fields**
+- [x] **Step 2: Extend the Python importer with the minimum address fields**
 
 Build each `footprint_addresses` item with:
 
@@ -217,7 +217,7 @@ WHERE street IS NOT NULL AND {bbox_filter}
 Return those exact properties and continue omitting `unit`. Run the Python suite again; expected:
 PASS.
 
-- [ ] **Step 3: Write failing TypeScript parser and import-refresh tests**
+- [x] **Step 3: Write failing TypeScript parser and import-refresh tests**
 
 Add one complete and one numberless address to `validOutput.segments[0].addresses`. Assert parsed
 positions and nullable fields survive unchanged. Add invalid outputs for:
@@ -249,7 +249,7 @@ corepack pnpm --dir web test
 
 Expected: FAIL because the TypeScript contract is still version 4 and has no addresses.
 
-- [ ] **Step 4: Parse only the approved address contract**
+- [x] **Step 4: Parse only the approved address contract**
 
 Add `ImportedSegmentAddress`, require exact address keys, validate geographic positions and nullable
 strings, copy address arrays into parsed segments, and change the imported input literal version
@@ -258,7 +258,7 @@ release.
 
 Run `corepack pnpm --dir web test`; parser and refresh checks must pass before continuing.
 
-- [ ] **Step 5: Write failing migration and database round-trip tests**
+- [x] **Step 5: Write failing migration and database round-trip tests**
 
 Add `segment_addresses` to the expected tables. Update the imported segment helper so every
 synthetic import includes `addresses: []`, then add one segment with:
@@ -289,7 +289,7 @@ provider response, and assert its copied current segment retains its prior addre
 
 Run `corepack pnpm --dir web test`; expected: FAIL because the migration and inserts do not exist.
 
-- [ ] **Step 6: Persist addresses with their physical segment versions**
+- [x] **Step 6: Persist addresses with their physical segment versions**
 
 Create migration 013. In the import transaction:
 

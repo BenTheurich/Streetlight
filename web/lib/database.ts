@@ -661,6 +661,40 @@ export function saveTerritoryDraft(
         .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Array<
         SegmentRow & { import_segment_id: string }
       >;
+      const manualAddresses = new Map<
+        string,
+        Array<{
+          house_number: string | null;
+          street: string;
+          locality: string | null;
+          postcode: string | null;
+          longitude: number;
+          latitude: number;
+        }>
+      >();
+      for (const row of database
+        .prepare(
+          `SELECT s.import_segment_id, a.house_number, a.street, a.locality, a.postcode,
+            a.longitude, a.latitude
+          FROM street_segments s
+          JOIN segment_addresses a ON a.street_segment_id = s.id
+          WHERE s.territory_id = ? AND s.church_id = ? AND s.is_current = 1
+            AND s.activation_kind = 'manual'
+          ORDER BY a.id`,
+        )
+        .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Array<{
+        import_segment_id: string;
+        house_number: string | null;
+        street: string;
+        locality: string | null;
+        postcode: string | null;
+        longitude: number;
+        latitude: number;
+      }>) {
+        const addresses = manualAddresses.get(row.import_segment_id) ?? [];
+        addresses.push(row);
+        manualAddresses.set(row.import_segment_id, addresses);
+      }
       const manuallyActivatedSources = new Set(
         manualRows
           .map((row) => row.source_segment_id)
@@ -697,10 +731,16 @@ export function saveTerritoryDraft(
             road_class, street_name, geometry_geojson, estimated_homes, activation_kind)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
+      const insertAddress = database.prepare(
+        `INSERT INTO segment_addresses
+          (street_segment_id, house_number, street, locality, postcode, longitude, latitude)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      );
       for (const segment of options.imported.segments) {
         const geometry = JSON.stringify(segment.geometry);
+        const physicalId = `${segment.id}@${generation}`;
         insertSegment.run(
-          `${segment.id}@${generation}`,
+          physicalId,
           PILOT_CHURCH_ID,
           PILOT_TERRITORY_ID,
           segment.id,
@@ -712,6 +752,17 @@ export function saveTerritoryDraft(
           segment.estimatedHomes,
           segment.activationKind,
         );
+        for (const address of segment.addresses) {
+          insertAddress.run(
+            physicalId,
+            address.number,
+            address.street,
+            address.locality,
+            address.postcode,
+            address.position[0],
+            address.position[1],
+          );
+        }
         if (excludedGeometryById.get(segment.id) === geometry) {
           excludedSegmentIds.add(segment.id);
         }
@@ -720,8 +771,9 @@ export function saveTerritoryDraft(
         if (segment.source_segment_id && importedSourceIds.has(segment.source_segment_id)) {
           continue;
         }
+        const physicalId = `${segment.import_segment_id}@${generation}`;
         insertSegment.run(
-          `${segment.import_segment_id}@${generation}`,
+          physicalId,
           PILOT_CHURCH_ID,
           PILOT_TERRITORY_ID,
           segment.import_segment_id,
@@ -733,6 +785,17 @@ export function saveTerritoryDraft(
           segment.estimated_homes,
           'manual',
         );
+        for (const address of manualAddresses.get(segment.import_segment_id) ?? []) {
+          insertAddress.run(
+            physicalId,
+            address.house_number,
+            address.street,
+            address.locality,
+            address.postcode,
+            address.longitude,
+            address.latitude,
+          );
+        }
         activatedRoadGroupIds.add(segment.road_group_id);
         if (excludedGeometryById.get(segment.import_segment_id) === segment.geometry_geojson) {
           excludedSegmentIds.add(segment.import_segment_id);

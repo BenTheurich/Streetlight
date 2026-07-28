@@ -33,9 +33,23 @@ def road(
     return feature
 
 
-def address(street, longitude, latitude):
+def address(
+    street,
+    longitude,
+    latitude,
+    number=None,
+    postal_city=None,
+    postcode=None,
+    address_levels=None,
+):
     return {
-        "properties": {"street": street},
+        "properties": {
+            "street": street,
+            "number": number,
+            "postal_city": postal_city,
+            "postcode": postcode,
+            "address_levels": address_levels or [],
+        },
         "geometry": {"type": "Point", "coordinates": [longitude, latitude]},
     }
 
@@ -44,6 +58,62 @@ class NormalizeFeaturesTest(TestCase):
     def test_canonical_names_ignore_case_punctuation_and_suffix_spelling(self):
         self.assertEqual(canonical_street_name("Jons Place"), "jons pl")
         self.assertEqual(canonical_street_name("JONS PL."), "jons pl")
+
+    def test_preserves_assigned_address_components_without_units(self):
+        roads = [
+            road(
+                "road-1",
+                "residential",
+                "Sample Road",
+                [[0, 0], [0.001, 0]],
+            )
+        ]
+        addresses = [
+            address(
+                "Sample Road",
+                0.00025,
+                0.00005,
+                number="10",
+                postal_city="Temecula",
+                postcode="92591",
+                address_levels=[
+                    {"value": "California"},
+                    {"value": "Temecula"},
+                ],
+            ),
+            address(
+                "Sample Road",
+                0.00075,
+                0.00005,
+                address_levels=[
+                    {"value": "California"},
+                    {"value": "Murrieta"},
+                ],
+            ),
+        ]
+
+        segment = normalize_features(roads, addresses)["segments"][0]
+
+        self.assertEqual(segment["estimatedHomes"], 2)
+        self.assertEqual(
+            segment["addresses"],
+            [
+                {
+                    "number": "10",
+                    "street": "Sample Road",
+                    "locality": "Temecula",
+                    "postcode": "92591",
+                    "position": [0.00025, 0.00005],
+                },
+                {
+                    "number": None,
+                    "street": "Sample Road",
+                    "locality": "Murrieta",
+                    "postcode": None,
+                    "position": [0.00075, 0.00005],
+                },
+            ],
+        )
 
     def test_retains_uncertain_overture_roads_as_hidden_candidates(self):
         roads = [
@@ -386,6 +456,15 @@ class NormalizeFeaturesTest(TestCase):
                     "coordinates": [[0, 0], [0.001, 0]],
                 },
                 "estimatedHomes": 1,
+                "addresses": [
+                    {
+                        "number": None,
+                        "street": "Alpha Avenue",
+                        "locality": None,
+                        "postcode": None,
+                        "position": [0.0005, 0.00005],
+                    }
+                ],
                 "activationKind": "automatic",
             },
             {
@@ -399,6 +478,15 @@ class NormalizeFeaturesTest(TestCase):
                     "coordinates": [[0, 0.001], [0.001, 0.001]],
                 },
                 "estimatedHomes": 1,
+                "addresses": [
+                    {
+                        "number": None,
+                        "street": "Alpha Ave.",
+                        "locality": None,
+                        "postcode": None,
+                        "position": [0.0005, 0.00105],
+                    }
+                ],
                 "activationKind": "automatic",
             },
             {
@@ -412,6 +500,7 @@ class NormalizeFeaturesTest(TestCase):
                     "coordinates": [[0, 0.003], [0.001, 0.003]],
                 },
                 "estimatedHomes": 0,
+                "addresses": [],
                 "activationKind": "automatic",
             },
         ]
@@ -616,7 +705,14 @@ class ImportBoundaryTest(TestCase):
                 return Result(
                     [
                         (
+                            "10",
                             "Main Street",
+                            "Temecula",
+                            "92591",
+                            [
+                                {"value": "California"},
+                                {"value": "Temecula"},
+                            ],
                             '{"type":"Point","coordinates":[0.25,0.0001]}',
                         )
                     ]
@@ -647,7 +743,23 @@ class ImportBoundaryTest(TestCase):
                 )
             ],
         )
-        self.assertEqual(addresses, [address("Main Street", 0.25, 0.0001)])
+        self.assertEqual(
+            addresses,
+            [
+                address(
+                    "Main Street",
+                    0.25,
+                    0.0001,
+                    number="10",
+                    postal_city="Temecula",
+                    postcode="92591",
+                    address_levels=[
+                        {"value": "California"},
+                        {"value": "Temecula"},
+                    ],
+                )
+            ],
+        )
         self.assertEqual(
             connection.calls[:5],
             [
@@ -679,7 +791,11 @@ class ImportBoundaryTest(TestCase):
         address_sql = bbox_calls[1][0]
         self.assertIn("theme=addresses/type=*/*", address_sql)
         self.assertIn("street", address_sql)
-        self.assertNotIn("number", address_sql)
+        self.assertIn("number", address_sql)
+        self.assertIn("postal_city", address_sql)
+        self.assertIn("postcode", address_sql)
+        self.assertIn("address_levels", address_sql)
+        self.assertNotIn("unit", address_sql)
         self.assertNotIn("ORDER BY id", address_sql)
 
     def test_cli_parses_arguments_and_prints_one_json_object(self):
@@ -716,7 +832,7 @@ class ImportBoundaryTest(TestCase):
         self.assertEqual(parsed["release"], OVERTURE_RELEASE)
         self.assertEqual(parsed["center"], [-117.1274, 33.5107])
         self.assertEqual(parsed["radiusMiles"], 1)
-        self.assertEqual(parsed["normalizerVersion"], 4)
+        self.assertEqual(parsed["normalizerVersion"], 5)
         self.assertEqual(parsed["quality"], {
             "totalAddresses": 0,
             "assignedAddresses": 0,

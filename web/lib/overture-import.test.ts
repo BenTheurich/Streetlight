@@ -13,7 +13,7 @@ const validOutput = {
   center: requestedCenter,
   radiusMiles: 1,
   completedAt: '2026-07-27T12:00:00.000Z',
-  normalizerVersion: 4,
+  normalizerVersion: 5,
   quality: {
     totalAddresses: 12,
     assignedAddresses: 10,
@@ -36,6 +36,22 @@ const validOutput = {
         ],
       },
       estimatedHomes: 4,
+      addresses: [
+        {
+          number: '10',
+          street: 'Main Street',
+          locality: 'Temecula',
+          postcode: '92591',
+          position: [-117.129, 33.5101],
+        },
+        {
+          number: null,
+          street: 'Main Street',
+          locality: null,
+          postcode: null,
+          position: [-117.121, 33.5101],
+        },
+      ],
       activationKind: 'automatic',
     },
   ],
@@ -72,6 +88,8 @@ test('accepts the complete pinned import contract', () => {
 
 test('rejects malformed JSON and every invalid import field', () => {
   assert.throws(() => parseOvertureImportOutput('not json'), /import output/i);
+  const address = validOutput.segments[0].addresses[0];
+  const { addresses: _addresses, ...withoutAddresses } = validOutput.segments[0];
 
   const invalidValues: unknown[] = [
     { ...validOutput, release: 'wrong' },
@@ -122,6 +140,39 @@ test('rejects malformed JSON and every invalid import field', () => {
     {
       ...validOutput,
       segments: [{ ...validOutput.segments[0], estimatedHomes: 1.5 }],
+    },
+    {
+      ...validOutput,
+      segments: [withoutAddresses],
+    },
+    {
+      ...validOutput,
+      segments: [{ ...validOutput.segments[0], addresses: [{ ...address, extra: true }] }],
+    },
+    {
+      ...validOutput,
+      segments: [
+        {
+          ...validOutput.segments[0],
+          addresses: [{ ...address, position: [-181, 33.5] }],
+        },
+      ],
+    },
+    {
+      ...validOutput,
+      segments: [{ ...validOutput.segments[0], addresses: [{ ...address, street: '' }] }],
+    },
+    {
+      ...validOutput,
+      segments: [{ ...validOutput.segments[0], addresses: [{ ...address, number: 42 }] }],
+    },
+    {
+      ...validOutput,
+      segments: [{ ...validOutput.segments[0], addresses: [{ ...address, locality: 5 }] }],
+    },
+    {
+      ...validOutput,
+      segments: [{ ...validOutput.segments[0], addresses: [{ ...address, postcode: false }] }],
     },
     {
       ...validOutput,

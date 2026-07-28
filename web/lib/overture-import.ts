@@ -6,6 +6,14 @@ import { OVERTURE_RELEASE } from './territory-import.ts';
 const IMPORT_REQUEST_TOLERANCE = 1e-9;
 const IMPORT_TIMEOUT_MS = 15 * 60_000;
 
+export type ImportedSegmentAddress = {
+  number: string | null;
+  street: string;
+  locality: string | null;
+  postcode: string | null;
+  position: Position;
+};
+
 export type ImportedTerritorySegment = {
   id: string;
   sourceSegmentId: string;
@@ -15,6 +23,7 @@ export type ImportedTerritorySegment = {
   geometry: LineString;
   estimatedHomes: number;
   activationKind: 'automatic' | 'hidden';
+  addresses: ImportedSegmentAddress[];
 };
 
 export type ImportQuality = {
@@ -30,7 +39,7 @@ export type ImportedTerritoryInput = {
   center: Position;
   radiusMiles: number;
   completedAt: string;
-  normalizerVersion: 4;
+  normalizerVersion: 5;
   quality: ImportQuality;
   segments: ImportedTerritorySegment[];
 };
@@ -55,6 +64,23 @@ function isPosition(value: unknown): value is Position {
 function isGeographicPosition(value: unknown): value is Position {
   return (
     isPosition(value) && value[0] >= -180 && value[0] <= 180 && value[1] >= -90 && value[1] <= 90
+  );
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
+}
+
+function isImportedAddress(value: unknown): value is ImportedSegmentAddress {
+  return (
+    isRecord(value) &&
+    hasKeys(value, ['locality', 'number', 'position', 'postcode', 'street']) &&
+    isNullableString(value.number) &&
+    typeof value.street === 'string' &&
+    value.street.trim() !== '' &&
+    isNullableString(value.locality) &&
+    isNullableString(value.postcode) &&
+    isGeographicPosition(value.position)
   );
 }
 
@@ -126,7 +152,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     !Number.isFinite(value.radiusMiles) ||
     (value.radiusMiles as number) <= 0 ||
     !isIsoTimestamp(value.completedAt) ||
-    value.normalizerVersion !== 4 ||
+    value.normalizerVersion !== 5 ||
     !isSuccessfulImportQuality(value.quality) ||
     !Array.isArray(value.segments) ||
     value.segments.length === 0
@@ -140,6 +166,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
       !isRecord(segment) ||
       !hasKeys(segment, [
         'activationKind',
+        'addresses',
         'estimatedHomes',
         'geometry',
         'id',
@@ -162,6 +189,8 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
       !Number.isInteger(segment.estimatedHomes) ||
       (segment.estimatedHomes as number) < 0 ||
       (segment.activationKind !== 'automatic' && segment.activationKind !== 'hidden') ||
+      !Array.isArray(segment.addresses) ||
+      !segment.addresses.every(isImportedAddress) ||
       !isRecord(segment.geometry) ||
       !hasKeys(segment.geometry, ['coordinates', 'type']) ||
       segment.geometry.type !== 'LineString' ||
@@ -184,6 +213,13 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
       },
       estimatedHomes: segment.estimatedHomes as number,
       activationKind: segment.activationKind,
+      addresses: segment.addresses.map((address) => ({
+        number: address.number,
+        street: address.street,
+        locality: address.locality,
+        postcode: address.postcode,
+        position: address.position,
+      })),
     };
   });
 
@@ -192,7 +228,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     center: value.center,
     radiusMiles: value.radiusMiles as number,
     completedAt: value.completedAt,
-    normalizerVersion: 4,
+    normalizerVersion: 5,
     quality: {
       totalAddresses: value.quality.totalAddresses as number,
       assignedAddresses: value.quality.assignedAddresses as number,

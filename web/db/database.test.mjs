@@ -53,6 +53,7 @@ function importedSegment(
       ],
     },
     estimatedHomes,
+    addresses: [],
     activationKind,
   };
 }
@@ -63,7 +64,7 @@ function importedTerritory(segments) {
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 4,
+    normalizerVersion: 5,
     quality: {
       totalAddresses: 12,
       assignedAddresses: 10,
@@ -96,6 +97,7 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
       'packets',
       'packet_segments',
       'ignore_zones',
+      'segment_addresses',
     ];
 
     const emptyTables = new Set([
@@ -104,6 +106,7 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
       'packets',
       'packet_segments',
       'ignore_zones',
+      'segment_addresses',
     ]);
     for (const table of expectedTables) {
       const expected = table === 'street_segments' ? 55 : emptyTables.has(table) ? 0 : 1;
@@ -371,6 +374,7 @@ test('an imported save atomically replaces proof segments and records its footpr
       },
       { filename, imported },
     );
+    const [one, two] = imported.segments.map(({ addresses: _addresses, ...segment }) => segment);
 
     const saved = getTerritoryWorkspace(filename);
     assert.deepEqual(saved.import, {
@@ -412,16 +416,132 @@ test('an imported save atomically replaces proof segments and records its footpr
       ),
       [
         {
-          ...imported.segments[1],
+          ...two,
           active: true,
           eligible: true,
           excludedReason: null,
         },
         {
-          ...imported.segments[0],
+          ...one,
           active: true,
           eligible: true,
           excludedReason: null,
+        },
+      ],
+    );
+  });
+});
+
+test('reimport retains assigned addresses for imported and preserved manual segments', () => {
+  withDatabase((filename) => {
+    const workspace = getTerritoryWorkspace(filename);
+    const approvedGroup = 'road-group:approved';
+    const approved = {
+      ...importedSegment('approved', 'Diego Drive', 'service', 6, 'hidden', approvedGroup),
+      addresses: [
+        {
+          number: '39483',
+          street: 'Diego Drive',
+          locality: 'Temecula',
+          postcode: '92591',
+          position: [-117.1157, 33.5435],
+        },
+        {
+          number: null,
+          street: 'Diego Drive',
+          locality: null,
+          postcode: null,
+          position: [-117.1158, 33.5434],
+        },
+      ],
+    };
+    const draft = {
+      originAddress: workspace.originAddress,
+      center: workspace.center,
+      radiusMiles: workspace.radiusMiles,
+      boundaryShape: workspace.boundaryShape,
+      exclusions: [],
+      activatedRoadGroupIds: [approvedGroup],
+    };
+
+    saveTerritoryDraft(draft, {
+      filename,
+      imported: importedTerritory([approved]),
+    });
+
+    const firstDatabase = openDatabase(filename);
+    const firstRows = firstDatabase
+      .prepare(
+        `SELECT s.id AS segment_id, a.house_number, a.street, a.locality, a.postcode,
+          a.longitude, a.latitude
+        FROM street_segments s
+        JOIN segment_addresses a ON a.street_segment_id = s.id
+        WHERE s.import_segment_id = ? AND s.is_current = 1
+        ORDER BY a.id`,
+      )
+      .all('approved');
+    firstDatabase.close();
+    assert.deepEqual(
+      firstRows.map((row) => ({ ...row })),
+      [
+        {
+          segment_id: 'approved@1',
+          house_number: '39483',
+          street: 'Diego Drive',
+          locality: 'Temecula',
+          postcode: '92591',
+          longitude: -117.1157,
+          latitude: 33.5435,
+        },
+        {
+          segment_id: 'approved@1',
+          house_number: null,
+          street: 'Diego Drive',
+          locality: null,
+          postcode: null,
+          longitude: -117.1158,
+          latitude: 33.5434,
+        },
+      ],
+    );
+
+    saveTerritoryDraft(draft, {
+      filename,
+      imported: importedTerritory([importedSegment('new-road', 'New Road', 'residential', 3)]),
+    });
+
+    const secondDatabase = openDatabase(filename);
+    const secondRows = secondDatabase
+      .prepare(
+        `SELECT s.id AS segment_id, a.house_number, a.street, a.locality, a.postcode,
+          a.longitude, a.latitude
+        FROM street_segments s
+        JOIN segment_addresses a ON a.street_segment_id = s.id
+        WHERE s.import_segment_id = ? AND s.is_current = 1
+        ORDER BY a.id`,
+      )
+      .all('approved');
+    secondDatabase.close();
+    assert.deepEqual(
+      secondRows.map((row) => ({ ...row })),
+      [
+        {
+          segment_id: 'approved@2',
+          house_number: '39483',
+          street: 'Diego Drive',
+          locality: 'Temecula',
+          postcode: '92591',
+          longitude: -117.1157,
+          latitude: 33.5435,
+        },
+        {
+          segment_id: 'approved@2',
+          house_number: null,
+          street: 'Diego Drive',
+          locality: null,
+          postcode: null,
+          longitude: -117.1158,
+          latitude: 33.5434,
         },
       ],
     );
