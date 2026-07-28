@@ -25,7 +25,7 @@ unchanged stable segment contract and does not invoke the provider.
 ## Task 1: Coverage ledger, derivation, and database boundary
 
 **Files:**
-- Create: `web/db/migrations/006_coverage_history.sql`
+- Create: `web/db/migrations/010_coverage_history.sql`
 - Create: `web/lib/coverage.ts`
 - Create: `web/lib/coverage.test.ts`
 - Modify: `web/lib/database.ts`
@@ -100,7 +100,7 @@ git diff --check
 - [ ] **Step 6: Commit**
 
 ```powershell
-git add web/db/migrations/006_coverage_history.sql web/lib/coverage.ts web/lib/coverage.test.ts web/lib/database.ts web/db/database.test.mjs web/package.json
+git add web/db/migrations/010_coverage_history.sql web/lib/coverage.ts web/lib/coverage.test.ts web/lib/database.ts web/db/database.test.mjs web/package.json
 git commit -m "feat: add append-only coverage history"
 ```
 
@@ -133,20 +133,22 @@ both maps. Preserve Territory Setup behavior and add no provider abstraction.
 
 - [ ] **Step 2: Implement the selectable heatmap**
 
-Render every current segment with the pure derived class; excluded segments are gray. Reuse
-zoom-sensitive stroke width and translucent strokes. Click selects; selected gets a stronger
-stroke. Fit the initial territory bounds and render a compact five-state legend. Keep Google street
-labels readable.
+Render active segments inside the saved boundary with the pure derived class; excluded segments are
+gray, while hidden and out-of-boundary segments are omitted. Reuse zoom-sensitive stroke width and
+translucent strokes. Click any visible segment to select it; selected gets a stronger stroke. Fit
+the initial territory bounds and render a compact five-state legend. Keep Google street labels
+readable.
 
 - [ ] **Step 3: Implement the sidebar**
 
 Replace the root placeholder with the accepted map/sidebar shell. Show total eligible tracts,
 estimated homes covered for native 30/90/180/365-day selection (90 default), and active packets.
-The 90-day window is UTC `[asOf - 89 days, asOf]`. Provide a native eligible-segment select. For the
-selected segment, render each completed root separately with its stable event ID, effective state,
-correction history, own date input, and own undo action. Correcting an older root must leave newer
-roots unchanged. Keep notices in an `aria-live` region and retain the accessible `Territory setup`
-header link.
+The 90-day window is the inclusive calendar interval `[asOf - 89 days, asOf]`. Provide a native
+select for every visible segment, including excluded segments whose retained history may need a
+correction. For the selected segment, render each completed root separately with its stable event
+ID, effective state, correction history, own date input, and own undo action. Correcting an older
+root must leave newer roots unchanged. Keep notices in an `aria-live` region and retain the
+accessible `Territory setup` header link.
 
 - [ ] **Step 4: Implement the correction endpoint**
 

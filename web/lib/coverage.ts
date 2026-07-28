@@ -32,6 +32,18 @@ export type CoverageSegment = CoverageSegmentInput & {
 
 export type CorrectionRequest = { eventId: string; coveredOn: string | null };
 
+export function calendarDateInTimeZone(value: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((candidate) => candidate.type === type)?.value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
 function dateParts(value: string): [number, number, number] | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;

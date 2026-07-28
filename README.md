@@ -62,7 +62,7 @@ changed church address without exposing that credential to the browser. See
 Coverage is derived from append-only outreach events. Changing a date and undoing a completion add
 correction rows; they never replace or remove the original completion. The map uses green for
 0-89 days, yellow for 90-179, orange for 180-364, and red for 365+ days or never covered.
-The 30/90/180/365-day home metric includes both UTC endpoints: a 90-day selection is
+The 30/90/180/365-day home metric includes both calendar-date endpoints: a 90-day selection is
 `[asOf - 89 days, asOf]`.
 
 For founder review, run `pnpm --dir web coverage:demo` and open `http://localhost:3001`.

@@ -43,7 +43,7 @@ the same semantics into a SQL view.
 
 ## Event semantics
 
-`coverage_events` keeps its existing `completed` and `correction` kinds. Migration 006 adds an
+`coverage_events` keeps its existing `completed` and `correction` kinds. Migration 010 adds an
 `is_void` flag plus append-only and correction-target integrity triggers.
 
 - A `completed` row has a date, does not correct another event, and is not void.
@@ -61,8 +61,9 @@ fields, corrections without a root, and corrections targeting another church, ph
 or correction row. The `is_void` column has a strict zero-or-one check.
 
 All coverage values are real `YYYY-MM-DD` calendar dates. Future dates are rejected at the server
-boundary. Dates are interpreted at UTC midnight so the same saved value produces the same result
-in every browser time zone.
+boundary. Dates are interpreted at UTC midnight for age calculations so the same saved value
+produces the same result in every browser time zone. The current calendar date comes from the
+pilot church's `America/Los_Angeles` time zone.
 
 When street data is reimported, history follows the stable logical `import_segment_id`. Events keep
 referencing their immutable physical segment version; the dashboard joins old and current versions
@@ -78,7 +79,7 @@ These thresholds are implementation defaults, as allowed by `PRODUCT.md`:
 | Yellow | 90–179 days | `#D2A128` |
 | Orange | 180–364 days | `#D66B2D` |
 | Red | 365+ days or never covered | `#B4473D` |
-| Gray | Outside the saved radius or inside an excluded area | `#77736C` |
+| Gray | Inside the saved boundary but excluded | `#77736C` |
 
 The four coverage strokes remain translucent enough to read Google road labels. Stroke width uses
 the Phase 2 zoom-sensitive helper. Clicking a colored segment selects it; a native segment select
@@ -90,15 +91,17 @@ The root route becomes the Coverage dashboard. Territory Setup stays separate at
 
 The page reuses the accepted full-height map-and-sidebar shell:
 
-- **Map:** all current segments, colored by effective coverage age; excluded segments remain gray;
-  selected segment receives a stronger stroke; a compact legend defines the colors.
+- **Map:** active segments inside the saved boundary, colored by effective coverage age; excluded
+  segments remain gray and selectable; selected segment receives a stronger stroke; a compact
+  legend defines the colors. Hidden and out-of-boundary segments are omitted.
 - **Sidebar header:** `Coverage` and the saved territory name.
 - **Header navigation:** an accessible `Territory setup` link back to `/territory`.
 - **Summary:** total eligible tracts, estimated homes covered in the selected period, active packet
   count.
 - **Period control:** native select for 30, 90, 180, or 365 days; 90 days is the default. It changes
   only the period metric, not heatmap thresholds.
-- **Segment control:** native select of eligible segments, plus map selection.
+- **Segment control:** native select of every visible segment, including gray exclusions, plus map
+  selection.
 - **Selected segment:** street name, estimated tracts, current last-outreach date or `Never`, and
   its append-only history.
 - **Correction controls:** every completed root is a separate entry identified by its stable event

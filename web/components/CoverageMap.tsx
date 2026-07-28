@@ -105,13 +105,11 @@ export function CoverageMap({
         strokeColor: segment.eligible ? colors[segment.coverageClass] : colors.gray,
         strokeOpacity: segment.eligible ? 0.68 : 0.42,
         strokeWeight: segmentStrokeWeight(map.getZoom() ?? 11),
-        clickable: segment.eligible,
+        clickable: true,
         zIndex: 2,
       });
-      if (segment.eligible) {
-        for (const point of segment.geometry.coordinates) bounds.extend(latLng(point));
-        line.addListener('click', () => onSelectSegment(segment.id));
-      }
+      for (const point of segment.geometry.coordinates) bounds.extend(latLng(point));
+      line.addListener('click', () => onSelectSegment(segment.id));
       return line;
     });
     linesRef.current = lines.map((line, index) => ({ id: segments[index].id, line }));

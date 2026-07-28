@@ -139,7 +139,7 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
   }
 });
 
-test('circle and square boundary shapes persist and control whole-segment eligibility', () => {
+test('circle and square boundaries control eligibility and coverage-map visibility', () => {
   withDatabase((filename) => {
     const initial = getTerritoryWorkspace(filename);
     assert.equal(initial.boundaryShape, 'circle');
@@ -179,8 +179,21 @@ test('circle and square boundary shapes persist and control whole-segment eligib
     });
     assert.equal(circleSummary.segmentCount, 0);
     assert.equal(circleSummary.estimatedHomes, 0);
+    assert.deepEqual(getCoverageWorkspace(filename).segments, []);
 
-    saveTerritoryDraft({ ...baseDraft, boundaryShape: 'square' }, { filename });
+    saveTerritoryDraft(
+      { ...baseDraft, boundaryShape: 'square' },
+      {
+        filename,
+        imported: {
+          ...importedTerritory([
+            corner,
+            { ...corner, id: 'hidden', streetName: 'Hidden Road', activationKind: 'hidden' },
+          ]),
+          radiusMiles: 1,
+        },
+      },
+    );
     const square = getTerritoryWorkspace(filename);
     const squareSummary = getFoundationSummary(filename);
     assert.equal(square.boundaryShape, 'square');
@@ -194,10 +207,14 @@ test('circle and square boundary shapes persist and control whole-segment eligib
     });
     assert.equal(squareSummary.segmentCount, 1);
     assert.equal(squareSummary.estimatedHomes, 8);
+    assert.deepEqual(
+      getCoverageWorkspace(filename).segments.map((segment) => segment.id),
+      ['corner'],
+    );
   });
 });
 
-test('migration 007 upgrades an existing migration 006 database with current-state void validation', () => {
+test('migration 011 upgrades an existing migration 010 database with current-state void validation', () => {
   const database = openDatabase(':memory:');
   try {
     database.exec(`
@@ -205,13 +222,13 @@ test('migration 007 upgrades an existing migration 006 database with current-sta
         name TEXT PRIMARY KEY,
         applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       ) STRICT;
-      INSERT INTO schema_migrations (name) VALUES ('007_coverage_void_invariant.sql');
+      INSERT INTO schema_migrations (name) VALUES ('011_coverage_void_invariant.sql');
     `);
     migrateDatabase(database);
     assert.ok(
       database
         .prepare('SELECT 1 FROM schema_migrations WHERE name = ?')
-        .get('006_coverage_history.sql'),
+        .get('010_coverage_history.sql'),
     );
     seedDatabase(database);
     const segmentId = database
@@ -228,13 +245,13 @@ test('migration 007 upgrades an existing migration 006 database with current-sta
 
     database
       .prepare('DELETE FROM schema_migrations WHERE name = ?')
-      .run('007_coverage_void_invariant.sql');
+      .run('011_coverage_void_invariant.sql');
     migrateDatabase(database);
 
     assert.ok(
       database
         .prepare('SELECT 1 FROM schema_migrations WHERE name = ?')
-        .get('007_coverage_void_invariant.sql'),
+        .get('011_coverage_void_invariant.sql'),
     );
     assert.throws(
       () =>
@@ -1253,6 +1270,32 @@ test('coverage boundary appends corrections, retains retired logical history, an
         originAddress: before.originAddress,
         center: before.center,
         radiusMiles: before.radiusMiles,
+        boundaryShape: before.boundaryShape,
+        activatedRoadGroupIds: [],
+        excludedSegmentIds: [first.id],
+        exclusions: before.exclusions,
+      },
+      { filename },
+    );
+    const excluded = getCoverageWorkspace(filename, '2026-07-28').segments.find(
+      (segment) => segment.id === first.id,
+    );
+    assert.equal(excluded?.eligible, false);
+    assert.equal(excluded?.excludedReason, 'segment');
+    assert.equal(excluded?.roots[0].eventId, root);
+
+    saveTerritoryDraft(
+      {
+        originAddress: before.originAddress,
+        center: before.center,
+        radiusMiles: before.radiusMiles,
+        boundaryShape: before.boundaryShape,
+        activatedRoadGroupIds: before.segments
+          .filter((segment) => segment.activationKind === 'manual')
+          .map((segment) => segment.roadGroupId),
+        excludedSegmentIds: before.segments
+          .filter((segment) => segment.manuallyExcluded)
+          .map((segment) => segment.id),
         exclusions: before.exclusions,
       },
       {

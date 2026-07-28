@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import {
   type CoverageClass,
   type CoverageRoot,
+  calendarDateInTimeZone,
   classifyCoverage,
   deriveCoverageSegments,
   validateCoverageDate,
@@ -22,6 +23,8 @@ import type { TerritoryImportMetadata } from './territory-import.ts';
 
 const PILOT_CHURCH_ID = 'church-temecula-pilot';
 const PILOT_TERRITORY_ID = 'territory-temecula-pilot';
+// ponytail: Single-pilot timezone; store this per church when multi-church support arrives.
+const PILOT_TIME_ZONE = 'America/Los_Angeles';
 
 type SummaryRow = {
   packet_count: number;
@@ -154,11 +157,11 @@ function parseGeometry<T extends LineString | Polygon>(json: string): T {
   return JSON.parse(json) as T;
 }
 
-function todayUtc(): string {
-  return new Date().toISOString().slice(0, 10);
+function todayForPilot(): string {
+  return calendarDateInTimeZone(new Date(), PILOT_TIME_ZONE);
 }
 
-export function getCoverageWorkspace(filename?: string, asOf = todayUtc()): CoverageWorkspace {
+export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()): CoverageWorkspace {
   validateCoverageDate(asOf, asOf);
   const territory = getTerritoryWorkspace(filename);
   const database = openWorkspaceDatabase(filename);
@@ -217,21 +220,25 @@ export function getCoverageWorkspace(filename?: string, asOf = todayUtc()): Cove
       center: territory.center,
       asOf,
       activePackets,
-      segments: territory.segments.map((segment) => {
-        const coverage = derived.get(segment.id);
-        if (!coverage) throw new Error('Coverage segment missing');
-        return {
-          id: segment.id,
-          streetName: segment.streetName,
-          geometry: segment.geometry,
-          estimatedHomes: segment.estimatedHomes,
-          eligible: segment.eligible,
-          excludedReason: segment.excludedReason,
-          lastCoveredOn: coverage.lastCoveredOn,
-          coverageClass: classifyCoverage(coverage.lastCoveredOn, asOf),
-          roots: coverage.roots,
-        };
-      }),
+      segments: territory.segments
+        .filter(
+          (segment) => segment.excludedReason !== 'boundary' && segment.excludedReason !== 'hidden',
+        )
+        .map((segment) => {
+          const coverage = derived.get(segment.id);
+          if (!coverage) throw new Error('Coverage segment missing');
+          return {
+            id: segment.id,
+            streetName: segment.streetName,
+            geometry: segment.geometry,
+            estimatedHomes: segment.estimatedHomes,
+            eligible: segment.eligible,
+            excludedReason: segment.excludedReason,
+            lastCoveredOn: coverage.lastCoveredOn,
+            coverageClass: classifyCoverage(coverage.lastCoveredOn, asOf),
+            roots: coverage.roots,
+          };
+        }),
       totals: { eligibleHomes: territory.totals.eligibleHomes },
     };
   } finally {
@@ -244,7 +251,7 @@ export function recordCoverageCompletion(
   coveredOn: string,
   filename?: string,
 ): string {
-  validateCoverageDate(coveredOn, todayUtc());
+  validateCoverageDate(coveredOn, todayForPilot());
   const database = openWorkspaceDatabase(filename);
   database.exec('BEGIN IMMEDIATE');
   try {
@@ -278,7 +285,7 @@ export function appendCoverageCorrection(
   coveredOn: string | null,
   filename?: string,
 ): void {
-  if (coveredOn !== null) validateCoverageDate(coveredOn, todayUtc());
+  if (coveredOn !== null) validateCoverageDate(coveredOn, todayForPilot());
   const database = openWorkspaceDatabase(filename);
   database.exec('BEGIN IMMEDIATE');
   try {

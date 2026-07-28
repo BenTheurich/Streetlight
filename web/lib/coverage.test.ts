@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  calendarDateInTimeZone,
   classifyCoverage,
   countEligibleHomesCovered,
   deriveCoverageSegments,
@@ -9,6 +10,17 @@ import {
 } from './coverage.ts';
 
 const asOf = '2026-07-28';
+
+test('calendar dates follow the church time zone around UTC midnight', () => {
+  assert.equal(
+    calendarDateInTimeZone(new Date('2026-07-29T00:30:00Z'), 'America/Los_Angeles'),
+    '2026-07-28',
+  );
+  assert.equal(
+    calendarDateInTimeZone(new Date('2026-07-29T07:30:00Z'), 'America/Los_Angeles'),
+    '2026-07-29',
+  );
+});
 
 test('coverage classes use every inclusive age boundary and never-covered is red', () => {
   assert.deepEqual(

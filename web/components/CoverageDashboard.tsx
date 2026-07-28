@@ -22,13 +22,14 @@ export function CoverageDashboard({ initialData, mapsApiKey }: CoverageDashboard
   const [workspace, setWorkspace] = useState(initialData);
   const [period, setPeriod] = useState(90);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(
-    initialData.segments.find((segment) => segment.eligible)?.id ?? null,
+    initialData.segments.find((segment) => segment.eligible)?.id ??
+      initialData.segments[0]?.id ??
+      null,
   );
   const [dates, setDates] = useState<Record<string, string>>({});
   const [activeMutation, setActiveMutation] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
-  const eligibleSegments = workspace.segments.filter((segment) => segment.eligible);
-  const selected = eligibleSegments.find((segment) => segment.id === selectedSegmentId) ?? null;
+  const selected = workspace.segments.find((segment) => segment.id === selectedSegmentId) ?? null;
   const coveredHomes = countEligibleHomesCovered(workspace.segments, workspace.asOf, period);
 
   async function mutate(eventId: string, coveredOn: string | null) {
@@ -90,7 +91,7 @@ export function CoverageDashboard({ initialData, mapsApiKey }: CoverageDashboard
             <section className="coverage-summary">
               <div>
                 <strong>{workspace.totals.eligibleHomes}</strong>
-                <span>Total eligible tracts</span>
+                <span>Total estimated homes</span>
               </div>
               <div>
                 <strong>{coveredHomes}</strong>
@@ -121,9 +122,10 @@ export function CoverageDashboard({ initialData, mapsApiKey }: CoverageDashboard
                   value={selectedSegmentId ?? ''}
                 >
                   <option value="">Select a street segment</option>
-                  {eligibleSegments.map((segment) => (
+                  {workspace.segments.map((segment) => (
                     <option key={segment.id} value={segment.id}>
-                      {segment.streetName}
+                      {segment.streetName} — {segment.estimatedHomes} tracts ·{' '}
+                      {segment.id.slice(-6)}
                     </option>
                   ))}
                 </select>
