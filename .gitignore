@@ -9,6 +9,8 @@ dist
 .idea
 .DS_Store
 coverage
+!web/app/api/coverage/
+!web/app/api/coverage/**
 tmp
 output
 .superpowers/

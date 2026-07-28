@@ -27,7 +27,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -40,6 +41,7 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
+select:focus-visible,
 .google-map:focus-visible {
   outline: 3px solid #f3b28c;
   outline-offset: 2px;
@@ -788,57 +790,114 @@ textarea {
   gap: 0.5rem;
 }
 
-.dashboard-page {
-  min-height: 100vh;
-  padding: 0 5vw;
+.coverage-page {
+  height: 100vh;
+  min-height: 680px;
+  overflow: hidden;
 }
 
-.dashboard-header {
-  display: flex;
-  min-height: 72px;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--line);
+.coverage-workspace {
+  height: calc(100vh - 58px);
+  min-height: 622px;
 }
 
-.dashboard-page main {
-  width: min(950px, 100%);
-  margin: 0 auto;
-  padding: 12vh 0;
+.coverage-legend {
+  gap: 0.5rem;
 }
 
-.eyebrow {
-  margin: 0 0 0.8rem;
-  color: var(--orange);
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.1em;
+.coverage-legend span {
+  white-space: nowrap;
+}
+
+.coverage-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+}
+
+.coverage-summary div {
+  padding: 0.6rem;
+  border: 1px solid #e1dbd0;
+  border-radius: 7px;
+}
+
+.coverage-summary strong,
+.coverage-summary span {
+  display: block;
+}
+
+.coverage-summary strong {
+  font-size: 1rem;
+}
+
+.coverage-summary span,
+.coverage-field,
+.coverage-root label,
+.coverage-root small,
+.coverage-detail > p {
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.coverage-summary span {
+  margin-top: 0.15rem;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
-.dashboard-page h1 {
-  margin: 0;
-  font-size: clamp(3rem, 8vw, 7rem);
-  letter-spacing: -0.06em;
-  line-height: 0.9;
-}
-
-.dashboard-page main > p:not(.eyebrow) {
-  max-width: 620px;
-  margin: 1.5rem 0 2rem;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.primary-link {
-  display: inline-block;
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-  background: var(--ink);
-  color: white;
-  font-size: 0.8rem;
+.coverage-field,
+.coverage-root label {
+  display: grid;
+  gap: 0.35rem;
   font-weight: 800;
-  text-decoration: none;
+}
+
+.coverage-field select {
+  min-height: 38px;
+  padding: 0.5rem 0.6rem;
+}
+
+.coverage-detail h2,
+.coverage-detail > p {
+  margin: 0;
+}
+
+.coverage-detail h2 {
+  font-size: 1rem;
+}
+
+.coverage-detail > p {
+  margin-top: 0.35rem;
+}
+
+.coverage-root {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #e1dbd0;
+}
+
+.coverage-root > strong {
+  font-size: 0.72rem;
+}
+
+.coverage-event-id {
+  color: var(--muted);
+  font-size: 0.62rem;
+  overflow-wrap: anywhere;
+}
+
+.coverage-root > span {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.coverage-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
 }
 
 @media (max-width: 900px) {
@@ -846,6 +905,17 @@ textarea {
     height: auto;
     min-height: 100vh;
     overflow: visible;
+  }
+
+  .coverage-page {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .coverage-workspace {
+    height: auto;
+    min-height: 0;
   }
 
   .territory-workspace {
@@ -883,6 +953,10 @@ textarea {
     top: 62px;
     left: 15px;
     right: auto;
+  }
+
+  .coverage-legend {
+    gap: 0.35rem;
   }
 
   .drawing-instructions {
