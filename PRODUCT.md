@@ -23,6 +23,10 @@ The first church is the founder's church. The product should support other churc
 Visitors may request pilot access from the public landing page. A request does not create an
 account. The founder reviews requests and manually invites approved church administrators.
 
+When signed out, `/` shows the approved public landing page. When signed in to a configured
+church, `/` shows the persistent administrator map workspace. The final
+`spread-the-light-v2` prototype is the visual source for the public page.
+
 ## Product rules
 
 - Streetlight is a church outreach product. The interface uses terms such as `tracts`, `outreach`, `church`, and `completed`.
@@ -43,6 +47,25 @@ Version one has one authenticated role: administrator.
 - All administrators have the same permissions.
 - Volunteers have no application access.
 - Multiple campuses, multiple territories, custom roles, and volunteer accounts are outside the first release.
+
+## Pilot access and onboarding
+
+- The public request form collects church name, contact name, email, city/state, and an optional
+  description of the church's current outreach process.
+- Repeated submissions for the same normalized church and email do not create additional records
+  or reveal the request's status. Public validation uses ordinary server checks and a hidden
+  honeypot; the pilot does not add CAPTCHA or a separate anti-spam service.
+- Only the founder account configured by the deployment may review requests. The founder may
+  correct the church name and invitation email before approving.
+- Approval creates one WorkOS organization, one provisional Streetlight church, and one
+  organization-specific administrator invitation. Retrying approval must not duplicate any of
+  them. Declining a request sends no email and does not prevent a later approval.
+- An invited administrator confirms the church name, full church address, and time zone at first
+  sign-in. A valid Google geocode is required.
+- A new church begins with a one-mile circular territory draft centered on the church. It remains
+  in Territory Setup until the first explicit save succeeds; that save is the first action that
+  may launch an Overture import.
+- Existing configured church workspaces bypass onboarding unchanged.
 
 ## Domain vocabulary
 
@@ -302,8 +325,9 @@ The first dashboard contains:
 - Generate Batch action
 - Reconcile Batch action
 
-The administrator website uses one persistent map workspace at `/`. Coverage, Generate Packets,
-Reconcile Packets, and Territory Setup are tools in that workspace rather than separate pages.
+For a signed-in configured administrator, the website uses one persistent map workspace at `/`.
+Coverage, Generate Packets, Reconcile Packets, and Territory Setup are tools in that workspace
+rather than separate pages.
 Switching tools keeps
 the map camera, Map/Satellite choice, and each tool's in-progress state. Coverage and Generate
 Packets share the complete heatmap; a selected packet adds a distinct review highlight and
