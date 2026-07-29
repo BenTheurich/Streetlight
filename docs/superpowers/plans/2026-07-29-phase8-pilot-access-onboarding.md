@@ -63,13 +63,13 @@ geocoding, Node test runner.
 - Produces: public `POST /api/pilot-requests`
 - Produces: signed-out landing at `/`
 
-- [ ] Write failing route tests for valid, invalid, honeypot, and duplicate requests plus a
+- [x] Write failing route tests for valid, invalid, honeypot, and duplicate requests plus a
   component check for every approved field and control.
-- [ ] Run the focused tests and confirm failure.
-- [ ] Port the approved V2 markup and assets without redesigning it. Update only the drawer submit
+- [x] Run the focused tests and confirm failure.
+- [x] Port the approved V2 markup and assets without redesigning it. Update only the drawer submit
   behavior to call the API, retain values on error, and show the approved neutral success copy.
-- [ ] Make `/` choose public landing for a missing WorkOS user without redirecting to `/login`.
-- [ ] Run focused tests, lint, and TypeScript.
+- [x] Make `/` choose public landing for a missing WorkOS user without redirecting to `/login`.
+- [x] Run focused tests, lint, and TypeScript.
 - [ ] Commit `feat: connect public pilot request landing`.
 
 ### Task 3: Founder review and resumable WorkOS provisioning

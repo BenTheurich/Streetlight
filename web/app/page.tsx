@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+import { PublicLanding } from '@/components/PublicLanding';
 import { StreetlightWorkspace } from '@/components/StreetlightWorkspace';
 import {
   type AdministratorSession,
@@ -18,7 +18,7 @@ export default async function CoverageDashboardPage() {
     session = await requireAdministratorSession();
   } catch (error) {
     if (error instanceof SignInRequiredError) {
-      redirect('/login');
+      return <PublicLanding />;
     }
     if (error instanceof ChurchWorkspaceAccessError) {
       return (

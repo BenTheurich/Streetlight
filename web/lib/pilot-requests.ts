@@ -126,11 +126,11 @@ export function parsePilotRequest(value: unknown): PilotRequestInput {
 export function submitPilotRequest(
   input: PilotRequestInput,
   filename?: string,
-): { requestId: string; email: string } {
+): { requestId: string; email: string; created: boolean } {
   const database = openDatabase(databaseFilename(filename));
   try {
     const id = `pilot-request-${randomUUID()}`;
-    database
+    const inserted = database
       .prepare(
         `INSERT INTO pilot_requests
           (id, church_name, normalized_church_name, contact_name, email, normalized_email,
@@ -158,7 +158,7 @@ export function submitPilotRequest(
       id: string;
       email: string;
     };
-    return { requestId: row.id, email: row.email };
+    return { requestId: row.id, email: row.email, created: inserted.changes === 1 };
   } finally {
     database.close();
   }
