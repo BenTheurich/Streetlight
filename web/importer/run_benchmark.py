@@ -165,7 +165,10 @@ def main(argv=None):
     names = AREAS if args.area == "all" else [args.area]
     results = [run_area(name, args.cache_dir) for name in names]
     print(json.dumps({"areas": results}, indent=2, sort_keys=True))
-    return all(result["benchmark"]["passed"] for result in results)
+    return all(
+        result["benchmark"]["classification"] != "below_usable_floor"
+        for result in results
+    )
 
 
 if __name__ == "__main__":

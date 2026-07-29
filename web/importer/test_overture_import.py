@@ -1163,6 +1163,58 @@ class ImportCompletenessTest(TestCase):
 
 
 class BenchmarkMetricsTest(TestCase):
+    def test_classifies_exact_high_confidence_and_usable_boundaries(self):
+        classify = getattr(
+            importer_module,
+            "benchmark_classification",
+            lambda *_: {},
+        )
+
+        self.assertEqual(
+            classify(0.95, 0.99, 0.98, 0.9, 0, 100),
+            {
+                "severeOutlierRate": 0,
+                "highConfidenceFailedMetrics": [],
+                "usableFailedMetrics": [],
+                "classification": "high_confidence",
+            },
+        )
+        self.assertEqual(
+            classify(0.9, 0.99, 0.9, 0.85, 3, 100),
+            {
+                "severeOutlierRate": 0.03,
+                "highConfidenceFailedMetrics": [
+                    "addressAssignmentRate",
+                    "roadNameAccuracy",
+                    "segmentCountAccuracy",
+                    "severeOutlierRate",
+                ],
+                "usableFailedMetrics": [],
+                "classification": "usable_with_warnings",
+            },
+        )
+
+    def test_classifies_every_usable_floor_failure_as_below_usable(self):
+        classify = getattr(
+            importer_module,
+            "benchmark_classification",
+            lambda *_: {},
+        )
+        cases = [
+            (0.8999, 0.99, 0.9, 0.85, 3, 100),
+            (0.9, 0.9899, 0.9, 0.85, 3, 100),
+            (0.9, 0.99, 0.8999, 0.85, 3, 100),
+            (0.9, 0.99, 0.9, 0.8499, 3, 100),
+            (0.9, 0.99, 0.9, 0.85, 4, 100),
+        ]
+
+        for case in cases:
+            with self.subTest(case=case):
+                self.assertEqual(
+                    classify(*case)["classification"],
+                    "below_usable_floor",
+                )
+
     def test_treats_direction_abbreviations_as_the_same_road_name(self):
         reference = [
             address("West 900 North", 0.0002 + index * 0.0002, 0.00005, number=str(index + 1))
@@ -1293,8 +1345,10 @@ class BenchmarkMetricsTest(TestCase):
                 "roadRepresentationRate": 1.0,
                 "roadNameAccuracy": 1.0,
                 "segmentCountAccuracy": 1.0,
-                "failedMetrics": [],
-                "passed": True,
+                "severeOutlierRate": 0,
+                "highConfidenceFailedMetrics": [],
+                "usableFailedMetrics": [],
+                "classification": "high_confidence",
             },
         )
 
@@ -1311,10 +1365,39 @@ class BenchmarkMetricsTest(TestCase):
         result = importer_module.benchmark_metrics(normalized, reference)
 
         self.assertEqual(
-            result["failedMetrics"],
+            result["highConfidenceFailedMetrics"],
             ["addressAssignmentRate", "segmentCountAccuracy"],
         )
-        self.assertFalse(result["passed"])
+        self.assertEqual(
+            result["usableFailedMetrics"],
+            ["addressAssignmentRate", "segmentCountAccuracy"],
+        )
+        self.assertEqual(result["classification"], "below_usable_floor")
+
+    def test_benchmark_cli_accepts_usable_holdouts_and_rejects_below_floor(self):
+        areas = {
+            "high": (0, 0, 1),
+            "usable": (0, 0, 1),
+        }
+        classifications = {
+            "high": "high_confidence",
+            "usable": "usable_with_warnings",
+        }
+
+        def result(name, _cache_dir):
+            return {
+                "area": name,
+                "benchmark": {"classification": classifications[name]},
+            }
+
+        with (
+            patch.object(benchmark_module, "AREAS", areas),
+            patch.object(benchmark_module, "run_area", side_effect=result),
+            redirect_stdout(StringIO()),
+        ):
+            self.assertTrue(benchmark_module.main([]))
+            classifications["usable"] = "below_usable_floor"
+            self.assertFalse(benchmark_module.main([]))
 
     def test_benchmark_cache_reuses_the_exact_downloaded_sources(self):
         sources = (

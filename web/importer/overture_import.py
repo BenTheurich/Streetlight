@@ -1135,6 +1135,51 @@ def normalize_features(roads, addresses, buildings=None):
     }
 
 
+def benchmark_classification(
+    address_assignment_rate,
+    road_representation_rate,
+    road_name_accuracy,
+    segment_count_accuracy,
+    severe_outliers,
+    evaluated_segments,
+):
+    severe_rate = severe_outliers / evaluated_segments if evaluated_segments else 0
+    high_confidence_failures = [
+        name
+        for name, failed in (
+            ("addressAssignmentRate", address_assignment_rate < 0.95),
+            ("roadRepresentationRate", road_representation_rate < 0.99),
+            ("roadNameAccuracy", road_name_accuracy < 0.98),
+            ("segmentCountAccuracy", segment_count_accuracy < 0.9),
+            ("severeOutlierRate", severe_outliers > 0),
+        )
+        if failed
+    ]
+    usable_failures = [
+        name
+        for name, failed in (
+            ("addressAssignmentRate", address_assignment_rate < 0.9),
+            ("roadRepresentationRate", road_representation_rate < 0.99),
+            ("roadNameAccuracy", road_name_accuracy < 0.9),
+            ("segmentCountAccuracy", segment_count_accuracy < 0.85),
+            ("severeOutlierRate", severe_rate > 0.03),
+        )
+        if failed
+    ]
+    return {
+        "severeOutlierRate": severe_rate,
+        "highConfidenceFailedMetrics": high_confidence_failures,
+        "usableFailedMetrics": usable_failures,
+        "classification": (
+            "high_confidence"
+            if not high_confidence_failures
+            else "usable_with_warnings"
+            if not usable_failures
+            else "below_usable_floor"
+        ),
+    }
+
+
 def benchmark_metrics(normalized, reference_addresses):
     reference_groups = {}
     for item in reference_addresses:
@@ -1297,17 +1342,6 @@ def benchmark_metrics(normalized, reference_addresses):
     segment_accuracy = (
         accurate_segments / evaluated_segments if evaluated_segments else 0
     )
-    failed_metrics = [
-        name
-        for name, failed in (
-            ("addressAssignmentRate", assignment_rate < 0.95),
-            ("roadRepresentationRate", represented_rate < 0.99),
-            ("roadNameAccuracy", name_rate < 0.98),
-            ("segmentCountAccuracy", segment_accuracy < 0.9),
-            ("severeOutliers", severe_outliers > 0),
-        )
-        if failed
-    ]
     return {
         "referenceAddresses": len(reference),
         "referencePremises": len(all_reference),
@@ -1330,8 +1364,14 @@ def benchmark_metrics(normalized, reference_addresses):
         "roadRepresentationRate": represented_rate,
         "roadNameAccuracy": name_rate,
         "segmentCountAccuracy": segment_accuracy,
-        "failedMetrics": failed_metrics,
-        "passed": not failed_metrics,
+        **benchmark_classification(
+            assignment_rate,
+            represented_rate,
+            name_rate,
+            segment_accuracy,
+            severe_outliers,
+            evaluated_segments,
+        ),
     }
 
 

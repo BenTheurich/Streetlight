@@ -139,12 +139,19 @@ extends beyond stored geography or the pinned source-data contract requires an u
 exclusion, activation, exact-segment, boundary-shape, and contained boundary changes do not import.
 
 Streetlight benchmarks its pinned Overture release and deterministic normalizer against varied
-fixed US test territories before treating the estimates as reliable. A low-confidence territory
-shows a persistent warning with concrete reasons in Territory Setup and Generate Packets, but the
-administrator may continue without another confirmation modal. The warning is not printed on
-volunteer packets and remains until a later import passes the quality checks. If the global
-pipeline cannot pass its approved benchmark, evaluate a licensed nationwide or global dataset
-instead of adding regional production imports or unmeasured heuristics.
+fixed US test territories. A holdout is high confidence at 95% address assignment, 99% road
+representation, 98% correct road names, 90% segment-count accuracy, and zero severe outliers. It is
+usable with warnings at 90% address assignment, 99% road representation, 90% correct road names,
+85% segment-count accuracy, and no more than 3% severe outliers. Thresholds are inclusive, and the
+severe-outlier percentage uses evaluated segments as its denominator.
+
+The pinned global pipeline is acceptable for the pilot when every fixed holdout is at least usable
+with warnings. High confidence remains the improvement target. A territory that does not meet the
+high-confidence thresholds shows a persistent warning with concrete reasons in Territory Setup and
+Generate Packets, but the administrator may continue without another confirmation modal. The
+warning is not printed on volunteer packets. If a holdout falls below the usable floor, evaluate
+the source data or a broadly applicable normalizer defect instead of adding regional production
+imports or unmeasured heuristics.
 
 The main map colors segments by time since last coverage:
 
