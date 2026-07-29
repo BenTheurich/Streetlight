@@ -20,6 +20,7 @@ export const DEFAULT_COVERAGE_THRESHOLDS: CoverageThresholds = {
 export type CoverageEvent = {
   id: string;
   segmentId: string;
+  packetId?: string | null;
   sequence: number;
   coveredOn: string;
   kind: 'completed' | 'correction';
@@ -31,6 +32,7 @@ export type CoverageCorrection = Pick<CoverageEvent, 'id' | 'sequence' | 'covere
 
 export type CoverageRoot = {
   eventId: string;
+  packetId: string | null;
   originalCoveredOn: string;
   effectiveCoveredOn: string | null;
   corrections: CoverageCorrection[];
@@ -169,6 +171,7 @@ export function deriveCoverageSegments(
     if (event.kind === 'completed') {
       const root: CoverageRoot = {
         eventId: event.id,
+        packetId: event.packetId ?? null,
         originalCoveredOn: event.coveredOn,
         effectiveCoveredOn: event.coveredOn,
         corrections: [],

@@ -120,6 +120,7 @@ test('derivation retains root history, isolates roots, and supports correction v
         kind: 'completed',
         correctsEventId: null,
         isVoid: false,
+        packetId: 'packet-1',
       },
       {
         id: 'completed-new',
@@ -165,6 +166,7 @@ test('derivation retains root history, isolates roots, and supports correction v
   assert.deepEqual(segment.roots, [
     {
       eventId: 'completed-old',
+      packetId: 'packet-1',
       originalCoveredOn: '2025-01-01',
       effectiveCoveredOn: '2026-07-01',
       corrections: [
@@ -178,6 +180,7 @@ test('derivation retains root history, isolates roots, and supports correction v
     },
     {
       eventId: 'completed-new',
+      packetId: null,
       originalCoveredOn: '2026-06-01',
       effectiveCoveredOn: '2026-07-20',
       corrections: [

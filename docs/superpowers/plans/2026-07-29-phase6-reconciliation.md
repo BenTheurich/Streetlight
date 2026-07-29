@@ -36,7 +36,7 @@
 - Produce: `correctPacketCompletion(input, options?): ReconciliationWorkspace`
 - Produce: exact request parsers and `ReconciliationConflictError`
 
-- [ ] **Step 1: Write failing tests for the data contract**
+- [x] **Step 1: Write failing tests for the data contract**
 
 ```ts
 assert.deepEqual(parseReconciliationInput(valid), valid);
@@ -48,12 +48,12 @@ Add real temporary-database cases proving missing packets complete once, present
 active, cancelled packets release, street and apartment roots share one completion group, stale
 requests roll back, correction changes every target, and conflicting undo changes nothing.
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run: `node --experimental-strip-types --test lib/reconciliation.test.ts`  
 Expected: FAIL because the migration and reconciliation boundary do not exist.
 
-- [ ] **Step 3: Add the minimum schema and database operations**
+- [x] **Step 3: Add the minimum schema and database operations**
 
 ```ts
 export function reconcilePacketBatch(
@@ -71,13 +71,13 @@ Rebuild `coverage_events` with exactly one street/apartment target plus nullable
 `completion_group_id`. Preserve existing rows and append-only invariants. Confirm, correct, undo,
 reservation checks, and batch-status recomputation each use one `BEGIN IMMEDIATE` transaction.
 
-- [ ] **Step 4: Expose apartment heatmap history and packet-managed roots**
+- [x] **Step 4: Expose apartment heatmap history and packet-managed roots**
 
 Add `packetId` to derived coverage roots, derive apartment coverage separately with the existing
 coverage functions, and prevent Coverage from treating packet-managed roots as single-segment
 corrections.
 
-- [ ] **Step 5: Run focused and existing coverage/database tests**
+- [x] **Step 5: Run focused and existing coverage/database tests**
 
 Run: `node --experimental-strip-types --test lib/reconciliation.test.ts lib/coverage.test.ts db/database.test.mjs`  
 Expected: PASS.

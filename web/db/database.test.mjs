@@ -357,7 +357,9 @@ test('migration 011 upgrades an existing migration 010 database with current-sta
         name TEXT PRIMARY KEY,
         applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       ) STRICT;
-      INSERT INTO schema_migrations (name) VALUES ('011_coverage_void_invariant.sql');
+      INSERT INTO schema_migrations (name) VALUES
+        ('011_coverage_void_invariant.sql'),
+        ('018_reconciliation.sql');
     `);
     migrateDatabase(database);
     assert.ok(
@@ -1853,6 +1855,7 @@ test('coverage demo recreates only its isolated database with stable representat
       .find((root) => root.eventId === 'coverage-demo-voided-root');
     assert.deepEqual(corrected, {
       eventId: 'coverage-demo-corrected-root',
+      packetId: null,
       originalCoveredOn: '2025-03-15',
       effectiveCoveredOn: '2026-07-08',
       corrections: [
