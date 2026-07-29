@@ -58,7 +58,8 @@ Version one has one authenticated role: administrator.
 
 ## Coverage model
 
-The tracked coverage unit is a short street segment rather than an individual household.
+The tracked street-coverage unit is a short street segment rather than an individual household.
+Apartment complexes are separate tracked outreach units.
 
 - Every selected segment includes residential homes on both sides of the street.
 - Streetlight never assigns only one side of a selected segment.
@@ -80,6 +81,18 @@ The tracked coverage unit is a short street segment rather than an individual ho
   may contribute one fallback home only when no address already accounts for it and its road
   assignment is unambiguous. Unknown and non-residential buildings do not contribute fallback
   homes.
+- Apartment complexes are tracked separately from street segments. An Overture building explicitly
+  classified as apartments is a probable complex; address-only evidence requires at least five
+  distinct units at one street address. Smaller multiplexes remain ordinary street outreach.
+- Apartment unit evidence contributes only to the complex's clearly labeled estimated tract count
+  and does not also increase an adjacent street segment estimate. Streetlight retains the aggregate
+  estimate, not individual apartment unit identifiers.
+- Every probable apartment complex starts as needs review. An administrator may mark it ready for
+  outreach or deferred/inaccessible. All three states remain visible so gated or otherwise
+  inaccessible properties are not silently forgotten.
+- A ready apartment complex receives its own packet and is never folded into a street packet.
+  Apartment packets are atomic: taking one accepts the complete complex, and reconciliation later
+  records one completion date for the complex.
 - Imported street geometry and estimated home counts cannot be edited in the first release.
 - A territory import retains every Overture feature classified as a road. High-confidence
   residential roads are active automatically; all other retained roads begin hidden.
