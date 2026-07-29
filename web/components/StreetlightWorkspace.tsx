@@ -109,22 +109,20 @@ export function StreetlightWorkspace({
           <span className="phase-label">{tools.find(({ id }) => id === tool)?.label}</span>
           {coverage.dataMode === 'demo' && <span className="demo-data-label">Demo data</span>}
         </div>
-        <div className="header-actions">
-          <nav aria-label="Administrator tools" className="workspace-tools">
-            {tools.map(({ id, label }) => (
-              <button
-                aria-pressed={tool === id}
-                className={tool === id ? 'active' : ''}
-                key={id}
-                onClick={() => setTool(id)}
-                type="button"
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-          <AdministratorAccount email={administratorEmail} />
-        </div>
+        <nav aria-label="Administrator tools" className="workspace-tools">
+          {tools.map(({ id, label }) => (
+            <button
+              aria-pressed={tool === id}
+              className={tool === id ? 'active' : ''}
+              key={id}
+              onClick={() => setTool(id)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+        <AdministratorAccount email={administratorEmail} />
       </header>
       <main className="territory-workspace">
         <section className="map-panel">

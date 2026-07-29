@@ -122,10 +122,10 @@ textarea {
 }
 
 .territory-header {
-  display: flex;
-  height: 58px;
+  display: grid;
+  height: 68px;
   align-items: center;
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   padding: 0 1.25rem;
   border-bottom: 1px solid var(--line);
   background: #f8f5ee;
@@ -173,20 +173,43 @@ textarea {
   text-decoration: none;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
 .administrator-account {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
+  position: relative;
+  justify-self: end;
   min-width: 0;
 }
 
-.administrator-account span {
+.administrator-account-trigger {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.3rem 0.7rem 0.3rem 0.35rem;
+  border-color: var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.administrator-account-trigger:hover {
+  border-color: #b6ab9c;
+}
+
+.administrator-avatar {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: #17335d;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
+.administrator-email {
   max-width: 12rem;
   overflow: hidden;
   color: var(--muted);
@@ -195,10 +218,48 @@ textarea {
   white-space: nowrap;
 }
 
-.administrator-account a {
-  padding-left: 0.55rem;
-  border-left: 1px solid var(--line);
-  white-space: nowrap;
+.administrator-account-chevron {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.administrator-account-menu {
+  position: fixed;
+  inset: 60px 1.25rem auto auto;
+  width: min(18rem, calc(100vw - 2rem));
+  margin: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 14px 30px rgba(48, 45, 40, 0.16);
+  color: var(--ink);
+}
+
+.administrator-account-menu:popover-open {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.administrator-account-menu span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.administrator-account-menu strong {
+  overflow-wrap: anywhere;
+  font-size: 0.76rem;
+}
+
+.administrator-account-menu a {
+  margin-top: 0.45rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
 }
 
 .workspace-access-error {
@@ -209,11 +270,8 @@ textarea {
 
 .workspace-tools {
   display: flex;
+  justify-self: center;
   gap: 0.25rem;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fffdf8;
 }
 
 .workspace-tools button {
@@ -232,8 +290,8 @@ textarea {
 
 .territory-workspace {
   display: grid;
-  height: calc(100vh - 58px);
-  min-height: 622px;
+  height: calc(100vh - 68px);
+  min-height: 612px;
   grid-template-columns: minmax(0, 1fr) 355px;
 }
 
@@ -1579,6 +1637,12 @@ textarea {
 }
 
 @media (max-width: 900px) {
+  .wordmark,
+  .phase-label,
+  .administrator-email {
+    display: none;
+  }
+
   .territory-page {
     height: auto;
     min-height: 100vh;
@@ -1615,7 +1679,38 @@ textarea {
 
 @media (max-width: 600px) {
   .territory-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
     padding: 0 0.8rem;
+  }
+
+  .demo-data-label,
+  .administrator-account-chevron {
+    display: none;
+  }
+
+  .workspace-tools {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .workspace-tools::-webkit-scrollbar {
+    display: none;
+  }
+
+  .workspace-tools button {
+    padding-inline: 0.5rem;
+    font-size: 0.62rem;
+  }
+
+  .administrator-account-trigger {
+    padding: 0.25rem;
+  }
+
+  .administrator-account-menu {
+    right: 0.8rem;
   }
 
   .territory-header a {
