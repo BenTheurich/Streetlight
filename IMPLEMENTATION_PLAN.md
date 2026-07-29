@@ -638,7 +638,10 @@ Do not trust a church identifier supplied by the browser without verifying it ag
   cannot change its batch or coverage rows. Unknown and missing organizations return `403`;
   unauthenticated API access returns `401`.
 - All automated tests, Biome, TypeScript, the Python importer suite, and the credential-free Next.js
-  production build pass. Live two-organization browser review awaits staging WorkOS credentials.
+  production build pass.
+- Live staging review used one administrator invited to two WorkOS organizations. Selecting Second
+  Test Church showed an empty territory with no finalized batches; selecting Temecula Pilot Church
+  restored the 11,027-home territory and its six active packet sheets.
 
 ### Browser check
 
