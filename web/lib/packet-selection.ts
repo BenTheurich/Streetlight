@@ -28,6 +28,8 @@ export type ApartmentPacketCandidate = {
   estimatedTracts: number;
   eligible: boolean;
   reserved: boolean;
+  coverageClass: CoverageClass;
+  lastCoveredOn: string | null;
 };
 
 export type PacketSizeRequest = {
@@ -286,7 +288,10 @@ function compareKeys(a: Array<number | string>, b: Array<number | string>): numb
   return 0;
 }
 
-function compareCoverageAge(first: PacketSelectionSegment, second: PacketSelectionSegment): number {
+function compareCoverageAge(
+  first: Pick<PacketSelectionSegment, 'coverageClass' | 'lastCoveredOn'>,
+  second: Pick<PacketSelectionSegment, 'coverageClass' | 'lastCoveredOn'>,
+): number {
   const classDifference = compareNumbers(
     coverageOrder.indexOf(first.coverageClass),
     coverageOrder.indexOf(second.coverageClass),
@@ -621,9 +626,14 @@ export function generatePacketProposals(input: {
       .map((segment) => [segment.id, segment]),
   );
   const allSegments = new Map(available);
+  const availableApartments = new Map(
+    (input.apartmentComplexes ?? [])
+      .filter((apartment) => apartment.eligible && !apartment.reserved)
+      .map((apartment) => [apartment.id, apartment]),
+  );
   const adjacency = buildAdjacency([...available.values()]);
 
-  while (slots.length > 0 && available.size > 0) {
+  while (slots.length > 0 && (available.size > 0 || availableApartments.size > 0)) {
     const anchors = [...available.values()].sort(
       (a, b) =>
         compareCoverageAge(a, b) ||
@@ -637,6 +647,7 @@ export function generatePacketProposals(input: {
           difference: number;
           orphanedHomes: number;
           coverageClass: CoverageClass;
+          anchor: PacketSelectionSegment;
         }
       | undefined;
     let missingAddress = false;
@@ -681,6 +692,7 @@ export function generatePacketProposals(input: {
                   minimumViableHomes,
                 ),
                 coverageClass: anchor.coverageClass,
+                anchor,
               },
             ];
           }),
@@ -698,6 +710,63 @@ export function generatePacketProposals(input: {
             ),
         )[0];
       if (choice) break;
+    }
+
+    const apartment = [...availableApartments.values()].sort(
+      (a, b) =>
+        compareCoverageAge(a, b) ||
+        compareNumbers(
+          scaledDistanceSquared(a.position, input.center),
+          scaledDistanceSquared(b.position, input.center),
+        ) ||
+        compareStrings(a.id, b.id),
+    )[0];
+    const apartmentSlot = apartment
+      ? [...slots].sort(
+          (a, b) =>
+            compareNumbers(
+              Math.abs(apartment.estimatedTracts - a.targetHomes) / a.targetHomes,
+              Math.abs(apartment.estimatedTracts - b.targetHomes) / b.targetHomes,
+            ) || compareNumbers(a.order, b.order),
+        )[0]
+      : undefined;
+    const apartmentDifference =
+      apartment && apartmentSlot
+        ? Math.abs(apartment.estimatedTracts - apartmentSlot.targetHomes) /
+          apartmentSlot.targetHomes
+        : Number.POSITIVE_INFINITY;
+    const apartmentAge = apartment && choice ? compareCoverageAge(apartment, choice.anchor) : -1;
+    const chooseApartment =
+      apartment &&
+      apartmentSlot &&
+      (!choice ||
+        apartmentAge < 0 ||
+        (apartmentAge === 0 &&
+          (apartmentDifference < choice.difference ||
+            (apartmentDifference === choice.difference &&
+              compareStrings(apartment.id, choice.anchor.id) < 0))));
+    if (chooseApartment) {
+      proposals.push({
+        kind: 'apartment',
+        apartmentId: apartment.id,
+        targetHomes: apartmentSlot.targetHomes,
+        estimatedHomes: apartment.estimatedTracts,
+        coverageClass: apartment.coverageClass,
+        segments: [],
+        start: { address: apartment.address, position: apartment.position },
+        streetNames: [],
+      });
+      if (
+        apartment.estimatedTracts < apartmentSlot.targetHomes * 0.7 ||
+        apartment.estimatedTracts > apartmentSlot.targetHomes * 1.3
+      ) {
+        warnings.push(
+          `${apartment.address} has ${apartment.estimatedTracts} estimated tracts, outside the requested packet range.`,
+        );
+      }
+      availableApartments.delete(apartment.id);
+      slots.splice(slots.indexOf(apartmentSlot), 1);
+      continue;
     }
 
     if (!choice) {
@@ -729,28 +798,5 @@ export function generatePacketProposals(input: {
       'Generated fewer packets because no more sensible eligible streets were available.',
     );
   }
-  proposals.push(
-    ...(input.apartmentComplexes ?? [])
-      .filter((apartment) => apartment.eligible && !apartment.reserved)
-      .sort(
-        (a, b) =>
-          compareNumbers(
-            scaledDistanceSquared(a.position, input.center),
-            scaledDistanceSquared(b.position, input.center),
-          ) || compareStrings(a.id, b.id),
-      )
-      .map(
-        (apartment): PacketProposal => ({
-          kind: 'apartment',
-          apartmentId: apartment.id,
-          targetHomes: apartment.estimatedTracts,
-          estimatedHomes: apartment.estimatedTracts,
-          coverageClass: 'red',
-          segments: [],
-          start: { address: apartment.address, position: apartment.position },
-          streetNames: [],
-        }),
-      ),
-  );
   return { proposals, warnings };
 }

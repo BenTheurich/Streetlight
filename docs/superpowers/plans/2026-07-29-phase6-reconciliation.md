@@ -134,7 +134,7 @@ Expected: PASS.
 - `generatePacketProposals()` compares street and apartment candidates by coverage age, then tract
   fit, and never returns more proposals than requested slots.
 
-- [ ] **Step 1: Replace the old append behavior with failing founder-rule tests**
+- [x] **Step 1: Replace the old append behavior with failing founder-rule tests**
 
 ```ts
 assert.equal(result.proposals.length, requestedQuantity);
@@ -144,18 +144,18 @@ assert.equal(result.proposals.some((packet) => packet.apartmentId === 'recent-ap
 
 Cover an atomic estimate outside the ±30% range and require a visible warning.
 
-- [ ] **Step 2: Run packet-selection tests and verify RED**
+- [x] **Step 2: Run packet-selection tests and verify RED**
 
 Run: `node --experimental-strip-types --test lib/packet-selection.test.ts lib/batch-finalization.test.ts`  
 Expected: FAIL because apartments are currently appended after every requested street packet.
 
-- [ ] **Step 3: Integrate apartments into the existing slot loop**
+- [x] **Step 3: Integrate apartments into the existing slot loop**
 
 Reuse the current coverage-age comparison and target slots. Choose the oldest viable candidate;
 within equal age, use tract fit and existing stable ties. Consume one slot per apartment and retain
 its requested target separately from its estimated tracts.
 
-- [ ] **Step 4: Run packet and finalization tests**
+- [x] **Step 4: Run packet and finalization tests**
 
 Run: `node --experimental-strip-types --test lib/packet-selection.test.ts lib/batch-finalization.test.ts`  
 Expected: PASS.

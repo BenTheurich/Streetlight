@@ -423,51 +423,49 @@ test('components without a numbered address are skipped with stable warnings', (
   ]);
 });
 
-test('ready unreserved apartment complexes become separate atomic proposals', () => {
+test('apartments consume requested slots by age and keep out-of-range estimates atomic', () => {
   const result = generatePacketProposals({
     center: [0, 0],
-    requests: [{ quantity: 1, targetHomes: 10 }],
-    segments: [],
+    requests: [{ quantity: 2, targetHomes: 10 }],
+    segments: [
+      segment('older-street', [0, 0], [0.001, 0], 10, 'red', {
+        lastCoveredOn: '2025-01-01',
+      }),
+    ],
     apartmentComplexes: [
       {
-        id: 'ready',
+        id: 'old-apartment',
         address: '10 Apartment Way, Temecula CA 92591',
         position: [0.01, 0],
         estimatedTracts: 24,
         eligible: true,
         reserved: false,
+        coverageClass: 'red',
+        lastCoveredOn: null,
       },
       {
-        id: 'reserved',
+        id: 'recent-apartment',
         address: '20 Apartment Way, Temecula CA 92591',
         position: [0.02, 0],
         estimatedTracts: 12,
         eligible: true,
-        reserved: true,
-      },
-      {
-        id: 'review',
-        address: '30 Apartment Way, Temecula CA 92591',
-        position: [0.03, 0],
-        estimatedTracts: 8,
-        eligible: false,
         reserved: false,
+        coverageClass: 'green',
+        lastCoveredOn: '2026-07-20',
       },
     ],
   });
 
-  assert.deepEqual(result.proposals, [
-    {
-      kind: 'apartment',
-      apartmentId: 'ready',
-      targetHomes: 24,
-      estimatedHomes: 24,
-      coverageClass: 'red',
-      segments: [],
-      start: { address: '10 Apartment Way, Temecula CA 92591', position: [0.01, 0] },
-      streetNames: [],
-    },
-  ]);
+  assert.equal(result.proposals.length, 2);
+  assert.equal(result.proposals[0].apartmentId, 'old-apartment');
+  assert.equal(result.proposals[0].targetHomes, 10);
+  assert.equal(result.proposals[0].estimatedHomes, 24);
+  assert.equal(result.proposals[1].segments[0].id, 'older-street');
+  assert.equal(
+    result.proposals.some(({ apartmentId }) => apartmentId === 'recent-apartment'),
+    false,
+  );
+  assert.ok(result.warnings.some((warning) => warning.includes('24 estimated tracts')));
 });
 
 test('saved Temecula geometry produces connected deterministic mixed-size proposals', () => {

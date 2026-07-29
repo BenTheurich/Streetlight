@@ -131,16 +131,16 @@ test('ready apartment complexes finalize and reserve as separate atomic packets'
       ...getPacketGenerationWorkspace(filename, '2026-07-28'),
       requests: input.requests,
     });
-    assert.equal(reviewed.proposals.length, 2);
-    assert.equal(reviewed.proposals[1].kind, 'apartment');
+    assert.equal(reviewed.proposals.length, 1);
+    assert.equal(reviewed.proposals[0].kind, 'apartment');
 
     const finalized = finalizePacketBatch(input, {
       filename,
       now: new Date('2026-07-28T19:30:00.000Z'),
       asOf: '2026-07-28',
     });
-    assert.equal(finalized.packetCount, 2);
-    assert.equal(finalized.packets[1].apartmentId, 'apartment-one');
+    assert.equal(finalized.packetCount, 1);
+    assert.equal(finalized.packets[0].apartmentId, 'apartment-one');
 
     const database = openDatabase(filename);
     try {
@@ -159,7 +159,7 @@ test('ready apartment complexes finalize and reserve as separate atomic packets'
       getPacketGenerationWorkspace(filename, '2026-07-28').apartmentComplexes[0].reserved,
       true,
     );
-    const apartmentDownload = getPacketDownloadSelection('newest', filename).packets[1];
+    const apartmentDownload = getPacketDownloadSelection('newest', filename).packets[0];
     assert.equal(apartmentDownload.kind, 'apartment');
     assert.equal(apartmentDownload.apartmentId, 'apartment-one');
     assert.deepEqual(apartmentDownload.segments, []);

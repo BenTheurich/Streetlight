@@ -285,6 +285,12 @@ test('one reconciliation atomically completes missing packets, keeps present, ca
       filename,
       now: new Date('2026-07-29T12:01:00.000Z'),
     });
+    const apartmentCandidate = databaseModule
+      .getPacketGenerationWorkspace(filename, '2026-07-29')
+      .apartmentComplexes.find(({ id }) => id === prepared.apartmentLogicalId);
+    assert.equal(apartmentCandidate?.reserved, false);
+    assert.equal(apartmentCandidate?.lastCoveredOn, '2026-07-29');
+    assert.equal(apartmentCandidate?.coverageClass, 'green');
     const replayed = openDatabase(filename);
     assert.equal(
       (replayed.prepare('SELECT COUNT(*) AS count FROM coverage_events').get() as { count: number })

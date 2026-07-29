@@ -515,8 +515,8 @@ export function getPacketGenerationWorkspace(
           .all(PILOT_CHURCH_ID, PILOT_TERRITORY_ID) as Array<{ import_complex_id: string }>
       ).map((row) => row.import_complex_id),
     );
-    const apartmentComplexes = getTerritoryWorkspace(filename)
-      .apartmentComplexes.filter(
+    const apartmentComplexes = coverage.apartmentComplexes
+      .filter(
         (apartment) =>
           apartment.withinBoundary && apartment.reviewStatus === 'ready' && apartment.address,
       )
@@ -528,6 +528,8 @@ export function getPacketGenerationWorkspace(
           estimatedTracts: apartment.estimatedTracts,
           eligible: true,
           reserved: reservedApartments.has(apartment.id),
+          coverageClass: apartment.coverageClass,
+          lastCoveredOn: apartment.lastCoveredOn,
         }),
       );
     return {
