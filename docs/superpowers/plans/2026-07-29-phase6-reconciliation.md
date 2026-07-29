@@ -94,7 +94,7 @@ Expected: PASS.
 - `POST /api/reconciliation` confirms one reviewed inventory.
 - `PATCH /api/reconciliation` corrects or undoes one completed packet.
 
-- [ ] **Step 1: Write failing route tests**
+- [x] **Step 1: Write failing route tests**
 
 ```ts
 assert.equal((await GET()).status, 200);
@@ -106,17 +106,17 @@ assert.equal((await PATCH(correctionRequest)).status, 200);
 Also prove malformed requests return `400`, missing packets return `404`, and database failures
 return a generic `500` without leaking details.
 
-- [ ] **Step 2: Run the route test and verify RED**
+- [x] **Step 2: Run the route test and verify RED**
 
 Run: `node --experimental-strip-types --test app/api/reconciliation/route.test.ts`  
 Expected: FAIL because the route does not exist.
 
-- [ ] **Step 3: Implement the thin route**
+- [x] **Step 3: Implement the thin route**
 
 Parse with `web/lib/reconciliation.ts`, call the database boundary, map conflicts to `409`, and
 return no trusted client-supplied coverage date.
 
-- [ ] **Step 4: Run the route tests**
+- [x] **Step 4: Run the route tests**
 
 Run: `node --experimental-strip-types --test app/api/reconciliation/route.test.ts`  
 Expected: PASS.
