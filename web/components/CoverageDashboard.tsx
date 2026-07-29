@@ -10,6 +10,7 @@ type CoverageDashboardProps = {
   selectedSegmentId: string | null;
   onSelectSegment: (id: string | null) => void;
   onWorkspaceChange: (workspace: CoverageWorkspace) => void;
+  onOpenReconciliation: () => void;
 };
 
 const periods = [30, 90, 180, 365];
@@ -31,6 +32,7 @@ export function CoverageDashboard({
   selectedSegmentId,
   onSelectSegment,
   onWorkspaceChange,
+  onOpenReconciliation,
 }: CoverageDashboardProps) {
   const [period, setPeriod] = useState(90);
   const [dates, setDates] = useState<Record<string, string>>({});
@@ -227,42 +229,53 @@ export function CoverageDashboard({
                           : `Changed to ${formatDate(correction.coveredOn)}`}
                       </small>
                     ))}
-                    <label>
-                      Outreach date
-                      <input
-                        disabled={busy}
-                        max={workspace.asOf}
-                        onChange={(event) =>
-                          setDates((current) => ({
-                            ...current,
-                            [root.eventId]: event.target.value,
-                          }))
-                        }
-                        type="date"
-                        value={currentDate}
-                      />
-                    </label>
-                    <div className="coverage-actions">
-                      <button
-                        disabled={busy || !currentDate}
-                        onClick={() => void mutate(root.eventId, currentDate)}
-                        type="button"
-                      >
-                        {root.effectiveCoveredOn ? 'Change outreach date' : 'Restore outreach'}
-                      </button>
-                      <button
-                        className="danger"
-                        disabled={busy || !root.effectiveCoveredOn}
-                        onClick={() => {
-                          if (window.confirm('Undo this outreach completion?')) {
-                            void mutate(root.eventId, null);
-                          }
-                        }}
-                        type="button"
-                      >
-                        Undo completion
-                      </button>
-                    </div>
+                    {root.packetId ? (
+                      <div className="packet-managed-coverage">
+                        <p>This completion belongs to a whole packet.</p>
+                        <button className="secondary" onClick={onOpenReconciliation} type="button">
+                          Open Reconcile packets
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <label>
+                          Outreach date
+                          <input
+                            disabled={busy}
+                            max={workspace.asOf}
+                            onChange={(event) =>
+                              setDates((current) => ({
+                                ...current,
+                                [root.eventId]: event.target.value,
+                              }))
+                            }
+                            type="date"
+                            value={currentDate}
+                          />
+                        </label>
+                        <div className="coverage-actions">
+                          <button
+                            disabled={busy || !currentDate}
+                            onClick={() => void mutate(root.eventId, currentDate)}
+                            type="button"
+                          >
+                            {root.effectiveCoveredOn ? 'Change outreach date' : 'Restore outreach'}
+                          </button>
+                          <button
+                            className="danger"
+                            disabled={busy || !root.effectiveCoveredOn}
+                            onClick={() => {
+                              if (window.confirm('Undo this outreach completion?')) {
+                                void mutate(root.eventId, null);
+                              }
+                            }}
+                            type="button"
+                          >
+                            Undo completion
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })

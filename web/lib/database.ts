@@ -782,10 +782,7 @@ type PacketCoverageEventRow = {
   apartment_complex_id: string | null;
 };
 
-function packetCoverageHistory(
-  database: DatabaseSync,
-  packetId: string,
-): PacketCoverageHistory[] {
+function packetCoverageHistory(database: DatabaseSync, packetId: string): PacketCoverageHistory[] {
   const rows = database
     .prepare(
       `SELECT id, rowid AS sequence, completion_group_id, covered_on, kind,
@@ -817,7 +814,9 @@ function packetCoverageHistory(
     root.effectiveCoveredOn = row.is_void === 1 ? null : row.covered_on;
   }
   return [...groups].map(([completionGroupId, rootIds]) => {
-    const groupRoots = rootIds.map((id) => roots.get(id) as NonNullable<ReturnType<typeof roots.get>>);
+    const groupRoots = rootIds.map(
+      (id) => roots.get(id) as NonNullable<ReturnType<typeof roots.get>>,
+    );
     const originals = new Set(groupRoots.map(({ originalCoveredOn }) => originalCoveredOn));
     const effective = new Set(groupRoots.map(({ effectiveCoveredOn }) => effectiveCoveredOn));
     if (originals.size !== 1 || effective.size !== 1) {
@@ -936,8 +935,7 @@ export function getReconciliationWorkspace(filename?: string): ReconciliationWor
     });
     return {
       asOf: todayForPilot(),
-      defaultBatchId:
-        batches.find(({ counts }) => counts.active > 0)?.id ?? batches[0]?.id ?? null,
+      defaultBatchId: batches.find(({ counts }) => counts.active > 0)?.id ?? batches[0]?.id ?? null,
       batches,
     };
   } finally {
@@ -1076,7 +1074,8 @@ export function reconcilePacketBatch(
         WHERE batch_id = ? AND church_id = ?`,
       )
       .get(input.batchId, PILOT_CHURCH_ID) as { active: number; completed: number };
-    const status = counts.active > 0 ? 'finalized' : counts.completed > 0 ? 'reconciled' : 'cancelled';
+    const status =
+      counts.active > 0 ? 'finalized' : counts.completed > 0 ? 'reconciled' : 'cancelled';
     database
       .prepare('UPDATE batches SET status = ? WHERE id = ? AND church_id = ?')
       .run(status, input.batchId, PILOT_CHURCH_ID);

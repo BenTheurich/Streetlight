@@ -6,6 +6,7 @@ import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
 import {
+  buildReconciliationPreview,
   parsePacketCompletionCorrection,
   parseReconciliationInput,
 } from './reconciliation.ts';
@@ -196,11 +197,23 @@ test('reconciliation request parsers accept only exact whole-packet choices', as
     { ...valid, presentPacketIds: ['missing'] },
     { ...valid, cancelPacketIds: ['one'] },
   ]) {
-    assert.throws(
-      () => parseReconciliationInput(invalid),
-      /Invalid reconciliation request/,
-    );
+    assert.throws(() => parseReconciliationInput(invalid), /Invalid reconciliation request/);
   }
+});
+
+test('reconciliation preview derives complete, active, and cancel groups from physical sheets', () => {
+  assert.deepEqual(
+    buildReconciliationPreview(['one', 'two', 'three'], ['two', 'three'], ['three']),
+    {
+      complete: ['one'],
+      active: ['two'],
+      cancel: ['three'],
+    },
+  );
+  assert.throws(
+    () => buildReconciliationPreview(['one', 'two'], ['two'], ['one']),
+    /Invalid reconciliation choices/,
+  );
 });
 
 test('one reconciliation atomically completes missing packets, keeps present, cancels selected, and replays safely', async () => {
@@ -246,7 +259,10 @@ test('one reconciliation atomically completes missing packets, keeps present, ca
       ],
     );
     assert.equal(batch.status, 'finalized');
-    assert.equal(batch.packets.find(({ id }) => id === prepared.streetPacketId)?.completedOn, '2026-07-29');
+    assert.equal(
+      batch.packets.find(({ id }) => id === prepared.streetPacketId)?.completedOn,
+      '2026-07-29',
+    );
     assert.equal(
       batch.packets.find(({ id }) => id === prepared.apartmentPacketId)?.completedOn,
       '2026-07-29',
@@ -329,11 +345,7 @@ test('whole-packet correction and undo preserve earlier coverage and reject rese
     ) {
       return;
     }
-    databaseModule.recordCoverageCompletion(
-      prepared.streetLogicalIds[0],
-      '2025-01-01',
-      filename,
-    );
+    databaseModule.recordCoverageCompletion(prepared.streetLogicalIds[0], '2025-01-01', filename);
     databaseModule.reconcilePacketBatch(
       {
         batchId: prepared.batchId,
@@ -409,13 +421,11 @@ test('whole-packet correction and undo preserve earlier coverage and reject rese
     );
     const undoneCoverage = databaseModule.getCoverageWorkspace(filename, '2026-07-29');
     assert.equal(
-      undoneCoverage.segments.find(({ id }) => id === prepared.streetLogicalIds[0])
-        ?.lastCoveredOn,
+      undoneCoverage.segments.find(({ id }) => id === prepared.streetLogicalIds[0])?.lastCoveredOn,
       '2025-01-01',
     );
     assert.equal(
-      undoneCoverage.segments.find(({ id }) => id === prepared.streetLogicalIds[1])
-        ?.lastCoveredOn,
+      undoneCoverage.segments.find(({ id }) => id === prepared.streetLogicalIds[1])?.lastCoveredOn,
       null,
     );
     assert.equal(

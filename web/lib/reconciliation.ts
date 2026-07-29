@@ -50,6 +50,27 @@ export type ReconciliationWorkspace = {
 
 export class ReconciliationConflictError extends Error {}
 
+export function buildReconciliationPreview(
+  activePacketIds: string[],
+  presentPacketIds: string[],
+  cancelPacketIds: string[],
+): { complete: string[]; active: string[]; cancel: string[] } {
+  const active = new Set(activePacketIds);
+  const present = new Set(presentPacketIds);
+  const cancel = new Set(cancelPacketIds);
+  if (
+    presentPacketIds.some((id) => !active.has(id)) ||
+    cancelPacketIds.some((id) => !present.has(id))
+  ) {
+    throw new Error('Invalid reconciliation choices');
+  }
+  return {
+    complete: activePacketIds.filter((id) => !present.has(id)),
+    active: activePacketIds.filter((id) => present.has(id) && !cancel.has(id)),
+    cancel: activePacketIds.filter((id) => cancel.has(id)),
+  };
+}
+
 function exactStringArray(value: unknown): string[] | null {
   if (
     !Array.isArray(value) ||

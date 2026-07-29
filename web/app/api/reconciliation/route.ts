@@ -4,9 +4,11 @@ import {
   reconcilePacketBatch,
 } from '../../../lib/database.ts';
 import {
+  type PacketCompletionCorrectionInput,
   parsePacketCompletionCorrection,
   parseReconciliationInput,
   ReconciliationConflictError,
+  type ReconciliationInput,
 } from '../../../lib/reconciliation.ts';
 
 function json(body: unknown, status = 200): Response {
@@ -22,7 +24,7 @@ export function GET(): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  let input;
+  let input: ReconciliationInput;
   try {
     input = parseReconciliationInput(await request.json());
   } catch {
@@ -42,7 +44,7 @@ export async function POST(request: Request): Promise<Response> {
 }
 
 export async function PATCH(request: Request): Promise<Response> {
-  let input;
+  let input: PacketCompletionCorrectionInput;
   try {
     const workspace = getReconciliationWorkspace();
     input = parsePacketCompletionCorrection(await request.json(), workspace.asOf);

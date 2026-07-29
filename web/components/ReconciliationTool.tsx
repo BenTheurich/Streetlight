@@ -1,0 +1,584 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { latLng } from '@/lib/google-maps-browser';
+import {
+  buildReconciliationPreview,
+  type ReconciliationBatch,
+  type ReconciliationPacket,
+  type ReconciliationWorkspace,
+} from '@/lib/reconciliation';
+import { segmentStrokeWeight } from '@/lib/territory-map-style';
+
+const dispositionColors = {
+  complete: '#3E8B65',
+  active: '#1769FF',
+  cancel: '#77736C',
+};
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(
+    new Date(`${value}T00:00:00Z`),
+  );
+}
+
+function packetLabel(packet: ReconciliationPacket): string {
+  return `${packet.code} · ${packet.estimatedTracts} estimated tracts`;
+}
+
+function ReconciliationOverlay({
+  active,
+  batch,
+  cancelIds,
+  map,
+  presentIds,
+  selectedPacketId,
+}: {
+  active: boolean;
+  batch: ReconciliationBatch | null;
+  cancelIds: Set<string>;
+  map: google.maps.Map | null;
+  presentIds: Set<string>;
+  selectedPacketId: string | null;
+}) {
+  const lastFocusRef = useRef('');
+
+  useEffect(() => {
+    if (!active || !map || !batch) return;
+    let disposed = false;
+    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
+    const lines: Array<{
+      line: google.maps.Polyline;
+      selected: boolean;
+      halo: boolean;
+    }> = [];
+    const activePackets = batch.packets.filter(({ status }) => status === 'active');
+    const selected = batch.packets.find(({ id }) => id === selectedPacketId) ?? null;
+    const packets = [
+      ...activePackets,
+      ...(selected && selected.status !== 'active' ? [selected] : []),
+    ];
+    const disposition = (packet: ReconciliationPacket) =>
+      packet.status === 'cancelled' || cancelIds.has(packet.id)
+        ? 'cancel'
+        : packet.status === 'completed' || !presentIds.has(packet.id)
+          ? 'complete'
+          : 'active';
+    const fitBounds = new google.maps.LatLngBounds();
+    for (const packet of packets) {
+      const selectedPacket = packet.id === selectedPacketId;
+      const color = dispositionColors[disposition(packet)];
+      for (const segment of packet.segments) {
+        const path = segment.geometry.coordinates.map(latLng);
+        const weight = Math.max(5, segmentStrokeWeight(map.getZoom() ?? 11) + 2);
+        const halo = new google.maps.Polyline({
+          map,
+          path,
+          strokeColor: '#FFFFFF',
+          strokeOpacity: 0.9,
+          strokeWeight: weight + (selectedPacket ? 6 : 4),
+          clickable: false,
+          zIndex: selectedPacket ? 20 : 10,
+        });
+        const line = new google.maps.Polyline({
+          map,
+          path,
+          strokeColor: color,
+          strokeOpacity: 0.9,
+          strokeWeight: weight + (selectedPacket ? 2 : 0),
+          clickable: false,
+          zIndex: selectedPacket ? 21 : 11,
+        });
+        lines.push(
+          { line: halo, selected: selectedPacket, halo: true },
+          { line, selected: selectedPacket, halo: false },
+        );
+        if (!selected || selectedPacket) {
+          for (const point of segment.geometry.coordinates) fitBounds.extend(latLng(point));
+        }
+      }
+      if (packet.apartment && (!selected || selectedPacket)) {
+        fitBounds.extend(latLng(packet.apartment.position));
+      }
+    }
+    const focusKey = `${batch.id}:${selectedPacketId ?? 'all'}`;
+    if (lastFocusRef.current !== focusKey && !fitBounds.isEmpty()) {
+      map.fitBounds(fitBounds, 56);
+      lastFocusRef.current = focusKey;
+    }
+    const zoomListener = map.addListener('zoom_changed', () => {
+      const weight = Math.max(5, segmentStrokeWeight(map.getZoom() ?? 11) + 2);
+      for (const overlay of lines) {
+        overlay.line.setOptions({
+          strokeWeight:
+            weight + (overlay.halo ? (overlay.selected ? 6 : 4) : overlay.selected ? 2 : 0),
+        });
+      }
+    });
+    void google.maps.importLibrary('marker').then((library) => {
+      if (disposed) return;
+      const { AdvancedMarkerElement } = library as google.maps.MarkerLibrary;
+      for (const packet of packets.filter(({ apartment }) => apartment)) {
+        if (packet.id === selectedPacketId) continue;
+        const content = document.createElement('span');
+        content.className = 'reconciliation-apartment-marker';
+        content.style.setProperty('--reconciliation-color', dispositionColors[disposition(packet)]);
+        content.textContent = 'A';
+        markers.push(
+          new AdvancedMarkerElement({
+            map,
+            position: latLng(packet.apartment?.position as [number, number]),
+            content,
+            title: packetLabel(packet),
+            zIndex: 25,
+          }),
+        );
+      }
+      if (selected) {
+        markers.push(
+          new AdvancedMarkerElement({
+            map,
+            position: latLng(selected.start.position),
+            title: `Starting address: ${selected.start.address}`,
+            zIndex: 30,
+          }),
+        );
+      }
+    });
+    return () => {
+      disposed = true;
+      zoomListener.remove();
+      for (const overlay of lines) overlay.line.setMap(null);
+      for (const marker of markers) marker.map = null;
+    };
+  }, [active, batch, cancelIds, map, presentIds, selectedPacketId]);
+
+  return null;
+}
+
+export function ReconciliationTool({
+  active,
+  map,
+  onChanged,
+}: {
+  active: boolean;
+  map: google.maps.Map | null;
+  onChanged: () => Promise<void>;
+}) {
+  const [workspace, setWorkspace] = useState<ReconciliationWorkspace | null>(null);
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [presentIds, setPresentIds] = useState<Set<string>>(new Set());
+  const [cancelIds, setCancelIds] = useState<Set<string>>(new Set());
+  const [selectedPacketId, setSelectedPacketId] = useState<string | null>(null);
+  const [dateDrafts, setDateDrafts] = useState<Record<string, string>>({});
+  const [reviewing, setReviewing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState('');
+  const requestedRef = useRef(false);
+
+  const load = useCallback(async () => {
+    requestedRef.current = true;
+    setLoading(true);
+    setNotice('');
+    try {
+      const response = await fetch('/api/reconciliation');
+      const result = (await response.json()) as ReconciliationWorkspace | { error: string };
+      if (!response.ok || 'error' in result) {
+        throw new Error('error' in result ? result.error : 'Could not load packet reconciliation');
+      }
+      setWorkspace(result);
+      setBatchId((current) =>
+        result.batches.some(({ id }) => id === current) ? current : result.defaultBatchId,
+      );
+    } catch (error) {
+      requestedRef.current = false;
+      setNotice(error instanceof Error ? error.message : 'Could not load packet reconciliation');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (active && !requestedRef.current) void load();
+  }, [active, load]);
+
+  const batch = workspace?.batches.find(({ id }) => id === batchId) ?? null;
+  const activePackets = useMemo(
+    () => batch?.packets.filter(({ status }) => status === 'active') ?? [],
+    [batch],
+  );
+  const historyPackets = useMemo(
+    () => batch?.packets.filter(({ status }) => status !== 'active') ?? [],
+    [batch],
+  );
+  const preview = buildReconciliationPreview(
+    activePackets.map(({ id }) => id),
+    [...presentIds],
+    [...cancelIds],
+  );
+  const packetById = new Map(batch?.packets.map((packet) => [packet.id, packet]) ?? []);
+
+  function resetChoices(): void {
+    setPresentIds(new Set());
+    setCancelIds(new Set());
+    setSelectedPacketId(null);
+    setReviewing(false);
+  }
+
+  function replaceWorkspace(next: ReconciliationWorkspace): void {
+    setWorkspace(next);
+    setBatchId((current) =>
+      next.batches.some(({ id }) => id === current) ? current : next.defaultBatchId,
+    );
+    resetChoices();
+  }
+
+  async function confirm(): Promise<void> {
+    if (!batch) return;
+    setBusy(true);
+    setNotice('');
+    try {
+      const response = await fetch('/api/reconciliation', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          batchId: batch.id,
+          activePacketIds: activePackets.map(({ id }) => id),
+          presentPacketIds: [...presentIds],
+          cancelPacketIds: [...cancelIds],
+        }),
+      });
+      const result = (await response.json()) as ReconciliationWorkspace | { error: string };
+      if (!response.ok || 'error' in result) {
+        throw new Error('error' in result ? result.error : 'Could not reconcile packet batch');
+      }
+      replaceWorkspace(result);
+      setNotice('Packet table reconciled.');
+      await onChanged();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not reconcile packet batch');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function correct(packet: ReconciliationPacket, coveredOn: string | null): Promise<void> {
+    setBusy(true);
+    setNotice('');
+    try {
+      const response = await fetch('/api/reconciliation', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ packetId: packet.id, coveredOn }),
+      });
+      const result = (await response.json()) as ReconciliationWorkspace | { error: string };
+      if (!response.ok || 'error' in result) {
+        throw new Error('error' in result ? result.error : 'Could not change packet completion');
+      }
+      replaceWorkspace(result);
+      setNotice(coveredOn === null ? 'Packet completion undone.' : 'Packet date changed.');
+      await onChanged();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not change packet completion');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <ReconciliationOverlay
+        active={active}
+        batch={batch}
+        cancelIds={cancelIds}
+        map={map}
+        presentIds={presentIds}
+        selectedPacketId={selectedPacketId}
+      />
+      <aside className="territory-sidebar reconciliation-sidebar" hidden={!active}>
+        <div className="sidebar-title">
+          <h1>Reconcile packets</h1>
+          <p>Match Streetlight to the paper sheets still on the table.</p>
+        </div>
+        <div className="sidebar-scroll">
+          {loading && <p className="empty-state">Loading packet batches…</p>}
+          {!loading && !workspace && (
+            <button className="secondary" onClick={() => void load()} type="button">
+              Retry
+            </button>
+          )}
+          {workspace && workspace.batches.length === 0 && (
+            <p className="empty-state">No finalized packet batches yet.</p>
+          )}
+          {workspace && workspace.batches.length > 0 && (
+            <>
+              <section>
+                <label className="coverage-field">
+                  Batch
+                  <select
+                    onChange={(event) => {
+                      setBatchId(event.target.value);
+                      resetChoices();
+                    }}
+                    value={batchId ?? ''}
+                  >
+                    {workspace.batches.map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.name} · {candidate.counts.active} active
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {batch && (
+                  <p className="reconciliation-batch-summary">
+                    {batch.finalizedAt
+                      ? `Finalized ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(batch.finalizedAt))}`
+                      : 'Not finalized'}{' '}
+                    · {batch.counts.completed} completed · {batch.counts.cancelled} cancelled
+                  </p>
+                )}
+              </section>
+              {batch && activePackets.length > 0 && (
+                <section>
+                  <div className="packet-results-header">
+                    <h2>Active sheets</h2>
+                    <div className="reconciliation-bulk-actions">
+                      <button
+                        className="secondary"
+                        onClick={() => {
+                          setPresentIds(new Set(activePackets.map(({ id }) => id)));
+                          setCancelIds(new Set());
+                          setReviewing(false);
+                        }}
+                        type="button"
+                      >
+                        Select all present
+                      </button>
+                      <button
+                        className="secondary"
+                        onClick={() => {
+                          setPresentIds(new Set());
+                          setCancelIds(new Set());
+                          setReviewing(false);
+                        }}
+                        type="button"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="reconciliation-list">
+                    {activePackets.map((packet) => {
+                      const present = presentIds.has(packet.id);
+                      const cancelling = cancelIds.has(packet.id);
+                      return (
+                        <article
+                          className={`reconciliation-card${selectedPacketId === packet.id ? ' selected' : ''}`}
+                          key={packet.id}
+                        >
+                          <label className="reconciliation-present">
+                            <input
+                              checked={present}
+                              onChange={(event) => {
+                                const checked = event.target.checked;
+                                setPresentIds((current) => {
+                                  const next = new Set(current);
+                                  if (checked) next.add(packet.id);
+                                  else next.delete(packet.id);
+                                  return next;
+                                });
+                                if (!checked) {
+                                  setCancelIds((current) => {
+                                    const next = new Set(current);
+                                    next.delete(packet.id);
+                                    return next;
+                                  });
+                                }
+                                setReviewing(false);
+                              }}
+                              type="checkbox"
+                            />
+                            Still on table
+                          </label>
+                          <button
+                            className="reconciliation-focus"
+                            onClick={() =>
+                              setSelectedPacketId((current) =>
+                                current === packet.id ? null : packet.id,
+                              )
+                            }
+                            type="button"
+                          >
+                            <strong>{packet.code}</strong>
+                            <span>
+                              {packet.estimatedTracts} estimated tracts ·{' '}
+                              {packet.kind === 'apartment' ? 'Apartment' : 'Street'}
+                            </span>
+                            <span>{packet.start.address}</span>
+                          </button>
+                          {!present ? (
+                            <span className="reconciliation-disposition complete">
+                              Missing — complete
+                            </span>
+                          ) : (
+                            <label className="reconciliation-action">
+                              Sheet action
+                              <select
+                                onChange={(event) => {
+                                  setCancelIds((current) => {
+                                    const next = new Set(current);
+                                    if (event.target.value === 'cancel') next.add(packet.id);
+                                    else next.delete(packet.id);
+                                    return next;
+                                  });
+                                  setReviewing(false);
+                                }}
+                                value={cancelling ? 'cancel' : 'active'}
+                              >
+                                <option value="active">Keep active</option>
+                                <option value="cancel">Cancel and release</option>
+                              </select>
+                            </label>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+              {batch && activePackets.length === 0 && (
+                <p className="empty-state">This batch has no active sheets.</p>
+              )}
+              {batch && historyPackets.length > 0 && (
+                <section>
+                  <h2>Batch history</h2>
+                  <div className="reconciliation-list">
+                    {historyPackets.map((packet) => {
+                      const date = dateDrafts[packet.id] ?? packet.completedOn ?? workspace.asOf;
+                      return (
+                        <article
+                          className={`reconciliation-card history${selectedPacketId === packet.id ? ' selected' : ''}`}
+                          key={packet.id}
+                        >
+                          <button
+                            className="reconciliation-focus"
+                            onClick={() =>
+                              setSelectedPacketId((current) =>
+                                current === packet.id ? null : packet.id,
+                              )
+                            }
+                            type="button"
+                          >
+                            <strong>{packet.code}</strong>
+                            <span>
+                              {packet.status === 'completed'
+                                ? `Completed ${packet.completedOn ? formatDate(packet.completedOn) : ''}`
+                                : 'Cancelled'}
+                            </span>
+                          </button>
+                          {packet.status === 'completed' && (
+                            <div className="reconciliation-correction">
+                              <label>
+                                Outreach date
+                                <input
+                                  disabled={busy}
+                                  max={workspace.asOf}
+                                  onChange={(event) =>
+                                    setDateDrafts((current) => ({
+                                      ...current,
+                                      [packet.id]: event.target.value,
+                                    }))
+                                  }
+                                  type="date"
+                                  value={date}
+                                />
+                              </label>
+                              <div>
+                                <button
+                                  disabled={busy || !date}
+                                  onClick={() => void correct(packet, date)}
+                                  type="button"
+                                >
+                                  Change date
+                                </button>
+                                <button
+                                  className="danger"
+                                  disabled={busy}
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        'Undo this whole packet completion and restore its reservation?',
+                                      )
+                                    ) {
+                                      void correct(packet, null);
+                                    }
+                                  }}
+                                  type="button"
+                                >
+                                  Undo completion
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+              {reviewing && batch && (
+                <section className="reconciliation-review">
+                  <h2>Review reconciliation</h2>
+                  <p>Coverage date: {formatDate(workspace.asOf)}</p>
+                  {(
+                    [
+                      ['Complete missing', preview.complete],
+                      ['Keep active', preview.active],
+                      ['Cancel', preview.cancel],
+                    ] as const
+                  ).map(([label, ids]) => (
+                    <div key={label}>
+                      <strong>{label}</strong>
+                      {ids.length === 0 ? (
+                        <span>None</span>
+                      ) : (
+                        ids.map((id) => <span key={id}>{packetById.get(id)?.code}</span>)
+                      )}
+                    </div>
+                  ))}
+                </section>
+              )}
+            </>
+          )}
+        </div>
+        <div className="sidebar-actions">
+          <p aria-live="polite">{notice}</p>
+          {batch && activePackets.length > 0 && (
+            <div className={reviewing ? 'reviewing' : ''}>
+              {reviewing ? (
+                <>
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => setReviewing(false)}
+                    type="button"
+                  >
+                    Back
+                  </button>
+                  <button disabled={busy} onClick={() => void confirm()} type="button">
+                    {busy ? 'Saving…' : 'Confirm reconciliation'}
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setReviewing(true)} type="button">
+                  Review reconciliation
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}

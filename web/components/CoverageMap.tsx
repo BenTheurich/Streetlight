@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { CoverageLegendItem } from '@/lib/coverage';
-import type { ApartmentComplex, CoverageWorkspaceSegment } from '@/lib/database';
+import type { CoverageWorkspaceApartment, CoverageWorkspaceSegment } from '@/lib/database';
 import { latLng } from '@/lib/google-maps-browser';
 import { apartmentMarkerColor, segmentStrokeWeight } from '@/lib/territory-map-style';
 
@@ -20,7 +20,7 @@ type CoverageMapProps = {
   map: google.maps.Map | null;
   legend: CoverageLegendItem[];
   segments: CoverageWorkspaceSegment[];
-  apartmentComplexes: ApartmentComplex[];
+  apartmentComplexes: CoverageWorkspaceApartment[];
   selectedSegmentId: string | null;
   onSelectSegment: (id: string) => void;
 };
@@ -102,14 +102,22 @@ export function CoverageMap({
         content.className = 'apartment-map-marker static';
         content.style.setProperty(
           '--apartment-color',
-          apartmentMarkerColor(apartment.reviewStatus),
+          apartment.reviewStatus === 'ready'
+            ? coverageColors[apartment.coverageClass]
+            : apartmentMarkerColor(apartment.reviewStatus),
         );
         content.textContent = 'A';
         const marker = new AdvancedMarkerElement({
           map,
           position: latLng(apartment.position),
           content,
-          title: `${apartment.address ?? 'Apartment complex'} · ${apartment.reviewStatus.replace('_', ' ')}`,
+          title: `${apartment.address ?? 'Apartment complex'} · ${
+            apartment.reviewStatus === 'ready'
+              ? apartment.lastCoveredOn
+                ? `last outreach ${apartment.lastCoveredOn}`
+                : 'never covered'
+              : apartment.reviewStatus.replace('_', ' ')
+          }`,
           zIndex: 8,
         });
         markers.push(marker);

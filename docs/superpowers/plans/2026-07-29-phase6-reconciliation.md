@@ -176,7 +176,7 @@ Expected: PASS.
   step, API mutations, and Google overlay cleanup.
 - Successful mutations call the existing `refreshCoverage()`.
 
-- [ ] **Step 1: Write and verify a failing preview-state test**
+- [x] **Step 1: Write and verify a failing preview-state test**
 
 In `web/lib/reconciliation.test.ts`, prove the pure preview helper returns `complete`, `active`, and
 `cancel` dispositions from the checkbox sets and rejects cancellation of an unchecked packet.
@@ -184,20 +184,20 @@ In `web/lib/reconciliation.test.ts`, prove the pure preview helper returns `comp
 Run: `node --experimental-strip-types --test lib/reconciliation.test.ts`  
 Expected: FAIL until the helper exists.
 
-- [ ] **Step 2: Implement the fourth tool**
+- [x] **Step 2: Implement the fourth tool**
 
 Render all active packets over the heatmap: missing green, present blue, cancel gray. Start with
 every checkbox clear, include Select all/Clear selection, focus a selected row tightly, and show a
 starting marker only for that selection. The confirmation groups all three dispositions and uses
 the server date.
 
-- [ ] **Step 3: Complete history and correction UI**
+- [x] **Step 3: Complete history and correction UI**
 
 Keep completed/cancelled rows in the batch history. Completed packets expose whole-packet date and
 undo actions; Coverage shows packet-managed history with a link-style instruction to use
 Reconcile packets rather than per-segment controls.
 
-- [ ] **Step 4: Run all automated verification**
+- [x] **Step 4: Run all automated verification**
 
 Run: `pnpm test`  
 Run: `pnpm typecheck`  
@@ -207,7 +207,7 @@ Run: `python -m unittest importer.test_overture_import`
 Run: `git diff --check`  
 Expected: all PASS.
 
-- [ ] **Step 5: Browser and phase checkpoint**
+- [x] **Step 5: Browser and phase checkpoint**
 
 Use an isolated temporary/demo database to confirm missing, kept, cancelled, corrected, undone,
 conflicting, and apartment packets on `/`. Update Phase 6 status/evidence in

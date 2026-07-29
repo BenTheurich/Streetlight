@@ -1386,6 +1386,169 @@ textarea {
   gap: 0.45rem;
 }
 
+.reconciliation-batch-summary,
+.reconciliation-review > p {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.reconciliation-bulk-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.reconciliation-bulk-actions button {
+  min-height: 28px;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.58rem;
+}
+
+.reconciliation-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.reconciliation-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: white;
+}
+
+.reconciliation-card.selected {
+  border-color: #1769ff;
+  box-shadow: 0 0 0 1px #1769ff;
+}
+
+.reconciliation-present {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.reconciliation-present input {
+  width: auto;
+  min-height: 0;
+  accent-color: #1769ff;
+}
+
+.reconciliation-focus {
+  display: grid;
+  gap: 0.18rem;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.reconciliation-focus strong {
+  font-size: 0.74rem;
+}
+
+.reconciliation-focus span,
+.reconciliation-disposition,
+.reconciliation-action,
+.reconciliation-correction label,
+.reconciliation-review span,
+.packet-managed-coverage p {
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.reconciliation-disposition {
+  font-weight: 800;
+}
+
+.reconciliation-disposition.complete {
+  color: #2f7252;
+}
+
+.reconciliation-action,
+.reconciliation-correction label {
+  display: grid;
+  gap: 0.3rem;
+  font-weight: 800;
+}
+
+.reconciliation-action select {
+  min-height: 34px;
+  padding: 0.4rem 0.5rem;
+}
+
+.reconciliation-card.history {
+  background: #faf7f0;
+}
+
+.reconciliation-correction {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+}
+
+.reconciliation-correction > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.reconciliation-review {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid #b9d0bf;
+  border-radius: 7px;
+  background: #f2f8f3;
+}
+
+.reconciliation-review > div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.reconciliation-review strong {
+  font-size: 0.65rem;
+}
+
+.reconciliation-sidebar .sidebar-actions > div {
+  grid-template-columns: 1fr;
+}
+
+.reconciliation-sidebar .sidebar-actions > div.reviewing {
+  grid-template-columns: 1fr 1.35fr;
+}
+
+.reconciliation-apartment-marker {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 2px solid white;
+  border-radius: 7px 7px 7px 2px;
+  background: var(--reconciliation-color);
+  box-shadow: 0 1px 5px #0007;
+  color: white;
+  font: 800 12px / 1 sans-serif;
+}
+
+.packet-managed-coverage {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.packet-managed-coverage p {
+  margin: 0;
+}
+
 @media (max-width: 900px) {
   .territory-page {
     height: auto;

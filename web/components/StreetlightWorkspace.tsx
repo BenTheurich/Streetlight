@@ -10,13 +10,15 @@ import { CoverageMap } from './CoverageMap';
 import { MapLayersControl } from './MapLayersControl';
 import { PacketGenerator } from './PacketGenerator';
 import { PacketProposalMap } from './PacketProposalMap';
+import { ReconciliationTool } from './ReconciliationTool';
 import { TerritoryEditor } from './TerritoryEditor';
 
-type WorkspaceTool = 'coverage' | 'packets' | 'territory';
+type WorkspaceTool = 'coverage' | 'packets' | 'reconciliation' | 'territory';
 
 const tools: Array<{ id: WorkspaceTool; label: string }> = [
   { id: 'coverage', label: 'Coverage' },
   { id: 'packets', label: 'Generate packets' },
+  { id: 'reconciliation', label: 'Reconcile packets' },
   { id: 'territory', label: 'Territory setup' },
 ];
 
@@ -142,6 +144,7 @@ export function StreetlightWorkspace({
         </section>
         <CoverageDashboard
           active={tool === 'coverage'}
+          onOpenReconciliation={() => setTool('reconciliation')}
           onSelectSegment={setSelectedSegmentId}
           onWorkspaceChange={setCoverage}
           selectedSegmentId={selectedSegmentId}
@@ -157,6 +160,11 @@ export function StreetlightWorkspace({
           onSelectedIndexChange={setSelectedPacketIndex}
           result={packetResult}
           selectedIndex={selectedPacketIndex}
+        />
+        <ReconciliationTool
+          active={tool === 'reconciliation'}
+          map={map}
+          onChanged={refreshCoverage}
         />
         {territory && (
           <TerritoryEditor

@@ -90,10 +90,7 @@ test('reconciliation route exposes read, confirm, replay, correction, and undo',
     const confirmed = await POST(request('POST', body));
     assert.equal(confirmed.status, 200);
     assert.equal(eventCount(filename), before + 1);
-    assert.equal(
-      (await confirmed.json()).batches[0].packets[0].status,
-      'completed',
-    );
+    assert.equal((await confirmed.json()).batches[0].packets[0].status, 'completed');
 
     const replay = await POST(request('POST', body));
     assert.equal(replay.status, 200);
@@ -105,9 +102,7 @@ test('reconciliation route exposes read, confirm, replay, correction, and undo',
     assert.equal(corrected.status, 200);
     assert.equal((await corrected.json()).batches[0].packets[0].completedOn, '2026-07-20');
 
-    const undone = await PATCH(
-      request('PATCH', { packetId: 'route-packet', coveredOn: null }),
-    );
+    const undone = await PATCH(request('PATCH', { packetId: 'route-packet', coveredOn: null }));
     assert.equal(undone.status, 200);
     assert.equal((await undone.json()).batches[0].packets[0].status, 'active');
   });
@@ -144,11 +139,8 @@ test('reconciliation route rejects malformed, stale, and missing requests withou
       409,
     );
     assert.equal(
-      (
-        await PATCH(
-          request('PATCH', { packetId: 'missing-packet', coveredOn: '2026-07-20' }),
-        )
-      ).status,
+      (await PATCH(request('PATCH', { packetId: 'missing-packet', coveredOn: '2026-07-20' })))
+        .status,
       404,
     );
     assert.equal(eventCount(filename), before + 1);

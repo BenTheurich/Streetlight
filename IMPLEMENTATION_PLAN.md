@@ -44,7 +44,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 3 | Coverage history and heatmap | Phase 2 | Complete | Founder approved the full imported-territory heatmap and merged it on July 28, 2026; 84 Node checks, 25 Python checks, lint, typecheck, production build, database invariants, and real-browser acceptance pass. |
 | 4 | Packet selection | Phase 3 | Complete | Founder approved the deterministic packet proposals and orphan-prevention behavior and merged Phase 4 locally on July 28, 2026; automated, canonical-data, and browser evidence is recorded below |
 | 5 | Batch finalization and PDF | Phase 4 | Complete | Atomic street and apartment reservations, newest/all-active downloads, and map-first Letter PDFs are implemented; 126 Node checks, 51 Python checks, Biome, TypeScript, production build, isolated-browser finalization/reload, rendered-PDF inspection, and founder review pass |
-| 6 | Reconciliation and corrections | Phase 5 | Pending | None |
+| 6 | Reconciliation and corrections | Phase 5 | Awaiting human review | Whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 134 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Pending | None |
 | 8 | Deployment and recovery | Phase 7 | Pending | None |
 | 9 | Founder-church pilot | Phase 8 | Pending | None |
@@ -571,6 +571,23 @@ Match the application to the church's physical table after packet distribution.
 ### Browser check
 
 Simulate a physical table with some sheets missing, preview the result, confirm it, keep one remaining sheet active, cancel another, and correct one mistaken completion.
+
+### Evidence
+
+- One atomic reconciliation marks missing packets completed, keeps present sheets reserved, cancels
+  and releases selected sheets, and safely replays or rejects stale inventory without partial
+  history.
+- Packet-linked street and apartment coverage share the existing heatmap age model. Date changes
+  and undo append whole-packet corrections; undo restores every reservation or rejects the full
+  operation on a newer reservation conflict.
+- Apartment proposals now occupy requested packet slots by heatmap age and tract fit instead of
+  being appended beyond the requested quantity.
+- All 134 Node checks and 51 Python importer checks pass, along with Biome, TypeScript,
+  `git diff --check`, and the Next.js production build.
+- An isolated real-browser simulation completed one missing street packet, kept one apartment
+  packet active, cancelled and released another street packet, changed the completion date,
+  restored the completed packet with whole-packet undo, then completed the apartment packet and
+  verified its dated heatmap marker. No browser console errors occurred.
 
 ### Human review
 
