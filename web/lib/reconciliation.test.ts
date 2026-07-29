@@ -173,6 +173,51 @@ test('database exposes the reconciliation transaction boundary', async () => {
   assert.equal(typeof databaseModule.correctPacketCompletion, 'function');
 });
 
+test('legacy packets without saved coordinates use their stored outreach geometry', async () => {
+  await withDatabase(async (filename) => {
+    const database = openDatabase(filename);
+    const segment = database
+      .prepare(
+        `SELECT id, geometry_geojson
+        FROM street_segments
+        WHERE church_id = 'church-temecula-pilot'
+        ORDER BY id
+        LIMIT 1`,
+      )
+      .get() as { id: string; geometry_geojson: string };
+    database
+      .prepare(
+        `INSERT INTO batches (id, church_id, name, status, finalized_at)
+        VALUES ('legacy-batch', 'church-temecula-pilot', 'Legacy', 'finalized',
+          '2026-07-28T18:00:00.000Z')`,
+      )
+      .run();
+    database
+      .prepare(
+        `INSERT INTO packets
+          (id, church_id, batch_id, packet_code, start_address, estimated_homes, status,
+            sequence_number, packet_kind)
+        VALUES ('legacy-packet', 'church-temecula-pilot', 'legacy-batch', 'TEM-LEGACY',
+          'Legacy starting address', 10, 'active', 0, 'street')`,
+      )
+      .run();
+    database
+      .prepare(
+        `INSERT INTO packet_segments
+          (church_id, packet_id, street_segment_id, sequence_number)
+        VALUES ('church-temecula-pilot', 'legacy-packet', ?, 0)`,
+      )
+      .run(segment.id);
+    database.close();
+
+    const databaseModule = await import('./database.ts');
+    const packet = databaseModule
+      .getReconciliationWorkspace(filename)
+      .batches[0]?.packets.find(({ id }) => id === 'legacy-packet');
+    assert.deepEqual(packet?.start.position, JSON.parse(segment.geometry_geojson).coordinates[0]);
+  });
+});
+
 test('reconciliation request parsers accept only exact whole-packet choices', async () => {
   const valid = {
     batchId: 'batch',

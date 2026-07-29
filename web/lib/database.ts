@@ -879,9 +879,6 @@ export function getReconciliationWorkspace(filename?: string): ReconciliationWor
           status: ReconciliationPacket['status'];
         }>
       ).map((packet): ReconciliationPacket => {
-        if (packet.start_longitude === null || packet.start_latitude === null) {
-          throw new Error('Packet starting point missing');
-        }
         const history = packetCoverageHistory(database, packet.id);
         const completedOn =
           history.findLast(({ effectiveCoveredOn }) => effectiveCoveredOn !== null)
@@ -889,6 +886,24 @@ export function getReconciliationWorkspace(filename?: string): ReconciliationWor
         const apartment = apartmentRow.get(PILOT_CHURCH_ID, packet.id) as
           | { import_complex_id: string; longitude: number; latitude: number }
           | undefined;
+        const segments = (
+          segmentRows.all(PILOT_CHURCH_ID, packet.id) as Array<{
+            import_segment_id: string;
+            geometry_geojson: string;
+            estimated_homes: number;
+          }>
+        ).map((segment) => ({
+          id: segment.import_segment_id,
+          geometry: parseGeometry<LineString>(segment.geometry_geojson),
+          estimatedHomes: segment.estimated_homes,
+        }));
+        const startPosition: Position | undefined =
+          packet.start_longitude !== null && packet.start_latitude !== null
+            ? [packet.start_longitude, packet.start_latitude]
+            : apartment
+              ? [apartment.longitude, apartment.latitude]
+              : segments[0]?.geometry.coordinates[0];
+        if (!startPosition) throw new Error('Packet starting point missing');
         return {
           id: packet.id,
           code: packet.packet_code,
@@ -897,19 +912,9 @@ export function getReconciliationWorkspace(filename?: string): ReconciliationWor
           estimatedTracts: packet.estimated_homes,
           start: {
             address: packet.start_address,
-            position: [packet.start_longitude, packet.start_latitude],
+            position: startPosition,
           },
-          segments: (
-            segmentRows.all(PILOT_CHURCH_ID, packet.id) as Array<{
-              import_segment_id: string;
-              geometry_geojson: string;
-              estimated_homes: number;
-            }>
-          ).map((segment) => ({
-            id: segment.import_segment_id,
-            geometry: parseGeometry<LineString>(segment.geometry_geojson),
-            estimatedHomes: segment.estimated_homes,
-          })),
+          segments,
           apartment: apartment
             ? {
                 id: apartment.import_complex_id,

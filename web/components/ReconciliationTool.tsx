@@ -170,7 +170,6 @@ export function ReconciliationTool({
   const [presentIds, setPresentIds] = useState<Set<string>>(new Set());
   const [cancelIds, setCancelIds] = useState<Set<string>>(new Set());
   const [selectedPacketId, setSelectedPacketId] = useState<string | null>(null);
-  const [dateDrafts, setDateDrafts] = useState<Record<string, string>>({});
   const [reviewing, setReviewing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -455,7 +454,6 @@ export function ReconciliationTool({
                   <h2>Batch history</h2>
                   <div className="reconciliation-list">
                     {historyPackets.map((packet) => {
-                      const date = dateDrafts[packet.id] ?? packet.completedOn ?? workspace.asOf;
                       return (
                         <article
                           className={`reconciliation-card history${selectedPacketId === packet.id ? ' selected' : ''}`}
@@ -478,28 +476,32 @@ export function ReconciliationTool({
                             </span>
                           </button>
                           {packet.status === 'completed' && (
-                            <div className="reconciliation-correction">
+                            <form
+                              className="reconciliation-correction"
+                              key={`${packet.id}:${packet.completedOn}`}
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                const coveredOn = new FormData(event.currentTarget).get(
+                                  'coveredOn',
+                                );
+                                if (typeof coveredOn === 'string' && coveredOn) {
+                                  void correct(packet, coveredOn);
+                                }
+                              }}
+                            >
                               <label>
                                 Outreach date
                                 <input
+                                  defaultValue={packet.completedOn ?? workspace.asOf}
                                   disabled={busy}
                                   max={workspace.asOf}
-                                  onChange={(event) =>
-                                    setDateDrafts((current) => ({
-                                      ...current,
-                                      [packet.id]: event.target.value,
-                                    }))
-                                  }
+                                  name="coveredOn"
+                                  required
                                   type="date"
-                                  value={date}
                                 />
                               </label>
                               <div>
-                                <button
-                                  disabled={busy || !date}
-                                  onClick={() => void correct(packet, date)}
-                                  type="button"
-                                >
+                                <button disabled={busy} type="submit">
                                   Change date
                                 </button>
                                 <button
@@ -519,7 +521,7 @@ export function ReconciliationTool({
                                   Undo completion
                                 </button>
                               </div>
-                            </div>
+                            </form>
                           )}
                         </article>
                       );
