@@ -23,6 +23,7 @@ import {
   packetProposalFingerprint,
 } from './packet-finalization.ts';
 import {
+  type ApartmentPacketCandidate,
   generatePacketProposals,
   type PacketAddress,
   type PacketSelectionSegment,
@@ -34,6 +35,7 @@ import {
   lineIntersectsPolygon,
   type Polygon,
   type Position,
+  pointInsideTerritoryBoundary,
   territoryBoundary,
 } from './territory-geometry.ts';
 import type { TerritoryImportMetadata } from './territory-import.ts';
@@ -97,6 +99,18 @@ type ExclusionRow = {
   geometry_geojson: string;
 };
 
+type ApartmentRow = {
+  import_complex_id: string;
+  source_id: string;
+  address: string | null;
+  longitude: number;
+  latitude: number;
+  estimated_tracts: number;
+  apartment_building: number;
+  distinct_units: number;
+  review_status: 'needs_review' | 'ready' | 'deferred';
+};
+
 export type FoundationSummary = {
   churchName: string;
   territoryName: string;
@@ -128,6 +142,17 @@ export type TerritorySegment = {
   excludedReason: 'hidden' | 'boundary' | 'exclusion' | 'segment' | null;
 };
 
+export type ApartmentComplex = {
+  id: string;
+  sourceId: string;
+  address: string | null;
+  position: Position;
+  estimatedTracts: number;
+  evidence: { apartmentBuilding: boolean; distinctUnits: number };
+  reviewStatus: 'needs_review' | 'ready' | 'deferred';
+  withinBoundary: boolean;
+};
+
 export type TerritoryWorkspace = {
   id: string;
   churchName: string;
@@ -138,6 +163,7 @@ export type TerritoryWorkspace = {
   boundaryShape: 'circle' | 'square';
   import: TerritoryImportMetadata;
   exclusions: ExclusionArea[];
+  apartmentComplexes: ApartmentComplex[];
   segments: TerritorySegment[];
   totals: {
     allSegments: number;
@@ -173,6 +199,7 @@ export type CoverageWorkspace = {
   legend: CoverageLegendItem[];
   dataMode: 'canonical' | 'demo';
   qualityWarnings: string[];
+  apartmentComplexes: ApartmentComplex[];
   segments: CoverageWorkspaceSegment[];
   totals: { eligibleHomes: number };
 };
@@ -180,6 +207,7 @@ export type CoverageWorkspace = {
 export type PacketGenerationWorkspace = {
   center: Position;
   segments: PacketSelectionSegment[];
+  apartmentComplexes: ApartmentPacketCandidate[];
 };
 
 type FinalizePacketBatchOptions = {
@@ -323,6 +351,9 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
           ? 'demo'
           : 'canonical',
       qualityWarnings: territory.import.quality?.warnings ?? [],
+      apartmentComplexes: territory.apartmentComplexes.filter(
+        ({ withinBoundary }) => withinBoundary,
+      ),
       segments: territory.segments
         .filter(
           (segment) => segment.excludedReason !== 'boundary' && segment.excludedReason !== 'hidden',
@@ -399,6 +430,35 @@ export function getPacketGenerationWorkspace(
           .all(PILOT_CHURCH_ID, PILOT_TERRITORY_ID) as Array<{ import_segment_id: string }>
       ).map((row) => row.import_segment_id),
     );
+    const reservedApartments = new Set(
+      (
+        database
+          .prepare(
+            `SELECT DISTINCT a.import_complex_id
+            FROM packet_apartment_complexes pa
+            JOIN packets p ON p.id = pa.packet_id AND p.church_id = pa.church_id
+            JOIN apartment_complexes a ON a.id = pa.apartment_complex_id
+            WHERE pa.church_id = ? AND a.territory_id = ? AND p.status = 'active'
+            ORDER BY a.import_complex_id`,
+          )
+          .all(PILOT_CHURCH_ID, PILOT_TERRITORY_ID) as Array<{ import_complex_id: string }>
+      ).map((row) => row.import_complex_id),
+    );
+    const apartmentComplexes = getTerritoryWorkspace(filename)
+      .apartmentComplexes.filter(
+        (apartment) =>
+          apartment.withinBoundary && apartment.reviewStatus === 'ready' && apartment.address,
+      )
+      .map(
+        (apartment): ApartmentPacketCandidate => ({
+          id: apartment.id,
+          address: apartment.address as string,
+          position: apartment.position,
+          estimatedTracts: apartment.estimatedTracts,
+          eligible: true,
+          reserved: reservedApartments.has(apartment.id),
+        }),
+      );
     return {
       center: coverage.center,
       segments: coverage.segments.map(
@@ -422,6 +482,7 @@ export function getPacketGenerationWorkspace(
           addresses: addresses.get(id) ?? [],
         }),
       ),
+      apartmentComplexes,
     };
   } finally {
     database.close();
@@ -481,8 +542,8 @@ export function finalizePacketBatch(
     const insertPacket = database.prepare(
       `INSERT INTO packets
         (id, church_id, batch_id, packet_code, start_address, estimated_homes, status,
-          sequence_number, start_longitude, start_latitude)
-      VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
+          sequence_number, start_longitude, start_latitude, packet_kind)
+      VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)`,
     );
     const segmentRow = database.prepare(
       `SELECT id FROM street_segments
@@ -492,6 +553,14 @@ export function finalizePacketBatch(
       `INSERT INTO packet_segments
         (church_id, packet_id, street_segment_id, sequence_number)
       VALUES (?, ?, ?, ?)`,
+    );
+    const apartmentRow = database.prepare(
+      `SELECT id FROM apartment_complexes
+      WHERE church_id = ? AND territory_id = ? AND import_complex_id = ? AND is_current = 1`,
+    );
+    const insertApartment = database.prepare(
+      `INSERT INTO packet_apartment_complexes (church_id, packet_id, apartment_complex_id)
+      VALUES (?, ?, ?)`,
     );
     const packets = proposals.map((proposal, sequence) => {
       const id = randomUUID();
@@ -506,6 +575,7 @@ export function finalizePacketBatch(
         sequence,
         proposal.start.position[0],
         proposal.start.position[1],
+        proposal.kind ?? 'street',
       );
       proposal.segments.forEach((segment, segmentSequence) => {
         const row = segmentRow.get(PILOT_CHURCH_ID, PILOT_TERRITORY_ID, segment.id) as
@@ -514,6 +584,16 @@ export function finalizePacketBatch(
         if (!row) throw new PacketProposalConflictError('Packet proposals changed');
         insertSegment.run(PILOT_CHURCH_ID, id, row.id, segmentSequence);
       });
+      if (proposal.kind === 'apartment') {
+        if (!proposal.apartmentId) {
+          throw new PacketProposalConflictError('Packet proposals changed');
+        }
+        const row = apartmentRow.get(PILOT_CHURCH_ID, PILOT_TERRITORY_ID, proposal.apartmentId) as
+          | { id: string }
+          | undefined;
+        if (!row) throw new PacketProposalConflictError('Packet proposals changed');
+        insertApartment.run(PILOT_CHURCH_ID, id, row.id);
+      }
       return { ...proposal, id, code };
     });
     database.exec('COMMIT');
@@ -552,9 +632,12 @@ export function getPacketDownloadSelection(
     const rows = database
       .prepare(
         `SELECT p.id, p.packet_code, p.batch_id, b.name AS batch_name, p.estimated_homes,
-          p.start_address, p.start_longitude, p.start_latitude
+          p.start_address, p.start_longitude, p.start_latitude, p.packet_kind,
+          a.import_complex_id
         FROM packets p
         JOIN batches b ON b.id = p.batch_id AND b.church_id = p.church_id
+        LEFT JOIN packet_apartment_complexes pa ON pa.packet_id = p.id AND pa.church_id = p.church_id
+        LEFT JOIN apartment_complexes a ON a.id = pa.apartment_complex_id
         WHERE p.church_id = ?
           AND (${scope === 'newest' ? 'p.batch_id = ?' : "p.status = 'active'"})
         ORDER BY b.finalized_at, b.id, p.sequence_number, p.id`,
@@ -568,6 +651,8 @@ export function getPacketDownloadSelection(
       start_address: string;
       start_longitude: number | null;
       start_latitude: number | null;
+      packet_kind: 'street' | 'apartment';
+      import_complex_id: string | null;
     }>;
     const segmentRows = database.prepare(
       `SELECT s.import_segment_id AS id, s.geometry_geojson, s.estimated_homes
@@ -581,6 +666,8 @@ export function getPacketDownloadSelection(
         throw new Error('Packet starting point missing');
       }
       return {
+        kind: row.packet_kind,
+        apartmentId: row.import_complex_id,
         id: row.id,
         code: row.packet_code,
         batchId: row.batch_id,
@@ -894,6 +981,36 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
                 : null,
       };
     });
+    const apartmentComplexes = (
+      database
+        .prepare(
+          `SELECT import_complex_id, source_id, address, longitude, latitude, estimated_tracts,
+            apartment_building, distinct_units, review_status
+          FROM apartment_complexes
+          WHERE territory_id = ? AND church_id = ? AND is_current = 1
+          ORDER BY address, import_complex_id`,
+        )
+        .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as ApartmentRow[]
+    ).map(
+      (row): ApartmentComplex => ({
+        id: row.import_complex_id,
+        sourceId: row.source_id,
+        address: row.address,
+        position: [row.longitude, row.latitude],
+        estimatedTracts: row.estimated_tracts,
+        evidence: {
+          apartmentBuilding: row.apartment_building === 1,
+          distinctUnits: row.distinct_units,
+        },
+        reviewStatus: row.review_status,
+        withinBoundary: pointInsideTerritoryBoundary(
+          [row.longitude, row.latitude],
+          center,
+          radiusMiles,
+          boundaryShape,
+        ),
+      }),
+    );
 
     return {
       id: territory.id,
@@ -905,6 +1022,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
       boundaryShape,
       import: imported,
       exclusions,
+      apartmentComplexes,
       segments,
       totals: {
         allSegments: segments.filter((segment) => segment.active && segment.withinBoundary).length,
@@ -977,6 +1095,20 @@ export function saveTerritoryDraft(
     }
 
     if (options.imported) {
+      const apartmentStatuses = new Map(
+        (
+          database
+            .prepare(
+              `SELECT import_complex_id, review_status
+              FROM apartment_complexes
+              WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
+            )
+            .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Array<{
+            import_complex_id: string;
+            review_status: ApartmentComplex['reviewStatus'];
+          }>
+        ).map((row) => [row.import_complex_id, row.review_status]),
+      );
       const excludedGeometryById = new Map(
         (
           database
@@ -1069,6 +1201,13 @@ export function saveTerritoryDraft(
           WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
         )
         .run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID);
+      database
+        .prepare(
+          `UPDATE apartment_complexes
+          SET is_current = 0
+          WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
+        )
+        .run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID);
       const insertSegment = database.prepare(
         `INSERT INTO street_segments
           (id, church_id, territory_id, import_segment_id, source_segment_id, road_group_id,
@@ -1110,6 +1249,30 @@ export function saveTerritoryDraft(
         if (excludedGeometryById.get(segment.id) === geometry) {
           excludedSegmentIds.add(segment.id);
         }
+      }
+      const insertApartment = database.prepare(
+        `INSERT INTO apartment_complexes
+          (id, church_id, territory_id, import_complex_id, source_id, address, longitude,
+            latitude, estimated_tracts, apartment_building, distinct_units, review_status,
+            import_generation)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      for (const apartment of options.imported.apartmentComplexes) {
+        insertApartment.run(
+          `${apartment.id}@${generation}`,
+          PILOT_CHURCH_ID,
+          PILOT_TERRITORY_ID,
+          apartment.id,
+          apartment.sourceId,
+          apartment.address,
+          apartment.position[0],
+          apartment.position[1],
+          apartment.estimatedTracts,
+          apartment.evidence.apartmentBuilding ? 1 : 0,
+          apartment.evidence.distinctUnits,
+          apartmentStatuses.get(apartment.id) ?? 'needs_review',
+          generation,
+        );
       }
       for (const segment of manualRows) {
         if (segment.source_segment_id && importedSourceIds.has(segment.source_segment_id)) {
@@ -1207,6 +1370,29 @@ export function saveTerritoryDraft(
     );
     for (const segmentId of excludedSegmentIds) {
       excludeSegment.run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID, segmentId);
+    }
+    const updateApartment = database.prepare(
+      `UPDATE apartment_complexes
+      SET review_status = ?
+      WHERE territory_id = ? AND church_id = ? AND is_current = 1 AND import_complex_id = ?
+        AND (? != 'ready' OR address IS NOT NULL)`,
+    );
+    const importedApartmentIds = options.imported
+      ? new Set(options.imported.apartmentComplexes.map(({ id }) => id))
+      : null;
+    for (const apartment of draft.apartmentStatuses ?? []) {
+      if (importedApartmentIds && !importedApartmentIds.has(apartment.id)) continue;
+      if (
+        updateApartment.run(
+          apartment.reviewStatus,
+          PILOT_TERRITORY_ID,
+          PILOT_CHURCH_ID,
+          apartment.id,
+          apartment.reviewStatus,
+        ).changes !== 1
+      ) {
+        throw new Error('Apartment complex not found or not ready for outreach');
+      }
     }
     database.exec('COMMIT');
   } catch (error) {

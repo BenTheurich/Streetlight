@@ -11,6 +11,8 @@ const png = Buffer.from(
 
 function packet(id: string, code: string, offset = 0): DownloadPacket {
   return {
+    kind: 'street',
+    apartmentId: null,
     id,
     code,
     batchId: 'batch-a',
@@ -75,6 +77,30 @@ test('packet map snaps each segment and requests one tightly fitted static image
   assert.match(calls[1], /maptype=roadmap/);
   assert.match(calls[1], /markers=33\.5429300%2C-117\.1168850/);
   assert.match(calls[1], /path=color%3A0xef6c3599%7Cweight%3A6%7Cenc%3A/);
+});
+
+test('apartment packet map skips road snapping and focuses on the complex marker', async () => {
+  const calls: string[] = [];
+  const fetchMap: typeof fetch = async (input) => {
+    calls.push(String(input));
+    return new Response(png, { headers: { 'content-type': 'image/png' } });
+  };
+  const apartment = {
+    ...packet('apt', 'TEM-APT'),
+    kind: 'apartment' as const,
+    apartmentId: 'complex-1',
+    segments: [],
+  };
+
+  await renderPacketMap(apartment, 'key', fetchMap);
+
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]);
+  assert.equal(url.hostname, 'maps.googleapis.com');
+  assert.equal(url.searchParams.get('zoom'), '18');
+  assert.equal(url.searchParams.get('center'), '33.54293,-117.116885');
+  assert.equal(url.searchParams.getAll('path').length, 0);
+  assert.equal(url.searchParams.getAll('markers').length, 1);
 });
 
 test('PDF contains one Letter page per packet and uses every rendered map', async () => {

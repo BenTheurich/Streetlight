@@ -12,6 +12,10 @@ export type TerritoryDraftInput = {
   boundaryShape: BoundaryShape;
   activatedRoadGroupIds: string[];
   excludedSegmentIds: string[];
+  apartmentStatuses?: Array<{
+    id: string;
+    reviewStatus: 'needs_review' | 'ready' | 'deferred';
+  }>;
   exclusions: Array<{
     id: string;
     name: string;
@@ -105,6 +109,12 @@ export function parseTerritoryDraft(value: unknown): TerritoryDraftInput {
   if (!Array.isArray(value.excludedSegmentIds) || value.excludedSegmentIds.length > 10_000) {
     throw new Error('Invalid excluded segments');
   }
+  if (
+    value.apartmentStatuses !== undefined &&
+    (!Array.isArray(value.apartmentStatuses) || value.apartmentStatuses.length > 10_000)
+  ) {
+    throw new Error('Invalid apartment statuses');
+  }
 
   const ids = new Set<string>();
   const exclusions = value.exclusions.map((candidate) => {
@@ -144,6 +154,24 @@ export function parseTerritoryDraft(value: unknown): TerritoryDraftInput {
     segmentIds.add(id);
     return id;
   });
+  const apartmentIds = new Set<string>();
+  const apartmentStatuses = (value.apartmentStatuses ?? []).map((candidate) => {
+    if (!isRecord(candidate)) {
+      throw new Error('Invalid apartment status');
+    }
+    const id = parseText(candidate.id, 'Apartment ID', 200, true);
+    if (
+      apartmentIds.has(id) ||
+      !['needs_review', 'ready', 'deferred'].includes(String(candidate.reviewStatus))
+    ) {
+      throw new Error('Invalid apartment status');
+    }
+    apartmentIds.add(id);
+    return {
+      id,
+      reviewStatus: candidate.reviewStatus as 'needs_review' | 'ready' | 'deferred',
+    };
+  });
 
   return {
     originAddress: parseText(value.originAddress, 'Church address', 300, true),
@@ -152,6 +180,7 @@ export function parseTerritoryDraft(value: unknown): TerritoryDraftInput {
     boundaryShape: value.boundaryShape,
     activatedRoadGroupIds,
     excludedSegmentIds,
+    apartmentStatuses,
     exclusions,
   };
 }

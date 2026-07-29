@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from 'react';
 import type { CoverageLegendItem } from '@/lib/coverage';
-import type { CoverageWorkspaceSegment } from '@/lib/database';
+import type { ApartmentComplex, CoverageWorkspaceSegment } from '@/lib/database';
 import { latLng } from '@/lib/google-maps-browser';
-import { segmentStrokeWeight } from '@/lib/territory-map-style';
+import { apartmentMarkerColor, segmentStrokeWeight } from '@/lib/territory-map-style';
 
 export const coverageColors = {
   red: '#B4473D',
@@ -20,6 +20,7 @@ type CoverageMapProps = {
   map: google.maps.Map | null;
   legend: CoverageLegendItem[];
   segments: CoverageWorkspaceSegment[];
+  apartmentComplexes: ApartmentComplex[];
   selectedSegmentId: string | null;
   onSelectSegment: (id: string) => void;
 };
@@ -30,6 +31,7 @@ export function CoverageMap({
   map,
   legend,
   segments,
+  apartmentComplexes,
   selectedSegmentId,
   onSelectSegment,
 }: CoverageMapProps) {
@@ -87,6 +89,37 @@ export function CoverageMap({
       }
     };
   }, [active, interactive, map, onSelectSegment, segments]);
+
+  useEffect(() => {
+    if (!active || !map) return;
+    let disposed = false;
+    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
+    void google.maps.importLibrary('marker').then((library) => {
+      if (disposed) return;
+      const { AdvancedMarkerElement } = library as google.maps.MarkerLibrary;
+      for (const apartment of apartmentComplexes) {
+        const content = document.createElement('span');
+        content.className = 'apartment-map-marker static';
+        content.style.setProperty(
+          '--apartment-color',
+          apartmentMarkerColor(apartment.reviewStatus),
+        );
+        content.textContent = 'A';
+        const marker = new AdvancedMarkerElement({
+          map,
+          position: latLng(apartment.position),
+          content,
+          title: `${apartment.address ?? 'Apartment complex'} · ${apartment.reviewStatus.replace('_', ' ')}`,
+          zIndex: 8,
+        });
+        markers.push(marker);
+      }
+    });
+    return () => {
+      disposed = true;
+      for (const marker of markers) marker.map = null;
+    };
+  }, [active, apartmentComplexes, map]);
 
   useEffect(() => {
     if (!interactive) return;

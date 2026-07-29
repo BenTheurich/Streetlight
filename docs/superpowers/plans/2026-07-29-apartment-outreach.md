@@ -33,12 +33,12 @@ Node test runner, and `pdf-lib`.
 **Interfaces:**
 - Produces: `apartmentComplexes[]` with stable ID, address, position, estimated tracts, and evidence.
 
-- [ ] Add a failing importer test proving explicit apartment classification, five-unit detection,
+- [x] Add a failing importer test proving explicit apartment classification, five-unit detection,
   four-unit rejection, aggregate estimates, and no street double-count.
-- [ ] Run the focused Python test and confirm the missing output fails.
-- [ ] Implement the minimum grouping and import serialization.
-- [ ] Run the Python importer suite.
-- [ ] Add and fail the TypeScript contract test, then accept only the complete apartment contract.
+- [x] Run the focused Python test and confirm the missing output fails.
+- [x] Implement the minimum grouping and import serialization.
+- [x] Run the Python importer suite.
+- [x] Add and fail the TypeScript contract test, then accept only the complete apartment contract.
 
 ### Task 2: Persistence and review states
 
@@ -52,12 +52,12 @@ Node test runner, and `pdf-lib`.
 - Produces: persisted `needs_review | ready | deferred` complexes in territory and coverage
   workspaces; consumes apartment import output from Task 1.
 
-- [ ] Add a failing migration/import test for default state, reimport preservation, retirement,
+- [x] Add a failing migration/import test for default state, reimport preservation, retirement,
   and exact state updates.
-- [ ] Run the database test and confirm the missing schema/behavior fails.
-- [ ] Add the smallest schema and replacement/update queries.
-- [ ] Add request validation for state changes to the existing territory save flow.
-- [ ] Run focused database and route tests.
+- [x] Run the database test and confirm the missing schema/behavior fails.
+- [x] Add the smallest schema and replacement/update queries.
+- [x] Add request validation for state changes to the existing territory save flow.
+- [x] Run focused database and route tests.
 
 ### Task 3: Map and territory review
 
@@ -71,11 +71,11 @@ Node test runner, and `pdf-lib`.
 - Consumes: apartment complexes from Task 2.
 - Produces: selectable amber, blue, and gray markers plus the three-state editor.
 
-- [ ] Add a failing pure appearance test for the three review states.
-- [ ] Implement one marker component using the existing Google map instance.
-- [ ] Add the Apartment complex sidebar section with address, estimated-tract label, evidence,
+- [x] Add a failing pure appearance test for the three review states.
+- [x] Implement one marker component using the existing Google map instance.
+- [x] Add the Apartment complex sidebar section with address, estimated-tract label, evidence,
   and state controls.
-- [ ] Run focused tests, lint, and typecheck.
+- [x] Run focused tests, lint, and typecheck.
 
 ### Task 4: Separate apartment packets
 
@@ -94,14 +94,14 @@ Node test runner, and `pdf-lib`.
 - Produces: `street` and `apartment` packet proposals in one reviewed batch.
 - Persists: one apartment reservation per apartment packet.
 
-- [ ] Add a failing selection test proving every ready unreserved complex becomes one additional
+- [x] Add a failing selection test proving every ready unreserved complex becomes one additional
   proposal while needs-review, deferred, and reserved complexes do not.
-- [ ] Implement the proposal union and deterministic ordering.
-- [ ] Add failing finalization/database tests proving exact reservation and stale-proposal rejection.
-- [ ] Persist apartment packet links and expose them in download selections.
-- [ ] Add failing PDF tests for a marker-only focused map and estimated-apartment-tract label.
-- [ ] Implement map/PDF rendering and packet review copy.
-- [ ] Run all packet tests.
+- [x] Implement the proposal union and deterministic ordering.
+- [x] Add failing finalization/database tests proving exact reservation and stale-proposal rejection.
+- [x] Persist apartment packet links and expose them in download selections.
+- [x] Add failing PDF tests for a marker-only focused map and estimated-apartment-tract label.
+- [x] Implement map/PDF rendering and packet review copy.
+- [x] Run all packet tests.
 
 ### Task 5: Benchmark correctness and verification
 
@@ -110,14 +110,14 @@ Node test runner, and `pdf-lib`.
 - Modify: `web/importer/overture_import.py`
 - Modify: `web/importer/run_benchmark.py`
 - Modify: `IMPLEMENTATION_PLAN.md`
-- Create: `docs/benchmarks/2026-07-29-overture-nad-v8.md`
+- Create: `docs/benchmarks/2026-07-29-overture-nad-v9.md`
 
 **Interfaces:**
 - Produces: premise-deduplicated count metrics and exact failure diagnostics.
 
-- [ ] Add a failing benchmark test where hundreds of repeated points with five house numbers count
+- [x] Add a failing benchmark test where hundreds of repeated points with five house numbers count
   as five premises.
-- [ ] Implement premise deduplication and diagnostic fields without changing import assignment.
-- [ ] Run the five cached territories and record literal results.
-- [ ] Run Python tests, Node tests, lint, typecheck, production build, and `git diff --check`.
-- [ ] Update phase status and evidence with the benchmark outcome.
+- [x] Implement premise deduplication and diagnostic fields without changing import assignment.
+- [x] Run five refreshed holdouts and record literal results.
+- [x] Run Python tests, Node tests, lint, typecheck, production build, and `git diff --check`.
+- [x] Update phase status and evidence with the benchmark outcome.

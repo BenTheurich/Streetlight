@@ -423,6 +423,53 @@ test('components without a numbered address are skipped with stable warnings', (
   ]);
 });
 
+test('ready unreserved apartment complexes become separate atomic proposals', () => {
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [{ quantity: 1, targetHomes: 10 }],
+    segments: [],
+    apartmentComplexes: [
+      {
+        id: 'ready',
+        address: '10 Apartment Way, Temecula CA 92591',
+        position: [0.01, 0],
+        estimatedTracts: 24,
+        eligible: true,
+        reserved: false,
+      },
+      {
+        id: 'reserved',
+        address: '20 Apartment Way, Temecula CA 92591',
+        position: [0.02, 0],
+        estimatedTracts: 12,
+        eligible: true,
+        reserved: true,
+      },
+      {
+        id: 'review',
+        address: '30 Apartment Way, Temecula CA 92591',
+        position: [0.03, 0],
+        estimatedTracts: 8,
+        eligible: false,
+        reserved: false,
+      },
+    ],
+  });
+
+  assert.deepEqual(result.proposals, [
+    {
+      kind: 'apartment',
+      apartmentId: 'ready',
+      targetHomes: 24,
+      estimatedHomes: 24,
+      coverageClass: 'red',
+      segments: [],
+      start: { address: '10 Apartment Way, Temecula CA 92591', position: [0.01, 0] },
+      streetNames: [],
+    },
+  ]);
+});
+
 test('saved Temecula geometry produces connected deterministic mixed-size proposals', () => {
   const fixture = JSON.parse(
     readFileSync(new URL('../db/fixtures/temecula-segments.json', import.meta.url), 'utf8'),

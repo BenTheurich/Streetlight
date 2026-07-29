@@ -21,6 +21,11 @@ Streetlight stores the aggregate evidence and estimated tract count, not individ
 unit identifiers. Apartment addresses and unit evidence do not also increase the adjacent street
 segment estimate.
 
+For an apartment-class building with no unit records, Streetlight estimates one tract per 100
+square meters of above-ground gross floor area, with a minimum of two. Overture `num_floors` is
+used when available, then height divided by three meters, then one floor. The territory editor
+labels this as a footprint estimate.
+
 ## Review states
 
 Every imported complex starts as `needs_review`. The administrator may change it to:
@@ -31,6 +36,9 @@ Every imported complex starts as `needs_review`. The administrator may change it
 All three states remain visible. Reimports preserve the administrator's state when the same
 source complex remains present. A source complex that disappears is retired without deleting its
 packet or future coverage history.
+
+A complex without a usable starting address cannot be marked ready because its packet could not
+provide the required printed address and directions QR. It remains needs review or deferred.
 
 ## Map and territory setup
 
@@ -81,4 +89,3 @@ normalizer behavior to fit a fixture. Existing areas remain fixed holdouts.
 
 This design adds no LLM, Google-image extraction, manual tract editing, access instructions,
 partial apartment completion, apartment walking routes, or church-specific detection rules.
-

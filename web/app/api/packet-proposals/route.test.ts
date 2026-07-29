@@ -60,7 +60,7 @@ function preparePacketGraph(filename: string): void {
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',
-    normalizerVersion: 7,
+    normalizerVersion: 9,
     quality: {
       totalAddresses: 2,
       assignedAddresses: 2,
@@ -127,6 +127,7 @@ function preparePacketGraph(filename: string): void {
         ],
       },
     ],
+    apartmentComplexes: [],
   };
   saveTerritoryDraft(
     {

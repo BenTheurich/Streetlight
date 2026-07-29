@@ -32,7 +32,7 @@ function withDatabase(run: (filename: string) => void): void {
   }
 }
 
-function preparePacketGraph(filename: string): void {
+function preparePacketGraph(filename: string, includeApartment = false): void {
   const workspace = getTerritoryWorkspace(filename);
   const segments = ['A', 'B', 'C', 'D'].map((suffix, index) => ({
     id: `packet-${suffix.toLowerCase()}`,
@@ -64,7 +64,7 @@ function preparePacketGraph(filename: string): void {
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',
-    normalizerVersion: 7,
+    normalizerVersion: 9,
     quality: {
       totalAddresses: segments.length,
       assignedAddresses: segments.length,
@@ -80,6 +80,18 @@ function preparePacketGraph(filename: string): void {
       warnings: [],
     },
     segments,
+    apartmentComplexes: includeApartment
+      ? [
+          {
+            id: 'apartment-one',
+            sourceId: 'building-one',
+            address: '100 Apartment Way, Temecula CA 92591',
+            position: [-117.11685, 33.54295],
+            estimatedTracts: 24,
+            evidence: { apartmentBuilding: true, distinctUnits: 24 },
+          },
+        ]
+      : [],
   };
   saveTerritoryDraft(
     {
@@ -93,8 +105,66 @@ function preparePacketGraph(filename: string): void {
     },
     { filename, imported },
   );
+  if (includeApartment) {
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
+        exclusions: [],
+        activatedRoadGroupIds: [],
+        excludedSegmentIds: [],
+        apartmentStatuses: [{ id: 'apartment-one', reviewStatus: 'ready' }],
+      },
+      { filename },
+    );
+  }
   for (const segment of segments) recordCoverageCompletion(segment.id, '2025-01-01', filename);
 }
+
+test('ready apartment complexes finalize and reserve as separate atomic packets', () => {
+  withDatabase((filename) => {
+    preparePacketGraph(filename, true);
+    const input = reviewedInput(filename);
+    const reviewed = generatePacketProposals({
+      ...getPacketGenerationWorkspace(filename, '2026-07-28'),
+      requests: input.requests,
+    });
+    assert.equal(reviewed.proposals.length, 2);
+    assert.equal(reviewed.proposals[1].kind, 'apartment');
+
+    const finalized = finalizePacketBatch(input, {
+      filename,
+      now: new Date('2026-07-28T19:30:00.000Z'),
+      asOf: '2026-07-28',
+    });
+    assert.equal(finalized.packetCount, 2);
+    assert.equal(finalized.packets[1].apartmentId, 'apartment-one');
+
+    const database = openDatabase(filename);
+    try {
+      assert.equal(
+        (
+          database.prepare('SELECT COUNT(*) AS count FROM packet_apartment_complexes').get() as {
+            count: number;
+          }
+        ).count,
+        1,
+      );
+    } finally {
+      database.close();
+    }
+    assert.equal(
+      getPacketGenerationWorkspace(filename, '2026-07-28').apartmentComplexes[0].reserved,
+      true,
+    );
+    const apartmentDownload = getPacketDownloadSelection('newest', filename).packets[1];
+    assert.equal(apartmentDownload.kind, 'apartment');
+    assert.equal(apartmentDownload.apartmentId, 'apartment-one');
+    assert.deepEqual(apartmentDownload.segments, []);
+  });
+});
 
 function reviewedInput(filename: string, targetHomes = 16): PacketFinalizationInput {
   const requests = [{ quantity: 1, targetHomes }];

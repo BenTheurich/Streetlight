@@ -65,7 +65,7 @@ function importedTerritory(segments) {
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 7,
+    normalizerVersion: 9,
     quality: {
       totalAddresses: 12,
       assignedAddresses: 10,
@@ -81,6 +81,18 @@ function importedTerritory(segments) {
       warnings: ['Address matching is below the 95% reliability target (83.3% matched).'],
     },
     segments,
+    apartmentComplexes: [],
+  };
+}
+
+function importedApartment(id, address = '10 Sample Road, Temecula CA 92591') {
+  return {
+    id,
+    sourceId: `source-${id}`,
+    address,
+    position: [-117.11685, 33.54295],
+    estimatedTracts: 12,
+    evidence: { apartmentBuilding: true, distinctUnits: 12 },
   };
 }
 
@@ -106,6 +118,7 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
       'packet_segments',
       'ignore_zones',
       'segment_addresses',
+      'apartment_complexes',
     ];
 
     const emptyTables = new Set([
@@ -115,6 +128,7 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
       'packet_segments',
       'ignore_zones',
       'segment_addresses',
+      'apartment_complexes',
     ]);
     for (const table of expectedTables) {
       const expected = table === 'street_segments' ? 55 : emptyTables.has(table) ? 0 : 1;
@@ -150,6 +164,114 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test('apartment imports default to review, preserve decisions, and retire missing complexes', () => {
+  withDatabase((filename) => {
+    const initial = getTerritoryWorkspace(filename);
+    const draft = {
+      originAddress: initial.originAddress,
+      center: initial.center,
+      radiusMiles: 1,
+      boundaryShape: 'circle',
+      activatedRoadGroupIds: [],
+      excludedSegmentIds: [],
+      apartmentStatuses: [],
+      exclusions: [],
+    };
+    saveTerritoryDraft(draft, {
+      filename,
+      imported: {
+        ...importedTerritory([importedSegment('road', 'Sample Road', 'residential', 1)]),
+        radiusMiles: 1,
+        apartmentComplexes: [
+          importedApartment('apartments-10'),
+          importedApartment('units-20'),
+          importedApartment('missing-address', null),
+        ],
+      },
+    });
+
+    const imported = getTerritoryWorkspace(filename);
+    assert.deepEqual(
+      imported.apartmentComplexes
+        .map(({ id, reviewStatus, estimatedTracts }) => ({
+          id,
+          reviewStatus,
+          estimatedTracts,
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
+      [
+        { id: 'apartments-10', reviewStatus: 'needs_review', estimatedTracts: 12 },
+        { id: 'missing-address', reviewStatus: 'needs_review', estimatedTracts: 12 },
+        { id: 'units-20', reviewStatus: 'needs_review', estimatedTracts: 12 },
+      ],
+    );
+    assert.throws(
+      () =>
+        saveTerritoryDraft(
+          {
+            ...draft,
+            apartmentStatuses: [{ id: 'missing-address', reviewStatus: 'ready' }],
+          },
+          { filename },
+        ),
+      /not ready for outreach/,
+    );
+
+    saveTerritoryDraft(
+      {
+        ...draft,
+        apartmentStatuses: [
+          { id: 'apartments-10', reviewStatus: 'ready' },
+          { id: 'units-20', reviewStatus: 'deferred' },
+        ],
+      },
+      { filename },
+    );
+    saveTerritoryDraft(
+      {
+        ...draft,
+        apartmentStatuses: [
+          { id: 'apartments-10', reviewStatus: 'ready' },
+          { id: 'units-20', reviewStatus: 'deferred' },
+        ],
+      },
+      {
+        filename,
+        imported: {
+          ...importedTerritory([importedSegment('road', 'Sample Road', 'residential', 1)]),
+          radiusMiles: 1,
+          apartmentComplexes: [importedApartment('apartments-10')],
+        },
+      },
+    );
+
+    const reimported = getTerritoryWorkspace(filename);
+    assert.deepEqual(
+      reimported.apartmentComplexes.map(({ id, reviewStatus }) => ({ id, reviewStatus })),
+      [{ id: 'apartments-10', reviewStatus: 'ready' }],
+    );
+    const database = openDatabase(filename);
+    try {
+      assert.deepEqual(
+        database
+          .prepare(
+            'SELECT import_complex_id, is_current FROM apartment_complexes ORDER BY import_complex_id, import_generation',
+          )
+          .all()
+          .map((row) => ({ ...row })),
+        [
+          { import_complex_id: 'apartments-10', is_current: 0 },
+          { import_complex_id: 'apartments-10', is_current: 1 },
+          { import_complex_id: 'missing-address', is_current: 0 },
+          { import_complex_id: 'units-20', is_current: 0 },
+        ],
+      );
+    } finally {
+      database.close();
+    }
+  });
 });
 
 test('circle and square boundaries control eligibility and coverage-map visibility', () => {
@@ -1574,7 +1696,7 @@ test('coverage boundary appends corrections, retains retired logical history, an
       /Coverage event not found/,
     );
     assert.throws(
-      () => appendCoverageCorrection(root, '2026-07-29', filename),
+      () => appendCoverageCorrection(root, '2099-01-01', filename),
       /Invalid coverage date/,
     );
     const afterFailures = openDatabase(filename);

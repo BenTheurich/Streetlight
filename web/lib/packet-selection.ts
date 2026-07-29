@@ -21,12 +21,23 @@ export type PacketSelectionSegment = {
   addresses: PacketAddress[];
 };
 
+export type ApartmentPacketCandidate = {
+  id: string;
+  address: string;
+  position: Position;
+  estimatedTracts: number;
+  eligible: boolean;
+  reserved: boolean;
+};
+
 export type PacketSizeRequest = {
   quantity: number;
   targetHomes: number;
 };
 
 export type PacketProposal = {
+  kind?: 'apartment';
+  apartmentId?: string;
   targetHomes: number;
   estimatedHomes: number;
   coverageClass: CoverageClass;
@@ -591,6 +602,7 @@ export function generatePacketProposals(input: {
   center: Position;
   requests: PacketSizeRequest[];
   segments: PacketSelectionSegment[];
+  apartmentComplexes?: ApartmentPacketCandidate[];
 }): PacketGenerationResult {
   const slots: TargetSlot[] = input.requests.flatMap((request) =>
     Array.from({ length: request.quantity }, () => ({
@@ -717,5 +729,28 @@ export function generatePacketProposals(input: {
       'Generated fewer packets because no more sensible eligible streets were available.',
     );
   }
+  proposals.push(
+    ...(input.apartmentComplexes ?? [])
+      .filter((apartment) => apartment.eligible && !apartment.reserved)
+      .sort(
+        (a, b) =>
+          compareNumbers(
+            scaledDistanceSquared(a.position, input.center),
+            scaledDistanceSquared(b.position, input.center),
+          ) || compareStrings(a.id, b.id),
+      )
+      .map(
+        (apartment): PacketProposal => ({
+          kind: 'apartment',
+          apartmentId: apartment.id,
+          targetHomes: apartment.estimatedTracts,
+          estimatedHomes: apartment.estimatedTracts,
+          coverageClass: 'red',
+          segments: [],
+          start: { address: apartment.address, position: apartment.position },
+          streetNames: [],
+        }),
+      ),
+  );
   return { proposals, warnings };
 }

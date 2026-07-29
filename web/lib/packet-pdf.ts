@@ -77,8 +77,10 @@ export async function renderPacketMap(
   fetchMap: typeof fetch = fetch,
 ): Promise<Uint8Array> {
   const paths: Position[][] = [];
-  for (const segment of packet.segments) {
-    paths.push(await snapCoordinates(segment.geometry.coordinates, apiKey, fetchMap));
+  if (packet.kind !== 'apartment') {
+    for (const segment of packet.segments) {
+      paths.push(await snapCoordinates(segment.geometry.coordinates, apiKey, fetchMap));
+    }
   }
   const parameters = new URLSearchParams({
     size: '640x640',
@@ -88,6 +90,10 @@ export async function renderPacketMap(
     language: 'en',
     region: 'us',
   });
+  if (packet.kind === 'apartment') {
+    parameters.set('center', `${packet.start.position[1]},${packet.start.position[0]}`);
+    parameters.set('zoom', '18');
+  }
   for (const path of paths) {
     parameters.append('path', `color:0xef6c3599|weight:6|enc:${encodePolyline(path)}`);
   }
@@ -148,13 +154,16 @@ export async function renderPacketPdf(
       borderColor: border,
       borderWidth: 0.5,
     });
-    page.drawText('ESTIMATED HOMES / TRACTS', {
-      x: 22,
-      y: 752,
-      size: 9,
-      font: bold,
-      color: muted,
-    });
+    page.drawText(
+      packet.kind === 'apartment' ? 'ESTIMATED APARTMENT TRACTS' : 'ESTIMATED HOMES / TRACTS',
+      {
+        x: 22,
+        y: 752,
+        size: 9,
+        font: bold,
+        color: muted,
+      },
+    );
     page.drawText(String(packet.estimatedHomes), {
       x: 22,
       y: 704,

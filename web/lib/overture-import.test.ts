@@ -13,7 +13,7 @@ const validOutput = {
   center: requestedCenter,
   radiusMiles: 1,
   completedAt: '2026-07-27T12:00:00.000Z',
-  normalizerVersion: 7,
+  normalizerVersion: 9,
   quality: {
     totalAddresses: 12,
     assignedAddresses: 10,
@@ -28,6 +28,19 @@ const validOutput = {
     buildingAddressDisagreements: 1,
     warnings: ['Address matching is below the 95% reliability target (83.3% matched).'],
   },
+  apartmentComplexes: [
+    {
+      id: 'overture-apartment-building:building-1',
+      sourceId: 'building-1',
+      address: '10 Main Street, Temecula, 92591',
+      position: [-117.129, 33.5101],
+      estimatedTracts: 24,
+      evidence: {
+        apartmentBuilding: true,
+        distinctUnits: 24,
+      },
+    },
+  ],
   segments: [
     {
       id: 'overture:road-1:0',

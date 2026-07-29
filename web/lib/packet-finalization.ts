@@ -32,6 +32,8 @@ export type FinalizedBatch = {
 };
 
 export type DownloadPacket = {
+  kind: 'street' | 'apartment';
+  apartmentId: string | null;
   id: string;
   code: string;
   batchId: string;
@@ -73,6 +75,8 @@ export function parsePacketFinalizationInput(value: unknown): PacketFinalization
 
 export function packetProposalFingerprint(proposals: PacketProposal[]): string {
   const stable = proposals.map((proposal) => ({
+    kind: proposal.kind ?? 'street',
+    apartmentId: proposal.apartmentId ?? null,
     targetHomes: proposal.targetHomes,
     estimatedHomes: proposal.estimatedHomes,
     coverageClass: proposal.coverageClass,

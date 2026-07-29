@@ -259,7 +259,11 @@ export function PacketGenerator({
               return (
                 <article
                   className={`packet-card${selected ? ' selected' : ''}`}
-                  key={proposal.segments.map(({ id }) => id).join('|')}
+                  key={
+                    proposal.kind === 'apartment'
+                      ? `apartment:${proposal.apartmentId}`
+                      : proposal.segments.map(({ id }) => id).join('|')
+                  }
                 >
                   <button
                     aria-pressed={selected}
@@ -267,16 +271,25 @@ export function PacketGenerator({
                     onClick={() => onSelectedIndexChange(index)}
                     type="button"
                   >
-                    <strong>Packet {index + 1}</strong>
+                    <strong>
+                      Packet {index + 1}
+                      {proposal.kind === 'apartment' ? ' · Apartment complex' : ''}
+                    </strong>
                     <span>Target {proposal.targetHomes} tracts</span>
                     <span>{proposal.estimatedHomes} estimated tracts</span>
                   </button>
                   {selected && (
                     <div className="packet-card-detail">
-                      <strong>Starting address</strong>
+                      <strong>
+                        {proposal.kind === 'apartment' ? 'Complex address' : 'Starting address'}
+                      </strong>
                       <p>{proposal.start.address}</p>
-                      <strong>Streets</strong>
-                      <p>{proposal.streetNames.join(', ')}</p>
+                      {proposal.kind !== 'apartment' && (
+                        <>
+                          <strong>Streets</strong>
+                          <p>{proposal.streetNames.join(', ')}</p>
+                        </>
+                      )}
                     </div>
                   )}
                 </article>
@@ -309,7 +322,7 @@ export function PacketGenerator({
                       {result.proposals.length} packet
                       {result.proposals.length === 1 ? '' : 's'} · {proposedHomes} estimated tracts
                     </p>
-                    <p>These street segments will be reserved for this outreach.</p>
+                    <p>These streets and apartment complexes will be reserved for this outreach.</p>
                     <div>
                       <button
                         className="secondary"

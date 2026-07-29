@@ -107,6 +107,7 @@ const draft: TerritoryDraftInput = {
   boundaryShape: 'circle',
   activatedRoadGroupIds: [],
   excludedSegmentIds: [],
+  apartmentStatuses: [],
   exclusions: [
     {
       id: 'exclude-1',
@@ -340,6 +341,7 @@ test('workspace conversion keeps only the complete editable draft', () => {
       normalizerVersion: null,
       quality: null,
     },
+    apartmentComplexes: [],
     segments,
     totals: {
       allSegments: 3,

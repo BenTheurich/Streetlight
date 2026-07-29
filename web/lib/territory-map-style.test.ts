@@ -1,11 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  apartmentMarkerColor,
   boundaryStrokePaths,
   segmentMapAppearance,
   segmentStrokeWeight,
   segmentVisibleOnMap,
 } from './territory-map-style.ts';
+
+test('apartment markers distinguish review states', () => {
+  assert.equal(apartmentMarkerColor('needs_review'), '#b97916');
+  assert.equal(apartmentMarkerColor('ready'), '#1769ff');
+  assert.equal(apartmentMarkerColor('deferred'), '#77736c');
+});
 
 test('square boundary strokes restart on each side instead of crossing corners', () => {
   const ring = [

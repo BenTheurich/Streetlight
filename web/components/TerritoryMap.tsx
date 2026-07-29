@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { ExclusionArea, TerritorySegment } from '@/lib/database';
+import type { ApartmentComplex, ExclusionArea, TerritorySegment } from '@/lib/database';
 import { latLng } from '@/lib/google-maps-browser';
 import { type BoundaryShape, type Position, territoryBoundary } from '@/lib/territory-geometry';
 import {
+  apartmentMarkerColor,
   boundaryStrokePaths,
   segmentMapAppearance,
   segmentStrokeWeight,
@@ -32,6 +33,7 @@ type TerritoryMapProps = {
   radiusMiles: number;
   boundaryShape: BoundaryShape;
   segments: TerritorySegment[];
+  apartmentComplexes: ApartmentComplex[];
   exclusions: ExclusionArea[];
   selectedExclusionId: string | null;
   selectedHiddenRoadGroupId: string | null;
@@ -45,6 +47,8 @@ type TerritoryMapProps = {
   onSelectExclusion: (id: string) => void;
   onSelectHiddenRoadGroup: (id: string) => void;
   onSelectSegment: (id: string) => void;
+  onSelectApartment: (id: string) => void;
+  selectedApartmentId: string | null;
 };
 
 export function TerritoryMap({
@@ -54,6 +58,7 @@ export function TerritoryMap({
   radiusMiles,
   boundaryShape,
   segments,
+  apartmentComplexes,
   exclusions,
   selectedExclusionId,
   selectedHiddenRoadGroupId,
@@ -67,6 +72,8 @@ export function TerritoryMap({
   onSelectExclusion,
   onSelectHiddenRoadGroup,
   onSelectSegment,
+  onSelectApartment,
+  selectedApartmentId,
 }: TerritoryMapProps) {
   const drawingRef = useRef(drawing);
   const drawingPointsRef = useRef(drawingPoints);
@@ -217,6 +224,42 @@ export function TerritoryMap({
     selectedSegmentId,
     showHiddenRoads,
   ]);
+
+  useEffect(() => {
+    if (!active || !map) return;
+    let disposed = false;
+    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
+    void google.maps.importLibrary('marker').then((library) => {
+      if (disposed) return;
+      const { AdvancedMarkerElement } = library as google.maps.MarkerLibrary;
+      for (const apartment of apartmentComplexes.filter(({ withinBoundary }) => withinBoundary)) {
+        const content = document.createElement('span');
+        content.className = `apartment-map-marker${
+          apartment.id === selectedApartmentId ? ' selected' : ''
+        }`;
+        content.style.setProperty(
+          '--apartment-color',
+          apartmentMarkerColor(apartment.reviewStatus),
+        );
+        content.textContent = 'A';
+        content.title = apartment.address ?? 'Apartment complex';
+        const marker = new AdvancedMarkerElement({
+          map,
+          position: latLng(apartment.position),
+          content,
+          title: apartment.address ?? 'Apartment complex',
+          zIndex: apartment.id === selectedApartmentId ? 30 : 20,
+          gmpClickable: true,
+        });
+        marker.addEventListener('gmp-click', () => onSelectApartment(apartment.id));
+        markers.push(marker);
+      }
+    });
+    return () => {
+      disposed = true;
+      for (const marker of markers) marker.map = null;
+    };
+  }, [active, apartmentComplexes, map, onSelectApartment, selectedApartmentId]);
 
   useEffect(() => {
     if (!active || !map) return;

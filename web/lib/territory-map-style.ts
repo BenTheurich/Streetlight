@@ -1,5 +1,13 @@
 import type { BoundaryShape, Position } from './territory-geometry.ts';
 
+export function apartmentMarkerColor(status: 'needs_review' | 'ready' | 'deferred'): string {
+  return {
+    needs_review: '#b97916',
+    ready: '#1769ff',
+    deferred: '#77736c',
+  }[status];
+}
+
 export function boundaryStrokePaths(ring: Position[], shape: BoundaryShape): Position[][] {
   if (shape !== 'square') return [ring];
   const corners = ring.slice(0, -1);

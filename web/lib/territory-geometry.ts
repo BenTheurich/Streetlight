@@ -114,6 +114,20 @@ export function lineInsideTerritoryBoundary(
   );
 }
 
+export function pointInsideTerritoryBoundary(
+  point: Position,
+  center: Position,
+  radiusMiles: number,
+  shape: BoundaryShape,
+): boolean {
+  return lineInsideTerritoryBoundary(
+    { type: 'LineString', coordinates: [point] },
+    center,
+    radiusMiles,
+    shape,
+  );
+}
+
 function pointOnLine(point: Position, start: Position, end: Position): boolean {
   const cross =
     (point[1] - start[1]) * (end[0] - start[0]) - (point[0] - start[0]) * (end[1] - start[1]);

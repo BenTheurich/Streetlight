@@ -44,6 +44,7 @@ def address(
     postal_city=None,
     postcode=None,
     address_levels=None,
+    unit=None,
 ):
     return {
         "properties": {
@@ -52,20 +53,168 @@ def address(
             "postal_city": postal_city,
             "postcode": postcode,
             "address_levels": address_levels or [],
+            "unit": unit,
         },
         "geometry": {"type": "Point", "coordinates": [longitude, latitude]},
     }
 
 
-def building(source_id, building_class, coordinates):
+def building(
+    source_id,
+    building_class,
+    coordinates,
+    height=None,
+    num_floors=None,
+):
     return {
         "id": source_id,
-        "properties": {"class": building_class, "subtype": "building"},
+        "properties": {
+            "class": building_class,
+            "subtype": "building",
+            "height": height,
+            "num_floors": num_floors,
+        },
         "geometry": {"type": "Polygon", "coordinates": [coordinates]},
     }
 
 
 class NormalizeFeaturesTest(TestCase):
+    def test_separates_apartment_buildings_and_five_unit_premises_from_street_counts(self):
+        roads = [
+            road("road-1", "residential", "Sample Road", [[0, 0], [0.001, 0]])
+        ]
+        addresses = [
+            *[
+                address(
+                    "Sample Road",
+                    0.0002,
+                    0.00005,
+                    number="10",
+                    postal_city="Example",
+                    postcode="12345",
+                    unit=str(unit),
+                )
+                for unit in range(1, 3)
+            ],
+            *[
+                address(
+                    "Sample Road",
+                    0.0007,
+                    0.00005,
+                    number="20",
+                    postal_city="Example",
+                    postcode="12345",
+                    unit=str(unit),
+                )
+                for unit in range(1, 6)
+            ],
+            *[
+                address(
+                    "Sample Road",
+                    0.0009,
+                    0.00005,
+                    number="30",
+                    postal_city="Example",
+                    postcode="12345",
+                    unit=str(unit),
+                )
+                for unit in range(1, 5)
+            ],
+        ]
+        buildings = [
+            building(
+                "apartment-building",
+                "apartments",
+                [
+                    [0.0001, 0],
+                    [0.0003, 0],
+                    [0.0003, 0.0001],
+                    [0.0001, 0.0001],
+                    [0.0001, 0],
+                ],
+            )
+        ]
+
+        result = normalize_features(roads, addresses, buildings)
+
+        self.assertEqual(result["segments"][0]["estimatedHomes"], 1)
+        self.assertEqual(
+            result["apartmentComplexes"],
+            [
+                {
+                    "id": "overture-apartment-building:apartment-building",
+                    "sourceId": "apartment-building",
+                    "address": "10 Sample Road, Example, 12345",
+                    "position": [0.0002, 0.00005],
+                    "estimatedTracts": 2,
+                    "evidence": {
+                        "apartmentBuilding": True,
+                        "distinctUnits": 2,
+                    },
+                },
+                {
+                    "id": "overture-apartment-address:sample-rd|20|12345",
+                    "sourceId": "sample-rd|20|12345",
+                    "address": "20 Sample Road, Example, 12345",
+                    "position": [0.0007, 0.00005],
+                    "estimatedTracts": 5,
+                    "evidence": {
+                        "apartmentBuilding": False,
+                        "distinctUnits": 5,
+                    },
+                },
+            ],
+        )
+
+    def test_address_only_apartment_requires_a_numbered_street_address(self):
+        result = normalize_features(
+            [road("road-1", "residential", "Sample Road", [[0, 0], [0.001, 0]])],
+            [
+                address(
+                    "Sample Road",
+                    0.0005,
+                    0.00005,
+                    number=None,
+                    postcode="12345",
+                    unit=str(unit),
+                )
+                for unit in range(1, 6)
+            ],
+        )
+
+        self.assertEqual(result["apartmentComplexes"], [])
+
+    def test_apartment_building_without_units_uses_a_footprint_estimate(self):
+        result = normalize_features(
+            [road("road-1", "residential", "Sample Road", [[0, 0], [0.001, 0]])],
+            [
+                address(
+                    "Sample Road",
+                    0.00015,
+                    0.00015,
+                    number="10",
+                    postcode="12345",
+                )
+            ],
+            [
+                building(
+                    "apartment-building",
+                    "apartments",
+                    [
+                        [0, 0],
+                        [0.0003, 0],
+                        [0.0003, 0.0003],
+                        [0, 0.0003],
+                        [0, 0],
+                    ],
+                    num_floors=2,
+                )
+            ],
+        )
+
+        self.assertEqual(result["apartmentComplexes"][0]["estimatedTracts"], 22)
+        self.assertEqual(result["apartmentComplexes"][0]["evidence"]["distinctUnits"], 0)
+
     def test_canonical_names_ignore_case_punctuation_and_suffix_spelling(self):
         self.assertEqual(canonical_street_name("Jons Place"), "jons pl")
         self.assertEqual(canonical_street_name("JONS PL."), "jons pl")
@@ -1014,6 +1163,93 @@ class ImportCompletenessTest(TestCase):
 
 
 class BenchmarkMetricsTest(TestCase):
+    def test_treats_direction_abbreviations_as_the_same_road_name(self):
+        reference = [
+            address("West 900 North", 0.0002 + index * 0.0002, 0.00005, number=str(index + 1))
+            for index in range(4)
+        ]
+        normalized = normalize_features(
+            [road("west", "residential", "W 900 N", [[0, 0], [0.001, 0]])],
+            reference,
+        )
+        normalized["segments"][0]["streetName"] = "W 900 N"
+
+        result = importer_module.benchmark_metrics(normalized, reference)
+
+        self.assertEqual(result["roadNameAccuracy"], 1.0)
+        self.assertEqual(result["incorrectRoadNames"], [])
+
+    def test_counts_duplicate_unit_points_as_one_reference_premise(self):
+        reference = [
+            address(
+                "Oak Road",
+                0.0002 + house * 0.0001 + duplicate * 0.000000001,
+                0.00005,
+                number=str(house + 1),
+            )
+            for house in range(5)
+            for duplicate in range(50)
+        ]
+        normalized = normalize_features(
+            [road("oak", "residential", "Oak Road", [[0, 0], [0.001, 0]])],
+            [
+                address(
+                    "Oak Road",
+                    0.0002 + house * 0.0001,
+                    0.00005,
+                    number=str(house + 1),
+                )
+                for house in range(5)
+            ],
+        )
+
+        result = importer_module.benchmark_metrics(normalized, reference)
+
+        self.assertEqual(result["rawReferencePoints"], 250)
+        self.assertEqual(result["referenceAddresses"], 5)
+        self.assertEqual(result["duplicateReferencePoints"], 245)
+        self.assertEqual(result["accurateSegments"], 1)
+        self.assertEqual(result["severeOutliers"], 0)
+
+    def test_excludes_detected_apartment_premises_from_street_count_accuracy(self):
+        reference = [
+            address("Oak Road", 0.0002, 0.00005, number="10")
+            for _ in range(20)
+        ] + [
+            address("Oak Road", 0.0004 + index * 0.0001, 0.00005, number=str(20 + index))
+            for index in range(3)
+        ]
+        normalized = {
+            "segments": [
+                {
+                    "id": "oak",
+                    "sourceSegmentId": "source-oak",
+                    "streetName": "Oak Road",
+                    "geometry": {"type": "LineString", "coordinates": [[0, 0], [0.001, 0]]},
+                    "estimatedHomes": 3,
+                }
+            ],
+            "apartmentComplexes": [
+                {
+                    "address": "10 Oak Road, Test City, 12345",
+                    "position": [0.0002, 0.00005],
+                    "estimatedTracts": 20,
+                }
+            ],
+            "quality": {
+                "assignedAddresses": 3,
+                "totalAddresses": 3,
+            },
+        }
+
+        result = importer_module.benchmark_metrics(normalized, reference)
+
+        self.assertEqual(result["referencePremises"], 4)
+        self.assertEqual(result["apartmentReferencePremises"], 1)
+        self.assertEqual(result["referenceAddresses"], 3)
+        self.assertEqual(result["duplicateReferencePoints"], 19)
+        self.assertEqual(result["segmentCountAccuracy"], 1.0)
+
     def test_reports_literal_reliability_rates_for_reference_addresses(self):
         roads = [
             road("oak", "residential", "Oak Road", [[0, 0], [0.001, 0]]),
@@ -1040,6 +1276,10 @@ class BenchmarkMetricsTest(TestCase):
             benchmark_metrics(normalized, reference),
             {
                 "referenceAddresses": 8,
+                "referencePremises": 8,
+                "apartmentReferencePremises": 0,
+                "rawReferencePoints": 8,
+                "duplicateReferencePoints": 0,
                 "knownResidentialRoads": 2,
                 "representedResidentialRoads": 2,
                 "correctlyNamedResidentialRoads": 2,
@@ -1153,6 +1393,8 @@ class ImportBoundaryTest(TestCase):
                                 "building-1",
                                 "building",
                                 "house",
+                                12.0,
+                                4,
                                 '{"type":"Polygon","coordinates":[[[0.2,0.00005],[0.3,0.00005],[0.3,0.00015],[0.2,0.00015],[0.2,0.00005]]]}',
                             )
                         ]
@@ -1164,6 +1406,7 @@ class ImportBoundaryTest(TestCase):
                             "Main Street",
                             "Temecula",
                             "92591",
+                            "2B",
                             [
                                 {"value": "California"},
                                 {"value": "Temecula"},
@@ -1208,6 +1451,7 @@ class ImportBoundaryTest(TestCase):
                     number="10",
                     postal_city="Temecula",
                     postcode="92591",
+                    unit="2B",
                     address_levels=[
                         {"value": "California"},
                         {"value": "Temecula"},
@@ -1228,6 +1472,8 @@ class ImportBoundaryTest(TestCase):
                         [0.2, 0.00015],
                         [0.2, 0.00005],
                     ],
+                    height=12.0,
+                    num_floors=4,
                 )
             ],
         )
@@ -1266,12 +1512,14 @@ class ImportBoundaryTest(TestCase):
         self.assertIn("postal_city", address_sql)
         self.assertIn("postcode", address_sql)
         self.assertIn("address_levels", address_sql)
-        self.assertNotIn("unit", address_sql)
+        self.assertIn("unit", address_sql)
         self.assertNotIn("ORDER BY id", address_sql)
         building_sql = bbox_calls[2][0]
         self.assertIn("theme=buildings/type=building/*", building_sql)
         self.assertIn("id, subtype, class", building_sql)
+        self.assertIn("height, num_floors", building_sql)
         self.assertIn("class IN", building_sql)
+        self.assertIn("'apartments'", building_sql)
         self.assertNotIn("ORDER BY id", building_sql)
 
     def test_cli_parses_arguments_and_prints_one_json_object(self):
@@ -1309,7 +1557,7 @@ class ImportBoundaryTest(TestCase):
         self.assertEqual(parsed["release"], OVERTURE_RELEASE)
         self.assertEqual(parsed["center"], [-117.1274, 33.5107])
         self.assertEqual(parsed["radiusMiles"], 1)
-        self.assertEqual(parsed["normalizerVersion"], 7)
+        self.assertEqual(parsed["normalizerVersion"], 9)
         self.assertEqual(parsed["quality"], {
             "totalAddresses": 0,
             "assignedAddresses": 0,

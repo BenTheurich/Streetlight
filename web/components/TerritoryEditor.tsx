@@ -13,7 +13,12 @@ import {
   territoryDraftFromWorkspace,
 } from '@/lib/territory-client';
 import type { TerritoryDraftInput } from '@/lib/territory-draft';
-import { closePolygon, type Position, polygonIsSimple } from '@/lib/territory-geometry';
+import {
+  closePolygon,
+  type Position,
+  pointInsideTerritoryBoundary,
+  polygonIsSimple,
+} from '@/lib/territory-geometry';
 import { needsTerritoryImport } from '@/lib/territory-import';
 import { TerritoryMap } from './TerritoryMap';
 
@@ -82,6 +87,7 @@ export function TerritoryEditor({
   const [showHiddenRoads, setShowHiddenRoads] = useState(false);
   const [selectedHiddenRoadGroupId, setSelectedHiddenRoadGroupId] = useState<string | null>(null);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
+  const [selectedApartmentId, setSelectedApartmentId] = useState<string | null>(null);
   const [polygonError, setPolygonError] = useState('');
   const [radiusInput, setRadiusInput] = useState(String(initialDraft.radiusMiles));
   const [addressEditing, setAddressEditing] = useState(false);
@@ -116,6 +122,21 @@ export function TerritoryEditor({
     () => deriveTerritory(savedWorkspace.segments, previewDraft),
     [previewDraft, savedWorkspace.segments],
   );
+  const liveApartments = useMemo(() => {
+    const statuses = new Map(
+      (previewDraft.apartmentStatuses ?? []).map(({ id, reviewStatus }) => [id, reviewStatus]),
+    );
+    return savedWorkspace.apartmentComplexes.map((apartment) => ({
+      ...apartment,
+      reviewStatus: statuses.get(apartment.id) ?? apartment.reviewStatus,
+      withinBoundary: pointInsideTerritoryBoundary(
+        apartment.position,
+        previewDraft.center,
+        previewDraft.radiusMiles,
+        previewDraft.boundaryShape,
+      ),
+    }));
+  }, [previewDraft, savedWorkspace.apartmentComplexes]);
   const isDirty = hasUnsavedTerritoryChanges(savedDraft, draft, []);
   const hasUnsavedChanges = hasUnsavedTerritoryChanges(savedDraft, draft, drawingPoints);
   const importRequired = needsTerritoryImport(savedWorkspace.import, draft);
@@ -140,6 +161,10 @@ export function TerritoryEditor({
         segment.withinBoundary &&
         segment.id === selectedSegmentId &&
         (segment.eligible || segment.manuallyExcluded),
+    ) ?? null;
+  const selectedApartment =
+    liveApartments.find(
+      (apartment) => apartment.withinBoundary && apartment.id === selectedApartmentId,
     ) ?? null;
 
   useEffect(() => {
@@ -188,6 +213,7 @@ export function TerritoryEditor({
     setSelectedHiddenRoadGroupId(roadGroupId);
     setSelectedSegmentId(null);
     setSelectedExclusionId(null);
+    setSelectedApartmentId(null);
     setMode('pan');
   }, []);
 
@@ -195,12 +221,23 @@ export function TerritoryEditor({
     setSelectedSegmentId(segmentId);
     setSelectedHiddenRoadGroupId(null);
     setSelectedExclusionId(null);
+    setSelectedApartmentId(null);
     setMode('pan');
     setPolygonError('');
   }, []);
 
   const selectExclusion = useCallback((exclusionId: string) => {
     setSelectedExclusionId(exclusionId);
+    setSelectedHiddenRoadGroupId(null);
+    setSelectedSegmentId(null);
+    setSelectedApartmentId(null);
+    setMode('pan');
+    setPolygonError('');
+  }, []);
+
+  const selectApartment = useCallback((apartmentId: string) => {
+    setSelectedApartmentId(apartmentId);
+    setSelectedExclusionId(null);
     setSelectedHiddenRoadGroupId(null);
     setSelectedSegmentId(null);
     setMode('pan');
@@ -213,6 +250,7 @@ export function TerritoryEditor({
     setSelectedExclusionId(null);
     setSelectedHiddenRoadGroupId(null);
     setSelectedSegmentId(null);
+    setSelectedApartmentId(null);
     setPolygonError('');
   }
 
@@ -254,6 +292,7 @@ export function TerritoryEditor({
     setSelectedExclusionId(null);
     setSelectedHiddenRoadGroupId(null);
     setSelectedSegmentId(null);
+    setSelectedApartmentId(null);
     setPolygonError('');
     setAddressEditing(false);
     setPendingAddress(null);
@@ -321,6 +360,7 @@ export function TerritoryEditor({
       setSelectedExclusionId(null);
       setSelectedHiddenRoadGroupId(null);
       setSelectedSegmentId(null);
+      setSelectedApartmentId(null);
       try {
         await onSaved(result);
         setNotice('Territory changes saved.');
@@ -343,6 +383,7 @@ export function TerritoryEditor({
     <>
       <TerritoryMap
         active={active}
+        apartmentComplexes={liveApartments}
         boundaryShape={draft.boundaryShape}
         center={draft.center}
         drawing={mode === 'draw'}
@@ -355,11 +396,13 @@ export function TerritoryEditor({
         onSelectExclusion={selectExclusion}
         onSelectHiddenRoadGroup={selectHiddenRoadGroup}
         onSelectSegment={selectSegment}
+        onSelectApartment={selectApartment}
         radiusMiles={draft.radiusMiles}
         segments={live.segments}
         selectedExclusionId={selectedExclusionId}
         selectedHiddenRoadGroupId={selectedHiddenRoadGroupId}
         selectedSegmentId={selectedSegment?.id ?? null}
+        selectedApartmentId={selectedApartment?.id ?? null}
         showHiddenRoads={showHiddenRoads}
       />
       {active &&
@@ -587,6 +630,62 @@ export function TerritoryEditor({
                 {savedWorkspace.import.quality.totalAddresses} ·{' '}
                 {savedWorkspace.import.quality.inferredRoads} inferred road(s)
               </p>
+            )}
+          </section>
+
+          <section className="apartment-section">
+            <div className="section-row">
+              <h2>Apartment complex</h2>
+              <span>{liveApartments.filter(({ withinBoundary }) => withinBoundary).length}</span>
+            </div>
+            {selectedApartment ? (
+              <div className="apartment-card">
+                <strong>{selectedApartment.address ?? 'Address unavailable'}</strong>
+                <span>Estimated tracts: {selectedApartment.estimatedTracts}</span>
+                <small>
+                  {selectedApartment.evidence.apartmentBuilding
+                    ? selectedApartment.evidence.distinctUnits > 0
+                      ? `Overture apartment building · ${selectedApartment.evidence.distinctUnits} distinct unit addresses`
+                      : 'Overture apartment building · footprint estimate'
+                    : `${selectedApartment.evidence.distinctUnits} distinct unit addresses`}
+                </small>
+                <fieldset>
+                  <legend>Outreach status</legend>
+                  {(
+                    [
+                      ['needs_review', 'Needs review'],
+                      ['ready', 'Ready'],
+                      ['deferred', 'Deferred'],
+                    ] as const
+                  ).map(([reviewStatus, label]) => (
+                    <label key={reviewStatus}>
+                      <input
+                        checked={selectedApartment.reviewStatus === reviewStatus}
+                        disabled={reviewStatus === 'ready' && !selectedApartment.address}
+                        name={`apartment-${selectedApartment.id}`}
+                        onChange={() => {
+                          setDraft((current) => ({
+                            ...current,
+                            apartmentStatuses: (current.apartmentStatuses ?? []).map((apartment) =>
+                              apartment.id === selectedApartment.id
+                                ? { ...apartment, reviewStatus }
+                                : apartment,
+                            ),
+                          }));
+                          setNotice(`${label} selected in this draft. Save changes to keep it.`);
+                        }}
+                        type="radio"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </fieldset>
+                {!selectedApartment.address && (
+                  <small>A starting address is required before this complex can be ready.</small>
+                )}
+              </div>
+            ) : (
+              <p className="empty-state">Select an apartment marker on the map.</p>
             )}
           </section>
 

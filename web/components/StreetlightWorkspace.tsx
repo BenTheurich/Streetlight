@@ -124,6 +124,7 @@ export function StreetlightWorkspace({
           <MapLayersControl map={map} />
           <CoverageMap
             active={tool !== 'territory'}
+            apartmentComplexes={coverage.apartmentComplexes}
             interactive={tool === 'coverage'}
             legend={coverage.legend}
             map={map}

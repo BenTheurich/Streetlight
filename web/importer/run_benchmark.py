@@ -23,6 +23,7 @@ AREAS = {
     "lehi-newer-development": (-111.8710, 40.4060, 0.5),
     "ames-small-city": (-93.6319, 42.0308, 0.5),
 }
+CACHE_VERSION = 3
 
 
 def download_nad_reference(longitude, latitude, radius_miles):
@@ -91,7 +92,11 @@ def load_sources(name, longitude, latitude, radius_miles, cache_dir=None):
     cache_path = Path(cache_dir, f"{name}.json") if cache_dir else None
     if cache_path and cache_path.exists():
         payload = json.loads(cache_path.read_text(encoding="utf-8"))
-        if payload["center"] == [longitude, latitude] and payload["radiusMiles"] == radius_miles:
+        if (
+            payload.get("cacheVersion") == CACHE_VERSION
+            and payload["center"] == [longitude, latitude]
+            and payload["radiusMiles"] == radius_miles
+        ):
             return (
                 payload["roads"],
                 payload["addresses"],
@@ -106,6 +111,7 @@ def load_sources(name, longitude, latitude, radius_miles, cache_dir=None):
         cache_path.write_text(
             json.dumps(
                 {
+                    "cacheVersion": CACHE_VERSION,
                     "center": [longitude, latitude],
                     "radiusMiles": radius_miles,
                     "roads": roads,
@@ -141,6 +147,12 @@ def run_area(name, cache_dir=None):
             "nadReferenceAddresses": len(reference),
         },
         "importQuality": normalized["quality"],
+        "apartments": {
+            "complexes": len(normalized["apartmentComplexes"]),
+            "estimatedTracts": sum(
+                item["estimatedTracts"] for item in normalized["apartmentComplexes"]
+            ),
+        },
         "benchmark": benchmark_metrics(normalized, reference),
     }
 

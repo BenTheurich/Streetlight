@@ -21,6 +21,8 @@ MAX_SEGMENT_HOMES = 100
 OVERTURE_RELEASE = "2026-06-17.0"
 TURN_SPLIT_DEGREES = 85
 EARTH_RADIUS_MILES = 3958.7613
+EARTH_RADIUS_METERS = EARTH_RADIUS_MILES * 1609.344
+APARTMENT_SQUARE_METERS_PER_TRACT = 100
 SUFFIXES = {
     "avenue": "ave",
     "drive": "dr",
@@ -51,6 +53,7 @@ RESIDENTIAL_BUILDING_CLASSES = {
     "semi",
     "semidetached_house",
 }
+APARTMENT_BUILDING_CLASSES = {"apartments"}
 
 
 def canonical_street_name(value: str) -> str:
@@ -80,6 +83,13 @@ def _directions_compatible(first, second):
         not first_directions
         or not second_directions
         or bool(first_directions & second_directions)
+    )
+
+
+def _street_names_equivalent(first, second):
+    return (
+        _street_name_core(first) == _street_name_core(second)
+        and _directions_compatible(first, second)
     )
 
 
@@ -388,6 +398,56 @@ def _building_point(geometry):
     ]
 
 
+def _ring_area_square_meters(ring):
+    if len(ring) < 3:
+        return 0
+    latitude = math.radians(sum(point[1] for point in ring) / len(ring))
+    points = [
+        (
+            math.radians(point[0]) * EARTH_RADIUS_METERS * math.cos(latitude),
+            math.radians(point[1]) * EARTH_RADIUS_METERS,
+        )
+        for point in ring
+    ]
+    return abs(
+        sum(
+            start[0] * end[1] - end[0] * start[1]
+            for start, end in zip(points, points[1:] + points[:1])
+        )
+        / 2
+    )
+
+
+def _apartment_footprint_estimate(building):
+    geometry = building["geometry"]
+    polygons = (
+        [geometry["coordinates"]]
+        if geometry["type"] == "Polygon"
+        else geometry["coordinates"]
+    )
+    footprint = sum(
+        max(
+            0,
+            _ring_area_square_meters(polygon[0])
+            - sum(_ring_area_square_meters(hole) for hole in polygon[1:]),
+        )
+        for polygon in polygons
+    )
+    properties = building["properties"]
+    floors = properties.get("num_floors")
+    if not isinstance(floors, int) or floors < 1:
+        height = properties.get("height")
+        floors = (
+            max(1, round(height / 3))
+            if isinstance(height, (int, float)) and height > 0
+            else 1
+        )
+    return max(
+        2,
+        round(footprint * floors / APARTMENT_SQUARE_METERS_PER_TRACT),
+    )
+
+
 def _point_in_ring(point, ring):
     inside = False
     previous = ring[-1]
@@ -420,6 +480,128 @@ def _building_has_address(building, point, addresses):
         ) <= BUILDING_ADDRESS_DISTANCE_METERS:
             return True
     return False
+
+
+def _apartment_address(address_item):
+    if not (address_item["number"] and address_item["street"]):
+        return None
+    locality = address_item["locality"]
+    parts = [
+        " ".join(
+            part
+            for part in [address_item["number"], address_item["street"]]
+            if part
+        ),
+        locality,
+        address_item["postcode"],
+    ]
+    value = ", ".join(part for part in parts if part)
+    return value or None
+
+
+def _apartment_complexes(addresses, buildings):
+    apartment_buildings = [
+        item
+        for item in buildings
+        if item["properties"].get("class") in APARTMENT_BUILDING_CLASSES
+        and item["geometry"]["type"] in {"Polygon", "MultiPolygon"}
+    ]
+    used_indexes = set()
+    complexes = []
+    for building in apartment_buildings:
+        polygons = (
+            [building["geometry"]["coordinates"]]
+            if building["geometry"]["type"] == "Polygon"
+            else building["geometry"]["coordinates"]
+        )
+        contained = [
+            item
+            for item in addresses
+            if any(
+                _point_in_ring(item["point"], polygon[0])
+                for polygon in polygons
+            )
+        ]
+        by_premise = {}
+        for item in contained:
+            by_premise.setdefault(item["premise_key"], []).append(item)
+            used_indexes.add(item["index"])
+        selected = (
+            min(
+                by_premise.values(),
+                key=lambda group: (-len(group), group[0]["premise_key"]),
+            )
+            if by_premise
+            else []
+        )
+        units = {
+            item["unit"].strip().casefold()
+            for item in selected
+            if item["unit"] and item["unit"].strip()
+        }
+        point = (
+            selected[0]["point"]
+            if selected
+            else _building_point(building["geometry"])
+        )
+        complexes.append(
+            {
+                "id": f"overture-apartment-building:{building['id']}",
+                "sourceId": building["id"],
+                "address": _apartment_address(selected[0]) if selected else None,
+                "position": point,
+                "estimatedTracts": (
+                    len(units)
+                    if units
+                    else _apartment_footprint_estimate(building)
+                ),
+                "evidence": {
+                    "apartmentBuilding": True,
+                    "distinctUnits": len(units),
+                },
+            }
+        )
+
+    by_premise = {}
+    for item in addresses:
+        if item["index"] not in used_indexes:
+            by_premise.setdefault(item["premise_key"], []).append(item)
+    for premise_key, group in sorted(by_premise.items()):
+        if not (group[0]["number"] and group[0]["street"]):
+            continue
+        units = {
+            item["unit"].strip().casefold()
+            for item in group
+            if item["unit"] and item["unit"].strip()
+        }
+        if len(units) < 5:
+            continue
+        source_id = re.sub(r"[^a-z0-9|]+", "-", premise_key).strip("-")
+        used_indexes.update(item["index"] for item in group)
+        point = [
+            sum(item["point"][0] for item in group) / len(group),
+            sum(item["point"][1] for item in group) / len(group),
+        ]
+        complexes.append(
+            {
+                "id": f"overture-apartment-address:{source_id}",
+                "sourceId": source_id,
+                "address": _apartment_address(group[0]),
+                "position": point,
+                "estimatedTracts": len(units),
+                "evidence": {
+                    "apartmentBuilding": False,
+                    "distinctUnits": len(units),
+                },
+            }
+        )
+    return sorted(
+        complexes,
+        key=lambda item: (
+            not item["evidence"]["apartmentBuilding"],
+            item["id"],
+        ),
+    ), used_indexes
 
 
 def _split_overfull_segment(segment):
@@ -528,22 +710,12 @@ def normalize_features(roads, addresses, buildings=None):
     buildings = buildings or []
     segments = []
     candidate_classes = ALWAYS_KEEP | KEEP_WITH_ADDRESS
-    footprint_addresses = []
-    address_keys = set()
+    source_addresses = []
     for index, address_feature in enumerate(addresses):
         properties = address_feature["properties"]
         point = address_feature["geometry"]["coordinates"]
         canonical_name = canonical_street_name(properties["street"])
         number = (properties.get("number") or "").strip().casefold()
-        key = (
-            canonical_name,
-            number,
-            (properties.get("postcode") or "").strip().casefold(),
-            *((round(point[0], 7), round(point[1], 7)) if not number else ()),
-        )
-        if key in address_keys:
-            continue
-        address_keys.add(key)
         levels = properties.get("address_levels") or []
         locality = properties.get("postal_city") or next(
             (
@@ -553,7 +725,8 @@ def normalize_features(roads, addresses, buildings=None):
             ),
             None,
         )
-        footprint_addresses.append(
+        postcode = (properties.get("postcode") or "").strip()
+        source_addresses.append(
             {
                 "index": index,
                 "number": properties.get("number"),
@@ -561,9 +734,30 @@ def normalize_features(roads, addresses, buildings=None):
                 "canonical_name": canonical_name,
                 "locality": locality,
                 "postcode": properties.get("postcode"),
+                "unit": properties.get("unit"),
+                "premise_key": "|".join([canonical_name, number, postcode.casefold()]),
                 "point": point,
             }
         )
+    apartment_complexes, apartment_address_indexes = _apartment_complexes(
+        source_addresses,
+        buildings,
+    )
+    footprint_addresses = []
+    address_keys = set()
+    for item in source_addresses:
+        if item["index"] in apartment_address_indexes:
+            continue
+        number = (item["number"] or "").strip().casefold()
+        key = (
+            item["canonical_name"],
+            number,
+            (item["postcode"] or "").strip().casefold(),
+            *((round(item["point"][0], 7), round(item["point"][1], 7)) if not number else ()),
+        )
+        if key not in address_keys:
+            address_keys.add(key)
+            footprint_addresses.append(item)
     inferred_roads = 0
 
     for road_feature in roads:
@@ -922,6 +1116,7 @@ def normalize_features(roads, addresses, buildings=None):
         )
     return {
         "segments": result,
+        "apartmentComplexes": apartment_complexes,
         "quality": {
             "totalAddresses": len(footprint_addresses),
             "assignedAddresses": len(assigned_address_indexes),
@@ -941,23 +1136,50 @@ def normalize_features(roads, addresses, buildings=None):
 
 
 def benchmark_metrics(normalized, reference_addresses):
-    unique_reference = {}
+    reference_groups = {}
     for item in reference_addresses:
         properties = item["properties"]
-        point = item["geometry"]["coordinates"]
         key = (
             canonical_street_name(properties["street"]),
             (properties.get("number") or "").strip().casefold(),
-            round(point[0], 7),
-            round(point[1], 7),
+            str(properties.get("postcode") or "").strip().casefold(),
         )
-        unique_reference.setdefault(key, item)
-    reference = list(unique_reference.values())
+        reference_groups.setdefault(key, []).append(item)
+    apartment_premises = set()
+    for apartment in normalized.get("apartmentComplexes", []):
+        address_value = apartment.get("address")
+        if not address_value:
+            continue
+        premise = address_value.split(",", 1)[0].strip().split(maxsplit=1)
+        if len(premise) == 2:
+            apartment_premises.add(
+                (canonical_street_name(premise[1]), premise[0].casefold())
+            )
+    all_reference = [
+        min(
+            group,
+            key=lambda item: tuple(item["geometry"]["coordinates"]),
+        )
+        for _, group in sorted(reference_groups.items())
+    ]
+    reference = [
+        item
+        for item in all_reference
+        if (
+            canonical_street_name(item["properties"]["street"]),
+            (item["properties"].get("number") or "").strip().casefold(),
+        )
+        not in apartment_premises
+    ]
+    duplicate_points_by_key = {
+        key: len(group) - 1 for key, group in reference_groups.items()
+    }
     segments = [
         {
             "id": item["id"],
             "street_name": item["streetName"],
             "canonical_name": canonical_street_name(item["streetName"]),
+            "source_segment_id": item["sourceSegmentId"],
             "coordinates": item["geometry"]["coordinates"],
             "estimated_homes": item["estimatedHomes"],
         }
@@ -974,6 +1196,7 @@ def benchmark_metrics(normalized, reference_addresses):
     represented_names = set()
     correct_names = set()
     reference_counts = {}
+    reference_details = {}
     for name in known_names:
         for item in addresses_by_name[name]:
             point = item["geometry"]["coordinates"]
@@ -996,7 +1219,7 @@ def benchmark_metrics(normalized, reference_addresses):
             matching = [
                 candidate
                 for candidate in nearby
-                if candidate[2]["canonical_name"] == name
+                if _street_names_equivalent(candidate[2]["canonical_name"], name)
             ]
             if matching:
                 correct_names.add(name)
@@ -1006,6 +1229,24 @@ def benchmark_metrics(normalized, reference_addresses):
             else:
                 continue
             reference_counts[selected["id"]] = reference_counts.get(selected["id"], 0) + 1
+            key = (
+                name,
+                (item["properties"].get("number") or "").strip().casefold(),
+                str(item["properties"].get("postcode") or "").strip().casefold(),
+            )
+            reference_details.setdefault(selected["id"], []).append(
+                {
+                    "point": point,
+                    "duplicate_points": duplicate_points_by_key.get(key, 0),
+                    "competing_names": sorted(
+                        {
+                            candidate[2]["street_name"]
+                            for candidate in nearby
+                            if candidate[2]["street_name"]
+                        }
+                    ),
+                }
+            )
 
     segments_by_id = {segment["id"]: segment for segment in segments}
     accurate_segments = 0
@@ -1019,10 +1260,25 @@ def benchmark_metrics(normalized, reference_addresses):
             accurate_segments += 1
         if error > max(10, expected * 0.5):
             severe_outliers += 1
+            details = reference_details[segment_id]
             severe_outlier_segments.append(
                 {
                     "segmentId": segment_id,
+                    "sourceSegmentId": segment["source_segment_id"],
                     "streetName": segment["street_name"],
+                    "coordinates": segment["coordinates"][0],
+                    "competingStreetNames": sorted(
+                        {
+                            name
+                            for detail in details
+                            for name in detail["competing_names"]
+                        }
+                    ),
+                    "expectedPremises": expected,
+                    "estimatedTracts": actual,
+                    "duplicateReferencePoints": sum(
+                        detail["duplicate_points"] for detail in details
+                    ),
                     "expectedHomes": expected,
                     "estimatedHomes": actual,
                 }
@@ -1054,6 +1310,10 @@ def benchmark_metrics(normalized, reference_addresses):
     ]
     return {
         "referenceAddresses": len(reference),
+        "referencePremises": len(all_reference),
+        "apartmentReferencePremises": len(all_reference) - len(reference),
+        "rawReferencePoints": len(reference_addresses),
+        "duplicateReferencePoints": len(reference_addresses) - len(all_reference),
         "knownResidentialRoads": road_count,
         "representedResidentialRoads": len(represented_names),
         "correctlyNamedResidentialRoads": len(correct_names),
@@ -1133,14 +1393,17 @@ def query_bbox(connection, path, west, south, east, north):
         ]
 
     if "theme=buildings/type=building/" in path:
-        residential_classes = ", ".join(
-            f"'{value}'" for value in sorted(RESIDENTIAL_BUILDING_CLASSES)
+        retained_classes = ", ".join(
+            f"'{value}'"
+            for value in sorted(
+                RESIDENTIAL_BUILDING_CLASSES | APARTMENT_BUILDING_CLASSES
+            )
         )
         rows = connection.execute(
             f"""
-            SELECT id, subtype, class, ST_AsGeoJSON(geometry)
+            SELECT id, subtype, class, height, num_floors, ST_AsGeoJSON(geometry)
             FROM read_parquet('{path}', hive_partitioning = true)
-            WHERE class IN ({residential_classes}) AND {bbox_filter}
+            WHERE class IN ({retained_classes}) AND {bbox_filter}
             """,
             parameters,
         ).fetchall()
@@ -1150,15 +1413,17 @@ def query_bbox(connection, path, west, south, east, north):
                 "properties": {
                     "subtype": subtype,
                     "class": building_class,
+                    "height": height,
+                    "num_floors": num_floors,
                 },
                 "geometry": json.loads(geometry),
             }
-            for source_id, subtype, building_class, geometry in rows
+            for source_id, subtype, building_class, height, num_floors, geometry in rows
         ]
 
     rows = connection.execute(
         f"""
-        SELECT number, street, postal_city, postcode, address_levels,
+        SELECT number, street, postal_city, postcode, unit, address_levels,
           ST_AsGeoJSON(geometry)
         FROM read_parquet('{path}', hive_partitioning = true)
         WHERE street IS NOT NULL AND {bbox_filter}
@@ -1172,6 +1437,7 @@ def query_bbox(connection, path, west, south, east, north):
                 "street": street,
                 "postal_city": postal_city,
                 "postcode": postcode,
+                "unit": unit,
                 "address_levels": address_levels or [],
             },
             "geometry": json.loads(geometry),
@@ -1181,6 +1447,7 @@ def query_bbox(connection, path, west, south, east, north):
             street,
             postal_city,
             postcode,
+            unit,
             address_levels,
             geometry,
         ) in rows
@@ -1266,7 +1533,7 @@ def main(argv=None, download=download_features):
                 "center": [args.longitude, args.latitude],
                 "radiusMiles": args.radius_miles,
                 "completedAt": datetime.now(timezone.utc).isoformat(),
-                "normalizerVersion": 7,
+                "normalizerVersion": 9,
                 **normalize_features(roads, addresses, buildings),
             },
             separators=(",", ":"),

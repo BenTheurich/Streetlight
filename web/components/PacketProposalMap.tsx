@@ -22,7 +22,7 @@ export function PacketProposalMap({
     const visibleProposals = proposalsForMap(proposals, selectedIndex);
     if (!active || !map || visibleProposals.length === 0) return;
     let disposed = false;
-    let marker: google.maps.marker.AdvancedMarkerElement | null = null;
+    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
     const bounds = new google.maps.LatLngBounds();
     const lines = visibleProposals.flatMap((proposal) =>
       proposal.segments.flatMap((segment) => {
@@ -50,6 +50,9 @@ export function PacketProposalMap({
         return [halo, highlight];
       }),
     );
+    for (const proposal of visibleProposals) {
+      if (proposal.kind === 'apartment') bounds.extend(latLng(proposal.start.position));
+    }
     const selectedProposal = selectedIndex === null ? null : visibleProposals[0];
     if (selectedProposal) bounds.extend(latLng(selectedProposal.start.position));
     map.fitBounds(bounds, 56);
@@ -60,23 +63,30 @@ export function PacketProposalMap({
         lines[index + 1].setOptions({ strokeWeight: weight });
       }
     });
-    if (selectedProposal) {
+    const markerProposals = visibleProposals.filter(
+      (proposal) => proposal.kind === 'apartment' || proposal === selectedProposal,
+    );
+    if (markerProposals.length > 0) {
       void google.maps.importLibrary('marker').then((library) => {
         if (disposed) return;
         const { AdvancedMarkerElement } = library as google.maps.MarkerLibrary;
-        marker = new AdvancedMarkerElement({
-          map,
-          position: latLng(selectedProposal.start.position),
-          title: 'Starting address',
-          zIndex: 30,
-        });
+        for (const proposal of markerProposals) {
+          markers.push(
+            new AdvancedMarkerElement({
+              map,
+              position: latLng(proposal.start.position),
+              title: proposal.kind === 'apartment' ? 'Apartment complex' : 'Starting address',
+              zIndex: 30,
+            }),
+          );
+        }
       });
     }
     return () => {
       disposed = true;
       zoomListener.remove();
       for (const line of lines) line.setMap(null);
-      if (marker) marker.map = null;
+      for (const marker of markers) marker.map = null;
     };
   }, [active, map, proposals, selectedIndex]);
 

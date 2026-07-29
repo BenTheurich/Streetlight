@@ -15,6 +15,7 @@ tmp
 output
 .superpowers/
 .worktrees/
+.playwright-cli/
 __pycache__
 *.pyc
 *.tsbuildinfo

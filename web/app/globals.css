@@ -779,7 +779,8 @@ textarea {
 }
 
 .hidden-road-card,
-.segment-card {
+.segment-card,
+.apartment-card {
   display: grid;
   gap: 0.45rem;
   padding: 0.7rem;
@@ -791,6 +792,81 @@ textarea {
 .segment-card {
   border-color: #dcc7b8;
   background: #fbf3ed;
+}
+
+.apartment-card {
+  border-color: #d9b978;
+  background: #fff9eb;
+}
+
+.apartment-card > strong,
+.apartment-card > span,
+.apartment-card > small {
+  display: block;
+}
+
+.apartment-card > strong {
+  font-size: 0.72rem;
+}
+
+.apartment-card > span,
+.apartment-card > small {
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+
+.apartment-card fieldset {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.apartment-card legend {
+  margin-bottom: 0.35rem;
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.apartment-card label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.apartment-card input {
+  width: auto;
+  min-height: 0;
+  accent-color: var(--navy);
+}
+
+.apartment-map-marker {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  padding: 0;
+  border: 2px solid white;
+  border-radius: 6px 6px 6px 1px;
+  background: var(--apartment-color);
+  box-shadow: 0 1px 4px #0007;
+  color: white;
+  font: 800 12px / 1 sans-serif;
+  cursor: pointer;
+}
+
+.apartment-map-marker.selected {
+  outline: 3px solid #312c26;
+  outline-offset: 2px;
+}
+
+.apartment-map-marker.static {
+  cursor: default;
 }
 
 .hidden-road-card strong,

@@ -67,6 +67,10 @@ export function territoryDraftFromWorkspace(workspace: TerritoryWorkspace): Terr
       .filter((segment) => segment.manuallyExcluded)
       .map((segment) => segment.id)
       .sort(),
+    apartmentStatuses: workspace.apartmentComplexes.map(({ id, reviewStatus }) => ({
+      id,
+      reviewStatus,
+    })),
     exclusions: structuredClone(workspace.exclusions),
   };
 }

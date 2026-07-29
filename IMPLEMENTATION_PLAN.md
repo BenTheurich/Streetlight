@@ -40,10 +40,10 @@ Do not begin the next phase until the founder approves the current phase. Do not
 |---:|---|---|---|---|
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
-| 2 | Territory setup | Phase 1 | Blocked | The founder-approved setup remains complete. Normalizer v7 and persistent quality warnings are implemented and verified, but the five-area benchmark failed; the approved next step is evaluation of a licensed nationwide or global address source |
+| 2 | Territory setup | Phase 1 | Blocked | The founder-approved setup remains complete. Normalizer v9 separates apartment complexes, adds conservative footprint/floor estimates when unit evidence is absent, and persists quality warnings; only one of five refreshed holdouts passes every quality threshold, so the next data-quality step requires better nationwide/global source evidence |
 | 3 | Coverage history and heatmap | Phase 2 | Complete | Founder approved the full imported-territory heatmap and merged it on July 28, 2026; 84 Node checks, 25 Python checks, lint, typecheck, production build, database invariants, and real-browser acceptance pass. |
 | 4 | Packet selection | Phase 3 | Complete | Founder approved the deterministic packet proposals and orphan-prevention behavior and merged Phase 4 locally on July 28, 2026; automated, canonical-data, and browser evidence is recorded below |
-| 5 | Batch finalization and PDF | Phase 4 | Complete | Atomic finalization, stable packet reservations, newest/all-active downloads, and map-first Letter PDFs are implemented; 119 Node checks, 26 Python checks, Biome, TypeScript, production build, isolated-browser finalization/reload, rendered-PDF inspection, and founder review pass |
+| 5 | Batch finalization and PDF | Phase 4 | Complete | Atomic street and apartment reservations, newest/all-active downloads, and map-first Letter PDFs are implemented; 126 Node checks, 48 Python checks, Biome, TypeScript, production build, isolated-browser finalization/reload, rendered-PDF inspection, and founder review pass |
 | 6 | Reconciliation and corrections | Phase 5 | Pending | None |
 | 7 | Authentication and church isolation | Phase 6 | Pending | None |
 | 8 | Deployment and recovery | Phase 7 | Pending | None |
@@ -262,6 +262,28 @@ Verified July 28, 2026 with pinned Overture release `2026-06-17.0`:
   [`docs/benchmarks/2026-07-29-overture-nad-v7.md`](docs/benchmarks/2026-07-29-overture-nad-v7.md).
   Per the approved completion rule, heuristic expansion stops here and Phase 2 remains blocked
   pending evaluation of a licensed nationwide or global address source.
+- The July 29 apartment amendment advances the importer to version 9. Apartment-class buildings
+  and premises with at least five distinct units are separated from roads, persisted with
+  needs-review/ready/deferred states, shown as map markers, and finalized as atomic apartment
+  packets with focused PDFs. Unit identifiers are not persisted and apartment estimates never
+  also increase a road count.
+- The refreshed five-area benchmark rejects pre-v9 caches, deduplicates NAD premises, and removes
+  detected apartment premises from the street oracle. Road representation remains 100 percent in
+  all five areas; Austin passes every threshold, while Sacramento, Boston, Lehi, and Ames retain
+  explicit address, name, or localized count failures. Exact results and the seven severe source
+  locations are recorded in
+  [`docs/benchmarks/2026-07-29-overture-nad-v9.md`](docs/benchmarks/2026-07-29-overture-nad-v9.md).
+- Final verification passes 126 Node checks, 48 Python importer checks, Biome, TypeScript,
+  production build, and `git diff --check`. In an isolated real-browser run, all three apartment
+  states remained visible, a review decision persisted through reload, and two ready complexes
+  became separate atomic proposals. Finalization reserved both and downloaded a two-page,
+  1.58 MB PDF. Both rendered Letter pages passed visual inspection with a focused marker-only map,
+  grouped address and directions QR, prominent estimated-apartment-tract count, and stable packet
+  code.
+- The saved Temecula/Murrieta territory was refreshed in place to normalizer v9: all 3,993
+  segments and administrator territory choices remained intact, and 84 in-boundary apartment
+  candidates now appear for review. The browser verified both observed-unit evidence and a
+  clearly labeled footprint estimate; addressless candidates cannot be marked ready.
 
 ### Human review
 

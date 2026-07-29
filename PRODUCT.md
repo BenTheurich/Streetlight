@@ -2,7 +2,7 @@
 
 Status: approved founder direction  
 Approved: 2026-07-27
-Updated: 2026-07-28
+Updated: 2026-07-29
 
 ## Authority
 
@@ -87,9 +87,14 @@ Apartment complexes are separate tracked outreach units.
 - Apartment unit evidence contributes only to the complex's clearly labeled estimated tract count
   and does not also increase an adjacent street segment estimate. Streetlight retains the aggregate
   estimate, not individual apartment unit identifiers.
+- When an apartment-class building has no unit evidence, its estimate uses the building footprint
+  and available floor count (or height) as a conservative deterministic fallback. The interface
+  identifies this as a footprint estimate rather than presenting it as an observed unit count.
 - Every probable apartment complex starts as needs review. An administrator may mark it ready for
   outreach or deferred/inaccessible. All three states remain visible so gated or otherwise
   inaccessible properties are not silently forgotten.
+- A complex without a usable starting address remains needs review or deferred; it cannot be marked
+  ready because Streetlight cannot produce its required printed address and navigation QR code.
 - A ready apartment complex receives its own packet and is never folded into a street packet.
   Apartment packets are atomic: taking one accepts the complete complex, and reconciliation later
   records one completion date for the complex.

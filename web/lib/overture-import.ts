@@ -26,6 +26,18 @@ export type ImportedTerritorySegment = {
   addresses: ImportedSegmentAddress[];
 };
 
+export type ImportedApartmentComplex = {
+  id: string;
+  sourceId: string;
+  address: string | null;
+  position: Position;
+  estimatedTracts: number;
+  evidence: {
+    apartmentBuilding: boolean;
+    distinctUnits: number;
+  };
+};
+
 export type ImportQuality = {
   totalAddresses: number;
   assignedAddresses: number;
@@ -46,8 +58,9 @@ export type ImportedTerritoryInput = {
   center: Position;
   radiusMiles: number;
   completedAt: string;
-  normalizerVersion: 7;
+  normalizerVersion: 9;
   quality: ImportQuality;
+  apartmentComplexes: ImportedApartmentComplex[];
   segments: ImportedTerritorySegment[];
 };
 
@@ -171,6 +184,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
   if (
     !isRecord(value) ||
     !hasKeys(value, [
+      'apartmentComplexes',
       'center',
       'completedAt',
       'normalizerVersion',
@@ -184,13 +198,50 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     !Number.isFinite(value.radiusMiles) ||
     (value.radiusMiles as number) <= 0 ||
     !isIsoTimestamp(value.completedAt) ||
-    value.normalizerVersion !== 7 ||
+    value.normalizerVersion !== 9 ||
     !isSuccessfulImportQuality(value.quality) ||
+    !Array.isArray(value.apartmentComplexes) ||
     !Array.isArray(value.segments) ||
     value.segments.length === 0
   ) {
     failImportOutput();
   }
+
+  const apartmentIds = new Set<string>();
+  const apartmentComplexes = value.apartmentComplexes.map((complex): ImportedApartmentComplex => {
+    if (
+      !isRecord(complex) ||
+      !hasKeys(complex, ['address', 'estimatedTracts', 'evidence', 'id', 'position', 'sourceId']) ||
+      typeof complex.id !== 'string' ||
+      complex.id.trim() === '' ||
+      apartmentIds.has(complex.id) ||
+      typeof complex.sourceId !== 'string' ||
+      complex.sourceId.trim() === '' ||
+      !isNullableString(complex.address) ||
+      !isGeographicPosition(complex.position) ||
+      !Number.isInteger(complex.estimatedTracts) ||
+      (complex.estimatedTracts as number) < 1 ||
+      !isRecord(complex.evidence) ||
+      !hasKeys(complex.evidence, ['apartmentBuilding', 'distinctUnits']) ||
+      typeof complex.evidence.apartmentBuilding !== 'boolean' ||
+      !Number.isInteger(complex.evidence.distinctUnits) ||
+      (complex.evidence.distinctUnits as number) < 0
+    ) {
+      failImportOutput();
+    }
+    apartmentIds.add(complex.id);
+    return {
+      id: complex.id,
+      sourceId: complex.sourceId,
+      address: complex.address,
+      position: complex.position,
+      estimatedTracts: complex.estimatedTracts as number,
+      evidence: {
+        apartmentBuilding: complex.evidence.apartmentBuilding,
+        distinctUnits: complex.evidence.distinctUnits as number,
+      },
+    };
+  });
 
   const ids = new Set<string>();
   const segments = value.segments.map((segment): ImportedTerritorySegment => {
@@ -261,7 +312,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     center: value.center,
     radiusMiles: value.radiusMiles as number,
     completedAt: value.completedAt,
-    normalizerVersion: 7,
+    normalizerVersion: 9,
     quality: {
       totalAddresses: value.quality.totalAddresses as number,
       assignedAddresses: value.quality.assignedAddresses as number,
@@ -276,6 +327,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
       buildingAddressDisagreements: value.quality.buildingAddressDisagreements as number,
       warnings: value.quality.warnings as string[],
     },
+    apartmentComplexes,
     segments,
   };
 }
