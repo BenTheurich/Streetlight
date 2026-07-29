@@ -54,9 +54,12 @@ states. Estimates are always labeled as estimates and are not manually edited.
 
 ## Packet generation
 
-Every unreserved `ready` complex is proposed as one apartment packet in addition to the requested
-street packets. Marking a complex ready is the administrator's explicit decision to include it in
-the next generated batch; the review screen identifies apartment proposals before finalization.
+Every unreserved `ready` complex is eligible for one apartment packet. Apartment candidates
+participate in the requested packet count by heatmap age and estimated tract fit; they are not
+appended beyond that count. A recently covered complex does not displace an older street or
+apartment candidate. An indivisible complex outside the normal packet-size tolerance remains
+atomic and is clearly flagged rather than split or silently orphaned. The review screen identifies
+apartment proposals before finalization.
 
 An apartment packet contains:
 

@@ -98,6 +98,11 @@ Apartment complexes are separate tracked outreach units.
 - A ready apartment complex receives its own packet and is never folded into a street packet.
   Apartment packets are atomic: taking one accepts the complete complex, and reconciliation later
   records one completion date for the complex.
+- Ready, unreserved apartment complexes participate in the requested packet count by heatmap age
+  and estimated tract fit; they are not appended beyond that count. A recently covered complex does
+  not displace an older street or apartment candidate. An indivisible complex outside the normal
+  packet-size tolerance remains atomic and is clearly flagged rather than split or silently
+  orphaned.
 - Imported street geometry and estimated home counts cannot be edited in the first release.
 - A territory import retains every Overture feature classified as a road. High-confidence
   residential roads are active automatically; all other retained roads begin hidden.
@@ -121,7 +126,8 @@ Apartment complexes are separate tracked outreach units.
 - An administrator can enable, disable, reshape, rename, or delete an exclusion polygon. A
   disabled polygon remains stored and appears as a faint outline in the territory editor, but it
   does not affect segment eligibility or tract totals.
-- Completing a packet records a coverage event for every included segment.
+- Completing a street packet records a coverage event for every included segment. Completing an
+  apartment packet records one coverage event for the complex.
 - Coverage history must be retained. Correcting a mistake records the correction instead of silently replacing history.
 
 An administrator creates a territory from an address, boundary distance, and either a circle or
@@ -254,23 +260,33 @@ The administrator prints the batch and places each sheet with the matching numbe
 
 A volunteer takes one sheet and its tracts. Taking them means accepting responsibility for the entire packet. Streetlight has no partial-completion state because the church's process treats each packet as indivisible.
 
-Finalized packets reserve their street segments so another packet cannot include the same segments. A sheet left available remains active and keeps its reservation unless the administrator cancels it.
+Finalized packets reserve their street segments or apartment complex so another packet cannot
+include the same outreach unit. A sheet left available remains active and keeps its reservation
+unless the administrator cancels it.
 
 ## Reconciliation
 
 Reconciliation follows the physical table:
 
 1. Streetlight shows every packet in the batch.
-2. The administrator selects the paper sheets that are still physically present.
+2. Every active packet starts unchecked, and the administrator checks the paper sheets that are
+   still physically present.
 3. Streetlight previews the unselected, missing sheets as completed.
 4. The administrator confirms the update.
-5. Streetlight records the current reconciliation date as the coverage date for every segment in each completed packet.
+5. Streetlight records the current reconciliation date as the coverage date for every outreach
+   unit in each completed packet.
 
-The coverage date is the date the administrator reconciles the packet. It is not the batch creation date or an estimated volunteer completion date.
+The coverage date is the date the administrator reconciles the packet. It is not the batch creation
+date or an estimated volunteer completion date. The server supplies the current date in the
+church's time zone.
 
-Sheets still present can remain active for a later outreach session or be cancelled. Active sheets keep their reservations. Cancelling a sheet releases its segments back into packet generation.
+Sheets still present can remain active for a later outreach session or be cancelled. Active sheets
+keep their reservations. Cancelling a sheet releases its segments or apartment complex back into
+packet generation. Cancellation does not delete the packet or its history.
 
-Administrators can undo an incorrect completion or change its date. Streetlight retains the original event and the correction.
+Administrators can undo an incorrect completion or change its date only as a whole packet.
+Streetlight retains the original event and every correction. Undo restores all packet reservations
+or none; it is rejected while any target is reserved by a newer active packet.
 
 ## Administrator dashboard
 
@@ -284,7 +300,8 @@ The first dashboard contains:
 - Reconcile Batch action
 
 The administrator website uses one persistent map workspace at `/`. Coverage, Generate Packets,
-and Territory Setup are tools in that workspace rather than separate pages. Switching tools keeps
+Reconcile Packets, and Territory Setup are tools in that workspace rather than separate pages.
+Switching tools keeps
 the map camera, Map/Satellite choice, and each tool's in-progress state. Coverage and Generate
 Packets share the complete heatmap; a selected packet adds a distinct review highlight and
 starting pin above it. Territory Setup replaces the heatmap treatment with its editing overlays.
