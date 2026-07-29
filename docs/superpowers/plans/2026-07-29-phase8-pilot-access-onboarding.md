@@ -40,13 +40,13 @@ geocoding, Node test runner.
 - Produces: `declinePilotRequest(id, filename?): PilotRequest`
 - Produces: resumable provisioning-state database functions keyed by request ID
 
-- [ ] Write failing tests for exact input validation, normalized church/email deduplication,
+- [x] Write failing tests for exact input validation, normalized church/email deduplication,
   neutral duplicate success, pending-first listing, decline, and later approval eligibility.
-- [ ] Run `pnpm --dir web test` and confirm the new tests fail.
-- [ ] Add the strict migration and minimal database functions. Existing churches receive a
+- [x] Run `pnpm --dir web test` and confirm the new tests fail.
+- [x] Add the strict migration and minimal database functions. Existing churches receive a
   non-null onboarding completion timestamp; newly provisioned churches remain incomplete.
-- [ ] Run the focused tests and database migration suite until they pass.
-- [ ] Commit `feat: persist pilot access requests`.
+- [x] Run the focused tests and database migration suite until they pass.
+- [x] Commit `feat: persist pilot access requests`.
 
 ### Task 2: Real public landing request
 
