@@ -1,3 +1,4 @@
+import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
 import { getPacketGenerationWorkspace } from '../../../lib/database.ts';
 import { withProposalFingerprint } from '../../../lib/packet-finalization.ts';
 import {
@@ -6,7 +7,7 @@ import {
   parsePacketSizeRequests,
 } from '../../../lib/packet-selection.ts';
 
-export async function POST(request: Request): Promise<Response> {
+export async function proposePackets(request: Request): Promise<Response> {
   let requests: PacketSizeRequest[];
   try {
     const body: unknown = await request.json();
@@ -33,3 +34,5 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'Could not generate packet proposals' }, { status: 500 });
   }
 }
+
+export const POST = authenticatedRoute(proposePackets);

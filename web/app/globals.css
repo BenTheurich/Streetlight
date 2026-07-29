@@ -175,7 +175,36 @@ textarea {
 
 .header-actions {
   display: flex;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.administrator-account {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.administrator-account span {
+  max-width: 12rem;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.administrator-account a {
+  padding-left: 0.55rem;
+  border-left: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.workspace-access-error {
+  max-width: 36rem;
+  margin: 15vh auto;
+  padding: 2rem;
 }
 
 .workspace-tools {

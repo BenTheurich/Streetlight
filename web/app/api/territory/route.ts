@@ -1,3 +1,4 @@
+import { authenticatedRoute } from '@/lib/authenticated-route';
 import { getTerritoryWorkspace, saveTerritoryDraft } from '@/lib/database';
 import { type ImportedTerritoryInput, runOvertureImport } from '@/lib/overture-import';
 import { parseTerritoryDraft, type TerritoryDraftInput } from '@/lib/territory-draft';
@@ -5,11 +6,11 @@ import { needsTerritoryImport } from '@/lib/territory-import';
 
 export const dynamic = 'force-dynamic';
 
-export function GET() {
+export function getTerritory() {
   return Response.json(getTerritoryWorkspace());
 }
 
-export async function PATCH(request: Request) {
+export async function updateTerritory(request: Request) {
   let draft: TerritoryDraftInput;
   try {
     draft = parseTerritoryDraft(await request.json());
@@ -42,3 +43,6 @@ export async function PATCH(request: Request) {
     return Response.json({ error: 'Could not save territory changes' }, { status: 500 });
   }
 }
+
+export const GET = authenticatedRoute(getTerritory);
+export const PATCH = authenticatedRoute(updateTerritory);

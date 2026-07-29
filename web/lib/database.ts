@@ -50,11 +50,19 @@ import {
   territoryBoundary,
 } from './territory-geometry.ts';
 import type { TerritoryImportMetadata } from './territory-import.ts';
+import { requireWorkspaceScope, type WorkspaceScope } from './workspace-scope.ts';
 
-const PILOT_CHURCH_ID = 'church-temecula-pilot';
-const PILOT_TERRITORY_ID = 'territory-temecula-pilot';
-// ponytail: Single-pilot timezone; store this per church when multi-church support arrives.
-const PILOT_TIME_ZONE = 'America/Los_Angeles';
+function workspaceChurchId(): string {
+  return requireWorkspaceScope().churchId;
+}
+
+function workspaceTerritoryId(): string {
+  return requireWorkspaceScope().territoryId;
+}
+
+function workspaceTimeZone(): string {
+  return requireWorkspaceScope().timeZone;
+}
 
 type SummaryRow = {
   packet_count: number;
@@ -247,15 +255,55 @@ function openWorkspaceDatabase(filename?: string): DatabaseSync {
   return database;
 }
 
+export function getWorkspaceForOrganization(
+  organizationId: string,
+  filename?: string,
+): WorkspaceScope {
+  if (!organizationId) {
+    throw new Error('Church workspace not found');
+  }
+
+  const database = openWorkspaceDatabase(filename);
+  try {
+    const rows = database
+      .prepare(
+        `SELECT c.id AS church_id, c.time_zone, t.id AS territory_id
+        FROM churches c
+        JOIN territories t ON t.church_id = c.id
+        WHERE c.auth_organization_id = ?
+        ORDER BY t.created_at, t.id
+        LIMIT 2`,
+      )
+      .all(organizationId) as Array<{
+      church_id: string;
+      territory_id: string;
+      time_zone: string;
+    }>;
+    if (rows.length !== 1) {
+      throw new Error('Church workspace not found');
+    }
+    return {
+      churchId: rows[0].church_id,
+      territoryId: rows[0].territory_id,
+      timeZone: rows[0].time_zone,
+    };
+  } finally {
+    database.close();
+  }
+}
+
 function parseGeometry<T extends LineString | Polygon>(json: string): T {
   return JSON.parse(json) as T;
 }
 
-function todayForPilot(): string {
-  return calendarDateInTimeZone(new Date(), PILOT_TIME_ZONE);
+function todayForWorkspace(): string {
+  return calendarDateInTimeZone(new Date(), workspaceTimeZone());
 }
 
-export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()): CoverageWorkspace {
+export function getCoverageWorkspace(
+  filename?: string,
+  asOf = todayForWorkspace(),
+): CoverageWorkspace {
   validateCoverageDate(asOf, asOf);
   const territory = getTerritoryWorkspace(filename);
   const database = openWorkspaceDatabase(filename);
@@ -267,7 +315,7 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
         FROM territories
         WHERE id = ? AND church_id = ?`,
       )
-      .get(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as
+      .get(workspaceTerritoryId(), workspaceChurchId()) as
       | {
           coverage_yellow_after_days: number;
           coverage_orange_after_days: number;
@@ -289,7 +337,7 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
         WHERE ce.church_id = ? AND s.territory_id = ?
         ORDER BY ce.rowid`,
       )
-      .all(PILOT_CHURCH_ID, PILOT_TERRITORY_ID)
+      .all(workspaceChurchId(), workspaceTerritoryId())
       .map((row) => {
         const event = row as {
           id: string;
@@ -321,7 +369,7 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
         WHERE ce.church_id = ? AND a.territory_id = ?
         ORDER BY ce.rowid`,
       )
-      .all(PILOT_CHURCH_ID, PILOT_TERRITORY_ID)
+      .all(workspaceChurchId(), workspaceTerritoryId())
       .map((row) => {
         const event = row as {
           id: string;
@@ -369,7 +417,7 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
     const activePackets = (
       database
         .prepare('SELECT COUNT(*) AS count FROM packets WHERE church_id = ? AND status = ?')
-        .get(PILOT_CHURCH_ID, 'active') as { count: number }
+        .get(workspaceChurchId(), 'active') as { count: number }
     ).count;
     const latestBatchRow = database
       .prepare(
@@ -382,7 +430,7 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
         ORDER BY b.finalized_at DESC, b.id DESC
         LIMIT 1`,
       )
-      .get(PILOT_CHURCH_ID) as
+      .get(workspaceChurchId()) as
       | {
           id: string;
           name: string;
@@ -453,7 +501,7 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
 
 export function getPacketGenerationWorkspace(
   filename?: string,
-  asOf = todayForPilot(),
+  asOf = todayForWorkspace(),
 ): PacketGenerationWorkspace {
   const coverage = getCoverageWorkspace(filename, asOf);
   const database = openWorkspaceDatabase(filename);
@@ -468,7 +516,7 @@ export function getPacketGenerationWorkspace(
         WHERE s.territory_id = ? AND s.church_id = ? AND s.is_current = 1
         ORDER BY s.import_segment_id, a.id`,
       )
-      .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Array<{
+      .all(workspaceTerritoryId(), workspaceChurchId()) as Array<{
       import_segment_id: string;
       house_number: string | null;
       street: string;
@@ -498,7 +546,7 @@ export function getPacketGenerationWorkspace(
             WHERE ps.church_id = ? AND s.territory_id = ? AND p.status = 'active'
             ORDER BY s.import_segment_id`,
           )
-          .all(PILOT_CHURCH_ID, PILOT_TERRITORY_ID) as Array<{ import_segment_id: string }>
+          .all(workspaceChurchId(), workspaceTerritoryId()) as Array<{ import_segment_id: string }>
       ).map((row) => row.import_segment_id),
     );
     const reservedApartments = new Set(
@@ -512,7 +560,7 @@ export function getPacketGenerationWorkspace(
             WHERE pa.church_id = ? AND a.territory_id = ? AND p.status = 'active'
             ORDER BY a.import_complex_id`,
           )
-          .all(PILOT_CHURCH_ID, PILOT_TERRITORY_ID) as Array<{ import_complex_id: string }>
+          .all(workspaceChurchId(), workspaceTerritoryId()) as Array<{ import_complex_id: string }>
       ).map((row) => row.import_complex_id),
     );
     const apartmentComplexes = coverage.apartmentComplexes
@@ -564,7 +612,7 @@ export function getPacketGenerationWorkspace(
 
 function automaticBatchName(now: Date): string {
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: PILOT_TIME_ZONE,
+    timeZone: workspaceTimeZone(),
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -577,7 +625,7 @@ function automaticBatchName(now: Date): string {
 }
 
 function packetCode(batchId: string, sequence: number, now: Date): string {
-  const date = calendarDateInTimeZone(now, PILOT_TIME_ZONE).replaceAll('-', '');
+  const date = calendarDateInTimeZone(now, workspaceTimeZone()).replaceAll('-', '');
   const token = batchId.replaceAll('-', '').slice(0, 6).toUpperCase();
   return `TEM-${date}-${token}-${String(sequence + 1).padStart(3, '0')}`;
 }
@@ -594,7 +642,7 @@ export function finalizePacketBatch(
   database.exec('BEGIN IMMEDIATE');
   try {
     const proposals = generatePacketProposals({
-      ...getPacketGenerationWorkspace(options.filename, options.asOf ?? todayForPilot()),
+      ...getPacketGenerationWorkspace(options.filename, options.asOf ?? todayForWorkspace()),
       requests: input.requests,
     }).proposals;
     if (
@@ -611,7 +659,7 @@ export function finalizePacketBatch(
         `INSERT INTO batches (id, church_id, name, status, finalized_at)
         VALUES (?, ?, ?, 'finalized', ?)`,
       )
-      .run(batchId, PILOT_CHURCH_ID, name, finalizedAt);
+      .run(batchId, workspaceChurchId(), name, finalizedAt);
     const insertPacket = database.prepare(
       `INSERT INTO packets
         (id, church_id, batch_id, packet_code, start_address, estimated_homes, status,
@@ -640,7 +688,7 @@ export function finalizePacketBatch(
       const code = packetCode(batchId, sequence, now);
       insertPacket.run(
         id,
-        PILOT_CHURCH_ID,
+        workspaceChurchId(),
         batchId,
         code,
         proposal.start.address,
@@ -651,21 +699,23 @@ export function finalizePacketBatch(
         proposal.kind ?? 'street',
       );
       proposal.segments.forEach((segment, segmentSequence) => {
-        const row = segmentRow.get(PILOT_CHURCH_ID, PILOT_TERRITORY_ID, segment.id) as
+        const row = segmentRow.get(workspaceChurchId(), workspaceTerritoryId(), segment.id) as
           | { id: string }
           | undefined;
         if (!row) throw new PacketProposalConflictError('Packet proposals changed');
-        insertSegment.run(PILOT_CHURCH_ID, id, row.id, segmentSequence);
+        insertSegment.run(workspaceChurchId(), id, row.id, segmentSequence);
       });
       if (proposal.kind === 'apartment') {
         if (!proposal.apartmentId) {
           throw new PacketProposalConflictError('Packet proposals changed');
         }
-        const row = apartmentRow.get(PILOT_CHURCH_ID, PILOT_TERRITORY_ID, proposal.apartmentId) as
-          | { id: string }
-          | undefined;
+        const row = apartmentRow.get(
+          workspaceChurchId(),
+          workspaceTerritoryId(),
+          proposal.apartmentId,
+        ) as { id: string } | undefined;
         if (!row) throw new PacketProposalConflictError('Packet proposals changed');
-        insertApartment.run(PILOT_CHURCH_ID, id, row.id);
+        insertApartment.run(workspaceChurchId(), id, row.id);
       }
       return { ...proposal, id, code };
     });
@@ -700,7 +750,7 @@ export function getPacketDownloadSelection(
               WHERE church_id = ? AND finalized_at IS NOT NULL
               ORDER BY finalized_at DESC, id DESC LIMIT 1`,
             )
-            .get(PILOT_CHURCH_ID) as { id: string } | undefined)
+            .get(workspaceChurchId()) as { id: string } | undefined)
         : undefined;
     const rows = database
       .prepare(
@@ -715,7 +765,7 @@ export function getPacketDownloadSelection(
           AND (${scope === 'newest' ? 'p.batch_id = ?' : "p.status = 'active'"})
         ORDER BY b.finalized_at, b.id, p.sequence_number, p.id`,
       )
-      .all(PILOT_CHURCH_ID, ...(scope === 'newest' ? [newest?.id ?? ''] : [])) as Array<{
+      .all(workspaceChurchId(), ...(scope === 'newest' ? [newest?.id ?? ''] : [])) as Array<{
       id: string;
       packet_code: string;
       batch_id: string;
@@ -751,7 +801,7 @@ export function getPacketDownloadSelection(
           position: [row.start_longitude, row.start_latitude],
         },
         segments: (
-          segmentRows.all(PILOT_CHURCH_ID, row.id) as Array<{
+          segmentRows.all(workspaceChurchId(), row.id) as Array<{
             id: string;
             geometry_geojson: string;
             estimated_homes: number;
@@ -840,7 +890,7 @@ export function getReconciliationWorkspace(filename?: string): ReconciliationWor
         WHERE church_id = ? AND finalized_at IS NOT NULL
         ORDER BY finalized_at DESC, id DESC`,
       )
-      .all(PILOT_CHURCH_ID) as Array<{
+      .all(workspaceChurchId()) as Array<{
       id: string;
       name: string;
       status: ReconciliationBatch['status'];
@@ -868,7 +918,7 @@ export function getReconciliationWorkspace(filename?: string): ReconciliationWor
     );
     const batches = batchRows.map((batch): ReconciliationBatch => {
       const packets = (
-        packetRows.all(PILOT_CHURCH_ID, batch.id) as Array<{
+        packetRows.all(workspaceChurchId(), batch.id) as Array<{
           id: string;
           packet_code: string;
           estimated_homes: number;
@@ -883,11 +933,11 @@ export function getReconciliationWorkspace(filename?: string): ReconciliationWor
         const completedOn =
           history.findLast(({ effectiveCoveredOn }) => effectiveCoveredOn !== null)
             ?.effectiveCoveredOn ?? null;
-        const apartment = apartmentRow.get(PILOT_CHURCH_ID, packet.id) as
+        const apartment = apartmentRow.get(workspaceChurchId(), packet.id) as
           | { import_complex_id: string; longitude: number; latitude: number }
           | undefined;
         const segments = (
-          segmentRows.all(PILOT_CHURCH_ID, packet.id) as Array<{
+          segmentRows.all(workspaceChurchId(), packet.id) as Array<{
             import_segment_id: string;
             geometry_geojson: string;
             estimated_homes: number;
@@ -939,7 +989,7 @@ export function getReconciliationWorkspace(filename?: string): ReconciliationWor
       };
     });
     return {
-      asOf: todayForPilot(),
+      asOf: todayForWorkspace(),
       defaultBatchId: batches.find(({ counts }) => counts.active > 0)?.id ?? batches[0]?.id ?? null,
       batches,
     };
@@ -959,7 +1009,7 @@ export function reconcilePacketBatch(
   options: { filename?: string; now?: Date } = {},
 ): ReconciliationWorkspace {
   const input = parseReconciliationInput(value);
-  const coveredOn = calendarDateInTimeZone(options.now ?? new Date(), PILOT_TIME_ZONE);
+  const coveredOn = calendarDateInTimeZone(options.now ?? new Date(), workspaceTimeZone());
   const present = new Set(input.presentPacketIds);
   const cancel = new Set(input.cancelPacketIds);
   const keep = new Set(input.presentPacketIds.filter((id) => !cancel.has(id)));
@@ -969,7 +1019,7 @@ export function reconcilePacketBatch(
   try {
     const batch = database
       .prepare('SELECT id FROM batches WHERE id = ? AND church_id = ? AND finalized_at IS NOT NULL')
-      .get(input.batchId, PILOT_CHURCH_ID);
+      .get(input.batchId, workspaceChurchId());
     if (!batch) throw new Error('Batch not found');
     const packetRows = database
       .prepare(
@@ -977,7 +1027,7 @@ export function reconcilePacketBatch(
         FROM packets
         WHERE batch_id = ? AND church_id = ?`,
       )
-      .all(input.batchId, PILOT_CHURCH_ID) as Array<{
+      .all(input.batchId, workspaceChurchId()) as Array<{
       id: string;
       status: ReconciliationPacket['status'];
       packet_kind: ReconciliationPacket['kind'];
@@ -1029,27 +1079,27 @@ export function reconcilePacketBatch(
       if (!packet) throw new ReconciliationConflictError('Reconciliation changed');
       const groupId = randomUUID();
       if (packet.packet_kind === 'apartment') {
-        const target = apartmentTarget.get(PILOT_CHURCH_ID, packetId) as
+        const target = apartmentTarget.get(workspaceChurchId(), packetId) as
           | { apartment_complex_id: string }
           | undefined;
         if (!target) throw new Error('Apartment packet target missing');
         insertApartmentEvent.run(
           randomUUID(),
-          PILOT_CHURCH_ID,
+          workspaceChurchId(),
           target.apartment_complex_id,
           packetId,
           groupId,
           coveredOn,
         );
       } else {
-        const targets = streetTargets.all(PILOT_CHURCH_ID, packetId) as Array<{
+        const targets = streetTargets.all(workspaceChurchId(), packetId) as Array<{
           street_segment_id: string;
         }>;
         if (targets.length === 0) throw new Error('Street packet targets missing');
         for (const target of targets) {
           insertStreetEvent.run(
             randomUUID(),
-            PILOT_CHURCH_ID,
+            workspaceChurchId(),
             target.street_segment_id,
             packetId,
             groupId,
@@ -1057,7 +1107,7 @@ export function reconcilePacketBatch(
           );
         }
       }
-      if (completePacket.run(packetId, PILOT_CHURCH_ID).changes !== 1) {
+      if (completePacket.run(packetId, workspaceChurchId()).changes !== 1) {
         throw new ReconciliationConflictError('Reconciliation changed');
       }
     }
@@ -1066,7 +1116,7 @@ export function reconcilePacketBatch(
       WHERE id = ? AND church_id = ? AND status = 'active'`,
     );
     for (const packetId of cancel) {
-      if (cancelPacket.run(packetId, PILOT_CHURCH_ID).changes !== 1) {
+      if (cancelPacket.run(packetId, workspaceChurchId()).changes !== 1) {
         throw new ReconciliationConflictError('Reconciliation changed');
       }
     }
@@ -1078,12 +1128,12 @@ export function reconcilePacketBatch(
         FROM packets
         WHERE batch_id = ? AND church_id = ?`,
       )
-      .get(input.batchId, PILOT_CHURCH_ID) as { active: number; completed: number };
+      .get(input.batchId, workspaceChurchId()) as { active: number; completed: number };
     const status =
       counts.active > 0 ? 'finalized' : counts.completed > 0 ? 'reconciled' : 'cancelled';
     database
       .prepare('UPDATE batches SET status = ? WHERE id = ? AND church_id = ?')
-      .run(status, input.batchId, PILOT_CHURCH_ID);
+      .run(status, input.batchId, workspaceChurchId());
     database.exec('COMMIT');
   } catch (error) {
     if (database.isTransaction) database.exec('ROLLBACK');
@@ -1125,7 +1175,7 @@ export function correctPacketCompletion(
   value: PacketCompletionCorrectionInput,
   options: { filename?: string; now?: Date } = {},
 ): ReconciliationWorkspace {
-  const asOf = calendarDateInTimeZone(options.now ?? new Date(), PILOT_TIME_ZONE);
+  const asOf = calendarDateInTimeZone(options.now ?? new Date(), workspaceTimeZone());
   const input = parsePacketCompletionCorrection(value, asOf);
   const database = openWorkspaceDatabase(options.filename);
   database.exec('BEGIN IMMEDIATE');
@@ -1136,7 +1186,7 @@ export function correctPacketCompletion(
         FROM packets
         WHERE id = ? AND church_id = ?`,
       )
-      .get(input.packetId, PILOT_CHURCH_ID) as
+      .get(input.packetId, workspaceChurchId()) as
       | { id: string; batch_id: string; status: ReconciliationPacket['status'] }
       | undefined;
     if (!packet) throw new Error('Packet not found');
@@ -1160,7 +1210,7 @@ export function correctPacketCompletion(
             AND newer.packet_id != original.packet_id AND p.status = 'active'
           ORDER BY p.packet_code`,
         )
-        .all(packet.id, PILOT_CHURCH_ID) as Array<{ packet_code: string }>;
+        .all(packet.id, workspaceChurchId()) as Array<{ packet_code: string }>;
       const apartmentConflict = database
         .prepare(
           `SELECT DISTINCT p.packet_code
@@ -1172,7 +1222,7 @@ export function correctPacketCompletion(
             AND newer.packet_id != original.packet_id AND p.status = 'active'
           ORDER BY p.packet_code`,
         )
-        .all(packet.id, PILOT_CHURCH_ID) as Array<{ packet_code: string }>;
+        .all(packet.id, workspaceChurchId()) as Array<{ packet_code: string }>;
       const conflicts = [...streetConflict, ...apartmentConflict].map(
         ({ packet_code }) => packet_code,
       );
@@ -1192,7 +1242,7 @@ export function correctPacketCompletion(
     for (const root of roots) {
       insertCorrection.run(
         randomUUID(),
-        PILOT_CHURCH_ID,
+        workspaceChurchId(),
         root.street_segment_id,
         root.apartment_complex_id,
         packet.id,
@@ -1205,10 +1255,10 @@ export function correctPacketCompletion(
     if (input.coveredOn === null) {
       database
         .prepare("UPDATE packets SET status = 'active' WHERE id = ? AND church_id = ?")
-        .run(packet.id, PILOT_CHURCH_ID);
+        .run(packet.id, workspaceChurchId());
       database
         .prepare("UPDATE batches SET status = 'finalized' WHERE id = ? AND church_id = ?")
-        .run(packet.batch_id, PILOT_CHURCH_ID);
+        .run(packet.batch_id, workspaceChurchId());
     }
     database.exec('COMMIT');
   } catch (error) {
@@ -1236,8 +1286,8 @@ export function saveCoverageThresholds(value: CoverageThresholds, filename?: str
         thresholds.yellowAfterDays,
         thresholds.orangeAfterDays,
         thresholds.redAfterDays,
-        PILOT_TERRITORY_ID,
-        PILOT_CHURCH_ID,
+        workspaceTerritoryId(),
+        workspaceChurchId(),
       );
     if (result.changes !== 1) throw new Error('Territory not found');
     database.exec('COMMIT');
@@ -1254,7 +1304,7 @@ export function recordCoverageCompletion(
   coveredOn: string,
   filename?: string,
 ): string {
-  validateCoverageDate(coveredOn, todayForPilot());
+  validateCoverageDate(coveredOn, todayForWorkspace());
   const database = openWorkspaceDatabase(filename);
   database.exec('BEGIN IMMEDIATE');
   try {
@@ -1263,7 +1313,7 @@ export function recordCoverageCompletion(
         `SELECT id FROM street_segments
         WHERE church_id = ? AND territory_id = ? AND import_segment_id = ? AND is_current = 1`,
       )
-      .get(PILOT_CHURCH_ID, PILOT_TERRITORY_ID, segmentId) as { id: string } | undefined;
+      .get(workspaceChurchId(), workspaceTerritoryId(), segmentId) as { id: string } | undefined;
     if (!segment) throw new Error('Street segment not found');
     const id = randomUUID();
     database
@@ -1272,7 +1322,7 @@ export function recordCoverageCompletion(
           (id, church_id, street_segment_id, covered_on, kind)
         VALUES (?, ?, ?, ?, 'completed')`,
       )
-      .run(id, PILOT_CHURCH_ID, segment.id, coveredOn);
+      .run(id, workspaceChurchId(), segment.id, coveredOn);
     database.exec('COMMIT');
     return id;
   } catch (error) {
@@ -1288,7 +1338,7 @@ export function appendCoverageCorrection(
   coveredOn: string | null,
   filename?: string,
 ): void {
-  if (coveredOn !== null) validateCoverageDate(coveredOn, todayForPilot());
+  if (coveredOn !== null) validateCoverageDate(coveredOn, todayForWorkspace());
   const database = openWorkspaceDatabase(filename);
   database.exec('BEGIN IMMEDIATE');
   try {
@@ -1298,7 +1348,7 @@ export function appendCoverageCorrection(
         FROM coverage_events
         WHERE id = ? AND church_id = ? AND kind = 'completed'`,
       )
-      .get(eventId, PILOT_CHURCH_ID) as
+      .get(eventId, workspaceChurchId()) as
       | {
           id: string;
           church_id: string;
@@ -1354,7 +1404,7 @@ export function getFoundationSummary(filename?: string): FoundationSummary {
         FROM packets
         WHERE church_id = ?`,
       )
-      .get(PILOT_CHURCH_ID) as SummaryRow;
+      .get(workspaceChurchId()) as SummaryRow;
     return {
       churchName: workspace.churchName,
       territoryName: workspace.name,
@@ -1388,7 +1438,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
         JOIN churches c ON c.id = t.church_id
         WHERE t.id = ? AND t.church_id = ?`,
       )
-      .get(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as TerritoryRow | undefined;
+      .get(workspaceTerritoryId(), workspaceChurchId()) as TerritoryRow | undefined;
     if (!territory) {
       throw new Error('No local workspace found. Run pnpm db:seed.');
     }
@@ -1401,7 +1451,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
           WHERE territory_id = ? AND church_id = ?
           ORDER BY created_at, id`,
         )
-        .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as ExclusionRow[]
+        .all(workspaceTerritoryId(), workspaceChurchId()) as ExclusionRow[]
     ).map(
       (row): ExclusionArea => ({
         id: row.id,
@@ -1475,7 +1525,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
           WHERE territory_id = ? AND church_id = ? AND is_current = 1
           ORDER BY street_name, import_segment_id`,
         )
-        .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as SegmentRow[]
+        .all(workspaceTerritoryId(), workspaceChurchId()) as SegmentRow[]
     ).map((row): TerritorySegment => {
       const geometry = parseGeometry<LineString>(row.geometry_geojson);
       const withinBoundary = lineInsideTerritoryBoundary(
@@ -1522,7 +1572,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
           WHERE territory_id = ? AND church_id = ? AND is_current = 1
           ORDER BY address, import_complex_id`,
         )
-        .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as ApartmentRow[]
+        .all(workspaceTerritoryId(), workspaceChurchId()) as ApartmentRow[]
     ).map(
       (row): ApartmentComplex => ({
         id: row.import_complex_id,
@@ -1600,8 +1650,8 @@ export function saveTerritoryDraft(
         draft.radiusMiles * 1609.344,
         draft.boundaryShape,
         JSON.stringify(territoryBoundary(draft.center, draft.radiusMiles, draft.boundaryShape)),
-        PILOT_TERRITORY_ID,
-        PILOT_CHURCH_ID,
+        workspaceTerritoryId(),
+        workspaceChurchId(),
       );
     if (result.changes !== 1) {
       throw new Error('Territory not found');
@@ -1609,7 +1659,7 @@ export function saveTerritoryDraft(
 
     database
       .prepare('DELETE FROM ignore_zones WHERE territory_id = ? AND church_id = ?')
-      .run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID);
+      .run(workspaceTerritoryId(), workspaceChurchId());
     const insert = database.prepare(
       `INSERT INTO ignore_zones
         (id, church_id, territory_id, name, enabled, geometry_geojson)
@@ -1618,8 +1668,8 @@ export function saveTerritoryDraft(
     for (const exclusion of draft.exclusions) {
       insert.run(
         exclusion.id,
-        PILOT_CHURCH_ID,
-        PILOT_TERRITORY_ID,
+        workspaceChurchId(),
+        workspaceTerritoryId(),
         exclusion.name,
         exclusion.enabled ? 1 : 0,
         JSON.stringify(exclusion.geometry),
@@ -1635,7 +1685,7 @@ export function saveTerritoryDraft(
               FROM apartment_complexes
               WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
             )
-            .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Array<{
+            .all(workspaceTerritoryId(), workspaceChurchId()) as Array<{
             import_complex_id: string;
             review_status: ApartmentComplex['reviewStatus'];
           }>
@@ -1649,7 +1699,7 @@ export function saveTerritoryDraft(
               FROM street_segments
               WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
             )
-            .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Array<{
+            .all(workspaceTerritoryId(), workspaceChurchId()) as Array<{
             import_segment_id: string;
             geometry_geojson: string;
           }>
@@ -1666,7 +1716,7 @@ export function saveTerritoryDraft(
           WHERE territory_id = ? AND church_id = ? AND is_current = 1
             AND activation_kind = 'manual'`,
         )
-        .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Array<
+        .all(workspaceTerritoryId(), workspaceChurchId()) as Array<
         SegmentRow & { import_segment_id: string }
       >;
       const manualAddresses = new Map<
@@ -1690,7 +1740,7 @@ export function saveTerritoryDraft(
             AND s.activation_kind = 'manual'
           ORDER BY a.id`,
         )
-        .all(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Array<{
+        .all(workspaceTerritoryId(), workspaceChurchId()) as Array<{
         import_segment_id: string;
         house_number: string | null;
         street: string;
@@ -1724,7 +1774,10 @@ export function saveTerritoryDraft(
               FROM territories
               WHERE id = ? AND church_id = ?`,
             )
-            .get(PILOT_TERRITORY_ID, PILOT_CHURCH_ID) as Pick<TerritoryRow, 'import_generation'>
+            .get(workspaceTerritoryId(), workspaceChurchId()) as Pick<
+            TerritoryRow,
+            'import_generation'
+          >
         ).import_generation + 1;
       database
         .prepare(
@@ -1732,14 +1785,14 @@ export function saveTerritoryDraft(
           SET is_current = 0
           WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
         )
-        .run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID);
+        .run(workspaceTerritoryId(), workspaceChurchId());
       database
         .prepare(
           `UPDATE apartment_complexes
           SET is_current = 0
           WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
         )
-        .run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID);
+        .run(workspaceTerritoryId(), workspaceChurchId());
       const insertSegment = database.prepare(
         `INSERT INTO street_segments
           (id, church_id, territory_id, import_segment_id, source_segment_id, road_group_id,
@@ -1756,8 +1809,8 @@ export function saveTerritoryDraft(
         const physicalId = `${segment.id}@${generation}`;
         insertSegment.run(
           physicalId,
-          PILOT_CHURCH_ID,
-          PILOT_TERRITORY_ID,
+          workspaceChurchId(),
+          workspaceTerritoryId(),
           segment.id,
           segment.sourceSegmentId,
           segment.roadGroupId,
@@ -1792,8 +1845,8 @@ export function saveTerritoryDraft(
       for (const apartment of options.imported.apartmentComplexes) {
         insertApartment.run(
           `${apartment.id}@${generation}`,
-          PILOT_CHURCH_ID,
-          PILOT_TERRITORY_ID,
+          workspaceChurchId(),
+          workspaceTerritoryId(),
           apartment.id,
           apartment.sourceId,
           apartment.address,
@@ -1813,8 +1866,8 @@ export function saveTerritoryDraft(
         const physicalId = `${segment.import_segment_id}@${generation}`;
         insertSegment.run(
           physicalId,
-          PILOT_CHURCH_ID,
-          PILOT_TERRITORY_ID,
+          workspaceChurchId(),
+          workspaceTerritoryId(),
           segment.import_segment_id,
           segment.source_segment_id,
           segment.road_group_id,
@@ -1875,8 +1928,8 @@ export function saveTerritoryDraft(
           JSON.stringify(options.imported.quality.warnings),
           options.imported.normalizerVersion,
           generation,
-          PILOT_TERRITORY_ID,
-          PILOT_CHURCH_ID,
+          workspaceTerritoryId(),
+          workspaceChurchId(),
         );
     }
     const activate = database.prepare(
@@ -1885,7 +1938,7 @@ export function saveTerritoryDraft(
       WHERE territory_id = ? AND church_id = ? AND is_current = 1 AND road_group_id = ?`,
     );
     for (const roadGroupId of activatedRoadGroupIds) {
-      activate.run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID, roadGroupId);
+      activate.run(workspaceTerritoryId(), workspaceChurchId(), roadGroupId);
     }
     database
       .prepare(
@@ -1893,7 +1946,7 @@ export function saveTerritoryDraft(
         SET manually_excluded = 0
         WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
       )
-      .run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID);
+      .run(workspaceTerritoryId(), workspaceChurchId());
     const excludeSegment = database.prepare(
       `UPDATE street_segments
       SET manually_excluded = 1
@@ -1901,7 +1954,7 @@ export function saveTerritoryDraft(
         AND import_segment_id = ?`,
     );
     for (const segmentId of excludedSegmentIds) {
-      excludeSegment.run(PILOT_TERRITORY_ID, PILOT_CHURCH_ID, segmentId);
+      excludeSegment.run(workspaceTerritoryId(), workspaceChurchId(), segmentId);
     }
     const updateApartment = database.prepare(
       `UPDATE apartment_complexes
@@ -1917,8 +1970,8 @@ export function saveTerritoryDraft(
       if (
         updateApartment.run(
           apartment.reviewStatus,
-          PILOT_TERRITORY_ID,
-          PILOT_CHURCH_ID,
+          workspaceTerritoryId(),
+          workspaceChurchId(),
           apartment.id,
           apartment.reviewStatus,
         ).changes !== 1

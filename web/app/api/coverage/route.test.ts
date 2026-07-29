@@ -10,7 +10,12 @@ import {
   getTerritoryWorkspace,
   recordCoverageCompletion,
 } from '../../../lib/database.ts';
-import { GET, PATCH, POST } from './route.ts';
+import { withTemeculaWorkspace } from '../../../test/workspace-fixtures.ts';
+import {
+  getCoverage as GET,
+  updateCoverageRanges as PATCH,
+  correctCoverage as POST,
+} from './route.ts';
 
 function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-coverage-route-'));
@@ -21,7 +26,7 @@ function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
   database.close();
   const original = process.env.STREETLIGHT_DATABASE_PATH;
   process.env.STREETLIGHT_DATABASE_PATH = filename;
-  return run(filename).finally(() => {
+  return withTemeculaWorkspace(() => run(filename)).finally(() => {
     if (original === undefined) delete process.env.STREETLIGHT_DATABASE_PATH;
     else process.env.STREETLIGHT_DATABASE_PATH = original;
     rmSync(directory, { recursive: true, force: true });

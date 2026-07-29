@@ -5,7 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../db/migrate.mjs';
 import { seedDatabase } from '../../../db/seed.mjs';
-import { GET, PATCH, POST } from './route.ts';
+import { withTemeculaWorkspace } from '../../../test/workspace-fixtures.ts';
+import {
+  getReconciliation as GET,
+  correctPacket as PATCH,
+  reconcilePackets as POST,
+} from './route.ts';
 
 async function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-reconciliation-route-'));
@@ -47,7 +52,7 @@ async function withDatabase(run: (filename: string) => Promise<void>): Promise<v
   const original = process.env.STREETLIGHT_DATABASE_PATH;
   process.env.STREETLIGHT_DATABASE_PATH = filename;
   try {
-    await run(filename);
+    await withTemeculaWorkspace(() => run(filename));
   } finally {
     if (original === undefined) delete process.env.STREETLIGHT_DATABASE_PATH;
     else process.env.STREETLIGHT_DATABASE_PATH = original;

@@ -9,7 +9,8 @@ Read [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the phased build and c
 
 The application is one Next.js App Router project in `web`, backed by SQLite through
 Node's built-in `node:sqlite` module. SQL migrations live in `web/db/migrations`.
-Authentication and deployment intentionally wait for their planned phases.
+WorkOS AuthKit provides invite-only administrator authentication. Deployment remains in its
+planned phase.
 
 Requirements:
 

@@ -15,6 +15,7 @@ import {
   saveCoverageThresholds,
   saveTerritoryDraft,
 } from '../lib/database.ts';
+import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
 import { migrateDatabase, openDatabase } from './migrate.mjs';
 import { seedDatabase } from './seed.mjs';
 
@@ -26,7 +27,7 @@ function withDatabase(run) {
   seedDatabase(database);
   database.close();
   try {
-    run(filename);
+    withTemeculaWorkspace(() => run(filename));
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -153,8 +154,8 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
   }
 
   try {
-    const workspace = getTerritoryWorkspace(filename);
-    const summary = getFoundationSummary(filename);
+    const workspace = withTemeculaWorkspace(() => getTerritoryWorkspace(filename));
+    const summary = withTemeculaWorkspace(() => getFoundationSummary(filename));
     assert.deepEqual(workspace.center, [-117.1164623, 33.5414958]);
     assert.equal(workspace.import.kind, 'proof');
     assert.equal(workspace.import.release, null);
@@ -1830,7 +1831,7 @@ test('coverage demo recreates only its isolated database with stable representat
     );
     first.close();
 
-    const workspace = getCoverageWorkspace(filename, asOf);
+    const workspace = withTemeculaWorkspace(() => getCoverageWorkspace(filename, asOf));
     assert.equal(workspace.dataMode, 'demo');
     assert.deepEqual(
       [...new Set(workspace.segments.map((segment) => segment.coverageClass))].sort(),
@@ -1923,7 +1924,7 @@ test('coverage demo can copy the full empty-history territory into geographic ag
     assert.equal(copiedName, 'Full territory source');
     assert.equal(eventCount > 20, true);
 
-    const workspace = getCoverageWorkspace(demoFilename, asOf);
+    const workspace = withTemeculaWorkspace(() => getCoverageWorkspace(demoFilename, asOf));
     assert.equal(workspace.dataMode, 'demo');
     assert.deepEqual(
       [...new Set(workspace.segments.map((segment) => segment.coverageClass))].sort(),

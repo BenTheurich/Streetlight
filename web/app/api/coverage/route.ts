@@ -1,3 +1,4 @@
+import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
 import { parseCorrectionRequest, parseCoverageThresholds } from '../../../lib/coverage.ts';
 import {
   appendCoverageCorrection,
@@ -9,11 +10,11 @@ function json(body: unknown, status = 200): Response {
   return Response.json(body, { status });
 }
 
-export function GET(): Response {
+export function getCoverage(): Response {
   return json(getCoverageWorkspace());
 }
 
-export async function POST(request: Request): Promise<Response> {
+export async function correctCoverage(request: Request): Promise<Response> {
   let body: unknown;
   try {
     body = await request.json();
@@ -35,7 +36,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-export async function PATCH(request: Request): Promise<Response> {
+export async function updateCoverageRanges(request: Request): Promise<Response> {
   let body: unknown;
   try {
     body = await request.json();
@@ -50,3 +51,7 @@ export async function PATCH(request: Request): Promise<Response> {
     return json({ error: 'Invalid heatmap ranges' }, 400);
   }
 }
+
+export const GET = authenticatedRoute(getCoverage);
+export const POST = authenticatedRoute(correctCoverage);
+export const PATCH = authenticatedRoute(updateCoverageRanges);

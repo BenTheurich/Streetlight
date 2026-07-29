@@ -1,6 +1,7 @@
+import { authenticatedRoute } from '@/lib/authenticated-route';
 import { geocodeAddress } from '@/lib/google-maps-server';
 
-export async function POST(request: Request) {
+export async function geocodeChurch(request: Request) {
   const body: unknown = await request.json().catch(() => null);
   if (
     typeof body !== 'object' ||
@@ -22,3 +23,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = authenticatedRoute(geocodeChurch);

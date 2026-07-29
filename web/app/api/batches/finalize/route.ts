@@ -1,3 +1,4 @@
+import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
 import { finalizePacketBatch } from '../../../../lib/database.ts';
 import {
   type PacketFinalizationInput,
@@ -5,7 +6,7 @@ import {
   parsePacketFinalizationInput,
 } from '../../../../lib/packet-finalization.ts';
 
-export async function POST(request: Request): Promise<Response> {
+export async function finalizePacketBatchRequest(request: Request): Promise<Response> {
   let input: PacketFinalizationInput;
   try {
     input = parsePacketFinalizationInput(await request.json());
@@ -25,3 +26,5 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'Could not finalize packet batch' }, { status: 500 });
   }
 }
+
+export const POST = authenticatedRoute(finalizePacketBatchRequest);

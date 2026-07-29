@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
+import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
 import {
   buildReconciliationPreview,
   parsePacketCompletionCorrection,
@@ -19,7 +20,7 @@ async function withDatabase(run: (filename: string) => void | Promise<void>): Pr
   seedDatabase(database);
   database.close();
   try {
-    await run(filename);
+    await withTemeculaWorkspace(() => run(filename));
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

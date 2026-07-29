@@ -45,7 +45,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 4 | Packet selection | Phase 3 | Complete | Founder approved the deterministic packet proposals and orphan-prevention behavior and merged Phase 4 locally on July 28, 2026; automated, canonical-data, and browser evidence is recorded below |
 | 5 | Batch finalization and PDF | Phase 4 | Complete | Atomic street and apartment reservations, newest/all-active downloads, and map-first Letter PDFs are implemented; 126 Node checks, 51 Python checks, Biome, TypeScript, production build, isolated-browser finalization/reload, rendered-PDF inspection, and founder review pass |
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
-| 7 | Authentication and church isolation | Phase 6 | Pending | None |
+| 7 | Authentication and church isolation | Phase 6 | Awaiting human review | WorkOS AuthKit guards the page and every API route; required church scope replaces pilot constants; two-organization isolation checks and credential-free build pass |
 | 8 | Pilot access and onboarding | Phase 7 | Pending | None |
 | 9 | Application UX/UI polish | Phase 8 | Pending | None |
 | 10 | Deployment and recovery | Phase 9 | Pending | None |
@@ -625,6 +625,20 @@ Do not trust a church identifier supplied by the browser without verifying it ag
 - An administrator cannot read, update, reconcile, or download another church's data.
 - Direct requests with another church's identifiers are rejected.
 - The application still builds and tests without live production credentials.
+
+### Evidence
+
+- WorkOS AuthKit supplies hosted email/password sign-in, callback, session proxy, and sign-out
+  routes. Streetlight exposes no public signup or social-login path.
+- Every administrator page and API request requires a validated WorkOS session. Its organization
+  resolves server-side to one church, one territory, and the church time zone.
+- Database access now fails without an explicit church scope. The former global Temecula IDs and
+  time zone are no longer production fallbacks.
+- A second test organization proves that a real batch ID from another church returns `404` and
+  cannot change its batch or coverage rows. Unknown and missing organizations return `403`;
+  unauthenticated API access returns `401`.
+- All automated tests, Biome, TypeScript, the Python importer suite, and the credential-free Next.js
+  production build pass. Live two-organization browser review awaits staging WorkOS credentials.
 
 ### Browser check
 

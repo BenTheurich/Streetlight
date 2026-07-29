@@ -6,7 +6,8 @@ import test from 'node:test';
 import { PDFDocument } from 'pdf-lib';
 import { migrateDatabase, openDatabase } from '../../../../db/migrate.mjs';
 import { seedDatabase } from '../../../../db/seed.mjs';
-import { GET } from './route.ts';
+import { withTemeculaWorkspace } from '../../../../test/workspace-fixtures.ts';
+import { getPacketPdf as GET } from './route.ts';
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z3z8AAAAASUVORK5CYII=',
@@ -69,7 +70,7 @@ function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
       headers: { 'content-type': 'image/png' },
     });
   };
-  return run(filename).finally(() => {
+  return withTemeculaWorkspace(() => run(filename)).finally(() => {
     if (originalDatabase === undefined) delete process.env.STREETLIGHT_DATABASE_PATH;
     else process.env.STREETLIGHT_DATABASE_PATH = originalDatabase;
     if (originalKey === undefined) delete process.env.GOOGLE_MAPS_STATIC_API_KEY;

@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
 import { getPacketDownloadSelection } from '../../../../lib/database.ts';
 import { getGoogleMapsServerKey } from '../../../../lib/google-maps-server.ts';
 import { renderPacketMap, renderPacketPdf } from '../../../../lib/packet-pdf.ts';
 
-export async function GET(request: Request): Promise<Response> {
+export async function getPacketPdf(request: Request): Promise<Response> {
   const scope = new URL(request.url).searchParams.get('scope');
   if (scope !== 'newest' && scope !== 'active') {
     return Response.json({ error: 'Invalid packet download scope' }, { status: 400 });
@@ -43,3 +44,5 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: 'Could not create packet PDF' }, { status: 500 });
   }
 }
+
+export const GET = authenticatedRoute(getPacketPdf);

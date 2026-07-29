@@ -1,3 +1,4 @@
+import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
 import {
   correctPacketCompletion,
   getReconciliationWorkspace,
@@ -15,7 +16,7 @@ function json(body: unknown, status = 200): Response {
   return Response.json(body, { status });
 }
 
-export function GET(): Response {
+export function getReconciliation(): Response {
   try {
     return json(getReconciliationWorkspace());
   } catch {
@@ -23,7 +24,7 @@ export function GET(): Response {
   }
 }
 
-export async function POST(request: Request): Promise<Response> {
+export async function reconcilePackets(request: Request): Promise<Response> {
   let input: ReconciliationInput;
   try {
     input = parseReconciliationInput(await request.json());
@@ -43,7 +44,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-export async function PATCH(request: Request): Promise<Response> {
+export async function correctPacket(request: Request): Promise<Response> {
   let input: PacketCompletionCorrectionInput;
   try {
     const workspace = getReconciliationWorkspace();
@@ -72,3 +73,7 @@ export async function PATCH(request: Request): Promise<Response> {
     return json({ error: 'Could not change packet completion' }, 500);
   }
 }
+
+export const GET = authenticatedRoute(getReconciliation);
+export const POST = authenticatedRoute(reconcilePackets);
+export const PATCH = authenticatedRoute(correctPacket);

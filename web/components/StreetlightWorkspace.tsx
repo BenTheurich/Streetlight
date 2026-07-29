@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
 import type { CoverageWorkspace, TerritoryWorkspace } from '@/lib/database';
 import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
+import { AdministratorAccount } from './AdministratorAccount';
 import { AdminMap } from './AdminMap';
 import { CoverageDashboard } from './CoverageDashboard';
 import { CoverageMap } from './CoverageMap';
@@ -23,9 +24,11 @@ const tools: Array<{ id: WorkspaceTool; label: string }> = [
 ];
 
 export function StreetlightWorkspace({
+  administratorEmail,
   initialData,
   mapsApiKey,
 }: {
+  administratorEmail: string;
   initialData: CoverageWorkspace;
   mapsApiKey: string;
 }) {
@@ -106,19 +109,22 @@ export function StreetlightWorkspace({
           <span className="phase-label">{tools.find(({ id }) => id === tool)?.label}</span>
           {coverage.dataMode === 'demo' && <span className="demo-data-label">Demo data</span>}
         </div>
-        <nav aria-label="Administrator tools" className="workspace-tools">
-          {tools.map(({ id, label }) => (
-            <button
-              aria-pressed={tool === id}
-              className={tool === id ? 'active' : ''}
-              key={id}
-              onClick={() => setTool(id)}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
+        <div className="header-actions">
+          <nav aria-label="Administrator tools" className="workspace-tools">
+            {tools.map(({ id, label }) => (
+              <button
+                aria-pressed={tool === id}
+                className={tool === id ? 'active' : ''}
+                key={id}
+                onClick={() => setTool(id)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <AdministratorAccount email={administratorEmail} />
+        </div>
       </header>
       <main className="territory-workspace">
         <section className="map-panel">

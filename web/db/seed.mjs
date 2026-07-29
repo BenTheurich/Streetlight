@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import nextEnv from '@next/env';
 import { migrateDatabase, openDatabase } from './migrate.mjs';
 
 const fixture = JSON.parse(
@@ -10,12 +11,20 @@ const churchId = 'church-temecula-pilot';
 const territoryId = 'territory-temecula-pilot';
 const churchCenter = [-117.1164623, 33.5414958];
 
-export function seedDatabase(database) {
+export function seedDatabase(
+  database,
+  { authOrganizationId = process.env.STREETLIGHT_PILOT_WORKOS_ORGANIZATION_ID } = {},
+) {
   database.exec('BEGIN IMMEDIATE');
   try {
     database
       .prepare('INSERT OR IGNORE INTO churches (id, name) VALUES (?, ?)')
       .run(churchId, 'Temecula Pilot Church');
+    if (authOrganizationId) {
+      database
+        .prepare('UPDATE churches SET auth_organization_id = ? WHERE id = ?')
+        .run(authOrganizationId, churchId);
+    }
     database
       .prepare(
         `INSERT OR IGNORE INTO administrators
@@ -92,6 +101,10 @@ const isCommand =
     pathToFileURL(fileURLToPath(import.meta.url)).href;
 
 if (isCommand) {
+  nextEnv.loadEnvConfig(
+    path.join(import.meta.dirname, '..'),
+    process.env.NODE_ENV !== 'production',
+  );
   const database = openDatabase();
   migrateDatabase(database);
   seedDatabase(database);

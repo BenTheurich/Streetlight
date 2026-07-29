@@ -11,7 +11,8 @@ import {
   saveTerritoryDraft,
 } from '../../../lib/database.ts';
 import type { ImportedTerritoryInput } from '../../../lib/overture-import.ts';
-import { POST } from './route.ts';
+import { withTemeculaWorkspace } from '../../../test/workspace-fixtures.ts';
+import { proposePackets as POST } from './route.ts';
 
 function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-packet-route-'));
@@ -22,7 +23,7 @@ function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
   database.close();
   const original = process.env.STREETLIGHT_DATABASE_PATH;
   process.env.STREETLIGHT_DATABASE_PATH = filename;
-  return run(filename).finally(() => {
+  return withTemeculaWorkspace(() => run(filename)).finally(() => {
     if (original === undefined) delete process.env.STREETLIGHT_DATABASE_PATH;
     else process.env.STREETLIGHT_DATABASE_PATH = original;
     rmSync(directory, { recursive: true, force: true });
