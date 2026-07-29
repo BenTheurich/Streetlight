@@ -20,6 +20,9 @@ The application is for administrators. Volunteers continue using paper. They do 
 
 The first church is the founder's church. The product should support other churches without changing the core data model, but public signup is not part of the first release.
 
+Visitors may request pilot access from the public landing page. A request does not create an
+account. The founder reviews requests and manually invites approved church administrators.
+
 ## Product rules
 
 - Streetlight is a church outreach product. The interface uses terms such as `tracts`, `outreach`, `church`, and `completed`.
@@ -316,6 +319,7 @@ Advanced charts, leaderboards, volunteer statistics, and a report builder are ou
 Included:
 
 - Administrator authentication
+- Invite-only pilot access requests and founder-managed approval
 - Church workspace setup
 - Territory creation and correction
 - Editable territory boundary shape and distance
@@ -338,6 +342,7 @@ Excluded:
 
 - Payments and automated subscriptions
 - Public signup
+- Social login
 - Volunteer accounts
 - Multiple territories or campuses
 - Custom permission roles
@@ -368,16 +373,39 @@ Rules for later billing work:
 - Core workflow and data integrity take precedence over provisional plan gating. A plan cannot omit behavior required to reserve, reconcile, or correct its packets.
 - Exact limits and feature divisions can change after pilot evidence. The single-church no-loss constraint remains firm.
 
+## Approved pilot architecture
+
+The founder-church pilot uses the smallest operational stack that supports the existing application:
+
+- Railway Hobby hosts one application container under its generated HTTPS domain. The container
+  runs the Next.js application and the existing Python/DuckDB Overture importer.
+- SQLite remains the application database on one Railway persistent volume. Railway volume backups
+  are the pilot backup mechanism.
+- WorkOS AuthKit provides invite-only email/password authentication, persistent sessions,
+  invitation emails, and one organization per church. Use the standard WorkOS domain during the
+  pilot; do not purchase its custom-domain add-on.
+- Google Maps remains the provider for the interactive map, geocoding, road snapping, and printable
+  static maps. Configure API quotas before deployment.
+- Enable Railway sleeping where compatible and set a hard spending limit. Use the generated Railway
+  domain until the founder church approves the pilot; `streetlight.church` remains a possible later
+  purchase.
+- Do not add Supabase, R2, Resend, Redis, a separate worker provider, or a separate database service
+  for the pilot.
+
+Keep the importer in the application deployment until imports measurably interfere with normal
+requests. Move SQLite to PostgreSQL only when Streetlight needs multiple application replicas,
+database locking or import performance becomes a measured problem, the database approaches the
+Railway Hobby volume limit, stronger recovery is required, or the pilot grows beyond roughly 10–20
+active churches.
+
 ## Technical decisions left open
 
 The following are implementation choices, not founder decisions:
 
 - Application framework and repository layout
 - Database and geospatial extensions
-- Authentication provider
-- Map and geocoding providers, and any commercial address-data fallback required only if the
-  approved global Overture pipeline fails its benchmark
-- Hosting provider
+- Any commercial address-data fallback required only if the approved global Overture pipeline
+  fails its benchmark
 - PDF rendering method
 - Payment provider
 - Low-level packet-selector implementation details that do not change the approved ordering,

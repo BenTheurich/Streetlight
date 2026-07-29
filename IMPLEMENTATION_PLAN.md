@@ -46,8 +46,10 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 5 | Batch finalization and PDF | Phase 4 | Complete | Atomic street and apartment reservations, newest/all-active downloads, and map-first Letter PDFs are implemented; 126 Node checks, 51 Python checks, Biome, TypeScript, production build, isolated-browser finalization/reload, rendered-PDF inspection, and founder review pass |
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Pending | None |
-| 8 | Deployment and recovery | Phase 7 | Pending | None |
-| 9 | Founder-church pilot | Phase 8 | Pending | None |
+| 8 | Pilot access and onboarding | Phase 7 | Pending | None |
+| 9 | Application UX/UI polish | Phase 8 | Pending | None |
+| 10 | Deployment and recovery | Phase 9 | Pending | None |
+| 11 | Founder-church pilot | Phase 10 | Pending | None |
 
 ## Phase 0: Geographic and print proof
 
@@ -605,8 +607,10 @@ Protect the working application before deployment.
 
 ### Agent work
 
-- Present the smallest suitable authentication option, including current cost and operational requirements, for founder approval.
-- Add administrator sign-in without public signup.
+- Follow the approved
+  [`Pilot authentication and hosting design`](docs/superpowers/specs/2026-07-29-pilot-auth-hosting-design.md).
+- Add WorkOS AuthKit email/password sign-in without public signup or social login.
+- Keep signup disabled and create pilot administrators through WorkOS invitations.
 - Map every administrator session to one church workspace.
 - Enforce church ownership in server-side data access.
 - Keep all administrators at one permission level.
@@ -634,7 +638,86 @@ The founder approves the authentication provider and signs in through the real i
 
 Authentication works, isolation checks pass, and the founder approves the sign-in experience.
 
-## Phase 8: Deployment and recovery
+## Phase 8: Pilot access and onboarding
+
+### Goal
+
+Turn an approved landing-page request into a correctly configured, invited church workspace.
+
+### Agent work
+
+- Make the landing page's Request pilot access form persist a request without creating an account.
+- Give the founder the smallest authenticated view needed to review pending requests.
+- Let the founder mark a request approved or declined.
+- For an approved request, create or associate one church workspace and one WorkOS organization,
+  then send the first administrator invitation.
+- Add a short first-sign-in flow for the church name, church address, and territory setup entry
+  point.
+- Keep approval manual. Do not add a CRM, automated sales email, public signup, or billing.
+
+### Automated checks
+
+- A valid request is stored once and does not create a user or church workspace.
+- Invalid and duplicate submissions return useful results without duplicate records.
+- Only the founder can review or decide requests.
+- Approval creates one church/organization association and can be safely retried.
+- An invited administrator enters only their church workspace.
+
+### Browser check
+
+Submit a pilot request from the landing page, approve it as the founder, accept the invitation in a
+second browser session, and reach the new church's territory setup.
+
+### Human review
+
+The founder completes the request-to-invitation flow and approves its wording and effort.
+
+### Completion condition
+
+One test church moves from public request to authenticated onboarding without manual database
+changes.
+
+## Phase 9: Application UX/UI polish
+
+### Goal
+
+Make the authenticated tool feel coherent with the approved landing page and ready to show a pilot
+church without changing its workflow.
+
+### Agent work
+
+- Apply the landing page's typography, color, spacing, logo, and interaction character to the
+  authenticated workspace.
+- Clarify the shared map navigation, tool sidebars, empty states, loading states, warnings, and
+  primary actions.
+- Make the complete approved workflow usable at supported desktop and tablet widths.
+- Preserve the existing map behavior and deterministic workflow.
+- Fix accessibility basics: keyboard operation, focus visibility, labels, contrast, and reduced
+  motion.
+- Remove visual clutter and inconsistent one-off styles. Do not add new product features.
+
+### Automated checks
+
+- Existing workflow and isolation checks continue to pass.
+- Core controls have accessible names and keyboard paths.
+- Reduced-motion behavior does not depend on scroll animation.
+
+### Browser check
+
+Run Coverage, Territory Setup, Generate Packets, Finalize/Download, and Reconcile at representative
+desktop and tablet widths with no clipped or unreachable controls.
+
+### Human review
+
+The founder reviews the complete authenticated workflow for clarity, consistency, and readiness to
+show another church.
+
+### Completion condition
+
+The founder approves the authenticated interface for pilot use and the existing workflow remains
+unchanged.
+
+## Phase 10: Deployment and recovery
 
 ### Goal
 
@@ -642,10 +725,13 @@ Deploy the founder-church pilot and prove that its data can be recovered.
 
 ### Agent work
 
-- Present the smallest hosting option that satisfies the product's cost constraint.
+- Follow the approved
+  [`Pilot authentication and hosting design`](docs/superpowers/specs/2026-07-29-pilot-auth-hosting-design.md).
+- Deploy one Railway Hobby service containing the application and importer.
+- Store SQLite on one Railway persistent volume and use the generated Railway HTTPS domain.
 - Configure production environment variables without committing secrets.
-- Deploy the authenticated application and database.
-- Add automated database backups.
+- Configure WorkOS production authentication, Railway cost controls, and Google Maps quotas.
+- Enable Railway volume backups.
 - Document and test the restore command.
 - Add one production smoke check for application health.
 - Run the core workflow in a real browser against the deployed application.
@@ -669,7 +755,7 @@ The founder signs in to the deployed application, creates a test batch, download
 
 The production workflow and restore demonstration pass, and the founder approves the pilot URL.
 
-## Phase 9: Founder-church pilot
+## Phase 11: Founder-church pilot
 
 ### Goal
 
