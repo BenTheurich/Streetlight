@@ -10,6 +10,7 @@ type PacketGeneratorProps = {
   selectedIndex: number | null;
   latestBatch: CoverageWorkspace['latestBatch'];
   activePackets: number;
+  qualityWarnings: string[];
   onFinalized: (batch: FinalizedBatch) => Promise<void>;
   onResultChange: (result: ReviewedPacketGenerationResult | null) => void;
   onSelectedIndexChange: (index: number | null) => void;
@@ -38,6 +39,7 @@ export function PacketGenerator({
   selectedIndex,
   latestBatch,
   activePackets,
+  qualityWarnings,
   onFinalized,
   onResultChange,
   onSelectedIndexChange,
@@ -163,6 +165,16 @@ export function PacketGenerator({
         <p>Build, review, and print outreach routes.</p>
       </div>
       <div className="sidebar-scroll">
+        {qualityWarnings.length > 0 && (
+          <div className="import-quality-warning" role="alert">
+            <strong>Street data may be incomplete</strong>
+            <ul>
+              {qualityWarnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <section>
           <h2>Packet sizes</h2>
           <form className="packet-form" onSubmit={(event) => void generate(event)}>

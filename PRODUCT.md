@@ -70,6 +70,16 @@ The tracked coverage unit is a short street segment rather than an individual ho
 - Address data supplies estimated home counts and packet starting addresses. Retain the house
   number, street, available locality and postcode, and point coordinate for each address assigned
   to a normalized segment. Do not retain resident names, unit identifiers, or notes.
+- The first release uses one deterministic global Overture pipeline for transportation segments,
+  address points, and residential building footprints. Do not add city-by-city or county-by-county
+  production integrations. Authoritative local data may be used only as a test reference.
+- Address assignment prefers a nearby matching street name, but name agreement is evidence rather
+  than a hard requirement. An otherwise unmatched address may be assigned to an unambiguous nearby
+  plausible residential road. Ambiguous addresses remain unmatched.
+- Estimated homes begin with unique assigned addresses. A clearly residential Overture building
+  may contribute one fallback home only when no address already accounts for it and its road
+  assignment is unambiguous. Unknown and non-residential buildings do not contribute fallback
+  homes.
 - Imported street geometry and estimated home counts cannot be edited in the first release.
 - A territory import retains every Overture feature classified as a road. High-confidence
   residential roads are active automatically; all other retained roads begin hidden.
@@ -109,6 +119,14 @@ A territory save reuses imported streets and addresses whenever the proposed ter
 square fits inside the saved import footprint. It imports again only when the proposed footprint
 extends beyond stored geography or the pinned source-data contract requires an upgrade. Ordinary
 exclusion, activation, exact-segment, boundary-shape, and contained boundary changes do not import.
+
+Streetlight benchmarks its pinned Overture release and deterministic normalizer against varied
+fixed US test territories before treating the estimates as reliable. A low-confidence territory
+shows a persistent warning with concrete reasons in Territory Setup and Generate Packets, but the
+administrator may continue without another confirmation modal. The warning is not printed on
+volunteer packets and remains until a later import passes the quality checks. If the global
+pipeline cannot pass its approved benchmark, evaluate a licensed nationwide or global dataset
+instead of adding regional production imports or unmeasured heuristics.
 
 The main map colors segments by time since last coverage:
 
@@ -315,7 +333,8 @@ The following are implementation choices, not founder decisions:
 - Application framework and repository layout
 - Database and geospatial extensions
 - Authentication provider
-- Map, address, and geocoding providers
+- Map and geocoding providers, and any commercial address-data fallback required only if the
+  approved global Overture pipeline fails its benchmark
 - Hosting provider
 - PDF rendering method
 - Payment provider

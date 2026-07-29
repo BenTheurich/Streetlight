@@ -10,6 +10,13 @@ from datetime import datetime, timezone
 ALWAYS_KEEP = {"residential", "living_street"}
 KEEP_WITH_ADDRESS = {"primary", "secondary", "tertiary", "unclassified"}
 MAX_ADDRESS_DISTANCE_METERS = 40
+SPATIAL_MATCH_MARGIN_METERS = 8
+NAME_MATCH_DISTANCE_METERS = 100
+NAME_MATCH_MARGIN_METERS = 2
+GROUP_MATCH_MIN_SPAN_METERS = 20
+GROUP_MATCH_MAX_ANGLE_DEGREES = 30
+ADDRESS_CLUSTER_GAP_METERS = 150
+BUILDING_ADDRESS_DISTANCE_METERS = 15
 MAX_SEGMENT_HOMES = 100
 OVERTURE_RELEASE = "2026-06-17.0"
 TURN_SPLIT_DEGREES = 85
@@ -26,6 +33,24 @@ SUFFIXES = {
     "parkway": "pkwy",
 }
 DISPLAY_SUFFIXES = {value: key.title() for key, value in SUFFIXES.items()}
+DIRECTION_NAMES = {
+    "n": "north",
+    "north": "north",
+    "s": "south",
+    "south": "south",
+    "e": "east",
+    "east": "east",
+    "w": "west",
+    "west": "west",
+}
+RESIDENTIAL_BUILDING_CLASSES = {
+    "bungalow",
+    "detached",
+    "dwelling_house",
+    "house",
+    "semi",
+    "semidetached_house",
+}
 
 
 def canonical_street_name(value: str) -> str:
@@ -33,11 +58,61 @@ def canonical_street_name(value: str) -> str:
     return " ".join(SUFFIXES.get(word, word) for word in words)
 
 
+def _street_name_core(value):
+    ignored = set(DIRECTION_NAMES) | set(DISPLAY_SUFFIXES)
+    return "".join(
+        word for word in canonical_street_name(value).split() if word not in ignored
+    )
+
+
+def _street_directions(value):
+    return {
+        DIRECTION_NAMES[word]
+        for word in canonical_street_name(value).split()
+        if word in DIRECTION_NAMES
+    }
+
+
+def _directions_compatible(first, second):
+    first_directions = _street_directions(first)
+    second_directions = _street_directions(second)
+    return (
+        not first_directions
+        or not second_directions
+        or bool(first_directions & second_directions)
+    )
+
+
 def _inferred_display_name(value):
     return " ".join(
         DISPLAY_SUFFIXES.get(word, word.title())
         for word in canonical_street_name(value).split()
     )
+
+
+def _supported_address_name(addresses, minimum):
+    name_counts = {}
+    for address_item in addresses:
+        name = canonical_street_name(address_item["street"])
+        if name:
+            name_counts[name] = name_counts.get(name, 0) + 1
+    ranked_names = sorted(name_counts.items(), key=lambda item: (-item[1], item[0]))
+    if not ranked_names:
+        return None
+    inferred_name, inferred_count = ranked_names[0]
+    runner_up_count = ranked_names[1][1] if len(ranked_names) > 1 else 0
+    if (
+        inferred_count < minimum
+        or inferred_count / len(addresses) < 0.8
+        or inferred_count <= runner_up_count
+    ):
+        return None
+    raw_counts = {}
+    for address_item in addresses:
+        if canonical_street_name(address_item["street"]) == inferred_name:
+            raw_counts[address_item["street"]] = raw_counts.get(address_item["street"], 0) + 1
+    raw_name = min(raw_counts, key=lambda value: (-raw_counts[value], value.casefold(), value))
+    return _inferred_display_name(raw_name)
 
 
 def keep_segment(road_class: str, address_count: int) -> bool:
@@ -197,15 +272,165 @@ def _distance_along_line(point, coordinates):
     return best[1]
 
 
+def _principal_axis_angle(points):
+    mean_latitude = sum(point[1] for point in points) / len(points)
+    longitude_scale = math.cos(math.radians(mean_latitude))
+    projected = [(point[0] * longitude_scale, point[1]) for point in points]
+    center_x = sum(point[0] for point in projected) / len(projected)
+    center_y = sum(point[1] for point in projected) / len(projected)
+    xx = sum((point[0] - center_x) ** 2 for point in projected)
+    yy = sum((point[1] - center_y) ** 2 for point in projected)
+    xy = sum(
+        (point[0] - center_x) * (point[1] - center_y)
+        for point in projected
+    )
+    return math.atan2(2 * xy, xx - yy) / 2
+
+
+def _address_group_aligns_with_segment(address_group, segment):
+    address_points = [address_item["point"] for address_item in address_group]
+    longitude_scale = math.cos(
+        math.radians(sum(point[1] for point in address_points) / len(address_points))
+    )
+    address_span = math.hypot(
+        (max(point[0] for point in address_points) - min(point[0] for point in address_points))
+        * longitude_scale,
+        max(point[1] for point in address_points) - min(point[1] for point in address_points),
+    ) * 111_320
+    segment_span = sum(
+        _segment_length(start, end)
+        for start, end in zip(segment["coordinates"], segment["coordinates"][1:])
+    ) * 111_320
+    if (
+        address_span < GROUP_MATCH_MIN_SPAN_METERS
+        or segment_span < GROUP_MATCH_MIN_SPAN_METERS
+    ):
+        return False
+    difference = abs(
+        (
+            _principal_axis_angle(address_points)
+            - _principal_axis_angle(segment["coordinates"])
+            + math.pi / 2
+        )
+        % math.pi
+        - math.pi / 2
+    )
+    return math.degrees(difference) <= GROUP_MATCH_MAX_ANGLE_DEGREES
+
+
+def _address_clusters(addresses):
+    remaining = set(range(len(addresses)))
+    clusters = []
+    while remaining:
+        queue = [remaining.pop()]
+        cluster = []
+        while queue:
+            index = queue.pop()
+            cluster.append(addresses[index])
+            point = addresses[index]["point"]
+            connected = []
+            for candidate_index in remaining:
+                candidate = addresses[candidate_index]["point"]
+                longitude_scale = math.cos(math.radians((point[1] + candidate[1]) / 2))
+                distance = math.hypot(
+                    (point[0] - candidate[0]) * longitude_scale,
+                    point[1] - candidate[1],
+                ) * 111_320
+                if distance <= ADDRESS_CLUSTER_GAP_METERS:
+                    connected.append(candidate_index)
+            for candidate_index in connected:
+                remaining.remove(candidate_index)
+                queue.append(candidate_index)
+        clusters.append(cluster)
+    return clusters
+
+
+def _nearest_unambiguous_segment(
+    point,
+    segments,
+    max_distance=MAX_ADDRESS_DISTANCE_METERS,
+    margin=SPATIAL_MATCH_MARGIN_METERS,
+):
+    ranked = sorted(
+        (
+            _distance_to_line(point, segment["coordinates"]),
+            segment["source_id"],
+            segment["part_index"],
+            segment,
+        )
+        for segment in segments
+    )
+    if not ranked or ranked[0][0] > max_distance:
+        return None
+    if (
+        len(ranked) > 1
+        and ranked[1][0] <= max_distance
+        and ranked[1][0] - ranked[0][0] < margin
+    ):
+        return None
+    return ranked[0][3]
+
+
+def _building_point(geometry):
+    polygons = (
+        [geometry["coordinates"]]
+        if geometry["type"] == "Polygon"
+        else geometry["coordinates"]
+    )
+    points = [
+        point
+        for polygon in polygons
+        for point in polygon[0][:-1] or polygon[0]
+    ]
+    return [
+        sum(point[0] for point in points) / len(points),
+        sum(point[1] for point in points) / len(points),
+    ]
+
+
+def _point_in_ring(point, ring):
+    inside = False
+    previous = ring[-1]
+    for current in ring:
+        if (current[1] > point[1]) != (previous[1] > point[1]):
+            longitude = (previous[0] - current[0]) * (
+                point[1] - current[1]
+            ) / (previous[1] - current[1]) + current[0]
+            if point[0] < longitude:
+                inside = not inside
+        previous = current
+    return inside
+
+
+def _building_has_address(building, point, addresses):
+    polygons = (
+        [building["geometry"]["coordinates"]]
+        if building["geometry"]["type"] == "Polygon"
+        else building["geometry"]["coordinates"]
+    )
+    for address_item in addresses:
+        if any(
+            _point_in_ring(address_item["point"], polygon[0])
+            for polygon in polygons
+        ):
+            return True
+        if _distance_to_line(
+            address_item["point"],
+            [point, point],
+        ) <= BUILDING_ADDRESS_DISTANCE_METERS:
+            return True
+    return False
+
+
 def _split_overfull_segment(segment):
     if segment["address_count"] <= MAX_SEGMENT_HOMES:
         return [segment]
     ordered = sorted(
-        segment["addresses"],
-        key=lambda address: (
-            _distance_along_line(address["position"], segment["coordinates"]),
-            address["position"],
-            address["number"] or "",
+        segment["homes"],
+        key=lambda home: (
+            _distance_along_line(home["position"], segment["coordinates"]),
+            home["position"],
+            (home["address"] or {}).get("number") or "",
         ),
     )
     chunks = [
@@ -242,11 +467,14 @@ def _split_overfull_segment(segment):
         {
             **segment,
             "coordinates": coordinates,
-            "address_count": len(addresses),
-            "addresses": addresses,
+            "address_count": len(homes),
+            "homes": homes,
+            "addresses": [
+                home["address"] for home in homes if home["address"] is not None
+            ],
             "capacity_part_index": index,
         }
-        for index, (coordinates, addresses) in enumerate(zip(parts, chunks))
+        for index, (coordinates, homes) in enumerate(zip(parts, chunks))
     ]
 
 
@@ -296,12 +524,26 @@ def _assign_road_groups(segments):
         segment["road_group_id"] = group_id_by_root[find(index)]
 
 
-def normalize_features(roads, addresses):
+def normalize_features(roads, addresses, buildings=None):
+    buildings = buildings or []
     segments = []
     candidate_classes = ALWAYS_KEEP | KEEP_WITH_ADDRESS
     footprint_addresses = []
+    address_keys = set()
     for index, address_feature in enumerate(addresses):
         properties = address_feature["properties"]
+        point = address_feature["geometry"]["coordinates"]
+        canonical_name = canonical_street_name(properties["street"])
+        number = (properties.get("number") or "").strip().casefold()
+        key = (
+            canonical_name,
+            number,
+            (properties.get("postcode") or "").strip().casefold(),
+            *((round(point[0], 7), round(point[1], 7)) if not number else ()),
+        )
+        if key in address_keys:
+            continue
+        address_keys.add(key)
         levels = properties.get("address_levels") or []
         locality = properties.get("postal_city") or next(
             (
@@ -316,10 +558,10 @@ def normalize_features(roads, addresses):
                 "index": index,
                 "number": properties.get("number"),
                 "street": properties["street"],
-                "canonical_name": canonical_street_name(properties["street"]),
+                "canonical_name": canonical_name,
                 "locality": locality,
                 "postcode": properties.get("postcode"),
-                "point": address_feature["geometry"]["coordinates"],
+                "point": point,
             }
         )
     inferred_roads = 0
@@ -337,34 +579,9 @@ def normalize_features(roads, addresses):
                 )
                 <= MAX_ADDRESS_DISTANCE_METERS
             ]
-            name_counts = {}
-            for address_item in nearby:
-                if address_item["canonical_name"]:
-                    name_counts[address_item["canonical_name"]] = (
-                        name_counts.get(address_item["canonical_name"], 0) + 1
-                    )
-            ranked_names = sorted(
-                name_counts.items(), key=lambda item: (-item[1], item[0])
-            )
-            if ranked_names:
-                inferred_name, inferred_count = ranked_names[0]
-                runner_up_count = ranked_names[1][1] if len(ranked_names) > 1 else 0
-                if (
-                    inferred_count >= 3
-                    and inferred_count / len(nearby) >= 0.8
-                    and inferred_count > runner_up_count
-                ):
-                    raw_counts = {}
-                    for address_item in nearby:
-                        if address_item["canonical_name"] == inferred_name:
-                            raw_counts[address_item["street"]] = (
-                                raw_counts.get(address_item["street"], 0) + 1
-                            )
-                    raw_name = min(
-                        raw_counts, key=lambda value: (-raw_counts[value], value.casefold(), value)
-                    )
-                    name = _inferred_display_name(raw_name)
-                    inferred_roads += 1
+            name = _supported_address_name(nearby, 3)
+            if name:
+                inferred_roads += 1
         has_name_evidence = name is not None
         if name is None:
             name = "Unnamed road"
@@ -387,10 +604,29 @@ def normalize_features(roads, addresses):
                     "coordinates": coordinates,
                     "address_count": 0,
                     "addresses": [],
+                    "homes": [],
+                    "residential_building_count": 0,
                 }
             )
 
     assigned_address_indexes = set()
+    spatially_assigned_addresses = 0
+
+    def retain_address(segment, address_item):
+        retained_address = {
+            "number": address_item["number"],
+            "street": address_item["street"],
+            "locality": address_item["locality"],
+            "postcode": address_item["postcode"],
+            "position": address_item["point"],
+        }
+        segment["address_count"] += 1
+        segment["addresses"].append(retained_address)
+        segment["homes"].append(
+            {"position": address_item["point"], "address": retained_address}
+        )
+        assigned_address_indexes.add(address_item["index"])
+
     for address_item in footprint_addresses:
         candidates = [
             segment
@@ -399,6 +635,8 @@ def normalize_features(roads, addresses):
             and segment["has_name_evidence"]
             and segment["canonical_name"] == address_item["canonical_name"]
         ]
+        nearest = None
+        matched_by_exact_name = False
         if candidates:
             nearest = min(
                 candidates,
@@ -410,19 +648,170 @@ def normalize_features(roads, addresses):
             )
             if (
                 _distance_to_line(address_item["point"], nearest["coordinates"])
-                <= MAX_ADDRESS_DISTANCE_METERS
+                > MAX_ADDRESS_DISTANCE_METERS
             ):
-                nearest["address_count"] += 1
-                nearest["addresses"].append(
-                    {
-                        "number": address_item["number"],
-                        "street": address_item["street"],
-                        "locality": address_item["locality"],
-                        "postcode": address_item["postcode"],
-                        "position": address_item["point"],
-                    }
+                nearest = None
+            else:
+                matched_by_exact_name = True
+        if nearest is None and not candidates:
+            name_core = _street_name_core(address_item["street"])
+            if name_core:
+                nearest = _nearest_unambiguous_segment(
+                    address_item["point"],
+                    [
+                        segment
+                        for segment in segments
+                        if segment["road_class"] in candidate_classes
+                        and _street_name_core(segment["street_name"]) == name_core
+                        and _directions_compatible(
+                            address_item["street"],
+                            segment["street_name"],
+                        )
+                    ],
+                    NAME_MATCH_DISTANCE_METERS,
+                    NAME_MATCH_MARGIN_METERS,
                 )
-                assigned_address_indexes.add(address_item["index"])
+        if nearest is not None and not matched_by_exact_name:
+            spatially_assigned_addresses += 1
+        if nearest is not None:
+            retain_address(nearest, address_item)
+
+    unmatched_by_name = {}
+    for address_item in footprint_addresses:
+        if address_item["index"] not in assigned_address_indexes:
+            unmatched_by_name.setdefault(address_item["canonical_name"], []).append(
+                address_item
+            )
+    unnamed_segments = [
+        segment for segment in segments if not segment["has_name_evidence"]
+    ]
+    for same_named_addresses in unmatched_by_name.values():
+        for address_group in _address_clusters(same_named_addresses):
+            if len(address_group) < 3:
+                continue
+            aligned_segments = [
+                segment
+                for segment in unnamed_segments
+                if _address_group_aligns_with_segment(address_group, segment)
+            ]
+            choices = [
+                (
+                    address_item,
+                    _nearest_unambiguous_segment(
+                        address_item["point"],
+                        aligned_segments,
+                        NAME_MATCH_DISTANCE_METERS,
+                        0,
+                    ),
+                )
+                for address_item in address_group
+            ]
+            source_counts = {}
+            for _, segment in choices:
+                if segment is not None:
+                    source_counts[segment["source_id"]] = (
+                        source_counts.get(segment["source_id"], 0) + 1
+                    )
+            for address_item, segment in choices:
+                if segment is not None and source_counts[segment["source_id"]] >= 2:
+                    retain_address(segment, address_item)
+                    spatially_assigned_addresses += 1
+
+    for address_item in footprint_addresses:
+        if (
+            address_item["index"] in assigned_address_indexes
+            or len(unmatched_by_name[address_item["canonical_name"]]) >= 3
+        ):
+            continue
+        name_core = _street_name_core(address_item["street"])
+        compatible_segments = [
+            segment
+            for segment in segments
+            if segment["road_class"] in candidate_classes
+            and (
+                not segment["has_name_evidence"]
+                or (
+                    _directions_compatible(
+                        address_item["street"],
+                        segment["street_name"],
+                    )
+                    and (
+                        not segment["addresses"]
+                        or any(
+                            _street_name_core(assigned["street"]) == name_core
+                            for assigned in segment["addresses"]
+                        )
+                    )
+                )
+            )
+        ]
+        nearest = _nearest_unambiguous_segment(
+            address_item["point"],
+            compatible_segments,
+        )
+        if nearest is not None:
+            retain_address(nearest, address_item)
+            spatially_assigned_addresses += 1
+
+    for segment in segments:
+        if not segment["addresses"] or any(
+            canonical_street_name(address_item["street"]) == segment["canonical_name"]
+            for address_item in segment["addresses"]
+        ):
+            continue
+        name = _supported_address_name(
+            segment["addresses"],
+            2 if segment["has_name_evidence"] else 3,
+        )
+        if name:
+            segment["street_name"] = name
+            segment["canonical_name"] = canonical_street_name(name)
+            segment["has_name_evidence"] = True
+            inferred_roads += 1
+
+    residential_buildings = []
+    building_ids = set()
+    for item in buildings:
+        if (
+            item["id"] not in building_ids
+            and item["properties"].get("class") in RESIDENTIAL_BUILDING_CLASSES
+            and item["geometry"]["type"] in {"Polygon", "MultiPolygon"}
+        ):
+            residential_buildings.append(item)
+            building_ids.add(item["id"])
+    fallback_buildings = 0
+    unmatched_residential_buildings = 0
+    for building in residential_buildings:
+        point = _building_point(building["geometry"])
+        nearest = _nearest_unambiguous_segment(
+            point,
+            [
+                segment
+                for segment in segments
+                if segment["road_class"] in candidate_classes
+            ],
+        )
+        if nearest is None:
+            unmatched_residential_buildings += 1
+            continue
+        nearest["residential_building_count"] += 1
+        if _building_has_address(building, point, footprint_addresses):
+            continue
+        nearest["address_count"] += 1
+        nearest["homes"].append({"position": point, "address": None})
+        fallback_buildings += 1
+
+    building_address_disagreements = sum(
+        1
+        for segment in segments
+        if max(len(segment["addresses"]), segment["residential_building_count"]) >= 5
+        and abs(len(segment["addresses"]) - segment["residential_building_count"])
+        > max(
+            10,
+            max(len(segment["addresses"]), segment["residential_building_count"])
+            * 0.5,
+        )
+    )
 
     segments = [
         split
@@ -444,6 +833,13 @@ def normalize_features(roads, addresses):
             segment["segment_id"] = f"overture:{segment['source_id']}:{part_index}"
 
     _assign_road_groups(segments)
+    populated_unnamed_roads = len(
+        {
+            segment["road_group_id"]
+            for segment in segments
+            if not segment["has_name_evidence"] and segment["address_count"] > 0
+        }
+    )
 
     unresolved_counts = {}
     for address_item in footprint_addresses:
@@ -456,6 +852,34 @@ def normalize_features(roads, addresses):
         for name, count in sorted(unresolved_counts.items())
         if count >= 3
     ]
+    warnings = []
+    if not footprint_addresses and segments:
+        warnings.append("No usable address points were available for this territory.")
+    elif footprint_addresses:
+        assignment_rate = len(assigned_address_indexes) / len(footprint_addresses)
+        if assignment_rate < 0.95:
+            warnings.append(
+                "Address matching is below the 95% reliability target "
+                f"({assignment_rate:.1%} matched)."
+            )
+    if unmatched_residential_buildings:
+        warnings.append(
+            f"{unmatched_residential_buildings} residential building "
+            f"{'footprint' if unmatched_residential_buildings == 1 else 'footprints'} "
+            "could not be matched to a road."
+        )
+    if populated_unnamed_roads:
+        warnings.append(
+            f"{populated_unnamed_roads} populated road "
+            f"{'group' if populated_unnamed_roads == 1 else 'groups'} still "
+            f"{'has' if populated_unnamed_roads == 1 else 'have'} no supported street name."
+        )
+    if building_address_disagreements:
+        warnings.append(
+            f"{building_address_disagreements} road "
+            f"{'group has' if building_address_disagreements == 1 else 'groups have'} "
+            "materially different address and residential-building counts."
+        )
 
     result = []
     for segment in sorted(
@@ -501,11 +925,153 @@ def normalize_features(roads, addresses):
         "quality": {
             "totalAddresses": len(footprint_addresses),
             "assignedAddresses": len(assigned_address_indexes),
+            "spatiallyAssignedAddresses": spatially_assigned_addresses,
             "inferredRoads": inferred_roads,
             "unmatchedAddresses": len(footprint_addresses)
             - len(assigned_address_indexes),
             "unresolvedClusters": len(unresolved_clusters),
+            "totalResidentialBuildings": len(residential_buildings),
+            "fallbackBuildings": fallback_buildings,
+            "unmatchedResidentialBuildings": unmatched_residential_buildings,
+            "populatedUnnamedRoads": populated_unnamed_roads,
+            "buildingAddressDisagreements": building_address_disagreements,
+            "warnings": warnings,
         },
+    }
+
+
+def benchmark_metrics(normalized, reference_addresses):
+    unique_reference = {}
+    for item in reference_addresses:
+        properties = item["properties"]
+        point = item["geometry"]["coordinates"]
+        key = (
+            canonical_street_name(properties["street"]),
+            (properties.get("number") or "").strip().casefold(),
+            round(point[0], 7),
+            round(point[1], 7),
+        )
+        unique_reference.setdefault(key, item)
+    reference = list(unique_reference.values())
+    segments = [
+        {
+            "id": item["id"],
+            "street_name": item["streetName"],
+            "canonical_name": canonical_street_name(item["streetName"]),
+            "coordinates": item["geometry"]["coordinates"],
+            "estimated_homes": item["estimatedHomes"],
+        }
+        for item in normalized["segments"]
+    ]
+    addresses_by_name = {}
+    for item in reference:
+        name = canonical_street_name(item["properties"]["street"])
+        if name:
+            addresses_by_name.setdefault(name, []).append(item)
+    known_names = {
+        name for name, items in addresses_by_name.items() if len(items) >= 3
+    }
+    represented_names = set()
+    correct_names = set()
+    reference_counts = {}
+    for name in known_names:
+        for item in addresses_by_name[name]:
+            point = item["geometry"]["coordinates"]
+            nearby = sorted(
+                (
+                    _distance_to_line(point, segment["coordinates"]),
+                    segment["id"],
+                    segment,
+                )
+                for segment in segments
+            )
+            nearby = [
+                candidate
+                for candidate in nearby
+                if candidate[0] <= MAX_ADDRESS_DISTANCE_METERS
+            ]
+            if not nearby:
+                continue
+            represented_names.add(name)
+            matching = [
+                candidate
+                for candidate in nearby
+                if candidate[2]["canonical_name"] == name
+            ]
+            if matching:
+                correct_names.add(name)
+                selected = matching[0][2]
+            elif len(nearby) == 1 or nearby[1][0] - nearby[0][0] >= SPATIAL_MATCH_MARGIN_METERS:
+                selected = nearby[0][2]
+            else:
+                continue
+            reference_counts[selected["id"]] = reference_counts.get(selected["id"], 0) + 1
+
+    segments_by_id = {segment["id"]: segment for segment in segments}
+    accurate_segments = 0
+    severe_outliers = 0
+    severe_outlier_segments = []
+    for segment_id, expected in reference_counts.items():
+        segment = segments_by_id[segment_id]
+        actual = segment["estimated_homes"]
+        error = abs(actual - expected)
+        if error <= max(3, expected * 0.2):
+            accurate_segments += 1
+        if error > max(10, expected * 0.5):
+            severe_outliers += 1
+            severe_outlier_segments.append(
+                {
+                    "segmentId": segment_id,
+                    "streetName": segment["street_name"],
+                    "expectedHomes": expected,
+                    "estimatedHomes": actual,
+                }
+            )
+
+    quality = normalized["quality"]
+    assignment_rate = (
+        quality["assignedAddresses"] / quality["totalAddresses"]
+        if quality["totalAddresses"]
+        else 0
+    )
+    road_count = len(known_names)
+    represented_rate = len(represented_names) / road_count if road_count else 0
+    name_rate = len(correct_names) / road_count if road_count else 0
+    evaluated_segments = len(reference_counts)
+    segment_accuracy = (
+        accurate_segments / evaluated_segments if evaluated_segments else 0
+    )
+    failed_metrics = [
+        name
+        for name, failed in (
+            ("addressAssignmentRate", assignment_rate < 0.95),
+            ("roadRepresentationRate", represented_rate < 0.99),
+            ("roadNameAccuracy", name_rate < 0.98),
+            ("segmentCountAccuracy", segment_accuracy < 0.9),
+            ("severeOutliers", severe_outliers > 0),
+        )
+        if failed
+    ]
+    return {
+        "referenceAddresses": len(reference),
+        "knownResidentialRoads": road_count,
+        "representedResidentialRoads": len(represented_names),
+        "correctlyNamedResidentialRoads": len(correct_names),
+        "unrepresentedRoadNames": sorted(known_names - represented_names),
+        "incorrectRoadNames": sorted(represented_names - correct_names),
+        "evaluatedSegments": evaluated_segments,
+        "accurateSegments": accurate_segments,
+        "severeOutliers": severe_outliers,
+        "severeOutlierSegments": sorted(
+            severe_outlier_segments,
+            key=lambda item: item["segmentId"],
+        ),
+        "addressAssignmentRate": assignment_rate,
+        "roadRepresentationRate": represented_rate,
+        "roadNameAccuracy": name_rate,
+        "segmentCountAccuracy": segment_accuracy,
+        "failedMetrics": failed_metrics,
+        "passed": not failed_metrics,
     }
 
 
@@ -564,6 +1130,30 @@ def query_bbox(connection, path, west, south, east, north):
                 "geometry": json.loads(geometry),
             }
             for source_id, names, road_class, connectors, geometry in rows
+        ]
+
+    if "theme=buildings/type=building/" in path:
+        residential_classes = ", ".join(
+            f"'{value}'" for value in sorted(RESIDENTIAL_BUILDING_CLASSES)
+        )
+        rows = connection.execute(
+            f"""
+            SELECT id, subtype, class, ST_AsGeoJSON(geometry)
+            FROM read_parquet('{path}', hive_partitioning = true)
+            WHERE class IN ({residential_classes}) AND {bbox_filter}
+            """,
+            parameters,
+        ).fetchall()
+        return [
+            {
+                "id": source_id,
+                "properties": {
+                    "subtype": subtype,
+                    "class": building_class,
+                },
+                "geometry": json.loads(geometry),
+            }
+            for source_id, subtype, building_class, geometry in rows
         ]
 
     rows = connection.execute(
@@ -626,7 +1216,16 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
             east,
             north,
         )
-        return segments, addresses
+        buildings = query_bbox(
+            connection,
+            f"s3://overturemaps-us-west-2/release/{OVERTURE_RELEASE}/"
+            "theme=buildings/type=building/*",
+            west,
+            south,
+            east,
+            north,
+        )
+        return segments, addresses, buildings
     finally:
         connection.close()
 
@@ -655,7 +1254,7 @@ def main(argv=None, download=download_features):
         parser.error("coordinates are out of range")
 
     with redirect_stdout(sys.stderr):
-        roads, addresses = download(
+        roads, addresses, buildings = download(
             args.longitude,
             args.latitude,
             args.radius_miles,
@@ -667,8 +1266,8 @@ def main(argv=None, download=download_features):
                 "center": [args.longitude, args.latitude],
                 "radiusMiles": args.radius_miles,
                 "completedAt": datetime.now(timezone.utc).isoformat(),
-                "normalizerVersion": 6,
-                **normalize_features(roads, addresses),
+                "normalizerVersion": 7,
+                **normalize_features(roads, addresses, buildings),
             },
             separators=(",", ":"),
         )

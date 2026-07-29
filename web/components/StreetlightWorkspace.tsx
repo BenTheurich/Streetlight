@@ -150,6 +150,7 @@ export function StreetlightWorkspace({
           active={tool === 'packets'}
           activePackets={coverage.activePackets}
           latestBatch={coverage.latestBatch}
+          qualityWarnings={coverage.qualityWarnings}
           onFinalized={refreshCoverage}
           onResultChange={setPacketResult}
           onSelectedIndexChange={setSelectedPacketIndex}

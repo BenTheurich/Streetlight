@@ -723,6 +723,28 @@ textarea {
   font-size: 0.65rem;
 }
 
+.import-quality-warning {
+  margin: 0.85rem 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #d99a54;
+  border-radius: 8px;
+  background: #fff4df;
+  color: #713811;
+  font-size: 0.65rem;
+  line-height: 1.4;
+}
+
+.import-quality-warning strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.7rem;
+}
+
+.import-quality-warning ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+
 .territory-summary {
   display: grid;
   grid-template-columns: 1fr 1fr;

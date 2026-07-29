@@ -65,13 +65,20 @@ function importedTerritory(segments) {
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 5,
+    normalizerVersion: 7,
     quality: {
       totalAddresses: 12,
       assignedAddresses: 10,
+      spatiallyAssignedAddresses: 3,
       inferredRoads: 1,
       unmatchedAddresses: 2,
       unresolvedClusters: 0,
+      totalResidentialBuildings: 9,
+      fallbackBuildings: 2,
+      unmatchedResidentialBuildings: 1,
+      populatedUnnamedRoads: 0,
+      buildingAddressDisagreements: 1,
+      warnings: ['Address matching is below the 95% reliability target (83.3% matched).'],
     },
     segments,
   };
@@ -323,6 +330,43 @@ test('import quality columns accept only nullable non-negative integers', () => 
   }
 });
 
+test('migration 015 warns for a known low-quality legacy Overture import', () => {
+  const database = openDatabase(':memory:');
+  try {
+    database.exec(`
+      CREATE TABLE territories (
+        id TEXT PRIMARY KEY,
+        import_kind TEXT,
+        import_total_addresses INTEGER,
+        import_assigned_addresses INTEGER,
+        import_normalizer_version INTEGER
+      ) STRICT;
+      INSERT INTO territories VALUES ('legacy', 'overture', 100, 80, 6);
+    `);
+    database.exec(
+      readFileSync(
+        path.join(import.meta.dirname, 'migrations', '014_import_quality_evidence.sql'),
+        'utf8',
+      ),
+    );
+    database.exec(
+      readFileSync(
+        path.join(import.meta.dirname, 'migrations', '015_backfill_legacy_import_warnings.sql'),
+        'utf8',
+      ),
+    );
+
+    const row = database.prepare('SELECT * FROM territories WHERE id = ?').get('legacy');
+    assert.equal(row.import_spatially_assigned_addresses, 0);
+    assert.equal(row.import_total_residential_buildings, 0);
+    assert.deepEqual(JSON.parse(row.import_quality_warnings_json), [
+      'Address matching is below the 95% reliability target (80.0% matched).',
+    ]);
+  } finally {
+    database.close();
+  }
+});
+
 test('exclusion rows default to enabled and reject invalid states', () => {
   withDatabase((filename) => {
     const database = openDatabase(filename);
@@ -431,6 +475,51 @@ test('an imported save atomically replaces proof segments and records its footpr
         },
       ],
     );
+  });
+});
+
+test('coverage workspace exposes concrete import warnings to packet generation', () => {
+  withDatabase((filename) => {
+    const workspace = getTerritoryWorkspace(filename);
+    const imported = importedTerritory([
+      importedSegment('one', 'Residential Road', 'residential', 8),
+    ]);
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
+        exclusions: workspace.exclusions,
+      },
+      { filename, imported },
+    );
+
+    assert.deepEqual(getCoverageWorkspace(filename).qualityWarnings, imported.quality.warnings);
+
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
+        exclusions: workspace.exclusions,
+      },
+      {
+        filename,
+        imported: {
+          ...imported,
+          quality: {
+            ...imported.quality,
+            totalAddresses: 10,
+            assignedAddresses: 10,
+            unmatchedAddresses: 0,
+            warnings: [],
+          },
+        },
+      },
+    );
+    assert.deepEqual(getCoverageWorkspace(filename).qualityWarnings, []);
   });
 });
 
@@ -1153,13 +1242,7 @@ test('a replacement failure preserves the complete saved workspace', () => {
       },
     );
     const before = getTerritoryWorkspace(filename);
-    assert.deepEqual(before.import.quality, {
-      totalAddresses: 12,
-      assignedAddresses: 10,
-      inferredRoads: 1,
-      unmatchedAddresses: 2,
-      unresolvedClusters: 0,
-    });
+    assert.deepEqual(before.import.quality, importedTerritory([]).quality);
     assert.throws(
       () =>
         saveTerritoryDraft(

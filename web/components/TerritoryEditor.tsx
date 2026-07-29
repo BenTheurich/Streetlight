@@ -438,6 +438,16 @@ export function TerritoryEditor({
         </div>
 
         <div className="sidebar-scroll">
+          {(savedWorkspace.import.quality?.warnings.length ?? 0) > 0 && (
+            <div className="import-quality-warning" role="alert">
+              <strong>Street data may be incomplete</strong>
+              <ul>
+                {savedWorkspace.import.quality?.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <section>
             <h2>Church location</h2>
             {!addressEditing ? (

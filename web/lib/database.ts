@@ -64,9 +64,16 @@ type TerritoryRow = {
   import_completed_at: string | null;
   import_total_addresses: number | null;
   import_assigned_addresses: number | null;
+  import_spatially_assigned_addresses: number | null;
   import_inferred_roads: number | null;
   import_unmatched_addresses: number | null;
   import_unresolved_clusters: number | null;
+  import_total_residential_buildings: number | null;
+  import_fallback_buildings: number | null;
+  import_unmatched_residential_buildings: number | null;
+  import_populated_unnamed_roads: number | null;
+  import_building_address_disagreements: number | null;
+  import_quality_warnings_json: string;
   import_normalizer_version: number | null;
   import_generation: number;
 };
@@ -165,6 +172,7 @@ export type CoverageWorkspace = {
   thresholds: CoverageThresholds;
   legend: CoverageLegendItem[];
   dataMode: 'canonical' | 'demo';
+  qualityWarnings: string[];
   segments: CoverageWorkspaceSegment[];
   totals: { eligibleHomes: number };
 };
@@ -314,6 +322,7 @@ export function getCoverageWorkspace(filename?: string, asOf = todayForPilot()):
         path.basename(workspaceDatabaseFilename(filename)).toLowerCase() === 'coverage-demo.db'
           ? 'demo'
           : 'canonical',
+      qualityWarnings: territory.import.quality?.warnings ?? [],
       segments: territory.segments
         .filter(
           (segment) => segment.excludedReason !== 'boundary' && segment.excludedReason !== 'hidden',
@@ -749,7 +758,11 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
           t.import_kind, t.import_release, t.import_center_latitude,
           t.import_center_longitude, t.import_radius_meters, t.import_completed_at,
           t.import_total_addresses, t.import_assigned_addresses, t.import_inferred_roads,
-          t.import_unmatched_addresses, t.import_unresolved_clusters,
+          t.import_spatially_assigned_addresses, t.import_unmatched_addresses,
+          t.import_unresolved_clusters, t.import_total_residential_buildings,
+          t.import_fallback_buildings, t.import_unmatched_residential_buildings,
+          t.import_populated_unnamed_roads, t.import_building_address_disagreements,
+          t.import_quality_warnings_json,
           t.import_normalizer_version,
           t.import_generation
         FROM territories t
@@ -809,16 +822,29 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
             quality:
               territory.import_total_addresses === null ||
               territory.import_assigned_addresses === null ||
+              territory.import_spatially_assigned_addresses === null ||
               territory.import_inferred_roads === null ||
               territory.import_unmatched_addresses === null ||
-              territory.import_unresolved_clusters === null
+              territory.import_unresolved_clusters === null ||
+              territory.import_total_residential_buildings === null ||
+              territory.import_fallback_buildings === null ||
+              territory.import_unmatched_residential_buildings === null ||
+              territory.import_populated_unnamed_roads === null ||
+              territory.import_building_address_disagreements === null
                 ? null
                 : {
                     totalAddresses: territory.import_total_addresses,
                     assignedAddresses: territory.import_assigned_addresses,
+                    spatiallyAssignedAddresses: territory.import_spatially_assigned_addresses,
                     inferredRoads: territory.import_inferred_roads,
                     unmatchedAddresses: territory.import_unmatched_addresses,
                     unresolvedClusters: territory.import_unresolved_clusters,
+                    totalResidentialBuildings: territory.import_total_residential_buildings,
+                    fallbackBuildings: territory.import_fallback_buildings,
+                    unmatchedResidentialBuildings: territory.import_unmatched_residential_buildings,
+                    populatedUnnamedRoads: territory.import_populated_unnamed_roads,
+                    buildingAddressDisagreements: territory.import_building_address_disagreements,
+                    warnings: JSON.parse(territory.import_quality_warnings_json) as string[],
                   },
           };
     const segments = (
@@ -1125,8 +1151,13 @@ export function saveTerritoryDraft(
           SET import_kind = 'overture', import_release = ?,
             import_center_latitude = ?, import_center_longitude = ?,
             import_radius_meters = ?, import_completed_at = ?, import_total_addresses = ?,
-            import_assigned_addresses = ?, import_inferred_roads = ?, import_unmatched_addresses = ?,
-            import_unresolved_clusters = ?, import_normalizer_version = ?, import_generation = ?
+            import_assigned_addresses = ?, import_spatially_assigned_addresses = ?,
+            import_inferred_roads = ?, import_unmatched_addresses = ?,
+            import_unresolved_clusters = ?, import_total_residential_buildings = ?,
+            import_fallback_buildings = ?, import_unmatched_residential_buildings = ?,
+            import_populated_unnamed_roads = ?, import_building_address_disagreements = ?,
+            import_quality_warnings_json = ?,
+            import_normalizer_version = ?, import_generation = ?
           WHERE id = ? AND church_id = ?`,
         )
         .run(
@@ -1137,9 +1168,16 @@ export function saveTerritoryDraft(
           options.imported.completedAt,
           options.imported.quality.totalAddresses,
           options.imported.quality.assignedAddresses,
+          options.imported.quality.spatiallyAssignedAddresses,
           options.imported.quality.inferredRoads,
           options.imported.quality.unmatchedAddresses,
           options.imported.quality.unresolvedClusters,
+          options.imported.quality.totalResidentialBuildings,
+          options.imported.quality.fallbackBuildings,
+          options.imported.quality.unmatchedResidentialBuildings,
+          options.imported.quality.populatedUnnamedRoads,
+          options.imported.quality.buildingAddressDisagreements,
+          JSON.stringify(options.imported.quality.warnings),
           options.imported.normalizerVersion,
           generation,
           PILOT_TERRITORY_ID,

@@ -40,7 +40,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 |---:|---|---|---|---|
 | 0 | Geographic and print proof | None | Complete | [Phase 0 proof](phase0/README.md): founder approved the geographic providers, four map examples, starting points, estimates, QR behavior, and final one-page US Letter layout on July 27, 2026; 9 automated checks pass |
 | 1 | Application foundation | Phase 0 | Complete | Founder confirmed the local application loads on July 27, 2026; one Next.js 16.2 application and SQLite database replace the abandoned web/API/auth scaffold; migration and idempotent pilot seed cover all eight initial domain records; frozen install, migration, seed, lint, typecheck, integration test, production build, and local browser check pass |
-| 2 | Territory setup | Phase 1 | Complete | Founder approved the interactive territory setup, Overture import quality controls, hidden-road activation, toggleable polygon and exact-segment exclusions, and circle/square boundaries on July 28, 2026; 59 Node checks, 25 Python checks, lint, typecheck, production build, and browser review pass |
+| 2 | Territory setup | Phase 1 | Blocked | The founder-approved setup remains complete. Normalizer v7 and persistent quality warnings are implemented and verified, but the five-area benchmark failed; the approved next step is evaluation of a licensed nationwide or global address source |
 | 3 | Coverage history and heatmap | Phase 2 | Complete | Founder approved the full imported-territory heatmap and merged it on July 28, 2026; 84 Node checks, 25 Python checks, lint, typecheck, production build, database invariants, and real-browser acceptance pass. |
 | 4 | Packet selection | Phase 3 | Complete | Founder approved the deterministic packet proposals and orphan-prevention behavior and merged Phase 4 locally on July 28, 2026; automated, canonical-data, and browser evidence is recorded below |
 | 5 | Batch finalization and PDF | Phase 4 | Complete | Atomic finalization, stable packet reservations, newest/all-active downloads, and map-first Letter PDFs are implemented; 119 Node checks, 26 Python checks, Biome, TypeScript, production build, isolated-browser finalization/reload, rendered-PDF inspection, and founder review pass |
@@ -244,6 +244,24 @@ Verified July 28, 2026 with pinned Overture release `2026-06-17.0`:
   local territory was returned to its original circle afterward.
 - Biome, TypeScript, 59 Node tests, 25 Python importer tests, the Next.js production build, and
   `git diff --check` pass. The final browser session reported no errors or warnings.
+- The July 28 global address-quality amendment adds Overture residential buildings as a
+  conservative fallback, spatial-only assignment for unambiguous address/road mismatches, source
+  deduplication, normalizer version 7, persisted quality evidence, and concrete warnings in both
+  Territory Setup and Generate Packets. The existing version 6 pilot import is backfilled with its
+  known `10,932 / 15,080` (72.5 percent) address-match warning until it is reimported.
+- The amendment's 42 Python importer checks, 121 Node checks, Biome, TypeScript, production build,
+  migration, and `git diff --check` pass. The deterministic benchmark calculation names each failed
+  acceptance metric and its passing regression sample reports 100 percent on all four rates with
+  no severe outliers.
+- The July 29 live benchmark compared the pinned release with authoritative USDOT National Address
+  Database records in five varied US territories. Austin passed every threshold. Sacramento,
+  Boston, Lehi, and Ames failed one or more thresholds; road representation was 100 percent in all
+  five, while address assignment ranged from 91.17 to 98.40 percent, road-name accuracy from 92.86
+  to 100 percent, and segment-count accuracy from 87.00 to 98.19 percent. Sacramento, Boston, and
+  Ames contained 14, 3, and 3 severe outliers respectively. The exact results are recorded in
+  [`docs/benchmarks/2026-07-29-overture-nad-v7.md`](docs/benchmarks/2026-07-29-overture-nad-v7.md).
+  Per the approved completion rule, heuristic expansion stops here and Phase 2 remains blocked
+  pending evaluation of a licensed nationwide or global address source.
 
 ### Human review
 

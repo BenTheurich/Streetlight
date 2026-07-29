@@ -2,9 +2,12 @@ import json
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
+from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
 
+from . import overture_import as importer_module
+from . import run_benchmark as benchmark_module
 from .overture_import import (
     OVERTURE_RELEASE,
     canonical_street_name,
@@ -51,6 +54,14 @@ def address(
             "address_levels": address_levels or [],
         },
         "geometry": {"type": "Point", "coordinates": [longitude, latitude]},
+    }
+
+
+def building(source_id, building_class, coordinates):
+    return {
+        "id": source_id,
+        "properties": {"class": building_class, "subtype": "building"},
+        "geometry": {"type": "Polygon", "coordinates": [coordinates]},
     }
 
 
@@ -298,6 +309,287 @@ class NormalizeFeaturesTest(TestCase):
                 ("overture:r2:0", 1),
                 ("overture:r3:0", 0),
             ],
+        )
+
+    def test_assigns_name_mismatch_to_clearly_nearest_residential_road(self):
+        roads = [
+            road("near", "residential", "Oak View Drive", [[0, 0], [0.001, 0]]),
+            road(
+                "far",
+                "residential",
+                "Cedar Ridge Lane",
+                [[0, 0.0003], [0.001, 0.0003]],
+            ),
+        ]
+        addresses = [address("Incorrect Source Name", 0.0005, 0.00005)]
+
+        result = normalize_features(roads, addresses)
+
+        self.assertEqual(
+            [
+                (item["sourceSegmentId"], item["estimatedHomes"])
+                for item in result["segments"]
+            ],
+            [("far", 0), ("near", 1)],
+        )
+        self.assertEqual(result["quality"]["spatiallyAssignedAddresses"], 1)
+        self.assertEqual(result["quality"]["unmatchedAddresses"], 0)
+
+    def test_replaces_an_unsupported_source_name_with_consistent_assigned_addresses(self):
+        roads = [
+            road("titan", "residential", "Titan Drive", [[0, 0], [0.001, 0]]),
+            road("cedar", "residential", "Cedar Lane", [[0, 0.0006], [0.001, 0.0006]]),
+        ]
+        addresses = [
+            address("North Titan Dr", longitude, 0.0005, number=str(index))
+            for index, longitude in enumerate([0.0002, 0.0005, 0.0008], start=1)
+        ]
+
+        result = normalize_features(roads, addresses)
+
+        self.assertEqual(
+            [
+                (segment["sourceSegmentId"], segment["streetName"], segment["estimatedHomes"])
+                for segment in result["segments"]
+            ],
+            [
+                ("cedar", "Cedar Lane", 0),
+                ("titan", "North Titan Drive", 3),
+            ],
+        )
+        self.assertEqual(result["quality"]["assignedAddresses"], 3)
+        self.assertEqual(result["quality"]["inferredRoads"], 1)
+
+    def test_leaves_spatial_match_unassigned_between_parallel_roads(self):
+        roads = [
+            road("north", "residential", "North Road", [[0, 0], [0.001, 0]]),
+            road(
+                "south",
+                "residential",
+                "South Road",
+                [[0, 0.00018], [0.001, 0.00018]],
+            ),
+        ]
+        addresses = [address("Missing Source Road", 0.0005, 0.00009)]
+
+        result = normalize_features(roads, addresses)
+
+        self.assertEqual(
+            [item["estimatedHomes"] for item in result["segments"]],
+            [0, 0],
+        )
+        self.assertEqual(result["quality"]["spatiallyAssignedAddresses"], 0)
+        self.assertEqual(result["quality"]["unmatchedAddresses"], 1)
+
+    def test_address_group_resolves_an_unnamed_road_beside_a_named_road(self):
+        roads = [
+            road("unnamed", "unclassified", None, [[0, 0], [0.001, 0]]),
+            road("cedar", "residential", "Cedar Lane", [[0, 0.0001], [0.001, 0.0001]]),
+        ]
+        addresses = [
+            address("Group Lane", longitude, 0.00005, number=str(index))
+            for index, longitude in enumerate([0.0002, 0.0005, 0.0008], start=1)
+        ]
+
+        result = normalize_features(roads, addresses)
+
+        self.assertEqual(
+            [
+                (segment["sourceSegmentId"], segment["streetName"], segment["estimatedHomes"])
+                for segment in result["segments"]
+            ],
+            [
+                ("cedar", "Cedar Lane", 0),
+                ("unnamed", "Group Lane", 3),
+            ],
+        )
+        self.assertEqual(result["quality"]["unmatchedAddresses"], 0)
+
+    def test_direction_conflict_prefers_a_nearby_unnamed_road(self):
+        roads = [
+            road("unnamed", "unclassified", None, [[0, 0], [0.001, 0]]),
+            road(
+                "west-state",
+                "residential",
+                "West State Street",
+                [[0, 0.0001], [0.001, 0.0001]],
+            ),
+        ]
+        addresses = [
+            address("North State St", longitude, 0.00008, number=str(index))
+            for index, longitude in enumerate([0.0002, 0.0005, 0.0008], start=1)
+        ]
+
+        result = normalize_features(roads, addresses)
+
+        self.assertEqual(
+            [
+                (segment["sourceSegmentId"], segment["streetName"], segment["estimatedHomes"])
+                for segment in result["segments"]
+            ],
+            [
+                ("unnamed", "North State Street", 3),
+                ("west-state", "West State Street", 0),
+            ],
+        )
+
+    def test_address_group_does_not_name_perpendicular_road_geometry(self):
+        roads = [
+            road("vertical", "unclassified", None, [[0.0005, 0], [0.0005, 0.001]]),
+            road("cedar", "residential", "Cedar Lane", [[0, 0.0001], [0.001, 0.0001]]),
+        ]
+        addresses = [
+            address("Group Lane", longitude, 0.00005, number=str(index))
+            for index, longitude in enumerate([0.0002, 0.0005, 0.0008], start=1)
+        ]
+
+        result = normalize_features(roads, addresses)
+
+        self.assertEqual(
+            [segment["estimatedHomes"] for segment in result["segments"]],
+            [0, 0],
+        )
+        self.assertEqual(result["quality"]["unmatchedAddresses"], 3)
+
+    def test_same_named_distant_address_clusters_match_separate_roads(self):
+        roads = [
+            road("south", "unclassified", None, [[0, 0], [0.001, 0]]),
+            road("north", "unclassified", None, [[0, 0.005], [0.001, 0.005]]),
+        ]
+        addresses = [
+            address("Shared Lane", longitude, latitude + 0.00005, number=str(group * 3 + index))
+            for group, latitude in enumerate([0, 0.005])
+            for index, longitude in enumerate([0.0002, 0.0005, 0.0008], start=1)
+        ]
+
+        result = normalize_features(roads, addresses)
+
+        self.assertEqual(
+            [
+                (segment["sourceSegmentId"], segment["streetName"], segment["estimatedHomes"])
+                for segment in result["segments"]
+            ],
+            [
+                ("north", "Shared Lane", 3),
+                ("south", "Shared Lane", 3),
+            ],
+        )
+        self.assertEqual(result["quality"]["unmatchedAddresses"], 0)
+
+    def test_counts_only_unaddressed_high_confidence_residential_buildings(self):
+        roads = [
+            road("homes", "residential", "Home Road", [[0, 0], [0.001, 0]])
+        ]
+        addresses = [address("Home Road", 0.0002, 0.00004, number="10")]
+        buildings = [
+            building(
+                "addressed",
+                "house",
+                [
+                    [0.00015, 0.00002],
+                    [0.00025, 0.00002],
+                    [0.00025, 0.00008],
+                    [0.00015, 0.00008],
+                    [0.00015, 0.00002],
+                ],
+            ),
+            building(
+                "fallback",
+                "detached",
+                [
+                    [0.00065, 0.00002],
+                    [0.00075, 0.00002],
+                    [0.00075, 0.00008],
+                    [0.00065, 0.00008],
+                    [0.00065, 0.00002],
+                ],
+            ),
+            building(
+                "garage",
+                "garage",
+                [
+                    [0.00082, 0.00002],
+                    [0.00088, 0.00002],
+                    [0.00088, 0.00007],
+                    [0.00082, 0.00007],
+                    [0.00082, 0.00002],
+                ],
+            ),
+        ]
+
+        result = normalize_features(roads, addresses, buildings)
+
+        self.assertEqual(result["segments"][0]["estimatedHomes"], 2)
+        self.assertEqual(len(result["segments"][0]["addresses"]), 1)
+        self.assertEqual(result["quality"]["totalResidentialBuildings"], 2)
+        self.assertEqual(result["quality"]["fallbackBuildings"], 1)
+        self.assertEqual(result["quality"]["unmatchedResidentialBuildings"], 0)
+
+    def test_duplicate_source_address_contributes_one_home(self):
+        roads = [
+            road("homes", "residential", "Home Road", [[0, 0], [0.001, 0]])
+        ]
+        duplicates = [
+            address("Home Road", 0.0002, 0.00004, number="10"),
+            address("Home Rd", 0.00021, 0.00004, number="10"),
+        ]
+
+        result = normalize_features(roads, duplicates)
+
+        self.assertEqual(result["segments"][0]["estimatedHomes"], 1)
+        self.assertEqual(result["quality"]["totalAddresses"], 1)
+        self.assertEqual(result["quality"]["assignedAddresses"], 1)
+
+    def test_duplicate_residential_building_contributes_one_fallback_home(self):
+        roads = [
+            road("homes", "residential", "Home Road", [[0, 0], [0.001, 0]])
+        ]
+        duplicate = building(
+            "home-1",
+            "house",
+            [
+                [0.00018, 0.00002],
+                [0.00022, 0.00002],
+                [0.00022, 0.00006],
+                [0.00018, 0.00006],
+                [0.00018, 0.00002],
+            ],
+        )
+
+        result = normalize_features(roads, [], [duplicate, duplicate])
+
+        self.assertEqual(result["segments"][0]["estimatedHomes"], 1)
+        self.assertEqual(result["quality"]["totalResidentialBuildings"], 1)
+        self.assertEqual(result["quality"]["fallbackBuildings"], 1)
+
+    def test_flags_material_address_and_building_count_disagreement(self):
+        roads = [
+            road("homes", "residential", "Home Road", [[0, 0], [0.001, 0]])
+        ]
+        addresses = [
+            address("Home Road", 0.0001 + index * 0.00004, 0.00004, number=str(index))
+            for index in range(20)
+        ]
+        buildings = [
+            building(
+                "only-building",
+                "house",
+                [
+                    [0.00008, 0.00002],
+                    [0.00012, 0.00002],
+                    [0.00012, 0.00008],
+                    [0.00008, 0.00008],
+                    [0.00008, 0.00002],
+                ],
+            )
+        ]
+
+        result = normalize_features(roads, addresses, buildings)
+
+        self.assertEqual(result["quality"]["buildingAddressDisagreements"], 1)
+        self.assertIn(
+            "1 road group has materially different address and residential-building counts.",
+            result["quality"]["warnings"],
         )
 
     def test_ineligible_same_named_road_cannot_consume_an_address(self):
@@ -595,9 +887,16 @@ class ImportCompletenessTest(TestCase):
         self.assertEqual(result["quality"], {
             "totalAddresses": 29,
             "assignedAddresses": 29,
+            "spatiallyAssignedAddresses": 0,
             "inferredRoads": 4,
             "unmatchedAddresses": 0,
             "unresolvedClusters": 0,
+            "totalResidentialBuildings": 0,
+            "fallbackBuildings": 0,
+            "unmatchedResidentialBuildings": 0,
+            "populatedUnnamedRoads": 0,
+            "buildingAddressDisagreements": 0,
+            "warnings": [],
         })
 
     def test_two_nearby_addresses_do_not_infer_an_unnamed_road(self):
@@ -619,7 +918,8 @@ class ImportCompletenessTest(TestCase):
             [("Unnamed road", "hidden")],
         )
         self.assertEqual(result["quality"]["inferredRoads"], 0)
-        self.assertEqual(result["quality"]["unmatchedAddresses"], 2)
+        self.assertEqual(result["quality"]["assignedAddresses"], 2)
+        self.assertEqual(result["quality"]["populatedUnnamedRoads"], 1)
 
     def test_equal_top_name_counts_do_not_infer_an_unnamed_road(self):
         roads = [
@@ -642,7 +942,11 @@ class ImportCompletenessTest(TestCase):
             [("Unnamed road", "hidden")],
         )
         self.assertEqual(result["quality"]["inferredRoads"], 0)
-        self.assertEqual(result["quality"]["unmatchedAddresses"], 4)
+        self.assertEqual(result["quality"]["populatedUnnamedRoads"], 1)
+        self.assertEqual(
+            result["quality"]["warnings"],
+            ["1 populated road group still has no supported street name."],
+        )
 
     def test_blank_nearby_address_prevents_eighty_percent_unnamed_road_inference(self):
         roads = [
@@ -658,7 +962,8 @@ class ImportCompletenessTest(TestCase):
         result = normalize_features(roads, addresses)
 
         self.assertEqual(result["segments"][0]["activationKind"], "hidden")
-        self.assertEqual(result["quality"]["unresolvedClusters"], 1)
+        self.assertEqual(result["quality"]["assignedAddresses"], 4)
+        self.assertEqual(result["quality"]["populatedUnnamedRoads"], 1)
 
     def test_reports_three_unresolved_addresses_without_rejecting_the_import(self):
         addresses = [
@@ -694,11 +999,106 @@ class ImportCompletenessTest(TestCase):
         self.assertEqual(result["quality"], {
             "totalAddresses": 1,
             "assignedAddresses": 1,
+            "spatiallyAssignedAddresses": 0,
             "inferredRoads": 0,
             "unmatchedAddresses": 0,
             "unresolvedClusters": 0,
+            "totalResidentialBuildings": 0,
+            "fallbackBuildings": 0,
+            "unmatchedResidentialBuildings": 0,
+            "populatedUnnamedRoads": 0,
+            "buildingAddressDisagreements": 0,
+            "warnings": [],
         })
         self.assertEqual(result["segments"][0]["estimatedHomes"], 1)
+
+
+class BenchmarkMetricsTest(TestCase):
+    def test_reports_literal_reliability_rates_for_reference_addresses(self):
+        roads = [
+            road("oak", "residential", "Oak Road", [[0, 0], [0.001, 0]]),
+            road("pine", "residential", "Pine Lane", [[0, 0.001], [0.001, 0.001]]),
+        ]
+        reference = [
+            address(
+                street,
+                0.0002 + index * 0.0002,
+                latitude,
+                number=str(index + 1),
+            )
+            for street, latitude in [("Oak Rd", 0.00005), ("Pine Ln", 0.00105)]
+            for index in range(4)
+        ]
+        normalized = normalize_features(roads, reference)
+        benchmark_metrics = getattr(
+            importer_module,
+            "benchmark_metrics",
+            lambda _normalized, _reference: None,
+        )
+
+        self.assertEqual(
+            benchmark_metrics(normalized, reference),
+            {
+                "referenceAddresses": 8,
+                "knownResidentialRoads": 2,
+                "representedResidentialRoads": 2,
+                "correctlyNamedResidentialRoads": 2,
+                "unrepresentedRoadNames": [],
+                "incorrectRoadNames": [],
+                "evaluatedSegments": 2,
+                "accurateSegments": 2,
+                "severeOutliers": 0,
+                "severeOutlierSegments": [],
+                "addressAssignmentRate": 1.0,
+                "roadRepresentationRate": 1.0,
+                "roadNameAccuracy": 1.0,
+                "segmentCountAccuracy": 1.0,
+                "failedMetrics": [],
+                "passed": True,
+            },
+        )
+
+    def test_names_each_failed_reliability_metric(self):
+        reference = [
+            address("Oak Road", 0.0002 + index * 0.0002, 0.00005, number=str(index))
+            for index in range(4)
+        ]
+        normalized = normalize_features(
+            [road("oak", "residential", "Oak Road", [[0, 0], [0.001, 0]])],
+            [],
+        )
+
+        result = importer_module.benchmark_metrics(normalized, reference)
+
+        self.assertEqual(
+            result["failedMetrics"],
+            ["addressAssignmentRate", "segmentCountAccuracy"],
+        )
+        self.assertFalse(result["passed"])
+
+    def test_benchmark_cache_reuses_the_exact_downloaded_sources(self):
+        sources = (
+            [road("oak", "residential", "Oak Road", [[0, 0], [0.001, 0]])],
+            [address("Oak Road", 0.0005, 0.00005, number="1")],
+            [],
+        )
+        reference = [address("Oak Road", 0.0005, 0.00005, number="1")]
+        with (
+            TemporaryDirectory() as directory,
+            patch.object(benchmark_module, "download_features", return_value=sources) as download,
+            patch.object(
+                benchmark_module,
+                "download_nad_reference",
+                return_value=reference,
+            ) as download_reference,
+        ):
+            first = benchmark_module.load_sources("test-area", 0, 0, 1, directory)
+            second = benchmark_module.load_sources("test-area", 0, 0, 1, directory)
+
+        self.assertEqual(first, (*sources, reference))
+        self.assertEqual(second, first)
+        download.assert_called_once_with(0, 0, 1)
+        download_reference.assert_called_once_with(0, 0, 1)
 
 
 class ImportBoundaryTest(TestCase):
@@ -746,6 +1146,17 @@ class ImportBoundaryTest(TestCase):
                             )
                         ]
                     )
+                if "theme=buildings" in sql:
+                    return Result(
+                        [
+                            (
+                                "building-1",
+                                "building",
+                                "house",
+                                '{"type":"Polygon","coordinates":[[[0.2,0.00005],[0.3,0.00005],[0.3,0.00015],[0.2,0.00015],[0.2,0.00005]]]}',
+                            )
+                        ]
+                    )
                 return Result(
                     [
                         (
@@ -770,7 +1181,7 @@ class ImportBoundaryTest(TestCase):
             sys.modules,
             {"duckdb": type("DuckDB", (), {"connect": lambda: connection})},
         ):
-            roads, addresses = download_features(0, 0, 1)
+            roads, addresses, buildings = download_features(0, 0, 1)
 
         self.assertEqual(
             roads,
@@ -800,6 +1211,22 @@ class ImportBoundaryTest(TestCase):
                     address_levels=[
                         {"value": "California"},
                         {"value": "Temecula"},
+                    ],
+                )
+            ],
+        )
+        self.assertEqual(
+            buildings,
+            [
+                building(
+                    "building-1",
+                    "house",
+                    [
+                        [0.2, 0.00005],
+                        [0.3, 0.00005],
+                        [0.3, 0.00015],
+                        [0.2, 0.00015],
+                        [0.2, 0.00005],
                     ],
                 )
             ],
@@ -841,6 +1268,11 @@ class ImportBoundaryTest(TestCase):
         self.assertIn("address_levels", address_sql)
         self.assertNotIn("unit", address_sql)
         self.assertNotIn("ORDER BY id", address_sql)
+        building_sql = bbox_calls[2][0]
+        self.assertIn("theme=buildings/type=building/*", building_sql)
+        self.assertIn("id, subtype, class", building_sql)
+        self.assertIn("class IN", building_sql)
+        self.assertNotIn("ORDER BY id", building_sql)
 
     def test_cli_parses_arguments_and_prints_one_json_object(self):
         output = StringIO()
@@ -856,6 +1288,7 @@ class ImportBoundaryTest(TestCase):
                         [[-117.13, 33.51], [-117.12, 33.51]],
                     )
                 ],
+                [],
                 [],
             )
 
@@ -876,13 +1309,20 @@ class ImportBoundaryTest(TestCase):
         self.assertEqual(parsed["release"], OVERTURE_RELEASE)
         self.assertEqual(parsed["center"], [-117.1274, 33.5107])
         self.assertEqual(parsed["radiusMiles"], 1)
-        self.assertEqual(parsed["normalizerVersion"], 6)
+        self.assertEqual(parsed["normalizerVersion"], 7)
         self.assertEqual(parsed["quality"], {
             "totalAddresses": 0,
             "assignedAddresses": 0,
+            "spatiallyAssignedAddresses": 0,
             "inferredRoads": 0,
             "unmatchedAddresses": 0,
             "unresolvedClusters": 0,
+            "totalResidentialBuildings": 0,
+            "fallbackBuildings": 0,
+            "unmatchedResidentialBuildings": 0,
+            "populatedUnnamedRoads": 0,
+            "buildingAddressDisagreements": 0,
+            "warnings": ["No usable address points were available for this territory."],
         })
         self.assertEqual(parsed["segments"][0]["id"], "overture:road-1:0")
         self.assertEqual(output.getvalue().count("\n"), 1)

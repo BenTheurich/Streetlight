@@ -29,9 +29,16 @@ export type ImportedTerritorySegment = {
 export type ImportQuality = {
   totalAddresses: number;
   assignedAddresses: number;
+  spatiallyAssignedAddresses: number;
   inferredRoads: number;
   unmatchedAddresses: number;
   unresolvedClusters: number;
+  totalResidentialBuildings: number;
+  fallbackBuildings: number;
+  unmatchedResidentialBuildings: number;
+  populatedUnnamedRoads: number;
+  buildingAddressDisagreements: number;
+  warnings: string[];
 };
 
 export type ImportedTerritoryInput = {
@@ -39,7 +46,7 @@ export type ImportedTerritoryInput = {
   center: Position;
   radiusMiles: number;
   completedAt: string;
-  normalizerVersion: 6;
+  normalizerVersion: 7;
   quality: ImportQuality;
   segments: ImportedTerritorySegment[];
 };
@@ -93,18 +100,43 @@ function isIsoTimestamp(value: unknown): value is string {
 }
 
 function isSuccessfulImportQuality(value: unknown): value is ImportQuality {
+  const countKeys = [
+    'assignedAddresses',
+    'buildingAddressDisagreements',
+    'fallbackBuildings',
+    'inferredRoads',
+    'populatedUnnamedRoads',
+    'spatiallyAssignedAddresses',
+    'totalAddresses',
+    'totalResidentialBuildings',
+    'unmatchedAddresses',
+    'unmatchedResidentialBuildings',
+    'unresolvedClusters',
+  ];
   return (
     isRecord(value) &&
     hasKeys(value, [
       'assignedAddresses',
+      'buildingAddressDisagreements',
+      'fallbackBuildings',
       'inferredRoads',
+      'populatedUnnamedRoads',
+      'spatiallyAssignedAddresses',
       'totalAddresses',
+      'totalResidentialBuildings',
       'unmatchedAddresses',
+      'unmatchedResidentialBuildings',
       'unresolvedClusters',
+      'warnings',
     ]) &&
-    Object.values(value).every((count) => Number.isInteger(count) && (count as number) >= 0) &&
+    countKeys.every((key) => Number.isInteger(value[key]) && (value[key] as number) >= 0) &&
+    Array.isArray(value.warnings) &&
+    value.warnings.every((warning) => typeof warning === 'string' && warning.trim() !== '') &&
     (value.assignedAddresses as number) + (value.unmatchedAddresses as number) ===
-      value.totalAddresses
+      value.totalAddresses &&
+    (value.spatiallyAssignedAddresses as number) <= (value.assignedAddresses as number) &&
+    (value.fallbackBuildings as number) + (value.unmatchedResidentialBuildings as number) <=
+      (value.totalResidentialBuildings as number)
   );
 }
 
@@ -152,7 +184,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     !Number.isFinite(value.radiusMiles) ||
     (value.radiusMiles as number) <= 0 ||
     !isIsoTimestamp(value.completedAt) ||
-    value.normalizerVersion !== 6 ||
+    value.normalizerVersion !== 7 ||
     !isSuccessfulImportQuality(value.quality) ||
     !Array.isArray(value.segments) ||
     value.segments.length === 0
@@ -229,13 +261,20 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     center: value.center,
     radiusMiles: value.radiusMiles as number,
     completedAt: value.completedAt,
-    normalizerVersion: 6,
+    normalizerVersion: 7,
     quality: {
       totalAddresses: value.quality.totalAddresses as number,
       assignedAddresses: value.quality.assignedAddresses as number,
+      spatiallyAssignedAddresses: value.quality.spatiallyAssignedAddresses as number,
       inferredRoads: value.quality.inferredRoads as number,
       unmatchedAddresses: value.quality.unmatchedAddresses as number,
       unresolvedClusters: value.quality.unresolvedClusters as number,
+      totalResidentialBuildings: value.quality.totalResidentialBuildings as number,
+      fallbackBuildings: value.quality.fallbackBuildings as number,
+      unmatchedResidentialBuildings: value.quality.unmatchedResidentialBuildings as number,
+      populatedUnnamedRoads: value.quality.populatedUnnamedRoads as number,
+      buildingAddressDisagreements: value.quality.buildingAddressDisagreements as number,
+      warnings: value.quality.warnings as string[],
     },
     segments,
   };

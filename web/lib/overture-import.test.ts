@@ -13,13 +13,20 @@ const validOutput = {
   center: requestedCenter,
   radiusMiles: 1,
   completedAt: '2026-07-27T12:00:00.000Z',
-  normalizerVersion: 6,
+  normalizerVersion: 7,
   quality: {
     totalAddresses: 12,
     assignedAddresses: 10,
+    spatiallyAssignedAddresses: 3,
     inferredRoads: 1,
     unmatchedAddresses: 2,
     unresolvedClusters: 2,
+    totalResidentialBuildings: 9,
+    fallbackBuildings: 2,
+    unmatchedResidentialBuildings: 1,
+    populatedUnnamedRoads: 0,
+    buildingAddressDisagreements: 1,
+    warnings: ['Address matching is below the 95% reliability target (83.3% matched).'],
   },
   segments: [
     {

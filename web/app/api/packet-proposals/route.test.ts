@@ -60,13 +60,20 @@ function preparePacketGraph(filename: string): void {
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',
-    normalizerVersion: 6,
+    normalizerVersion: 7,
     quality: {
       totalAddresses: 2,
       assignedAddresses: 2,
+      spatiallyAssignedAddresses: 0,
       inferredRoads: 0,
       unmatchedAddresses: 0,
       unresolvedClusters: 0,
+      totalResidentialBuildings: 0,
+      fallbackBuildings: 0,
+      unmatchedResidentialBuildings: 0,
+      populatedUnnamedRoads: 0,
+      buildingAddressDisagreements: 0,
+      warnings: [],
     },
     segments: [
       {
