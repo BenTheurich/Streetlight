@@ -44,5 +44,5 @@ export async function updateTerritory(request: Request) {
   }
 }
 
-export const GET = authenticatedRoute(getTerritory);
-export const PATCH = authenticatedRoute(updateTerritory);
+export const GET = authenticatedRoute(getTerritory, undefined, undefined, true);
+export const PATCH = authenticatedRoute(updateTerritory, undefined, undefined, true);

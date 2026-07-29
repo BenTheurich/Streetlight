@@ -1772,6 +1772,76 @@ textarea {
   font-weight: 700;
 }
 
+.church-onboarding {
+  display: grid;
+  min-height: 100vh;
+  padding: clamp(1.5rem, 5vw, 5rem);
+  place-items: center;
+  background: radial-gradient(circle at 70% 25%, #f4d79c66, transparent 28rem), #081727;
+  color: #f7f2e8;
+}
+
+.church-onboarding > section {
+  width: min(100%, 38rem);
+}
+
+.church-onboarding > section > p:first-child {
+  color: #e2ad54;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+}
+
+.church-onboarding h1 {
+  margin: 0.4rem 0 1rem;
+  font:
+    500 clamp(3rem, 8vw, 5.5rem) / 0.92 Georgia,
+    serif;
+}
+
+.church-onboarding form,
+.church-onboarding label {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.church-onboarding form {
+  margin-top: 2rem;
+  gap: 1rem;
+}
+
+.church-onboarding label {
+  font-weight: 700;
+}
+
+.church-onboarding input {
+  min-height: 3.25rem;
+  padding: 0 0.9rem;
+  border: 1px solid #f7f2e877;
+  background: #f7f2e814;
+  color: white;
+  font: inherit;
+}
+
+.church-onboarding button {
+  min-height: 3.35rem;
+  border: 0;
+  background: #f7f2e8;
+  color: #101d32;
+  font-weight: 800;
+}
+
+.church-onboarding button:disabled {
+  opacity: 0.65;
+}
+
+.church-onboarding > a {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  color: inherit;
+}
+
 @media (max-width: 900px) {
   .wordmark,
   .phase-label,

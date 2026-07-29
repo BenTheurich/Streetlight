@@ -24,4 +24,4 @@ export async function geocodeChurch(request: Request) {
   }
 }
 
-export const POST = authenticatedRoute(geocodeChurch);
+export const POST = authenticatedRoute(geocodeChurch, undefined, undefined, true);

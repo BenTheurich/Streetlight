@@ -6,6 +6,10 @@ const founder = { id: 'user-founder', email: 'bentheurich@gmail.com' };
 
 test('founder access is restricted to the configured signed-in email', async () => {
   assert.deepEqual(
+    await requireFounderSession(async () => ({ user: founder, organizationId: 'org-streetlight' })),
+    founder,
+  );
+  assert.deepEqual(
     await requireFounderSession(
       async () => ({ user: founder, organizationId: 'org-streetlight' }),
       'bentheurich@gmail.com',

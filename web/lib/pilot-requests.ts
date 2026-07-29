@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { openDatabase } from '../db/migrate.mjs';
+import { DatabaseSync } from 'node:sqlite';
 
 export type PilotRequestStatus = 'pending' | 'declined' | 'provisioning' | 'approved';
 
@@ -51,6 +52,13 @@ function databaseFilename(filename?: string): string {
   );
 }
 
+function openDatabase(filename: string): DatabaseSync {
+  if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
+  const database = new DatabaseSync(filename);
+  database.exec('PRAGMA foreign_keys = ON');
+  return database;
+}
+
 function text(value: unknown, label: string, maximum: number): string {
   if (typeof value !== 'string') throw new Error(`Enter ${label.toLowerCase()}`);
   const parsed = value.trim().replace(/\s+/g, ' ');
@@ -90,7 +98,7 @@ function mapRequest(row: PilotRequestRow): PilotRequest {
   };
 }
 
-function getRequest(database: ReturnType<typeof openDatabase>, id: string): PilotRequest {
+function getRequest(database: DatabaseSync, id: string): PilotRequest {
   const row = database.prepare('SELECT * FROM pilot_requests WHERE id = ?').get(id) as
     | PilotRequestRow
     | undefined;

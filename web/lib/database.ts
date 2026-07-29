@@ -255,38 +255,115 @@ function openWorkspaceDatabase(filename?: string): DatabaseSync {
   return database;
 }
 
-export function getWorkspaceForOrganization(
+export type OrganizationAccess = {
+  churchId: string;
+  churchName: string;
+  timeZone: string;
+  territoryId: string | null;
+  onboardingCompleted: boolean;
+};
+
+export function getOrganizationAccess(
   organizationId: string,
   filename?: string,
-): WorkspaceScope {
-  if (!organizationId) {
-    throw new Error('Church workspace not found');
-  }
-
+): OrganizationAccess {
+  if (!organizationId) throw new Error('Church workspace not found');
   const database = openWorkspaceDatabase(filename);
   try {
     const rows = database
       .prepare(
-        `SELECT c.id AS church_id, c.time_zone, t.id AS territory_id
+        `SELECT c.id AS church_id, c.name AS church_name, c.time_zone,
+          c.onboarding_completed_at, t.id AS territory_id
         FROM churches c
-        JOIN territories t ON t.church_id = c.id
+        LEFT JOIN territories t ON t.church_id = c.id
         WHERE c.auth_organization_id = ?
         ORDER BY t.created_at, t.id
         LIMIT 2`,
       )
       .all(organizationId) as Array<{
       church_id: string;
-      territory_id: string;
+      church_name: string;
       time_zone: string;
+      onboarding_completed_at: string | null;
+      territory_id: string | null;
     }>;
-    if (rows.length !== 1) {
-      throw new Error('Church workspace not found');
-    }
+    if (rows.length !== 1) throw new Error('Church workspace not found');
     return {
       churchId: rows[0].church_id,
-      territoryId: rows[0].territory_id,
+      churchName: rows[0].church_name,
       timeZone: rows[0].time_zone,
+      territoryId: rows[0].territory_id,
+      onboardingCompleted: rows[0].onboarding_completed_at !== null,
     };
+  } finally {
+    database.close();
+  }
+}
+
+export function getWorkspaceForOrganization(
+  organizationId: string,
+  filename?: string,
+): WorkspaceScope {
+  const access = getOrganizationAccess(organizationId, filename);
+  if (!access.territoryId) throw new Error('Church workspace not found');
+  return {
+    churchId: access.churchId,
+    territoryId: access.territoryId,
+    timeZone: access.timeZone,
+  };
+}
+
+export function createInitialTerritory(
+  organizationId: string,
+  input: {
+    churchName: string;
+    timeZone: string;
+    formattedAddress: string;
+    center: Position;
+  },
+  filename?: string,
+): { territoryId: string } {
+  const database = openWorkspaceDatabase(filename);
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    const church = database
+      .prepare(
+        `SELECT id
+        FROM churches
+        WHERE auth_organization_id = ?`,
+      )
+      .get(organizationId) as { id: string } | undefined;
+    if (!church) throw new Error('Church workspace not found');
+    const existing = database
+      .prepare('SELECT id FROM territories WHERE church_id = ?')
+      .get(church.id) as { id: string } | undefined;
+    if (existing) throw new Error('Church onboarding is already complete');
+
+    database
+      .prepare('UPDATE churches SET name = ?, time_zone = ? WHERE id = ?')
+      .run(input.churchName, input.timeZone, church.id);
+    const territoryId = `territory-${randomUUID()}`;
+    database
+      .prepare(
+        `INSERT INTO territories
+          (id, church_id, name, center_latitude, center_longitude, radius_meters,
+            boundary_geojson, origin_address, boundary_shape)
+        VALUES (?, ?, 'Outreach territory', ?, ?, ?, ?, ?, 'circle')`,
+      )
+      .run(
+        territoryId,
+        church.id,
+        input.center[1],
+        input.center[0],
+        1609.344,
+        JSON.stringify(territoryBoundary(input.center, 1, 'circle')),
+        input.formattedAddress,
+      );
+    database.exec('COMMIT');
+    return { territoryId };
+  } catch (error) {
+    database.exec('ROLLBACK');
+    throw error;
   } finally {
     database.close();
   }
@@ -1979,6 +2056,13 @@ export function saveTerritoryDraft(
         throw new Error('Apartment complex not found or not ready for outreach');
       }
     }
+    database
+      .prepare(
+        `UPDATE churches
+        SET onboarding_completed_at = COALESCE(onboarding_completed_at, CURRENT_TIMESTAMP)
+        WHERE id = ?`,
+      )
+      .run(workspaceChurchId());
     database.exec('COMMIT');
   } catch (error) {
     database.exec('ROLLBACK');

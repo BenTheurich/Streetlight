@@ -1,9 +1,10 @@
+import { ChurchOnboarding } from '@/components/ChurchOnboarding';
 import { PublicLanding } from '@/components/PublicLanding';
 import { StreetlightWorkspace } from '@/components/StreetlightWorkspace';
 import {
-  type AdministratorSession,
   ChurchWorkspaceAccessError,
-  requireAdministratorSession,
+  type OrganizationSession,
+  requireOrganizationSession,
   SignInRequiredError,
 } from '@/lib/auth';
 import { getCoverageWorkspace } from '@/lib/database';
@@ -15,9 +16,9 @@ import { runInWorkspace } from '@/lib/workspace-scope';
 export const dynamic = 'force-dynamic';
 
 export default async function CoverageDashboardPage() {
-  let session: AdministratorSession;
+  let session: OrganizationSession;
   try {
-    session = await requireAdministratorSession();
+    session = await requireOrganizationSession();
   } catch (error) {
     if (error instanceof SignInRequiredError) {
       return <PublicLanding />;
@@ -34,7 +35,20 @@ export default async function CoverageDashboardPage() {
     throw error;
   }
 
-  const initialData = runInWorkspace(session.workspace, () => getCoverageWorkspace());
+  if (!session.access.territoryId) {
+    return (
+      <ChurchOnboarding
+        churchName={session.access.churchName}
+        initialTimeZone={session.access.timeZone}
+      />
+    );
+  }
+  const workspace = {
+    churchId: session.access.churchId,
+    territoryId: session.access.territoryId,
+    timeZone: session.access.timeZone,
+  };
+  const initialData = runInWorkspace(workspace, () => getCoverageWorkspace());
   const pendingPilotRequests = isFounderEmail(session.user.email)
     ? listPilotRequests().filter(({ status }) => status === 'pending' || status === 'provisioning')
         .length
@@ -45,6 +59,7 @@ export default async function CoverageDashboardPage() {
       initialData={initialData}
       mapsApiKey={getGoogleMapsBrowserKey()}
       pendingPilotRequests={pendingPilotRequests}
+      setupOnly={!session.access.onboardingCompleted}
     />
   );
 }

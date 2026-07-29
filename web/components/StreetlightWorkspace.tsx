@@ -26,15 +26,18 @@ const tools: Array<{ id: WorkspaceTool; label: string }> = [
 export function StreetlightWorkspace({
   administratorEmail,
   pendingPilotRequests,
+  setupOnly = false,
   initialData,
   mapsApiKey,
 }: {
   administratorEmail: string;
   pendingPilotRequests?: number | null;
+  setupOnly?: boolean;
   initialData: CoverageWorkspace;
   mapsApiKey: string;
 }) {
-  const [tool, setTool] = useState<WorkspaceTool>('coverage');
+  const [setupRequired, setSetupOnly] = useState(setupOnly);
+  const [tool, setTool] = useState<WorkspaceTool>(setupOnly ? 'territory' : 'coverage');
   const [coverage, setCoverage] = useState(initialData);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(
     initialData.segments.find((segment) => segment.eligible)?.id ??
@@ -48,6 +51,7 @@ export function StreetlightWorkspace({
   const [territoryError, setTerritoryError] = useState('');
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [overlayRoot, setOverlayRoot] = useState<HTMLDivElement | null>(null);
+  const availableTools = setupRequired ? tools.filter(({ id }) => id === 'territory') : tools;
 
   const loadTerritory = useCallback(async () => {
     setTerritoryLoading(true);
@@ -98,6 +102,8 @@ export function StreetlightWorkspace({
       setPacketResult(null);
       setSelectedPacketIndex(null);
       await refreshCoverage();
+      setSetupOnly(false);
+      setTool('coverage');
     },
     [refreshCoverage],
   );
@@ -108,11 +114,11 @@ export function StreetlightWorkspace({
         <div className="brand">
           <Image alt="" height="32" src="/StreetlightLogo.png" width="32" />
           <span className="wordmark">Streetlight</span>
-          <span className="phase-label">{tools.find(({ id }) => id === tool)?.label}</span>
+          <span className="phase-label">{availableTools.find(({ id }) => id === tool)?.label}</span>
           {coverage.dataMode === 'demo' && <span className="demo-data-label">Demo data</span>}
         </div>
         <nav aria-label="Administrator tools" className="workspace-tools">
-          {tools.map(({ id, label }) => (
+          {availableTools.map(({ id, label }) => (
             <button
               aria-pressed={tool === id}
               className={tool === id ? 'active' : ''}

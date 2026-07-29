@@ -1,4 +1,8 @@
-import { getWorkspaceForOrganization } from './database.ts';
+import {
+  getOrganizationAccess,
+  getWorkspaceForOrganization,
+  type OrganizationAccess,
+} from './database.ts';
 import type { WorkspaceScope } from './workspace-scope.ts';
 
 export type AdministratorUser = {
@@ -18,6 +22,13 @@ export type AuthLoader = () => Promise<ExternalAuthSession>;
 export type AdministratorSession = {
   user: AdministratorUser;
   workspace: WorkspaceScope;
+  onboardingCompleted: boolean;
+};
+
+export type OrganizationSession = {
+  user: AdministratorUser;
+  organizationId: string;
+  access: OrganizationAccess;
 };
 
 export class SignInRequiredError extends Error {
@@ -41,6 +52,22 @@ export async function requireAdministratorSession(
   loadSession: AuthLoader = loadWorkOSSession,
   filename?: string,
 ): Promise<AdministratorSession> {
+  const session = await requireOrganizationSession(loadSession, filename);
+  try {
+    return {
+      user: session.user,
+      workspace: getWorkspaceForOrganization(session.organizationId, filename),
+      onboardingCompleted: session.access.onboardingCompleted,
+    };
+  } catch {
+    throw new ChurchWorkspaceAccessError();
+  }
+}
+
+export async function requireOrganizationSession(
+  loadSession: AuthLoader = loadWorkOSSession,
+  filename?: string,
+): Promise<OrganizationSession> {
   const session = await loadSession();
   if (!session.user) {
     throw new SignInRequiredError();
@@ -52,7 +79,8 @@ export async function requireAdministratorSession(
   try {
     return {
       user: session.user,
-      workspace: getWorkspaceForOrganization(session.organizationId, filename),
+      organizationId: session.organizationId,
+      access: getOrganizationAccess(session.organizationId, filename),
     };
   } catch {
     throw new ChurchWorkspaceAccessError();

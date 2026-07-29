@@ -27,4 +27,6 @@ export async function submitPublicPilotRequest(
   );
 }
 
-export const POST = submitPublicPilotRequest;
+export function POST(request: Request): Promise<Response> {
+  return submitPublicPilotRequest(request);
+}
