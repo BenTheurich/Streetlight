@@ -1,10 +1,14 @@
-import { parsePilotRequest, submitPilotRequest } from '../../../lib/pilot-requests.ts';
+import {
+  type PilotRequestInput,
+  parsePilotRequest,
+  submitPilotRequest,
+} from '../../../lib/pilot-requests.ts';
 
 export async function submitPublicPilotRequest(
   request: Request,
   databaseFilename?: string,
 ): Promise<Response> {
-  let input;
+  let input: PilotRequestInput;
   try {
     input = parsePilotRequest(await request.json());
   } catch (error) {

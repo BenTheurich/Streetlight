@@ -111,9 +111,7 @@ export function parsePilotRequest(value: unknown): PilotRequestInput {
   }
   if (input.website !== '') throw new Error('Invalid request');
   const outreachProcess =
-    input.outreachProcess === ''
-      ? null
-      : text(input.outreachProcess, 'Outreach description', 2000);
+    input.outreachProcess === '' ? null : text(input.outreachProcess, 'Outreach description', 2000);
   return {
     churchName: text(input.churchName, 'Church name', 160),
     contactName: text(input.contactName, 'Your name', 120),
@@ -266,13 +264,16 @@ export function recordPilotOrganization(
     if (current.authOrganizationId && current.authOrganizationId !== organizationId) {
       throw new Error('Pilot request already has another WorkOS organization');
     }
-    database
+    const churchUpdate = database
       .prepare(
         `UPDATE churches
         SET auth_organization_id = ?
         WHERE id = ? AND (auth_organization_id IS NULL OR auth_organization_id = ?)`,
       )
       .run(organizationId, current.provisionedChurchId, organizationId);
+    if (churchUpdate.changes !== 1) {
+      throw new Error('WorkOS organization is already assigned');
+    }
     database
       .prepare(
         `UPDATE pilot_requests

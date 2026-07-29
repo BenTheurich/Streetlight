@@ -1,4 +1,10 @@
-export function AdministratorAccount({ email }: { email: string }) {
+export function AdministratorAccount({
+  email,
+  pendingPilotRequests = null,
+}: {
+  email: string;
+  pendingPilotRequests?: number | null;
+}) {
   return (
     <div className="administrator-account">
       <button
@@ -25,6 +31,14 @@ export function AdministratorAccount({ email }: { email: string }) {
       >
         <span>Signed in as</span>
         <strong>{email}</strong>
+        {pendingPilotRequests !== null && (
+          <a href="/pilot-requests" role="menuitem">
+            Pilot requests
+            {pendingPilotRequests > 0 && (
+              <span className="administrator-account-badge">{pendingPilotRequests}</span>
+            )}
+          </a>
+        )}
         <a href="/logout" role="menuitem">
           Sign out
         </a>

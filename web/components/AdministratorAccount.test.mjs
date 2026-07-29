@@ -12,4 +12,6 @@ test('the administrator account opens a native menu with identity and sign out',
   assert.match(source, /\{email\}/);
   assert.match(source, /href="\/logout"/);
   assert.match(source, />\s*Sign out\s*</);
+  assert.match(source, /href="\/pilot-requests"/);
+  assert.match(source, /pendingPilotRequests/);
 });

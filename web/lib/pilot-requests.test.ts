@@ -46,7 +46,10 @@ test('pilot requests validate exact public input and deduplicate normalized chur
   });
   assert.throws(() => parsePilotRequest({ ...validRequest, extra: true }), /invalid request/i);
   assert.throws(() => parsePilotRequest({ ...validRequest, email: 'not-email' }), /valid email/i);
-  assert.throws(() => parsePilotRequest({ ...validRequest, website: 'spam.example' }), /invalid request/i);
+  assert.throws(
+    () => parsePilotRequest({ ...validRequest, website: 'spam.example' }),
+    /invalid request/i,
+  );
 
   withDatabase((filename) => {
     const first = submitPilotRequest(parsePilotRequest(validRequest), filename);
@@ -114,10 +117,13 @@ test('pilot request decisions stay resumable and pending requests sort first', (
       )
       .get(approved.provisionedChurchId);
     database.close();
-    assert.deepEqual({ ...church }, {
-      name: 'Grace Community',
-      auth_organization_id: 'org_grace',
-      onboarding_completed_at: null,
-    });
+    assert.deepEqual(
+      { ...church },
+      {
+        name: 'Grace Community',
+        auth_organization_id: 'org_grace',
+        onboarding_completed_at: null,
+      },
+    );
   });
 });

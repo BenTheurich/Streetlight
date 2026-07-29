@@ -70,7 +70,7 @@ geocoding, Node test runner.
   behavior to call the API, retain values on error, and show the approved neutral success copy.
 - [x] Make `/` choose public landing for a missing WorkOS user without redirecting to `/login`.
 - [x] Run focused tests, lint, and TypeScript.
-- [ ] Commit `feat: connect public pilot request landing`.
+- [x] Commit `feat: connect public pilot request landing`.
 
 ### Task 3: Founder review and resumable WorkOS provisioning
 
@@ -92,15 +92,15 @@ geocoding, Node test runner.
 - WorkOS adapter methods: `findOrCreateOrganization(externalId, name)` and
   `findOrCreateInvitation(organizationId, email)`
 
-- [ ] Write failing tests proving ordinary administrators receive `404`, the founder can list and
+- [x] Write failing tests proving ordinary administrators receive `404`, the founder can list and
   decline, approval applies corrections, partial provisioning resumes, and retries create one
   church/organization/invitation.
-- [ ] Run focused tests and confirm failure.
-- [ ] Implement founder email configuration, the account-menu badge/link, pending-first review
+- [x] Run focused tests and confirm failure.
+- [x] Implement founder email configuration, the account-menu badge/link, pending-first review
   page, exact action parsing, and the smallest WorkOS adapter over the installed SDK.
-- [ ] Store every external ID before moving to the next provisioning state. Mark approved only
+- [x] Store every external ID before moving to the next provisioning state. Mark approved only
   after the invitation ID is stored.
-- [ ] Run focused tests, lint, and TypeScript.
+- [x] Run focused tests, lint, and TypeScript.
 - [ ] Commit `feat: add founder pilot approvals`.
 
 ### Task 4: First-sign-in onboarding and setup gate

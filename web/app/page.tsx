@@ -7,7 +7,9 @@ import {
   SignInRequiredError,
 } from '@/lib/auth';
 import { getCoverageWorkspace } from '@/lib/database';
+import { isFounderEmail } from '@/lib/founder-auth';
 import { getGoogleMapsBrowserKey } from '@/lib/google-maps-server';
+import { listPilotRequests } from '@/lib/pilot-requests';
 import { runInWorkspace } from '@/lib/workspace-scope';
 
 export const dynamic = 'force-dynamic';
@@ -33,11 +35,16 @@ export default async function CoverageDashboardPage() {
   }
 
   const initialData = runInWorkspace(session.workspace, () => getCoverageWorkspace());
+  const pendingPilotRequests = isFounderEmail(session.user.email)
+    ? listPilotRequests().filter(({ status }) => status === 'pending' || status === 'provisioning')
+        .length
+    : null;
   return (
     <StreetlightWorkspace
       administratorEmail={session.user.email}
       initialData={initialData}
       mapsApiKey={getGoogleMapsBrowserKey()}
+      pendingPilotRequests={pendingPilotRequests}
     />
   );
 }

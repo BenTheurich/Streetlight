@@ -1,12 +1,7 @@
 export function PublicLanding() {
   return (
     <>
-      <link
-        rel="preload"
-        href="/landing/streetlamp-v2.webp"
-        as="image"
-        type="image/webp"
-      />
+      <link rel="preload" href="/landing/streetlamp-v2.webp" as="image" type="image/webp" />
       <link rel="stylesheet" href="/landing/spread-the-light-v2.css" />
       <a className="skip-link" href="#product-overview">
         Skip to product overview
@@ -160,8 +155,8 @@ export function PublicLanding() {
                 </>
               }
             >
-              Streetlight groups connected streets into practical packets, sized for the tracts
-              your church is ready to send.
+              Streetlight groups connected streets into practical packets, sized for the tracts your
+              church is ready to send.
             </StoryStep>
             <StoryStep
               className="anchor-right anchor-light-copy"
@@ -182,12 +177,7 @@ export function PublicLanding() {
 
         <section className="compact-story" aria-label="Streetlight overview">
           <div className="compact-hero">
-            <img
-              src="/landing/streetlamp-dark-v2.webp"
-              width="768"
-              height="1152"
-              alt=""
-            />
+            <img src="/landing/streetlamp-dark-v2.webp" width="768" height="1152" alt="" />
             <div>
               <h1>
                 Carry the light
@@ -195,8 +185,8 @@ export function PublicLanding() {
                 to every street.
               </h1>
               <p>
-                Streetlight helps your church see where outreach has reached, find the streets
-                still waiting, and put the next clear assignment into a volunteer’s hands.
+                Streetlight helps your church see where outreach has reached, find the streets still
+                waiting, and put the next clear assignment into a volunteer’s hands.
               </p>
               <span className="compact-scroll">SCROLL TO FOLLOW THE LIGHT ↓</span>
             </div>
@@ -206,13 +196,16 @@ export function PublicLanding() {
               Every street keeps its outreach history, so recent work stays visible and no area
               quietly disappears.
             </CompactBeat>
-            <CompactBeat className="compact-beat-waiting" title="Bring forgotten streets back into view.">
+            <CompactBeat
+              className="compact-beat-waiting"
+              title="Bring forgotten streets back into view."
+            >
               The streets waiting longest rise first—before familiar neighborhoods are covered
               again.
             </CompactBeat>
             <CompactBeat title="Turn need into clear assignments.">
-              Streetlight groups connected streets into practical packets, sized for the tracts
-              your church is ready to send.
+              Streetlight groups connected streets into practical packets, sized for the tracts your
+              church is ready to send.
             </CompactBeat>
             <article className="compact-beat compact-beat-packet">
               <figure>
@@ -334,15 +327,36 @@ export function PublicLanding() {
               Request pilot access
             </h2>
             <p>
-              Tell us a little about your church. This requests a conversation; it does not
-              create an account or start a paid plan.
+              Tell us a little about your church. This requests a conversation; it does not create
+              an account or start a paid plan.
             </p>
           </div>
           <form className="drawer-form">
-            <DrawerField id="drawer-church-name" name="churchName" label="Church name" autoComplete="organization" />
-            <DrawerField id="drawer-contact-name" name="contactName" label="Your name" autoComplete="name" />
-            <DrawerField id="drawer-email" name="email" label="Email" type="email" autoComplete="email" />
-            <DrawerField id="drawer-location" name="location" label="City and state" autoComplete="address-level2" />
+            <DrawerField
+              id="drawer-church-name"
+              name="churchName"
+              label="Church name"
+              autoComplete="organization"
+            />
+            <DrawerField
+              id="drawer-contact-name"
+              name="contactName"
+              label="Your name"
+              autoComplete="name"
+            />
+            <DrawerField
+              id="drawer-email"
+              name="email"
+              label="Email"
+              type="email"
+              autoComplete="email"
+            />
+            <DrawerField
+              id="drawer-location"
+              name="location"
+              label="City and state"
+              autoComplete="address-level2"
+            />
             <div className="drawer-field">
               <label htmlFor="drawer-process">
                 How do you organize outreach today? <span>Optional</span>
@@ -432,13 +446,7 @@ function DrawerField({
   return (
     <div className="drawer-field">
       <label htmlFor={id}>{label}</label>
-      <input
-        id={id}
-        name={name}
-        type={type}
-        autoComplete={autoComplete}
-        required
-      />
+      <input id={id} name={name} type={type} autoComplete={autoComplete} required />
     </div>
   );
 }

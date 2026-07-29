@@ -1636,11 +1636,151 @@ textarea {
   margin: 0;
 }
 
+.administrator-account-badge {
+  display: inline-grid;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin-left: 0.5rem;
+  padding: 0 0.35rem;
+  place-items: center;
+  border-radius: 999px;
+  background: #d47842;
+  color: white;
+  font-size: 0.7rem;
+}
+
+.pilot-review-page {
+  min-height: 100vh;
+  padding: clamp(1.5rem, 4vw, 4rem);
+  background: #f7f2e8;
+  color: #101d32;
+}
+
+.pilot-review-page > header {
+  display: flex;
+  max-width: 68rem;
+  margin: 0 auto 2rem;
+  align-items: end;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.pilot-review-page h1 {
+  margin: 0;
+  font:
+    500 clamp(2.4rem, 5vw, 4.5rem) / 0.95 Georgia,
+    serif;
+}
+
+.pilot-review-page header p,
+.pilot-review-status {
+  color: #a15a31;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pilot-review-page a {
+  color: inherit;
+}
+
+.pilot-review-list {
+  display: grid;
+  max-width: 68rem;
+  margin: auto;
+  gap: 1rem;
+}
+
+.pilot-review-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.8fr);
+  gap: 2rem;
+  padding: 1.5rem;
+  border: 1px solid #d9cfbd;
+  background: #fffdf7;
+}
+
+.pilot-review-summary h2 {
+  margin: 0.35rem 0;
+  font:
+    500 1.8rem Georgia,
+    serif;
+}
+
+.pilot-review-summary p {
+  margin: 0.25rem 0;
+}
+
+.pilot-review-summary blockquote {
+  margin: 1rem 0 0;
+  padding-left: 1rem;
+  border-left: 2px solid #d9b16f;
+  color: #596273;
+}
+
+.pilot-review-card form,
+.pilot-review-card label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.pilot-review-card form {
+  gap: 0.8rem;
+}
+
+.pilot-review-card label {
+  font-weight: 700;
+}
+
+.pilot-review-card input {
+  min-height: 2.75rem;
+  padding: 0.7rem;
+  border: 1px solid #bcb19f;
+  background: white;
+  font: inherit;
+}
+
+.pilot-review-card form > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.pilot-review-card button {
+  min-height: 2.6rem;
+  padding: 0 1rem;
+  border: 1px solid #101d32;
+  background: transparent;
+  color: #101d32;
+  font-weight: 800;
+}
+
+.pilot-review-card button[type="submit"] {
+  background: #101d32;
+  color: white;
+}
+
+.pilot-review-card button:disabled {
+  opacity: 0.45;
+}
+
+.pilot-review-error {
+  max-width: 68rem;
+  margin: 0 auto 1rem;
+  color: #9e3f32;
+  font-weight: 700;
+}
+
 @media (max-width: 900px) {
   .wordmark,
   .phase-label,
   .administrator-email {
     display: none;
+  }
+
+  .pilot-review-card {
+    grid-template-columns: 1fr;
   }
 
   .territory-page {

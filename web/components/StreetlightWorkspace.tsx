@@ -25,10 +25,12 @@ const tools: Array<{ id: WorkspaceTool; label: string }> = [
 
 export function StreetlightWorkspace({
   administratorEmail,
+  pendingPilotRequests,
   initialData,
   mapsApiKey,
 }: {
   administratorEmail: string;
+  pendingPilotRequests?: number | null;
   initialData: CoverageWorkspace;
   mapsApiKey: string;
 }) {
@@ -122,7 +124,10 @@ export function StreetlightWorkspace({
             </button>
           ))}
         </nav>
-        <AdministratorAccount email={administratorEmail} />
+        <AdministratorAccount
+          email={administratorEmail}
+          pendingPilotRequests={pendingPilotRequests}
+        />
       </header>
       <main className="territory-workspace">
         <section className="map-panel">
