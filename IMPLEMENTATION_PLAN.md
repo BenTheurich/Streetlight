@@ -46,7 +46,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 5 | Batch finalization and PDF | Phase 4 | Complete | Atomic street and apartment reservations, newest/all-active downloads, and map-first Letter PDFs are implemented; 126 Node checks, 51 Python checks, Biome, TypeScript, production build, isolated-browser finalization/reload, rendered-PDF inspection, and founder review pass |
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
-| 8 | Pilot access and onboarding | Phase 7 | Awaiting human review | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
+| 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
 | 9 | Application UX/UI polish | Phase 8 | Pending | None |
 | 10 | Deployment and recovery | Phase 9 | Pending | None |
 | 11 | Founder-church pilot | Phase 10 | Pending | None |
@@ -707,6 +707,8 @@ second browser session, and reach the new church's territory setup.
 - Follow-up review fixed native Windows time-zone option contrast and the local importer runtime.
   A real one-mile San Diego import completed in 105.5 seconds with 2,896 segments, 102 apartment
   complexes, and 6,207 source addresses.
+- The founder completed the real request, invitation, onboarding, and first territory-save flow
+  without manual database changes and confirmed that the imported streets loaded successfully.
 - All 156 Node checks and 51 Python importer checks pass, along with Biome, TypeScript, and the
   credential-safe Next.js production build.
 
