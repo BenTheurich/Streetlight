@@ -209,7 +209,7 @@ test('style inserts only real buildings and a route with the same width expressi
   ]);
 });
 
-test('map lab keeps real buildings on the vector map and hides them over satellite', () => {
+test('map lab keeps real buildings and uses the interactive coverage stroke scale', () => {
   const data: MapLabData = {
     churchId: 'church',
     territoryId: 'territory',
@@ -270,8 +270,6 @@ test('map lab keeps real buildings on the vector map and hides them over satelli
 
   const map = buildOpenLabStyle(base, data);
   const satellite = buildOpenLabStyle(base, data, true);
-  const packetStyle = buildOpenMapStyle(base, packet(), mapGeneration(), 18);
-
   assert.ok(map.layers.some(({ id }) => id === 'streetlight-buildings'));
   assert.ok(map.layers.some(({ id }) => id === 'streetlight-coverage'));
   assert.equal(
@@ -281,6 +279,6 @@ test('map lab keeps real buildings on the vector map and hides them over satelli
   assert.ok(satellite.layers.some(({ id }) => id === 'streetlight-coverage'));
   assert.deepEqual(
     map.layers.find(({ id }) => id === 'streetlight-coverage')?.paint?.['line-width'],
-    packetStyle.layers.find(({ id }) => id === 'streetlight-route')?.paint?.['line-width'],
+    ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5],
   );
 });

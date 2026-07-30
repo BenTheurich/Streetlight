@@ -11,5 +11,9 @@ test('map lab mounts only selected engines and keeps diagnostics in component me
   assert.match(source, /fetch\('\/api\/founder\/map-lab'/);
   assert.match(style, /satellite\/\{z\}\/\{x\}\/\{y\}/);
   assert.match(source, /useState<PaneDiagnostics>/);
+  assert.doesNotMatch(source, /setLayoutProperty\('satellite', 'visibility', 'none'\)/);
+  assert.match(source, /setLayoutProperty\('satellite', 'visibility', 'visible'\)/);
+  assert.match(source, /key=\{`open-\$\{openKey\}`\}/);
+  assert.match(source, /key=\{`google-\$\{googleKey\}`\}/);
   assert.doesNotMatch(source, /method:\s*['"](POST|PUT|PATCH|DELETE)/);
 });

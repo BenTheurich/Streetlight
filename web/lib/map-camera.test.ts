@@ -11,3 +11,15 @@ test('camera synchronization ignores reflected updates but accepts real movement
     zoom: 17,
   });
 });
+
+test('Google and MapLibre cameras use the same geographic scale', async () => {
+  const camera = (await import('./map-camera.ts')) as unknown as {
+    googleZoomToMapLibre: (zoom: number) => number;
+    mapLibreZoomToGoogle: (zoom: number) => number;
+  };
+
+  assert.equal(typeof camera.googleZoomToMapLibre, 'function');
+  assert.equal(typeof camera.mapLibreZoomToGoogle, 'function');
+  assert.equal(camera.googleZoomToMapLibre(14), 13);
+  assert.equal(camera.mapLibreZoomToGoogle(13.5), 14.5);
+});

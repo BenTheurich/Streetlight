@@ -44,9 +44,10 @@ JavaScript API or Google satellite tiles. Google-map mode must not load OpenFree
 the building GeoJSON. Compare mode intentionally loads both and is for visual comparison, not
 performance measurement.
 
-Switching modes preserves one shared center and zoom. Compare mode synchronizes both values in both
-directions. Programmatic camera updates carry a short-lived synchronization guard so they do not
-trigger an update loop.
+Switching modes preserves one shared center and Google-equivalent zoom. MapLibre converts that
+shared zoom to its 512-pixel world convention at the engine boundary. Compare mode synchronizes
+both values in both directions. Programmatic camera updates carry a short-lived synchronization
+guard so they do not trigger an update loop.
 
 No swipe divider, opacity blend, linked cursor, screenshot exporter, or saved comparison is
 included.
@@ -66,9 +67,10 @@ behavior.
 
 ## Open pane
 
-The Open pane uses MapLibre GL JS and the exact pinned style, building presentation, road-width
-rules, labels, colors, and layer order implemented for the open-data PDF renderer. It reads the
-current church's persisted Overture and accepted FEMA building generation.
+The Open pane uses MapLibre GL JS and the pinned PDF basemap style, building presentation, labels,
+colors, and layer order. Its interactive coverage overlay uses the production map's zoom-aware
+2–5-pixel stroke scale instead of the thicker print-route widths. It reads the current church's
+persisted Overture and accepted FEMA building generation.
 
 The pane overlays:
 
@@ -171,7 +173,8 @@ The implementation must leave focused checks proving:
 - Compare mode mounts both panes and preserves one camera when switching modes;
 - bidirectional camera synchronization does not loop;
 - the Google pane uses current production coverage and apartment presentation;
-- the Open pane uses the same pinned style and pure style/topology rules as the PDF renderer;
+- the Open pane uses the pinned PDF basemap style while its coverage overlay uses the production
+  map's interactive zoom-aware stroke scale;
 - the Open pane displays persisted Overture and accepted FEMA buildings from the current
   generation;
 - Google satellite requests begin only after explicit selection;

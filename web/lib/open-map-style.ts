@@ -86,6 +86,10 @@ function routeWidthExpression(): unknown[] {
   ];
 }
 
+function coverageWidthExpression(): unknown[] {
+  return ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5];
+}
+
 function worldX(longitude: number): number {
   return (longitude + 180) / 360;
 }
@@ -378,7 +382,7 @@ export function buildOpenLabStyle(
       paint: {
         'line-color': ['get', 'color'],
         'line-opacity': ['get', 'opacity'],
-        'line-width': routeWidthExpression(),
+        'line-width': coverageWidthExpression(),
       },
     },
     {

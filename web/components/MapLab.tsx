@@ -3,7 +3,12 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CoverageWorkspace, MapLabBuildingCounts, MapLabData } from '@/lib/database';
-import { type MapCamera, mergeMapCamera } from '@/lib/map-camera';
+import {
+  googleZoomToMapLibre,
+  type MapCamera,
+  mapLibreZoomToGoogle,
+  mergeMapCamera,
+} from '@/lib/map-camera';
 import baseStyleJson from '@/lib/open-map-base-style.json';
 import { buildOpenLabStyle, type OpenMapStyle } from '@/lib/open-map-style';
 import { AdminMap } from './AdminMap';
@@ -171,9 +176,8 @@ function OpenPane({
   const updateSatelliteAttribution = useCallback(async (map: MapLibreMap) => {
     const bounds = map.getBounds();
     if (!bounds || !map.getLayer('satellite')) return;
-    map.setLayoutProperty('satellite', 'visibility', 'none');
     const search = new URLSearchParams({
-      zoom: String(Math.round(map.getZoom())),
+      zoom: String(Math.round(mapLibreZoomToGoogle(map.getZoom()))),
       north: String(bounds.getNorth()),
       south: String(bounds.getSouth()),
       east: String(bounds.getEast()),
@@ -238,7 +242,7 @@ function OpenPane({
           false,
         ) as maplibregl.StyleSpecification,
         center: cameraRef.current.center,
-        zoom: cameraRef.current.zoom,
+        zoom: googleZoomToMapLibre(cameraRef.current.zoom),
         attributionControl: false,
       });
       mapRef.current = map;
@@ -255,7 +259,10 @@ function OpenPane({
       });
       map.on('moveend', () => {
         const center = map.getCenter();
-        onCameraChange({ center: [center.lng, center.lat], zoom: map.getZoom() });
+        onCameraChange({
+          center: [center.lng, center.lat],
+          zoom: mapLibreZoomToGoogle(map.getZoom()),
+        });
         if (satelliteRef.current) void updateSatelliteAttribution(map);
       });
       map.on('error', (event) => {
@@ -275,7 +282,7 @@ function OpenPane({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.jumpTo({ center: camera.center, zoom: camera.zoom });
+    map.jumpTo({ center: camera.center, zoom: googleZoomToMapLibre(camera.zoom) });
   }, [camera]);
 
   useEffect(() => {
@@ -387,7 +394,7 @@ export function MapLab({
           <OpenPane
             camera={camera}
             doubleMap={mode === 'compare'}
-            key={openKey}
+            key={`open-${openKey}`}
             onCameraChange={changeCamera}
             retry={() => setOpenKey((value) => value + 1)}
           />
@@ -399,7 +406,7 @@ export function MapLab({
             camera={camera}
             data={initialData}
             doubleMap={mode === 'compare'}
-            key={googleKey}
+            key={`google-${googleKey}`}
             onCameraChange={changeCamera}
             retry={() => setGoogleKey((value) => value + 1)}
           />
