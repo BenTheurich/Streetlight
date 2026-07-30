@@ -10,6 +10,7 @@ Store local values in the ignored `web/.env.local` file:
 | `GOOGLE_MAPS_SERVER_API_KEY` | Server-side church-address geocoding | Geocoding API and server-origin restrictions; never exposed to the browser |
 | `GOOGLE_MAPS_STATIC_API_KEY` | Phase 0/packet map proof and local geocoding fallback | Static Maps, Roads, and Geocoding APIs; never exposed to the browser |
 | `STREETLIGHT_PYTHON` | Optional Overture importer executable | Set only when `python` is not the desired executable |
+| `SSL_CERT_FILE` | Optional CA bundle for DuckDB HTTPS imports | Set only when the Python/OpenSSL installation has no usable certificate store |
 | `WORKOS_CLIENT_ID` | WorkOS AuthKit application | Staging client ID for local work; production value only in Railway |
 | `WORKOS_API_KEY` | WorkOS server API | Secret server value; never exposed to the browser |
 | `WORKOS_COOKIE_PASSWORD` | AuthKit session-cookie encryption | Random value at least 32 characters long |
@@ -35,6 +36,9 @@ python -m pip install -r web/importer/requirements.txt
 
 Overture import requires network access to its public S3 data but no API key. Streetlight
 explicitly uses anonymous access and does not reuse ambient AWS credentials.
+On Windows, point `STREETLIGHT_PYTHON` at the prepared importer environment when the Microsoft Store
+Python alias is unusable. If DuckDB reports a certificate verification error, point
+`SSL_CERT_FILE` at a trusted local CA bundle such as Git for Windows' `ca-bundle.crt`.
 
 ## WorkOS staging setup
 

@@ -704,6 +704,9 @@ second browser session, and reach the new church's territory setup.
   issues. Re-review found no remaining Critical or Important findings.
 - Founder review found and resolved a landing-page hydration race and missing worktree geocoding
   configuration.
+- Follow-up review fixed native Windows time-zone option contrast and the local importer runtime.
+  A real one-mile San Diego import completed in 105.5 seconds with 2,896 segments, 102 apartment
+  complexes, and 6,207 source addresses.
 - All 156 Node checks and 51 Python importer checks pass, along with Biome, TypeScript, and the
   credential-safe Next.js production build.
 
@@ -733,6 +736,10 @@ church without changing its workflow.
 - Decide whether the public request should collect first and last names separately and whether
   WorkOS can prefill them without replacing hosted AuthKit.
 - Polish the onboarding presentation and copy without exposing implementation details.
+- Remove redundant current-tool labels beside the Streetlight wordmark and in the centered header,
+  especially while a new church can only use Territory Setup.
+- Give long territory imports a prominent progress state and useful failure placement instead of
+  dimming the complete workspace and burying a small status message.
 - Clarify the shared map navigation, tool sidebars, empty states, loading states, warnings, and
   primary actions.
 - Make the complete approved workflow usable at supported desktop and tablet widths.

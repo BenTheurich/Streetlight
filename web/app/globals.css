@@ -1832,6 +1832,11 @@ textarea {
   color-scheme: dark;
 }
 
+.church-onboarding option {
+  color: #0b1727;
+  background: #f7f2e8;
+}
+
 .church-place-autocomplete {
   display: block;
   padding: 0;
