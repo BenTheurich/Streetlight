@@ -1800,7 +1800,8 @@ textarea {
 }
 
 .church-onboarding form,
-.church-onboarding label {
+.church-onboarding label,
+.church-onboarding-field {
   display: grid;
   gap: 0.45rem;
 }
@@ -1810,17 +1811,31 @@ textarea {
   gap: 1rem;
 }
 
-.church-onboarding label {
+.church-onboarding label,
+.church-onboarding-field > label {
   font-weight: 700;
 }
 
-.church-onboarding input {
+.church-onboarding input,
+.church-onboarding select,
+.church-place-autocomplete {
+  width: 100%;
   min-height: 3.25rem;
   padding: 0 0.9rem;
   border: 1px solid #f7f2e877;
   background: #f7f2e814;
   color: white;
   font: inherit;
+}
+
+.church-onboarding select {
+  color-scheme: dark;
+}
+
+.church-place-autocomplete {
+  display: block;
+  padding: 0;
+  color-scheme: dark;
 }
 
 .church-onboarding button {

@@ -40,6 +40,8 @@ export default async function CoverageDashboardPage() {
       <ChurchOnboarding
         churchName={session.access.churchName}
         initialTimeZone={session.access.timeZone}
+        mapsApiKey={getGoogleMapsBrowserKey()}
+        timeZones={Array.from(new Set(['UTC', ...Intl.supportedValuesOf('timeZone')]))}
       />
     );
   }

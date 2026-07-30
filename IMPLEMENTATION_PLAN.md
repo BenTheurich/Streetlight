@@ -46,7 +46,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 5 | Batch finalization and PDF | Phase 4 | Complete | Atomic street and apartment reservations, newest/all-active downloads, and map-first Letter PDFs are implemented; 126 Node checks, 51 Python checks, Biome, TypeScript, production build, isolated-browser finalization/reload, rendered-PDF inspection, and founder review pass |
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
-| 8 | Pilot access and onboarding | Phase 7 | Awaiting human review | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented; 155 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
+| 8 | Pilot access and onboarding | Phase 7 | Awaiting human review | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
 | 9 | Application UX/UI polish | Phase 8 | Pending | None |
 | 10 | Deployment and recovery | Phase 9 | Pending | None |
 | 11 | Founder-church pilot | Phase 10 | Pending | None |
@@ -694,14 +694,17 @@ second browser session, and reach the new church's territory setup.
   next step so an interrupted approval can be retried safely.
 - WorkOS is reached through a two-operation adapter whose automated checks use a fake provider;
   no real invitation is sent during verification.
-- An invited church without a territory completes church name, full address, and IANA time-zone
-  onboarding. Streetlight geocodes the address and creates an empty one-mile circular territory.
+- An invited church without a territory completes church name, Google-assisted address, and a
+  constrained IANA time-zone choice. Streetlight geocodes the selected address and creates an empty
+  one-mile circular territory.
 - New churches see only Territory Setup. The initial import waits for the administrator's explicit
   save, which records onboarding completion and unlocks Coverage, Generate packets, and Reconcile.
 - Existing configured churches retain their current workspace and bypass onboarding.
 - Independent review found and resolved neutral-response, stable-identity, and concurrent-invitation
   issues. Re-review found no remaining Critical or Important findings.
-- All 155 Node checks and 51 Python importer checks pass, along with Biome, TypeScript, and the
+- Founder review found and resolved a landing-page hydration race and missing worktree geocoding
+  configuration.
+- All 156 Node checks and 51 Python importer checks pass, along with Biome, TypeScript, and the
   credential-safe Next.js production build.
 
 ### Human review
@@ -724,6 +727,12 @@ church without changing its workflow.
 
 - Apply the landing page's typography, color, spacing, logo, and interaction character to the
   authenticated workspace.
+- Polish the pilot-request confirmation action.
+- Apply the approved Streetlight branding in WorkOS to hosted invitation, sign-in, verification,
+  and transactional-email surfaces.
+- Decide whether the public request should collect first and last names separately and whether
+  WorkOS can prefill them without replacing hosted AuthKit.
+- Polish the onboarding presentation and copy without exposing implementation details.
 - Clarify the shared map navigation, tool sidebars, empty states, loading states, warnings, and
   primary actions.
 - Make the complete approved workflow usable at supported desktop and tablet widths.

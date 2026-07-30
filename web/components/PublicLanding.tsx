@@ -1,3 +1,5 @@
+import Script from 'next/script';
+
 export function PublicLanding() {
   return (
     <>
@@ -382,7 +384,7 @@ export function PublicLanding() {
           </div>
         </div>
       </dialog>
-      <script src="/landing/spread-the-light-v2.js" defer />
+      <Script src="/landing/spread-the-light-v2.js" strategy="afterInteractive" />
     </>
   );
 }

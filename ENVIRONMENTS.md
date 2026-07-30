@@ -6,7 +6,7 @@ Store local values in the ignored `web/.env.local` file:
 
 | Variable | Used for | Required restrictions |
 |---|---|---|
-| `GOOGLE_MAPS_BROWSER_API_KEY` | Interactive administrator map | Maps JavaScript API and approved HTTP referrers only |
+| `GOOGLE_MAPS_BROWSER_API_KEY` | Interactive administrator map and church-address suggestions | Maps JavaScript API, Places API (New), and approved HTTP referrers only |
 | `GOOGLE_MAPS_SERVER_API_KEY` | Server-side church-address geocoding | Geocoding API and server-origin restrictions; never exposed to the browser |
 | `GOOGLE_MAPS_STATIC_API_KEY` | Phase 0/packet map proof and local geocoding fallback | Static Maps, Roads, and Geocoding APIs; never exposed to the browser |
 | `STREETLIGHT_PYTHON` | Optional Overture importer executable | Set only when `python` is not the desired executable |
@@ -24,6 +24,8 @@ browser-visible `NEXT_PUBLIC_` name.
 Without `GOOGLE_MAPS_BROWSER_API_KEY`, Territory Setup renders a clear unavailable-map state
 while database, test, and production-build commands continue to work. Address changes require
 one of the server-side keys; the existing saved address and location remain usable without it.
+Church onboarding falls back to manual address entry without the browser key, but its Google
+suggestions require Places API (New) to be enabled for that key's project.
 
 Install the pinned importer dependency with:
 
