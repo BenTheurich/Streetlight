@@ -1713,7 +1713,7 @@ class ImportBoundaryTest(TestCase):
             ],
             2: [
                 {
-                    "properties": {"BUILD_ID": "three", "PRIM_OCC": "Single Family Dwelling"},
+                    "properties": {"BUILD_ID": 3, "PRIM_OCC": "Single Family Dwelling"},
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [[[2, 2], [3, 2], [3, 3], [2, 2]]],
@@ -1752,7 +1752,7 @@ class ImportBoundaryTest(TestCase):
             result = download_fema_features(0, 0, 1, open_url=open_url)
 
         self.assertEqual(offsets, [0, 2])
-        self.assertEqual([item["id"] for item in result], ["one", "two", "three"])
+        self.assertEqual([item["id"] for item in result], ["one", "two", "3"])
 
     def test_cli_parses_arguments_and_prints_one_json_object(self):
         output = StringIO()

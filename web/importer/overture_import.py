@@ -1716,7 +1716,7 @@ def download_fema_features(
         page = payload.get("features", [])
         result.extend(
             {
-                "id": feature["properties"]["BUILD_ID"],
+                "id": str(feature["properties"]["BUILD_ID"]),
                 "geometry": feature["geometry"],
                 "properties": feature["properties"],
             }
