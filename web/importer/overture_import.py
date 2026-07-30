@@ -3,6 +3,8 @@ import json
 import math
 import re
 import sys
+import urllib.parse
+import urllib.request
 from contextlib import redirect_stdout
 from datetime import datetime, timezone
 
@@ -17,6 +19,12 @@ GROUP_MATCH_MIN_SPAN_METERS = 20
 GROUP_MATCH_MAX_ANGLE_DEGREES = 30
 ADDRESS_CLUSTER_GAP_METERS = 150
 BUILDING_ADDRESS_DISTANCE_METERS = 15
+MAP_BUILDING_MATCH_METERS = 10
+FEMA_STRUCTURES_URL = (
+    "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/"
+    "USA_Structures_View/FeatureServer/0/query"
+)
+FEMA_PAGE_SIZE = 2000
 MAX_SEGMENT_HOMES = 100
 OVERTURE_RELEASE = "2026-06-17.0"
 TURN_SPLIT_DEGREES = 85
@@ -480,6 +488,142 @@ def _building_has_address(building, point, addresses):
         ) <= BUILDING_ADDRESS_DISTANCE_METERS:
             return True
     return False
+
+
+def _geometry_polygons(geometry):
+    return (
+        [geometry["coordinates"]]
+        if geometry["type"] == "Polygon"
+        else geometry["coordinates"]
+    )
+
+
+def _geometry_bbox(geometry):
+    points = [
+        point
+        for polygon in _geometry_polygons(geometry)
+        for ring in polygon
+        for point in ring
+    ]
+    return (
+        min(point[0] for point in points),
+        min(point[1] for point in points),
+        max(point[0] for point in points),
+        max(point[1] for point in points),
+    )
+
+
+def _geometry_distance(point, geometry):
+    distances = []
+    for polygon in _geometry_polygons(geometry):
+        if not polygon or not polygon[0]:
+            continue
+        if _point_in_ring(point, polygon[0]) and not any(
+            _point_in_ring(point, hole) for hole in polygon[1:]
+        ):
+            return 0
+        distances.extend(_distance_to_line(point, ring) for ring in polygon if len(ring) > 1)
+    return min(distances, default=math.inf)
+
+
+def _nearby_feature(point, features):
+    latitude_delta = MAP_BUILDING_MATCH_METERS / 111_320
+    longitude_delta = latitude_delta / max(math.cos(math.radians(point[1])), 0.01)
+    candidates = [
+        feature
+        for feature in features
+        if (
+            (bounds := feature["_bbox"])[0] <= point[0] + longitude_delta
+            and bounds[2] >= point[0] - longitude_delta
+            and bounds[1] <= point[1] + latitude_delta
+            and bounds[3] >= point[1] - latitude_delta
+        )
+    ]
+    if not candidates:
+        return math.inf, None
+    return min(
+        (
+            (_geometry_distance(point, feature["geometry"]), feature)
+            for feature in candidates
+        ),
+        key=lambda item: (item[0], item[1]["id"]),
+    )
+
+
+def _iso_date(value):
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value / 1000, timezone.utc).isoformat()
+    return value if isinstance(value, str) else None
+
+
+def select_map_buildings(addresses, overture_buildings, fema_buildings):
+    overture = []
+    seen_overture = set()
+    for building in overture_buildings:
+        if building.get("id") in seen_overture or not building.get("geometry"):
+            continue
+        seen_overture.add(building["id"])
+        overture.append({**building, "_bbox": _geometry_bbox(building["geometry"])})
+    fema = [
+        {**building, "_bbox": _geometry_bbox(building["geometry"])}
+        for building in fema_buildings
+        if building.get("id") and building.get("geometry")
+    ]
+    fallbacks = {}
+    for address_item in sorted(
+        (
+            item
+            for item in addresses
+            if item.get("id")
+            and item.get("properties", {}).get("number")
+            and item.get("geometry", {}).get("type") == "Point"
+        ),
+        key=lambda item: item["id"],
+    ):
+        point = address_item["geometry"]["coordinates"]
+        overture_distance, _ = _nearby_feature(point, overture)
+        if overture_distance <= MAP_BUILDING_MATCH_METERS:
+            continue
+        fema_distance, fema_building = _nearby_feature(point, fema)
+        if fema_building is None:
+            continue
+        properties = fema_building.get("properties", {})
+        if (
+            fema_distance > MAP_BUILDING_MATCH_METERS
+            or properties.get("PRIM_OCC") != "Single Family Dwelling"
+            or bool(properties.get("OUTBLDG"))
+        ):
+            continue
+        fallbacks.setdefault(
+            fema_building["id"],
+            {
+                "source": "fema",
+                "sourceId": fema_building["id"],
+                "geometry": fema_building["geometry"],
+                "fema": {
+                    "addressSourceId": address_item["id"],
+                    "distanceMeters": round(fema_distance, 3),
+                    "occupancy": "Single Family Dwelling",
+                    "outbuilding": False,
+                    "source": properties.get("SOURCE"),
+                    "productDate": _iso_date(properties.get("PROD_DATE")),
+                    "imageDate": _iso_date(properties.get("IMAGE_DATE")),
+                },
+            },
+        )
+    result = [
+        {
+            "source": "overture",
+            "sourceId": building["id"],
+            "geometry": building["geometry"],
+            "fema": None,
+        }
+        for building in overture
+    ]
+    result.extend(fallbacks.values())
+    return sorted(result, key=lambda item: (item["source"], item["sourceId"]))
 
 
 def _apartment_address(address_item):
@@ -1433,17 +1577,11 @@ def query_bbox(connection, path, west, south, east, north):
         ]
 
     if "theme=buildings/type=building/" in path:
-        retained_classes = ", ".join(
-            f"'{value}'"
-            for value in sorted(
-                RESIDENTIAL_BUILDING_CLASSES | APARTMENT_BUILDING_CLASSES
-            )
-        )
         rows = connection.execute(
             f"""
             SELECT id, subtype, class, height, num_floors, ST_AsGeoJSON(geometry)
             FROM read_parquet('{path}', hive_partitioning = true)
-            WHERE class IN ({retained_classes}) AND {bbox_filter}
+            WHERE {bbox_filter}
             """,
             parameters,
         ).fetchall()
@@ -1463,7 +1601,7 @@ def query_bbox(connection, path, west, south, east, north):
 
     rows = connection.execute(
         f"""
-        SELECT number, street, postal_city, postcode, unit, address_levels,
+        SELECT id, number, street, postal_city, postcode, unit, address_levels,
           ST_AsGeoJSON(geometry)
         FROM read_parquet('{path}', hive_partitioning = true)
         WHERE street IS NOT NULL AND {bbox_filter}
@@ -1472,6 +1610,7 @@ def query_bbox(connection, path, west, south, east, north):
     ).fetchall()
     return [
         {
+            "id": source_id,
             "properties": {
                 "number": number,
                 "street": street,
@@ -1483,6 +1622,7 @@ def query_bbox(connection, path, west, south, east, north):
             "geometry": json.loads(geometry),
         }
         for (
+            source_id,
             number,
             street,
             postal_city,
@@ -1537,6 +1677,58 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
         connection.close()
 
 
+def download_fema_features(
+    longitude: float,
+    latitude: float,
+    radius_miles: float,
+    open_url=urllib.request.urlopen,
+):
+    west, south, east, north = enclosing_bbox(longitude, latitude, radius_miles)
+    result = []
+    offset = 0
+    while True:
+        query = urllib.parse.urlencode(
+            {
+                "where": "1=1",
+                "geometry": f"{west},{south},{east},{north}",
+                "geometryType": "esriGeometryEnvelope",
+                "inSR": "4326",
+                "outSR": "4326",
+                "spatialRel": "esriSpatialRelIntersects",
+                "outFields": (
+                    "BUILD_ID,PRIM_OCC,OUTBLDG,SOURCE,PROD_DATE,IMAGE_DATE"
+                ),
+                "returnGeometry": "true",
+                "resultOffset": str(offset),
+                "resultRecordCount": str(FEMA_PAGE_SIZE),
+                "geometryPrecision": "7",
+                "f": "geojson",
+            }
+        )
+        request = urllib.request.Request(
+            f"{FEMA_STRUCTURES_URL}?{query}",
+            headers={"User-Agent": "Streetlight/1.0 (territory import)"},
+        )
+        with open_url(request, timeout=30) as response:
+            payload = json.loads(response.read())
+        if payload.get("error"):
+            raise RuntimeError(f"FEMA USA Structures query failed: {payload['error']}")
+        page = payload.get("features", [])
+        result.extend(
+            {
+                "id": feature["properties"]["BUILD_ID"],
+                "geometry": feature["geometry"],
+                "properties": feature["properties"],
+            }
+            for feature in page
+            if feature.get("geometry")
+            and feature.get("properties", {}).get("BUILD_ID")
+        )
+        if len(page) < FEMA_PAGE_SIZE:
+            return result
+        offset += FEMA_PAGE_SIZE
+
+
 def _finite_float(value):
     number = float(value)
     if not math.isfinite(number):
@@ -1551,7 +1743,11 @@ def _positive_float(value):
     return number
 
 
-def main(argv=None, download=download_features):
+def main(
+    argv=None,
+    download=download_features,
+    download_fema=download_fema_features,
+):
     parser = argparse.ArgumentParser()
     parser.add_argument("--longitude", type=_finite_float, required=True)
     parser.add_argument("--latitude", type=_finite_float, required=True)
@@ -1566,6 +1762,16 @@ def main(argv=None, download=download_features):
             args.latitude,
             args.radius_miles,
         )
+        fema_buildings = download_fema(
+            args.longitude,
+            args.latitude,
+            args.radius_miles,
+        )
+        map_buildings = select_map_buildings(
+            addresses,
+            buildings,
+            fema_buildings,
+        )
     print(
         json.dumps(
             {
@@ -1573,7 +1779,11 @@ def main(argv=None, download=download_features):
                 "center": [args.longitude, args.latitude],
                 "radiusMiles": args.radius_miles,
                 "completedAt": datetime.now(timezone.utc).isoformat(),
-                "normalizerVersion": 9,
+                "normalizerVersion": 10,
+                "buildingMode": (
+                    "overture_fema" if fema_buildings else "overture_only"
+                ),
+                "mapBuildings": map_buildings,
                 **normalize_features(roads, addresses, buildings),
             },
             separators=(",", ":"),

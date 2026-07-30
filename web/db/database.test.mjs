@@ -66,7 +66,26 @@ function importedTerritory(segments) {
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 9,
+    normalizerVersion: 10,
+    buildingMode: 'overture_fema',
+    mapBuildings: [
+      {
+        source: 'overture',
+        sourceId: 'building-one',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [-117.117, 33.5429],
+              [-117.1169, 33.5429],
+              [-117.1169, 33.543],
+              [-117.117, 33.5429],
+            ],
+          ],
+        },
+        fema: null,
+      },
+    ],
     quality: {
       totalAddresses: 12,
       assignedAddresses: 10,
@@ -600,6 +619,36 @@ test('an imported save atomically replaces proof segments and records its footpr
         },
       ],
     );
+    const database = openDatabase(filename);
+    try {
+      assert.deepEqual(
+        {
+          ...database
+            .prepare(
+              `SELECT source, source_feature_id, import_generation, geometry_geojson
+              FROM map_buildings`,
+            )
+            .get(),
+        },
+        {
+          source: 'overture',
+          source_feature_id: 'building-one',
+          import_generation: 1,
+          geometry_geojson: JSON.stringify(imported.mapBuildings[0].geometry),
+        },
+      );
+      assert.equal(
+        database
+          .prepare(
+            `SELECT import_building_mode
+            FROM territories WHERE id = 'territory-temecula-pilot'`,
+          )
+          .get().import_building_mode,
+        'overture_fema',
+      );
+    } finally {
+      database.close();
+    }
   });
 });
 

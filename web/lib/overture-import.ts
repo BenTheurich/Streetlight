@@ -1,6 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import path from 'node:path';
-import type { LineString, Position } from './territory-geometry.ts';
+import type { LineString, Polygon, Position } from './territory-geometry.ts';
 import { OVERTURE_RELEASE } from './territory-import.ts';
 
 const IMPORT_REQUEST_TOLERANCE = 1e-9;
@@ -53,12 +53,34 @@ export type ImportQuality = {
   warnings: string[];
 };
 
+export type ImportedMapBuilding = {
+  source: 'overture' | 'fema';
+  sourceId: string;
+  geometry:
+    | Polygon
+    | {
+        type: 'MultiPolygon';
+        coordinates: Position[][][];
+      };
+  fema: null | {
+    addressSourceId: string;
+    distanceMeters: number;
+    occupancy: 'Single Family Dwelling';
+    outbuilding: false;
+    source: string | null;
+    productDate: string | null;
+    imageDate: string | null;
+  };
+};
+
 export type ImportedTerritoryInput = {
   release: typeof OVERTURE_RELEASE;
   center: Position;
   radiusMiles: number;
   completedAt: string;
-  normalizerVersion: 9;
+  normalizerVersion: 10;
+  buildingMode: 'overture_fema' | 'overture_only';
+  mapBuildings: ImportedMapBuilding[];
   quality: ImportQuality;
   apartmentComplexes: ImportedApartmentComplex[];
   segments: ImportedTerritorySegment[];
@@ -110,6 +132,99 @@ function isIsoTimestamp(value: unknown): value is string {
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) &&
     Number.isFinite(Date.parse(value))
   );
+}
+
+function isPolygonCoordinates(value: unknown): value is Position[][] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(
+      (ring) =>
+        Array.isArray(ring) &&
+        ring.length >= 4 &&
+        ring.every(isGeographicPosition) &&
+        ring[0][0] === ring.at(-1)?.[0] &&
+        ring[0][1] === ring.at(-1)?.[1],
+    )
+  );
+}
+
+function parseMapBuildings(value: unknown, mode: unknown): ImportedMapBuilding[] {
+  if ((mode !== 'overture_fema' && mode !== 'overture_only') || !Array.isArray(value)) {
+    failImportOutput();
+  }
+  const ids = new Set<string>();
+  return value.map((building): ImportedMapBuilding => {
+    if (
+      !isRecord(building) ||
+      !hasKeys(building, ['fema', 'geometry', 'source', 'sourceId']) ||
+      (building.source !== 'overture' && building.source !== 'fema') ||
+      typeof building.sourceId !== 'string' ||
+      building.sourceId.trim() === '' ||
+      ids.has(`${building.source}:${building.sourceId}`) ||
+      !isRecord(building.geometry) ||
+      !hasKeys(building.geometry, ['coordinates', 'type']) ||
+      !(
+        (building.geometry.type === 'Polygon' &&
+          isPolygonCoordinates(building.geometry.coordinates)) ||
+        (building.geometry.type === 'MultiPolygon' &&
+          Array.isArray(building.geometry.coordinates) &&
+          building.geometry.coordinates.length > 0 &&
+          building.geometry.coordinates.every(isPolygonCoordinates))
+      )
+    ) {
+      failImportOutput();
+    }
+    const geometry = building.geometry as ImportedMapBuilding['geometry'];
+    if (building.source === 'overture') {
+      if (building.fema !== null) failImportOutput();
+      ids.add(`overture:${building.sourceId}`);
+      return { source: 'overture', sourceId: building.sourceId, geometry, fema: null };
+    }
+    if (
+      mode !== 'overture_fema' ||
+      !isRecord(building.fema) ||
+      !hasKeys(building.fema, [
+        'addressSourceId',
+        'distanceMeters',
+        'imageDate',
+        'occupancy',
+        'outbuilding',
+        'productDate',
+        'source',
+      ]) ||
+      typeof building.fema.addressSourceId !== 'string' ||
+      building.fema.addressSourceId.trim() === '' ||
+      typeof building.fema.distanceMeters !== 'number' ||
+      !Number.isFinite(building.fema.distanceMeters) ||
+      building.fema.distanceMeters < 0 ||
+      building.fema.distanceMeters > 10 ||
+      building.fema.occupancy !== 'Single Family Dwelling' ||
+      building.fema.outbuilding !== false ||
+      !isNullableString(building.fema.source) ||
+      !isNullableString(building.fema.productDate) ||
+      !isNullableString(building.fema.imageDate) ||
+      (building.fema.productDate !== null && !isIsoTimestamp(building.fema.productDate)) ||
+      (building.fema.imageDate !== null && !isIsoTimestamp(building.fema.imageDate))
+    ) {
+      failImportOutput();
+    }
+    ids.add(`fema:${building.sourceId}`);
+    return {
+      source: 'fema',
+      sourceId: building.sourceId,
+      geometry,
+      fema: {
+        addressSourceId: building.fema.addressSourceId,
+        distanceMeters: building.fema.distanceMeters,
+        occupancy: 'Single Family Dwelling',
+        outbuilding: false,
+        source: building.fema.source,
+        productDate: building.fema.productDate,
+        imageDate: building.fema.imageDate,
+      },
+    };
+  });
 }
 
 function isSuccessfulImportQuality(value: unknown): value is ImportQuality {
@@ -185,8 +300,10 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     !isRecord(value) ||
     !hasKeys(value, [
       'apartmentComplexes',
+      'buildingMode',
       'center',
       'completedAt',
+      'mapBuildings',
       'normalizerVersion',
       'quality',
       'radiusMiles',
@@ -198,7 +315,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     !Number.isFinite(value.radiusMiles) ||
     (value.radiusMiles as number) <= 0 ||
     !isIsoTimestamp(value.completedAt) ||
-    value.normalizerVersion !== 9 ||
+    value.normalizerVersion !== 10 ||
     !isSuccessfulImportQuality(value.quality) ||
     !Array.isArray(value.apartmentComplexes) ||
     !Array.isArray(value.segments) ||
@@ -206,6 +323,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
   ) {
     failImportOutput();
   }
+  const mapBuildings = parseMapBuildings(value.mapBuildings, value.buildingMode);
 
   const apartmentIds = new Set<string>();
   const apartmentComplexes = value.apartmentComplexes.map((complex): ImportedApartmentComplex => {
@@ -312,7 +430,9 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     center: value.center,
     radiusMiles: value.radiusMiles as number,
     completedAt: value.completedAt,
-    normalizerVersion: 9,
+    normalizerVersion: 10,
+    buildingMode: value.buildingMode as ImportedTerritoryInput['buildingMode'],
+    mapBuildings,
     quality: {
       totalAddresses: value.quality.totalAddresses as number,
       assignedAddresses: value.quality.assignedAddresses as number,

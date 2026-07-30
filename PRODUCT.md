@@ -432,8 +432,10 @@ The founder-church pilot uses the smallest operational stack that supports the e
 - WorkOS AuthKit provides invite-only email/password authentication, persistent sessions,
   invitation emails, and one organization per church. Use the standard WorkOS domain during the
   pilot; do not purchase its custom-domain add-on.
-- Google Maps remains the provider for the interactive map, geocoding, road snapping, and printable
-  static maps. Configure API quotas before deployment.
+- Google Maps remains the provider for the primary interactive map, geocoding, and road snapping.
+  Printable packet maps use Streetlight's pinned OpenFreeMap/OpenMapTiles style with OpenStreetMap
+  roads, Overture building footprints, and eligible FEMA USA Structures fallbacks. Configure Google
+  API quotas before deployment.
 - Enable Railway sleeping where compatible and set a hard spending limit. Use the generated Railway
   domain until the founder church approves the pilot; `streetlight.church` remains a possible later
   purchase.

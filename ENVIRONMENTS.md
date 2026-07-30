@@ -7,8 +7,8 @@ Store local values in the ignored `web/.env.local` file:
 | Variable | Used for | Required restrictions |
 |---|---|---|
 | `GOOGLE_MAPS_BROWSER_API_KEY` | Interactive administrator map and church-address suggestions | Maps JavaScript API, Places API (New), and approved HTTP referrers only |
-| `GOOGLE_MAPS_SERVER_API_KEY` | Server-side church-address geocoding | Geocoding API and server-origin restrictions; never exposed to the browser |
-| `GOOGLE_MAPS_STATIC_API_KEY` | Phase 0/packet map proof and local geocoding fallback | Static Maps, Roads, and Geocoding APIs; never exposed to the browser |
+| `GOOGLE_MAPS_SERVER_API_KEY` | Server-side church-address geocoding and founder Map Lab satellite tiles | Geocoding and Map Tiles APIs plus server-origin restrictions; never exposed to the browser |
+| `GOOGLE_MAPS_STATIC_API_KEY` | Legacy local fallback for server-side Google requests | Enable only the APIs still used locally, including Map Tiles for Map Lab satellite; never expose it to the browser |
 | `STREETLIGHT_PYTHON` | Optional Overture importer executable | Set only when `python` is not the desired executable |
 | `SSL_CERT_FILE` | Optional CA bundle for DuckDB HTTPS imports | Set only when the Python/OpenSSL installation has no usable certificate store |
 | `WORKOS_CLIENT_ID` | WorkOS AuthKit application | Staging client ID for local work; production value only in Railway |
@@ -19,7 +19,7 @@ Store local values in the ignored `web/.env.local` file:
 | `STREETLIGHT_FOUNDER_EMAIL` | Founder-only pilot request review | Optional override; defaults to `bentheurich@gmail.com` |
 
 The browser key is intentionally visible in the rendered map request and must be protected by
-API and referrer restrictions. The server key and Static Maps key must never use a
+API and referrer restrictions. The server key and legacy Static Maps key must never use a
 browser-visible `NEXT_PUBLIC_` name.
 
 Without `GOOGLE_MAPS_BROWSER_API_KEY`, Territory Setup renders a clear unavailable-map state
@@ -27,6 +27,8 @@ while database, test, and production-build commands continue to work. Address ch
 one of the server-side keys; the existing saved address and location remain usable without it.
 Church onboarding falls back to manual address entry without the browser key, but its Google
 suggestions require Places API (New) to be enabled for that key's project.
+Founder Map Lab satellite mode also requires Map Tiles API on one server-side key; it never sends
+that key to the browser.
 
 Install the pinned importer dependency with:
 

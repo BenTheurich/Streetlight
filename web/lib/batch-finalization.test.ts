@@ -65,7 +65,26 @@ function preparePacketGraph(filename: string, includeApartment = false): void {
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',
-    normalizerVersion: 9,
+    normalizerVersion: 10,
+    buildingMode: 'overture_fema',
+    mapBuildings: [
+      {
+        source: 'overture',
+        sourceId: 'building-generation-one',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [-117.117, 33.5429],
+              [-117.1169, 33.5429],
+              [-117.1169, 33.543],
+              [-117.117, 33.5429],
+            ],
+          ],
+        },
+        fema: null,
+      },
+    ],
     quality: {
       totalAddresses: segments.length,
       assignedAddresses: segments.length,
@@ -206,7 +225,8 @@ test('finalization stores the reviewed packet and reserves every segment atomica
         {
           ...(database
             .prepare(
-              `SELECT b.status AS batch_status, p.status AS packet_status, p.sequence_number,
+              `SELECT b.status AS batch_status, b.import_generation, p.status AS packet_status,
+              p.sequence_number,
               p.start_longitude, p.start_latitude, COUNT(ps.street_segment_id) AS segment_count
             FROM batches b
             JOIN packets p ON p.batch_id = b.id
@@ -217,6 +237,7 @@ test('finalization stores the reviewed packet and reserves every segment atomica
         },
         {
           batch_status: 'finalized',
+          import_generation: 1,
           packet_status: 'active',
           sequence_number: 0,
           start_longitude: finalized.packets[0].start.position[0],
@@ -308,6 +329,52 @@ test('download scopes return the newest complete batch or all active packets old
     assert.deepEqual(
       active.packets.map(({ code }) => code),
       [...first.packets, ...second.packets].map(({ code }) => code),
+    );
+    assert.deepEqual(
+      newest.packets.map(({ importGeneration }) => importGeneration),
+      [1],
+    );
+    assert.deepEqual(
+      newest.mapGenerations.map((generation) => ({
+        importGeneration: generation.importGeneration,
+        buildingIds: generation.buildings.map(({ sourceId }) => sourceId),
+        networkCount: generation.networkSegments.length,
+      })),
+      [
+        {
+          importGeneration: 1,
+          buildingIds: ['building-generation-one'],
+          networkCount: 4,
+        },
+      ],
+    );
+
+    const database = openDatabase(filename);
+    database
+      .prepare(
+        `UPDATE territories SET import_generation = 2
+        WHERE id = 'territory-temecula-pilot'`,
+      )
+      .run();
+    database
+      .prepare(
+        `INSERT INTO map_buildings
+          (church_id, territory_id, import_generation, source, source_feature_id,
+            geometry_geojson, overture_release, retrieved_at)
+        VALUES ('church-temecula-pilot', 'territory-temecula-pilot', 2, 'overture',
+          'building-generation-two',
+          '{"type":"Polygon","coordinates":[[[-117.117,33.5429],[-117.1169,33.5429],[-117.1169,33.543],[-117.117,33.5429]]]}',
+          '2026-06-17.0', '2026-07-29T00:00:00.000Z')`,
+      )
+      .run();
+    database.close();
+
+    assert.deepEqual(
+      getPacketDownloadSelection('newest', filename).mapGenerations.map((generation) => ({
+        importGeneration: generation.importGeneration,
+        buildingIds: generation.buildings.map(({ sourceId }) => sourceId),
+      })),
+      [{ importGeneration: 1, buildingIds: ['building-generation-one'] }],
     );
   });
 });

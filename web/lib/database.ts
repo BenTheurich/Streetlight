@@ -13,7 +13,7 @@ import {
   parseCoverageThresholds,
   validateCoverageDate,
 } from './coverage.ts';
-import type { ImportedTerritoryInput } from './overture-import.ts';
+import type { ImportedMapBuilding, ImportedTerritoryInput } from './overture-import.ts';
 import {
   type DownloadPacket,
   type FinalizedBatch,
@@ -50,6 +50,7 @@ import {
   territoryBoundary,
 } from './territory-geometry.ts';
 import type { TerritoryImportMetadata } from './territory-import.ts';
+import { OVERTURE_RELEASE } from './territory-import.ts';
 import { requireWorkspaceScope, type WorkspaceScope } from './workspace-scope.ts';
 
 function workspaceChurchId(): string {
@@ -97,6 +98,7 @@ type TerritoryRow = {
   import_quality_warnings_json: string;
   import_normalizer_version: number | null;
   import_generation: number;
+  import_building_mode: 'overture_fema' | 'overture_only' | null;
 };
 
 type SegmentRow = {
@@ -227,6 +229,36 @@ export type CoverageWorkspace = {
   apartmentComplexes: CoverageWorkspaceApartment[];
   segments: CoverageWorkspaceSegment[];
   totals: { eligibleHomes: number };
+};
+
+export type MapLabData = {
+  churchId: string;
+  territoryId: string;
+  territoryName: string;
+  center: Position;
+  bounds: [number, number, number, number];
+  boundary: Polygon;
+  importGeneration: number;
+  overtureRelease: string;
+  buildingMode: 'overture_fema' | 'overture_only';
+  segments: Array<
+    CoverageWorkspaceSegment & {
+      roadClass: string;
+    }
+  >;
+  apartmentComplexes: CoverageWorkspaceApartment[];
+  buildings: ImportedMapBuilding[];
+  attribution: {
+    base: string;
+    roads: string;
+    buildings: string;
+    fema: string | null;
+  };
+};
+
+export type MapLabBuildingCounts = {
+  overture: number;
+  fema: number;
 };
 
 export type PacketGenerationWorkspace = {
@@ -369,7 +401,7 @@ export function createInitialTerritory(
   }
 }
 
-function parseGeometry<T extends LineString | Polygon>(json: string): T {
+function parseGeometry<T extends LineString | ImportedMapBuilding['geometry']>(json: string): T {
   return JSON.parse(json) as T;
 }
 
@@ -576,6 +608,131 @@ export function getCoverageWorkspace(
   }
 }
 
+export function getMapLabData(filename?: string): MapLabData {
+  const territory = getTerritoryWorkspace(filename);
+  const coverage = getCoverageWorkspace(filename);
+  const boundary = territoryBoundary(
+    territory.center,
+    territory.radiusMiles,
+    territory.boundaryShape,
+  );
+  const points = boundary.coordinates[0];
+  const roadClasses = new Map(territory.segments.map(({ id, roadClass }) => [id, roadClass]));
+  const database = openWorkspaceDatabase(filename);
+  try {
+    const generation = database
+      .prepare(
+        `SELECT import_generation, import_release, import_building_mode
+        FROM territories
+        WHERE church_id = ? AND id = ?`,
+      )
+      .get(workspaceChurchId(), workspaceTerritoryId()) as
+      | {
+          import_generation: number;
+          import_release: string | null;
+          import_building_mode: 'overture_fema' | 'overture_only' | null;
+        }
+      | undefined;
+    if (!generation) throw new Error('Territory not found');
+    const buildings = (
+      database
+        .prepare(
+          `SELECT source, source_feature_id, geometry_geojson,
+            fema_address_source_id, fema_distance_meters, fema_source,
+            fema_product_date, fema_image_date
+          FROM map_buildings
+          WHERE church_id = ? AND territory_id = ? AND import_generation = ?
+          ORDER BY source, source_feature_id`,
+        )
+        .all(workspaceChurchId(), workspaceTerritoryId(), generation.import_generation) as Array<{
+        source: 'overture' | 'fema';
+        source_feature_id: string;
+        geometry_geojson: string;
+        fema_address_source_id: string | null;
+        fema_distance_meters: number | null;
+        fema_source: string | null;
+        fema_product_date: string | null;
+        fema_image_date: string | null;
+      }>
+    ).map(
+      (building): ImportedMapBuilding => ({
+        source: building.source,
+        sourceId: building.source_feature_id,
+        geometry: parseGeometry<ImportedMapBuilding['geometry']>(building.geometry_geojson),
+        fema:
+          building.source === 'fema'
+            ? {
+                addressSourceId: building.fema_address_source_id as string,
+                distanceMeters: building.fema_distance_meters as number,
+                occupancy: 'Single Family Dwelling',
+                outbuilding: false,
+                source: building.fema_source,
+                productDate: building.fema_product_date,
+                imageDate: building.fema_image_date,
+              }
+            : null,
+      }),
+    );
+    return {
+      churchId: workspaceChurchId(),
+      territoryId: workspaceTerritoryId(),
+      territoryName: territory.name,
+      center: territory.center,
+      bounds: [
+        Math.min(...points.map(([longitude]) => longitude)),
+        Math.min(...points.map(([, latitude]) => latitude)),
+        Math.max(...points.map(([longitude]) => longitude)),
+        Math.max(...points.map(([, latitude]) => latitude)),
+      ],
+      boundary,
+      importGeneration: generation.import_generation,
+      overtureRelease: generation.import_release ?? OVERTURE_RELEASE,
+      buildingMode: generation.import_building_mode ?? 'overture_only',
+      segments: coverage.segments.map((segment) => ({
+        ...segment,
+        roadClass: roadClasses.get(segment.id) ?? 'residential',
+      })),
+      apartmentComplexes: coverage.apartmentComplexes,
+      buildings,
+      attribution: {
+        base: 'OpenFreeMap © OpenMapTiles',
+        roads: 'Data from OpenStreetMap',
+        buildings: 'Overture Maps',
+        fema: buildings.some(({ source }) => source === 'fema') ? 'FEMA USA Structures' : null,
+      },
+    };
+  } finally {
+    database.close();
+  }
+}
+
+export function getMapLabBuildingCounts(filename?: string): MapLabBuildingCounts {
+  const database = openWorkspaceDatabase(filename);
+  try {
+    const rows = database
+      .prepare(
+        `SELECT mb.source, COUNT(*) AS count
+        FROM map_buildings mb
+        JOIN territories t
+          ON t.church_id = mb.church_id
+          AND t.id = mb.territory_id
+          AND t.import_generation = mb.import_generation
+        WHERE mb.church_id = ? AND mb.territory_id = ?
+        GROUP BY mb.source`,
+      )
+      .all(workspaceChurchId(), workspaceTerritoryId()) as Array<{
+      source: 'overture' | 'fema';
+      count: number;
+    }>;
+    return {
+      overture: rows.find(({ source }) => source === 'overture')?.count ?? 0,
+      fema: rows.find(({ source }) => source === 'fema')?.count ?? 0,
+    };
+  } finally {
+    database.close();
+  }
+}
+
 export function getPacketGenerationWorkspace(
   filename?: string,
   asOf = todayForWorkspace(),
@@ -731,12 +888,20 @@ export function finalizePacketBatch(
 
     const batchId = randomUUID();
     const name = customName ?? automaticBatchName(now);
+    const importGeneration = (
+      database
+        .prepare(
+          `SELECT import_generation
+          FROM territories WHERE id = ? AND church_id = ?`,
+        )
+        .get(workspaceTerritoryId(), workspaceChurchId()) as { import_generation: number }
+    ).import_generation;
     database
       .prepare(
-        `INSERT INTO batches (id, church_id, name, status, finalized_at)
-        VALUES (?, ?, ?, 'finalized', ?)`,
+        `INSERT INTO batches (id, church_id, name, status, finalized_at, import_generation)
+        VALUES (?, ?, ?, 'finalized', ?, ?)`,
       )
-      .run(batchId, workspaceChurchId(), name, finalizedAt);
+      .run(batchId, workspaceChurchId(), name, finalizedAt, importGeneration);
     const insertPacket = database.prepare(
       `INSERT INTO packets
         (id, church_id, batch_id, packet_code, start_address, estimated_homes, status,
@@ -833,6 +998,7 @@ export function getPacketDownloadSelection(
       .prepare(
         `SELECT p.id, p.packet_code, p.batch_id, b.name AS batch_name, p.estimated_homes,
           p.start_address, p.start_longitude, p.start_latitude, p.packet_kind,
+          b.import_generation,
           a.import_complex_id
         FROM packets p
         JOIN batches b ON b.id = p.batch_id AND b.church_id = p.church_id
@@ -852,10 +1018,12 @@ export function getPacketDownloadSelection(
       start_longitude: number | null;
       start_latitude: number | null;
       packet_kind: 'street' | 'apartment';
+      import_generation: number;
       import_complex_id: string | null;
     }>;
     const segmentRows = database.prepare(
-      `SELECT s.import_segment_id AS id, s.geometry_geojson, s.estimated_homes
+      `SELECT s.import_segment_id AS id, s.street_name, s.road_class,
+        s.geometry_geojson, s.estimated_homes
       FROM packet_segments ps
       JOIN street_segments s ON s.id = ps.street_segment_id
       WHERE ps.church_id = ? AND ps.packet_id = ?
@@ -872,6 +1040,7 @@ export function getPacketDownloadSelection(
         code: row.packet_code,
         batchId: row.batch_id,
         batchName: row.batch_name,
+        importGeneration: row.import_generation,
         estimatedHomes: row.estimated_homes,
         start: {
           address: row.start_address,
@@ -880,18 +1049,102 @@ export function getPacketDownloadSelection(
         segments: (
           segmentRows.all(workspaceChurchId(), row.id) as Array<{
             id: string;
+            street_name: string;
+            road_class: string;
             geometry_geojson: string;
             estimated_homes: number;
           }>
         ).map((segment) => ({
           id: segment.id,
+          streetName: segment.street_name,
+          roadClass: segment.road_class,
           geometry: parseGeometry<LineString>(segment.geometry_geojson),
           estimatedHomes: segment.estimated_homes,
         })),
       };
     });
     if (packets.length === 0) throw new Error('No packets available');
-    return { scope, packets };
+    const networkRows = database.prepare(
+      `SELECT import_segment_id, street_name, road_class, geometry_geojson
+      FROM street_segments
+      WHERE church_id = ? AND territory_id = ? AND import_generation = ?
+      ORDER BY import_segment_id`,
+    );
+    const buildingRows = database.prepare(
+      `SELECT source, source_feature_id, geometry_geojson, overture_release,
+        fema_address_source_id, fema_distance_meters, fema_occupancy, fema_outbuilding,
+        fema_source, fema_product_date, fema_image_date
+      FROM map_buildings
+      WHERE church_id = ? AND territory_id = ? AND import_generation = ?
+      ORDER BY source, source_feature_id`,
+    );
+    const mapGenerations = [...new Set(packets.map(({ importGeneration }) => importGeneration))]
+      .sort((first, second) => first - second)
+      .map((importGeneration) => {
+        const rawBuildings = buildingRows.all(
+          workspaceChurchId(),
+          workspaceTerritoryId(),
+          importGeneration,
+        ) as Array<{
+          source: 'overture' | 'fema';
+          source_feature_id: string;
+          geometry_geojson: string;
+          overture_release: string;
+          fema_address_source_id: string | null;
+          fema_distance_meters: number | null;
+          fema_occupancy: string | null;
+          fema_outbuilding: number | null;
+          fema_source: string | null;
+          fema_product_date: string | null;
+          fema_image_date: string | null;
+        }>;
+        const buildings = rawBuildings.map((building) => ({
+          source: building.source,
+          sourceId: building.source_feature_id,
+          geometry: parseGeometry<
+            | Polygon
+            | {
+                type: 'MultiPolygon';
+                coordinates: Position[][][];
+              }
+          >(building.geometry_geojson),
+          fema:
+            building.source === 'fema'
+              ? {
+                  addressSourceId: building.fema_address_source_id as string,
+                  distanceMeters: building.fema_distance_meters as number,
+                  occupancy: 'Single Family Dwelling' as const,
+                  outbuilding: false as const,
+                  source: building.fema_source,
+                  productDate: building.fema_product_date,
+                  imageDate: building.fema_image_date,
+                }
+              : null,
+        }));
+        return {
+          importGeneration,
+          overtureRelease: rawBuildings[0]?.overture_release ?? OVERTURE_RELEASE,
+          networkSegments: (
+            networkRows.all(
+              workspaceChurchId(),
+              workspaceTerritoryId(),
+              importGeneration,
+            ) as Array<{
+              import_segment_id: string;
+              street_name: string;
+              road_class: string;
+              geometry_geojson: string;
+            }>
+          ).map((segment) => ({
+            id: segment.import_segment_id,
+            streetName: segment.street_name,
+            roadClass: segment.road_class,
+            geometry: parseGeometry<LineString>(segment.geometry_geojson),
+          })),
+          buildings,
+        };
+      });
+    return { scope, packets, mapGenerations };
   } finally {
     database.close();
   }
@@ -1873,8 +2126,9 @@ export function saveTerritoryDraft(
       const insertSegment = database.prepare(
         `INSERT INTO street_segments
           (id, church_id, territory_id, import_segment_id, source_segment_id, road_group_id,
-            road_class, street_name, geometry_geojson, estimated_homes, activation_kind)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            road_class, street_name, geometry_geojson, estimated_homes, activation_kind,
+            import_generation)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       const insertAddress = database.prepare(
         `INSERT INTO segment_addresses
@@ -1896,6 +2150,7 @@ export function saveTerritoryDraft(
           geometry,
           segment.estimatedHomes,
           segment.activationKind,
+          generation,
         );
         for (const address of segment.addresses) {
           insertAddress.run(
@@ -1936,6 +2191,33 @@ export function saveTerritoryDraft(
           generation,
         );
       }
+      const insertMapBuilding = database.prepare(
+        `INSERT INTO map_buildings
+          (church_id, territory_id, import_generation, source, source_feature_id,
+            geometry_geojson, overture_release, retrieved_at, fema_address_source_id,
+            fema_distance_meters, fema_occupancy, fema_outbuilding, fema_source,
+            fema_product_date, fema_image_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      for (const building of options.imported.mapBuildings) {
+        insertMapBuilding.run(
+          workspaceChurchId(),
+          workspaceTerritoryId(),
+          generation,
+          building.source,
+          building.sourceId,
+          JSON.stringify(building.geometry),
+          options.imported.release,
+          options.imported.completedAt,
+          building.fema?.addressSourceId ?? null,
+          building.fema?.distanceMeters ?? null,
+          building.fema?.occupancy ?? null,
+          building.fema ? 0 : null,
+          building.fema?.source ?? null,
+          building.fema?.productDate ?? null,
+          building.fema?.imageDate ?? null,
+        );
+      }
       for (const segment of manualRows) {
         if (segment.source_segment_id && importedSourceIds.has(segment.source_segment_id)) {
           continue;
@@ -1953,6 +2235,7 @@ export function saveTerritoryDraft(
           segment.geometry_geojson,
           segment.estimated_homes,
           'manual',
+          generation,
         );
         for (const address of manualAddresses.get(segment.import_segment_id) ?? []) {
           insertAddress.run(
@@ -1982,7 +2265,7 @@ export function saveTerritoryDraft(
             import_fallback_buildings = ?, import_unmatched_residential_buildings = ?,
             import_populated_unnamed_roads = ?, import_building_address_disagreements = ?,
             import_quality_warnings_json = ?,
-            import_normalizer_version = ?, import_generation = ?
+            import_normalizer_version = ?, import_generation = ?, import_building_mode = ?
           WHERE id = ? AND church_id = ?`,
         )
         .run(
@@ -2005,6 +2288,7 @@ export function saveTerritoryDraft(
           JSON.stringify(options.imported.quality.warnings),
           options.imported.normalizerVersion,
           generation,
+          options.imported.buildingMode,
           workspaceTerritoryId(),
           workspaceChurchId(),
         );

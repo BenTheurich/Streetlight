@@ -5,16 +5,19 @@ from io import StringIO
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 from . import overture_import as importer_module
 from . import run_benchmark as benchmark_module
 from .overture_import import (
     OVERTURE_RELEASE,
     canonical_street_name,
+    download_fema_features,
     download_features,
     enclosing_bbox,
     main,
     normalize_features,
+    select_map_buildings,
 )
 
 
@@ -45,8 +48,9 @@ def address(
     postcode=None,
     address_levels=None,
     unit=None,
+    source_id=None,
 ):
-    return {
+    feature = {
         "properties": {
             "street": street,
             "number": number,
@@ -57,6 +61,9 @@ def address(
         },
         "geometry": {"type": "Point", "coordinates": [longitude, latitude]},
     }
+    if source_id is not None:
+        feature["id"] = source_id
+    return feature
 
 
 def building(
@@ -996,6 +1003,85 @@ class NormalizeFeaturesTest(TestCase):
             expected,
         )
 
+    def test_map_buildings_add_only_address_confirmed_fema_fallbacks(self):
+        overture = [
+            building(
+                "overture-covered",
+                "house",
+                [
+                    [0, 0],
+                    [0.0001, 0],
+                    [0.0001, 0.0001],
+                    [0, 0.0001],
+                    [0, 0],
+                ],
+            )
+        ]
+        addresses = [
+            address("Home Road", 0.00005, 0.00005, number="1", source_id="address-covered"),
+            address("Home Road", 0.001, 0.001, number="2", source_id="address-missing"),
+            address("Home Road", 0.002, 0.002, number="3", source_id="address-outbuilding"),
+        ]
+        fema = [
+            {
+                "id": "fema-home",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [0.00098, 0.00098],
+                            [0.00102, 0.00098],
+                            [0.00102, 0.00102],
+                            [0.00098, 0.00102],
+                            [0.00098, 0.00098],
+                        ]
+                    ],
+                },
+                "properties": {
+                    "PRIM_OCC": "Single Family Dwelling",
+                    "OUTBLDG": None,
+                    "SOURCE": "FEMA",
+                    "PROD_DATE": 1735776000000,
+                    "IMAGE_DATE": None,
+                },
+            },
+            {
+                "id": "fema-shed",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [0.00198, 0.00198],
+                            [0.00202, 0.00198],
+                            [0.00202, 0.00202],
+                            [0.00198, 0.00202],
+                            [0.00198, 0.00198],
+                        ]
+                    ],
+                },
+                "properties": {
+                    "PRIM_OCC": "Single Family Dwelling",
+                    "OUTBLDG": 1,
+                },
+            },
+        ]
+
+        result = select_map_buildings(addresses, overture, fema)
+
+        self.assertEqual(
+            [(item["source"], item["sourceId"]) for item in result],
+            [("fema", "fema-home"), ("overture", "overture-covered")],
+        )
+        fallback = result[0]
+        self.assertEqual(fallback["fema"]["addressSourceId"], "address-missing")
+        self.assertLessEqual(fallback["fema"]["distanceMeters"], 10)
+        self.assertEqual(fallback["fema"]["occupancy"], "Single Family Dwelling")
+        self.assertFalse(fallback["fema"]["outbuilding"])
+        self.assertEqual(
+            fallback["fema"]["productDate"],
+            "2025-01-02T00:00:00+00:00",
+        )
+
 
 class ImportCompletenessTest(TestCase):
     center = [-117.0, 33.5]
@@ -1485,6 +1571,7 @@ class ImportBoundaryTest(TestCase):
                 return Result(
                     [
                         (
+                            "address-1",
                             "10",
                             "Main Street",
                             "Temecula",
@@ -1539,6 +1626,7 @@ class ImportBoundaryTest(TestCase):
                         {"value": "California"},
                         {"value": "Temecula"},
                     ],
+                    source_id="address-1",
                 )
             ],
         )
@@ -1590,6 +1678,7 @@ class ImportBoundaryTest(TestCase):
         self.assertNotIn("ORDER BY id", road_sql)
         address_sql = bbox_calls[1][0]
         self.assertIn("theme=addresses/type=*/*", address_sql)
+        self.assertIn("SELECT id, number", address_sql)
         self.assertIn("street", address_sql)
         self.assertIn("number", address_sql)
         self.assertIn("postal_city", address_sql)
@@ -1601,9 +1690,69 @@ class ImportBoundaryTest(TestCase):
         self.assertIn("theme=buildings/type=building/*", building_sql)
         self.assertIn("id, subtype, class", building_sql)
         self.assertIn("height, num_floors", building_sql)
-        self.assertIn("class IN", building_sql)
-        self.assertIn("'apartments'", building_sql)
+        self.assertNotIn("class IN", building_sql)
         self.assertNotIn("ORDER BY id", building_sql)
+
+    def test_fema_download_paginates_complete_real_polygons(self):
+        pages = {
+            0: [
+                {
+                    "properties": {"BUILD_ID": "one", "PRIM_OCC": "Single Family Dwelling"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]],
+                    },
+                },
+                {
+                    "properties": {"BUILD_ID": "two", "PRIM_OCC": "Commercial"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[1, 1], [2, 1], [2, 2], [1, 1]]],
+                    },
+                },
+            ],
+            2: [
+                {
+                    "properties": {"BUILD_ID": "three", "PRIM_OCC": "Single Family Dwelling"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[2, 2], [3, 2], [3, 3], [2, 2]]],
+                    },
+                }
+            ],
+        }
+        offsets = []
+
+        class Response:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return None
+
+            def read(self):
+                return json.dumps({"features": self.payload}).encode()
+
+        def open_url(request, timeout):
+            self.assertEqual(timeout, 30)
+            query = parse_qs(urlparse(request.full_url).query)
+            self.assertEqual(query["resultRecordCount"], ["2"])
+            self.assertEqual(
+                query["outFields"],
+                ["BUILD_ID,PRIM_OCC,OUTBLDG,SOURCE,PROD_DATE,IMAGE_DATE"],
+            )
+            offset = int(query["resultOffset"][0])
+            offsets.append(offset)
+            return Response(pages[offset])
+
+        with patch.object(importer_module, "FEMA_PAGE_SIZE", 2):
+            result = download_fema_features(0, 0, 1, open_url=open_url)
+
+        self.assertEqual(offsets, [0, 2])
+        self.assertEqual([item["id"] for item in result], ["one", "two", "three"])
 
     def test_cli_parses_arguments_and_prints_one_json_object(self):
         output = StringIO()
@@ -1620,7 +1769,18 @@ class ImportBoundaryTest(TestCase):
                     )
                 ],
                 [],
-                [],
+                [
+                    building(
+                        "building-1",
+                        "commercial",
+                        [
+                            [-117.13, 33.51],
+                            [-117.1299, 33.51],
+                            [-117.1299, 33.5101],
+                            [-117.13, 33.51],
+                        ],
+                    )
+                ],
             )
 
         with redirect_stdout(output):
@@ -1634,13 +1794,19 @@ class ImportBoundaryTest(TestCase):
                     "1",
                 ],
                 download=download,
+                download_fema=lambda *_: [],
             )
 
         parsed = json.loads(output.getvalue())
         self.assertEqual(parsed["release"], OVERTURE_RELEASE)
         self.assertEqual(parsed["center"], [-117.1274, 33.5107])
         self.assertEqual(parsed["radiusMiles"], 1)
-        self.assertEqual(parsed["normalizerVersion"], 9)
+        self.assertEqual(parsed["normalizerVersion"], 10)
+        self.assertEqual(parsed["buildingMode"], "overture_only")
+        self.assertEqual(
+            [(item["source"], item["sourceId"]) for item in parsed["mapBuildings"]],
+            [("overture", "building-1")],
+        )
         self.assertEqual(parsed["quality"], {
             "totalAddresses": 0,
             "assignedAddresses": 0,

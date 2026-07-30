@@ -1,6 +1,6 @@
 # Streetlight open-data print map rendering guide
 
-Status: proven visual prototype; not yet implemented in the live packet PDF pipeline
+Status: implemented on the open-data maps branch; founder and provider-terms review pending
 
 Recorded: 2026-07-30
 
@@ -9,12 +9,11 @@ Prototype baseline: `tmp/map-comparison/render_custom_vector_map.cjs`
 ## Purpose
 
 This document preserves the exact data combination, cartographic rules, and rendering process that
-produced the founder-approved open-data packet map. It is the implementation reference for a future
-replacement of the Google Static Maps image in Streetlight's printable packet PDFs.
+produced the founder-approved open-data packet map. It is the implementation reference for the
+open-data replacement of the Google Static Maps image in Streetlight's printable packet PDFs.
 
-This guide does not authorize that production change by itself. `PRODUCT.md` remains the product
-authority, and the live application continues using Google Roads and Google Static Maps until the
-founder explicitly schedules the migration.
+`PRODUCT.md` remains the product authority. The implementation is not ready to deploy until the
+visual, print, provider-terms, and founder-review gates below pass.
 
 ## What each named project supplies
 
@@ -183,7 +182,8 @@ For each numbered Overture address:
 
    - distance from address point to FEMA polygon is at most 10 meters;
    - `PRIM_OCC === "Single Family Dwelling"`;
-   - `OUTBLDG` is false.
+   - `OUTBLDG` is not truthy, matching FEMA's use of null for structures that are not marked as
+     outbuildings.
 
 5. Deduplicate accepted fallbacks by FEMA `BUILD_ID`.
 6. Record the address ID, FEMA building ID, and measured distance as validation provenance.

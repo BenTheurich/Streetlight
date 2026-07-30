@@ -13,7 +13,50 @@ const validOutput = {
   center: requestedCenter,
   radiusMiles: 1,
   completedAt: '2026-07-27T12:00:00.000Z',
-  normalizerVersion: 9,
+  normalizerVersion: 10,
+  buildingMode: 'overture_fema',
+  mapBuildings: [
+    {
+      source: 'overture',
+      sourceId: 'building-1',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-117.1291, 33.5101],
+            [-117.129, 33.5101],
+            [-117.129, 33.5102],
+            [-117.1291, 33.5101],
+          ],
+        ],
+      },
+      fema: null,
+    },
+    {
+      source: 'fema',
+      sourceId: 'fema-1',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-117.1281, 33.5101],
+            [-117.128, 33.5101],
+            [-117.128, 33.5102],
+            [-117.1281, 33.5101],
+          ],
+        ],
+      },
+      fema: {
+        addressSourceId: 'address-1',
+        distanceMeters: 4.2,
+        occupancy: 'Single Family Dwelling',
+        outbuilding: false,
+        source: 'FEMA',
+        productDate: '2025-01-02T00:00:00.000Z',
+        imageDate: null,
+      },
+    },
+  ],
   quality: {
     totalAddresses: 12,
     assignedAddresses: 10,
@@ -104,6 +147,47 @@ test('rejects invalid importer arguments before starting Python', () => {
 
 test('accepts the complete pinned import contract', () => {
   assert.deepEqual(parseOvertureImportOutput(JSON.stringify(validOutput)), validImportedOutput);
+});
+
+test('rejects guessed or invalid display buildings', () => {
+  for (const value of [
+    { ...validOutput, buildingMode: 'automatic' },
+    { ...validOutput, mapBuildings: [{ ...validOutput.mapBuildings[0], source: 'guessed' }] },
+    { ...validOutput, mapBuildings: [{ ...validOutput.mapBuildings[0], sourceId: '' }] },
+    {
+      ...validOutput,
+      mapBuildings: [
+        {
+          ...validOutput.mapBuildings[0],
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [-181, 33],
+                [-181, 34],
+                [-181, 33],
+              ],
+            ],
+          },
+        },
+      ],
+    },
+    {
+      ...validOutput,
+      mapBuildings: [
+        {
+          ...validOutput.mapBuildings[1],
+          fema: { ...validOutput.mapBuildings[1].fema, distanceMeters: 10.01 },
+        },
+      ],
+    },
+    {
+      ...validOutput,
+      mapBuildings: [{ ...validOutput.mapBuildings[1], fema: null }],
+    },
+  ]) {
+    assert.throws(() => parseOvertureImportOutput(JSON.stringify(value)), /import output/i);
+  }
 });
 
 test('rejects malformed JSON and every invalid import field', () => {

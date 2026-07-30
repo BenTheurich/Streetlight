@@ -4,15 +4,11 @@ import { useEffect, useRef } from 'react';
 import type { CoverageLegendItem } from '@/lib/coverage';
 import type { CoverageWorkspaceApartment, CoverageWorkspaceSegment } from '@/lib/database';
 import { latLng } from '@/lib/google-maps-browser';
-import { apartmentMarkerColor, segmentStrokeWeight } from '@/lib/territory-map-style';
-
-export const coverageColors = {
-  red: '#B4473D',
-  orange: '#D66B2D',
-  yellow: '#D2A128',
-  green: '#3E8B65',
-  gray: '#77736C',
-};
+import {
+  apartmentMarkerColor,
+  coverageColors,
+  segmentStrokeWeight,
+} from '@/lib/territory-map-style';
 
 type CoverageMapProps = {
   active: boolean;
@@ -23,6 +19,7 @@ type CoverageMapProps = {
   apartmentComplexes: CoverageWorkspaceApartment[];
   selectedSegmentId: string | null;
   onSelectSegment: (id: string) => void;
+  fitOnMount?: boolean;
 };
 
 export function CoverageMap({
@@ -34,6 +31,7 @@ export function CoverageMap({
   apartmentComplexes,
   selectedSegmentId,
   onSelectSegment,
+  fitOnMount = true,
 }: CoverageMapProps) {
   const linesRef = useRef<Array<{ id: string; line: google.maps.Polyline }>>([]);
   const fittedRef = useRef(false);
@@ -67,7 +65,7 @@ export function CoverageMap({
         zIndex: selected ? 3 : 2,
       });
     }
-    if (!fittedRef.current && !bounds.isEmpty()) {
+    if (fitOnMount && !fittedRef.current && !bounds.isEmpty()) {
       map.fitBounds(bounds, 48);
       fittedRef.current = true;
     }
@@ -88,7 +86,7 @@ export function CoverageMap({
         line.setMap(null);
       }
     };
-  }, [active, interactive, map, onSelectSegment, segments]);
+  }, [active, fitOnMount, interactive, map, onSelectSegment, segments]);
 
   useEffect(() => {
     if (!active || !map) return;

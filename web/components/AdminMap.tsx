@@ -2,23 +2,42 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { latLng, loadGoogleMaps } from '@/lib/google-maps-browser';
+import type { MapCamera } from '@/lib/map-camera';
 import type { Position } from '@/lib/territory-geometry';
 
 type AdminMapProps = {
   apiKey: string;
   churchCenter: Position;
   onMapChange: (map: google.maps.Map | null) => void;
+  camera?: MapCamera;
+  mapTypeControl?: boolean;
+  onCameraChange?: (camera: MapCamera) => void;
+  onStatusChange?: (status: 'loading' | 'ready' | 'error') => void;
 };
 
-export function AdminMap({ apiKey, churchCenter, onMapChange }: AdminMapProps) {
+export function AdminMap({
+  apiKey,
+  churchCenter,
+  onMapChange,
+  camera,
+  mapTypeControl = false,
+  onCameraChange,
+  onStatusChange,
+}: AdminMapProps) {
   const elementRef = useRef<HTMLDivElement>(null);
   const onMapChangeRef = useRef(onMapChange);
+  const onCameraChangeRef = useRef(onCameraChange);
+  const onStatusChangeRef = useRef(onStatusChange);
   const centerRef = useRef(churchCenter);
+  const cameraRef = useRef(camera);
   const mapRef = useRef<google.maps.Map | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(apiKey ? 'loading' : 'error');
 
   onMapChangeRef.current = onMapChange;
+  onCameraChangeRef.current = onCameraChange;
+  onStatusChangeRef.current = onStatusChange;
   centerRef.current = churchCenter;
+  cameraRef.current = camera;
 
   useEffect(() => {
     if (!apiKey || !elementRef.current) return;
@@ -27,10 +46,10 @@ export function AdminMap({ apiKey, churchCenter, onMapChange }: AdminMapProps) {
       .then((maps) => {
         if (disposed || !elementRef.current) return;
         const map = new maps.Map(elementRef.current, {
-          center: latLng(centerRef.current),
-          zoom: 11,
+          center: latLng(cameraRef.current?.center ?? centerRef.current),
+          zoom: cameraRef.current?.zoom ?? 11,
           mapId: 'DEMO_MAP_ID',
-          mapTypeControl: false,
+          mapTypeControl,
           cameraControl: false,
           rotateControl: false,
           streetViewControl: false,
@@ -38,11 +57,25 @@ export function AdminMap({ apiKey, churchCenter, onMapChange }: AdminMapProps) {
           clickableIcons: false,
         });
         mapRef.current = map;
+        map.addListener('idle', () => {
+          const center = map.getCenter();
+          const zoom = map.getZoom();
+          if (center && zoom !== undefined) {
+            onCameraChangeRef.current?.({
+              center: [center.lng(), center.lat()],
+              zoom,
+            });
+          }
+        });
         onMapChangeRef.current(map);
         setStatus('ready');
+        onStatusChangeRef.current?.('ready');
       })
       .catch(() => {
-        if (!disposed) setStatus('error');
+        if (!disposed) {
+          setStatus('error');
+          onStatusChangeRef.current?.('error');
+        }
       });
     return () => {
       disposed = true;
@@ -50,7 +83,13 @@ export function AdminMap({ apiKey, churchCenter, onMapChange }: AdminMapProps) {
       mapRef.current = null;
       onMapChangeRef.current(null);
     };
-  }, [apiKey]);
+  }, [apiKey, mapTypeControl]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready' || !camera) return;
+    map.moveCamera({ center: latLng(camera.center), zoom: camera.zoom });
+  }, [camera, status]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -117,7 +117,7 @@ function terminalDirections(segment: PacketSelectionSegment): Array<{
   ];
 }
 
-function endpointMeetsInterior(
+export function endpointMeetsInterior(
   endpoint: { point: Position; direction: Position },
   geometry: LineString,
 ): boolean {

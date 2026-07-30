@@ -1,5 +1,13 @@
 import type { BoundaryShape, Position } from './territory-geometry.ts';
 
+export const coverageColors = {
+  red: '#B4473D',
+  orange: '#D66B2D',
+  yellow: '#D2A128',
+  green: '#3E8B65',
+  gray: '#77736C',
+};
+
 export function apartmentMarkerColor(status: 'needs_review' | 'ready' | 'deferred'): string {
   return {
     needs_review: '#b97916',

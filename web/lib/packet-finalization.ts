@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { ImportedMapBuilding } from './overture-import.ts';
 import type {
   PacketGenerationResult,
   PacketProposal,
@@ -38,14 +39,34 @@ export type DownloadPacket = {
   code: string;
   batchId: string;
   batchName: string;
+  importGeneration: number;
   estimatedHomes: number;
   start: { address: string; position: Position };
-  segments: PacketProposal['segments'];
+  segments: Array<{
+    id: string;
+    streetName: string;
+    roadClass: string;
+    geometry: PacketProposal['segments'][number]['geometry'];
+    estimatedHomes: number;
+  }>;
+};
+
+export type PacketMapGeneration = {
+  importGeneration: number;
+  overtureRelease: string;
+  networkSegments: Array<{
+    id: string;
+    streetName: string;
+    roadClass: string;
+    geometry: PacketProposal['segments'][number]['geometry'];
+  }>;
+  buildings: ImportedMapBuilding[];
 };
 
 export type PacketDownloadSelection = {
   scope: 'newest' | 'active';
   packets: DownloadPacket[];
+  mapGenerations: PacketMapGeneration[];
 };
 
 export class PacketProposalConflictError extends Error {}

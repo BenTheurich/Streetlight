@@ -52,33 +52,16 @@ function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
     .run(segment.id);
   database.close();
   const originalDatabase = process.env.STREETLIGHT_DATABASE_PATH;
-  const originalKey = process.env.GOOGLE_MAPS_STATIC_API_KEY;
-  const originalFetch = globalThis.fetch;
   process.env.STREETLIGHT_DATABASE_PATH = filename;
-  process.env.GOOGLE_MAPS_STATIC_API_KEY = 'server-key';
-  globalThis.fetch = async (input) => {
-    if (String(input).includes('roads.googleapis.com')) {
-      return Response.json({
-        snappedPoints: [
-          { location: { longitude: -117.1169, latitude: 33.5429 } },
-          { location: { longitude: -117.1168, latitude: 33.543 } },
-        ],
-      });
-    }
-    return new Response(png, {
-      status: 200,
-      headers: { 'content-type': 'image/png' },
-    });
-  };
   return withTemeculaWorkspace(() => run(filename)).finally(() => {
     if (originalDatabase === undefined) delete process.env.STREETLIGHT_DATABASE_PATH;
     else process.env.STREETLIGHT_DATABASE_PATH = originalDatabase;
-    if (originalKey === undefined) delete process.env.GOOGLE_MAPS_STATIC_API_KEY;
-    else process.env.GOOGLE_MAPS_STATIC_API_KEY = originalKey;
-    globalThis.fetch = originalFetch;
     rmSync(directory, { recursive: true, force: true });
   });
 }
+
+const renderMaps = async (selection: { packets: Array<{ id: string }> }) =>
+  new Map(selection.packets.map(({ id }) => [id, new Uint8Array(png)]));
 
 function counts(filename: string): number[] {
   const database = openDatabase(filename);
@@ -102,6 +85,7 @@ test('GET downloads the selected packet scope without database mutation', async 
     for (const scope of ['newest', 'active']) {
       const response = await GET(
         new Request(`http://streetlight.local/api/packets/pdf?scope=${scope}`),
+        { renderMaps },
       );
       assert.equal(response.status, 200);
       assert.equal(response.headers.get('content-type'), 'application/pdf');
@@ -117,13 +101,31 @@ test('GET rejects invalid or empty download scopes', async () => {
   await withDatabase(async (filename) => {
     const invalid = await GET(
       new Request('http://streetlight.local/api/packets/pdf?scope=everything'),
+      { renderMaps },
     );
     assert.equal(invalid.status, 400);
 
     const database = openDatabase(filename);
     database.prepare("DELETE FROM batches WHERE id = 'batch-pdf'").run();
     database.close();
-    const empty = await GET(new Request('http://streetlight.local/api/packets/pdf?scope=newest'));
+    const empty = await GET(new Request('http://streetlight.local/api/packets/pdf?scope=newest'), {
+      renderMaps,
+    });
     assert.equal(empty.status, 404);
+  });
+});
+
+test('GET reports an open-map render failure without returning a partial PDF', async () => {
+  await withDatabase(async () => {
+    const response = await GET(
+      new Request('http://streetlight.local/api/packets/pdf?scope=newest'),
+      {
+        renderMaps: async () => {
+          throw new Error('Could not render packet maps');
+        },
+      },
+    );
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), { error: 'Could not render packet maps' });
   });
 });
