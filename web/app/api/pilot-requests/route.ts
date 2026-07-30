@@ -23,7 +23,7 @@ export async function submitPublicPilotRequest(
     {
       message: `Request received. We'll review it and contact you at ${result.email}.`,
     },
-    { status: result.created ? 201 : 200 },
+    { status: 200 },
   );
 }
 

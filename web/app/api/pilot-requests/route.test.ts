@@ -35,7 +35,7 @@ test('public pilot request route stores one request and returns neutral duplicat
       request({ ...valid, churchName: ' grace  community ', email: 'ADA@example.com' }),
       filename,
     );
-    assert.equal(first.status, 201);
+    assert.equal(first.status, 200);
     assert.equal(duplicate.status, 200);
     assert.deepEqual(await first.json(), {
       message: "Request received. We'll review it and contact you at ada@example.com.",

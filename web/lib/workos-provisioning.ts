@@ -10,6 +10,8 @@ export type WorkOSProvisioningAdapter = {
   findOrCreateInvitation(organizationId: string, email: string): Promise<{ id: string }>;
 };
 
+const inFlightProvisioning = new Map<string, Promise<PilotRequest>>();
+
 async function workOSAdapter(): Promise<WorkOSProvisioningAdapter> {
   const { NotFoundException, WorkOS } = await import('@workos-inc/node');
   const workos = new WorkOS(process.env.WORKOS_API_KEY);
@@ -43,7 +45,7 @@ async function workOSAdapter(): Promise<WorkOSProvisioningAdapter> {
   };
 }
 
-export async function provisionPilotRequest(
+async function provisionPilotRequestOnce(
   requestId: string,
   corrections: { churchName: string; email: string },
   adapter?: WorkOSProvisioningAdapter,
@@ -72,4 +74,24 @@ export async function provisionPilotRequest(
     request = recordPilotInvitation(requestId, invitation.id, filename);
   }
   return request;
+}
+
+export async function provisionPilotRequest(
+  requestId: string,
+  corrections: { churchName: string; email: string },
+  adapter?: WorkOSProvisioningAdapter,
+  filename?: string,
+): Promise<PilotRequest> {
+  const existing = inFlightProvisioning.get(requestId);
+  if (existing) return existing;
+
+  const pending = provisionPilotRequestOnce(requestId, corrections, adapter, filename);
+  inFlightProvisioning.set(requestId, pending);
+  try {
+    return await pending;
+  } finally {
+    if (inFlightProvisioning.get(requestId) === pending) {
+      inFlightProvisioning.delete(requestId);
+    }
+  }
 }

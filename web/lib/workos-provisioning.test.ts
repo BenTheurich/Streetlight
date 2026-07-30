@@ -15,10 +15,12 @@ test('pilot provisioning resumes after an external failure without creating dupl
   database.close();
 
   let organizations = 0;
+  const organizationExternalIds: string[] = [];
   let invitationAttempts = 0;
   const adapter: WorkOSProvisioningAdapter = {
     async findOrCreateOrganization(externalId) {
       organizations += 1;
+      organizationExternalIds.push(externalId);
       return { id: `org-${externalId}` };
     },
     async findOrCreateInvitation() {
@@ -68,6 +70,7 @@ test('pilot provisioning resumes after an external failure without creating dupl
     assert.equal(approved.inviteEmail, 'pastor@example.com');
     assert.equal(repeated.authInvitationId, 'invitation-grace');
     assert.equal(organizations, 1);
+    assert.deepEqual(organizationExternalIds, [submitted.requestId]);
     assert.equal(invitationAttempts, 2);
 
     const check = openDatabase(filename);
@@ -76,6 +79,70 @@ test('pilot provisioning resumes after an external failure without creating dupl
       1,
     );
     check.close();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('concurrent pilot approvals share one WorkOS invitation attempt', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-provisioning-concurrent-'));
+  const filename = path.join(directory, 'streetlight.db');
+  const database = openDatabase(filename);
+  migrateDatabase(database);
+  database.close();
+
+  let invitationAttempts = 0;
+  let releaseInvitation!: () => void;
+  let markInvitationStarted!: () => void;
+  const invitationGate = new Promise<void>((resolve) => {
+    releaseInvitation = resolve;
+  });
+  const invitationStarted = new Promise<void>((resolve) => {
+    markInvitationStarted = resolve;
+  });
+  const adapter: WorkOSProvisioningAdapter = {
+    async findOrCreateOrganization(externalId) {
+      return { id: `org-${externalId}` };
+    },
+    async findOrCreateInvitation() {
+      invitationAttempts += 1;
+      markInvitationStarted();
+      await invitationGate;
+      return { id: 'invitation-grace' };
+    },
+  };
+
+  try {
+    const submitted = submitPilotRequest(
+      parsePilotRequest({
+        churchName: 'Grace Community',
+        contactName: 'Ada',
+        email: 'ada@example.com',
+        location: 'Temecula, CA',
+        outreachProcess: '',
+        website: '',
+      }),
+      filename,
+    );
+    const first = provisionPilotRequest(
+      submitted.requestId,
+      { churchName: 'Grace Church', email: 'pastor@example.com' },
+      adapter,
+      filename,
+    );
+    await invitationStarted;
+    const second = provisionPilotRequest(
+      submitted.requestId,
+      { churchName: 'Grace Church', email: 'pastor@example.com' },
+      adapter,
+      filename,
+    );
+    releaseInvitation();
+
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+    assert.equal(firstResult.authInvitationId, 'invitation-grace');
+    assert.equal(secondResult.authInvitationId, 'invitation-grace');
+    assert.equal(invitationAttempts, 1);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

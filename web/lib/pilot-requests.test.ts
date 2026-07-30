@@ -99,6 +99,7 @@ test('pilot request decisions stay resumable and pending requests sort first', (
       { churchName: 'Ignored retry edit', email: 'ignored@example.com' },
       filename,
     );
+    assert.equal(provisioning.provisionedChurchId, first.requestId);
     assert.equal(repeated.provisionedChurchId, provisioning.provisionedChurchId);
     assert.equal(repeated.approvedChurchName, 'Grace Community');
     assert.equal(repeated.inviteEmail, 'pastor@grace.example');

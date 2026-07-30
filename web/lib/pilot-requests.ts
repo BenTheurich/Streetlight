@@ -226,7 +226,7 @@ export function beginPilotProvisioning(
   database.exec('BEGIN IMMEDIATE');
   try {
     const current = getRequest(database, id);
-    const churchId = current.provisionedChurchId ?? `church-${randomUUID()}`;
+    const churchId = current.provisionedChurchId ?? current.id;
     if (!current.provisionedChurchId) {
       database
         .prepare(
