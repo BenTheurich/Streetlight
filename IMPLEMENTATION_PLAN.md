@@ -48,8 +48,9 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
 | 9 | Application UX/UI polish | Phase 8 | Pending | None |
-| 10 | Deployment and recovery | Phase 9 | Pending | None |
-| 11 | Founder-church pilot | Phase 10 | Pending | None |
+| 10 | Outreach progress and presentation | Phase 9 | Pending | None |
+| 11 | Deployment and recovery | Phase 10 | Pending | None |
+| 12 | Founder-church pilot | Phase 11 | Pending | None |
 
 ## Phase 0: Geographic and print proof
 
@@ -771,7 +772,58 @@ show another church.
 The founder approves the authenticated interface for pilot use and the existing workflow remains
 unchanged.
 
-## Phase 10: Deployment and recovery
+## Phase 10: Outreach progress and presentation
+
+### Goal
+
+Give administrators and their congregations a truthful, motivating view of how outreach has spread
+without turning the operational workspace into an analytics dashboard.
+
+### Agent work
+
+- Add Outreach Progress as an optional fifth tool in the persistent map workspace.
+- Keep Coverage operational and Outreach Progress retrospective; do not change the normal
+  Coverage, Generate Packets, and Reconcile Packets cycle.
+- Build an administrator view with a simplified progress map, period selection, factual historical
+  metrics, a static print action, and a presentation-mode action.
+- Derive metrics only from existing coverage events, completed packets, street segments, and
+  estimated homes. Do not claim people reached, spiritual outcomes, or volunteer performance.
+- Add a calm, unattended full-screen presentation mode with no administrative controls.
+- Default its yearly playback to cumulative progress: each street lights up when outreach is
+  recorded and remains lit through the end of the playback.
+- Let the completed view rest before the playback repeats, and honor reduced-motion preferences.
+- Use the same progress composition for full-screen presentation and static printing.
+
+Do not add a report builder, rankings, volunteer statistics, a public display link, or video export.
+
+### Automated checks
+
+- Progress calculations use only recorded coverage data and remain deterministic.
+- Cumulative playback never removes a street after it has appeared within the selected period.
+- Operational heatmap ages and Outreach Progress playback remain independent.
+- Presentation mode exposes no editing or account controls.
+- The static print view contains the same final progress state and factual metrics as the
+  administrator view.
+- Reduced-motion mode presents the completed state without requiring animation.
+
+### Browser and display check
+
+Open Outreach Progress with seeded history, verify the administrator metrics, run the yearly
+playback, leave presentation mode unattended through a complete repeat, inspect the completed
+full-screen state at desktop and TV-sized widths, and print the static view.
+
+### Human review
+
+The founder confirms that the page feels like celebrating faithful neighborhood outreach rather
+than measuring marketing performance, and that it can remain calmly on a church display without
+someone operating it.
+
+### Completion condition
+
+The founder approves the administrator, presentation, and print views and every displayed claim is
+traceable to Streetlight's recorded data.
+
+## Phase 11: Deployment and recovery
 
 ### Goal
 
@@ -809,7 +861,7 @@ The founder signs in to the deployed application, creates a test batch, download
 
 The production workflow and restore demonstration pass, and the founder approves the pilot URL.
 
-## Phase 11: Founder-church pilot
+## Phase 12: Founder-church pilot
 
 ### Goal
 

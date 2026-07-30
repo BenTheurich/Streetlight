@@ -338,6 +338,29 @@ opens the Map/Satellite chooser without loading a second map or static-map thumb
 
 Advanced charts, leaderboards, volunteer statistics, and a report builder are outside the first release.
 
+## Outreach progress
+
+Streetlight includes a separate **Outreach Progress** tool for reflection and church presentation.
+It is optional and does not interrupt the recurring Coverage, Generate Packets, and Reconcile
+Packets workflow.
+
+The administrator view contains a simplified progress map, a selected time period, factual metrics
+derived from Streetlight's existing records, a static print action, and a control that launches
+presentation mode. Appropriate metrics include completed packets, covered street segments, and
+estimated homes reached. Streetlight does not infer people reached, spiritual outcomes, volunteer
+performance, or other claims it cannot observe.
+
+Presentation mode is a calm, unattended full-screen composition suitable for leaving on a church
+TV or display. It contains no administrative controls and requires no one to click through a
+dashboard. Its default yearly playback is cumulative: a street lights up when its recorded outreach
+occurs and remains lit for the rest of the playback, allowing the congregation to see outreach
+spread across the territory. It rests on the completed view, then repeats gently. The operational
+heatmap remains separate and continues to show time since last outreach.
+
+The first version does not include a report builder, rankings, volunteer statistics, a public
+sharing link, or video export. Full-screen presentation and the static print view use the same
+underlying progress composition.
+
 ## First release scope
 
 Included:
@@ -350,6 +373,7 @@ Included:
 - Toggleable and deletable exclusion areas
 - Reversible exact-segment exclusions
 - Coverage heatmap
+- Outreach progress map, cumulative yearly presentation mode, and static print view
 - Deterministic packet generation
 - Batch preview and finalization
 - Packet reservations
