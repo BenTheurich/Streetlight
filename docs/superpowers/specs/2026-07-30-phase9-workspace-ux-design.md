@@ -1,6 +1,6 @@
 # Phase 9 workspace UX design
 
-Status: awaiting concise founder review  
+Status: revised after founder-approved UX critique; awaiting mockup review  
 Date: 2026-07-30  
 Mode: Operate  
 Authority: `PRODUCT.md`
@@ -28,8 +28,9 @@ without enforcing it.
 Preserve the approved single-map workspace and header:
 
 - `/` remains the only configured administrator workspace.
-- Coverage, Generate Packets, Reconcile Packets, and Territory Setup remain always-visible tools
-  after onboarding is complete.
+- Coverage, Generate Packets, Reconcile Packets, Outreach Progress, and Territory Setup occupy the
+  approved five-tool navigation once Phase 10 adds Outreach Progress. Phase 9 preserves the same
+  placement for the four currently implemented tools.
 - Coverage is the default after sign-in or a full reload.
 - The approved one-row header keeps the Streetlight brand on the left, the four tool choices in
   the center, and the account control on the right.
@@ -41,8 +42,10 @@ Preserve the approved single-map workspace and header:
   surface rather than being squeezed by another permanent navigation rail.
 
 At supported desktop widths, the map and right workflow panel remain side by side. At portrait
-tablet widths, the map occupies the upper working region and the workflow panel follows beneath it;
-tool navigation and primary actions remain reachable without horizontal scrolling.
+tablet widths, the header becomes two deliberate rows: brand and account remain on the first row,
+and the complete tool navigation becomes a full-width grid below them. The map occupies the upper
+working region and the workflow panel follows beneath it. Tool navigation and primary actions
+remain reachable without horizontal scrolling, and touch targets remain at least 44 pixels.
 
 ## Coverage home
 
@@ -70,14 +73,20 @@ another action.
 Generate Packets is one progressive workflow inside the right panel:
 
 1. **Configure:** enter one or more packet quantities and tract targets.
-2. **Review proposals:** inspect all proposed packets on the shared heatmap, select individual
-   proposals, and return to the all-proposals view.
+2. **Review proposals:** reach every proposed packet in one bounded, keyboard-operable list;
+   inspect all proposals together on the shared heatmap; select an individual proposal; and return
+   to the all-proposals view.
 3. **Finalize:** optionally name the batch, finalize it, and download the newest finalized batch
    or every active batch.
 
 Only controls for the current step are prominent. Earlier configuration remains editable until
-finalization. Validation and deterministic shortfall explanations appear beside the request or
-proposal they affect rather than at the bottom of a long panel.
+finalization. In the all-proposals view every packet is highlighted without a starting pin. List
+selection and map selection stay synchronized. Selecting one proposal dims the others, makes the
+selected route unmistakable, and displays its proposed starting address and pin. Validation and
+deterministic shortfall explanations appear beside the request or proposal they affect rather than
+at the bottom of a long panel. If Streetlight can produce fewer sensible packets than requested,
+it returns the smaller complete set and names the cleanup need instead of filling the request with
+misleading tiny packets.
 
 Generated proposals survive tool switching for the current browser session. A successful territory
 change invalidates them because eligibility or geometry may have changed.
@@ -85,18 +94,22 @@ change invalidates them because eligibility or geometry may have changed.
 ## Reconcile Packets
 
 Reconcile opens with the newest active batch selected and offers the existing all-active-batches
-choice. Its panel prioritizes the packet list and each packet's current physical state.
+choice. Its panel asks the physical question **Which packet sheets are still here?** and displays
+every active packet in the selected batch.
 
 The administrator can:
 
 1. select an active batch;
-2. review its packets on the shared map;
-3. mark a whole packet as taken;
-4. confirm the reconciliation date; and
+2. check each paper sheet that is still physically present;
+3. review the unchecked, missing sheets that Streetlight will record as completed;
+4. confirm the update using the server-supplied current date in the church's time zone; and
 5. correct or undo a completed packet through the existing whole-packet history rules.
 
-Completion feedback stays in context. When the final active packet is reconciled, Current work
-changes to the generate-next-batch state without forcing a navigation change.
+The date is displayed as the reconciliation date, not edited as an estimated completion date.
+Sheets still present remain active by default and may be cancelled separately. Completion feedback
+stays in context and identifies the recorded packets, date, and available Undo or Correct actions.
+When the final active packet is reconciled, Current work changes to the generate-next-batch state
+without forcing a navigation change.
 
 ## Territory Setup
 
@@ -143,6 +156,24 @@ actionable status with a return-to-setup action.
 - Keyboard focus follows opened panels and confirmations, returns to the invoking control when
   they close, and never becomes trapped behind the map.
 
+## Recovery states
+
+The reviewable workflow includes representative failure states rather than assuming perfect data:
+
+- an invalid packet request keeps every entered size and identifies the field to correct;
+- a deterministic shortfall returns fewer complete proposals and explains the smaller cleanup
+  packet needed;
+- failed finalization leaves proposals unreserved and offers **Try finalizing again**;
+- failed download leaves the already-finalized batch intact and offers **Try download again**;
+- failed initial import preserves the boundary draft and offers **Retry import**;
+- failed background expansion keeps the previous territory active and offers a return to setup;
+  and
+- a blocked whole-packet undo explains the newer reservation conflict without changing history.
+
+Errors remain beside the failed action, state what is still safe, and provide one explicit recovery
+action. No failure clears entered packet sizes, generated proposals, territory drafts, or completed
+history.
+
 ## Scope boundary
 
 This document fixes workspace information architecture and task behavior only. It does not select
@@ -151,8 +182,8 @@ after the workflow is approved.
 
 Phase 9 also retains its separate work on onboarding presentation, pilot-request confirmation,
 WorkOS branding, accessibility, and final visual consistency. Phase 10 owns the approved Outreach
-Progress administrator, presentation, and print experience; it is not added to the Phase 9
-workspace implementation.
+Progress administrator, presentation, and print experience. This Phase 9 mockup establishes its
+navigation placement without adding that tool to the Phase 9 production implementation.
 
 ## Validation
 
@@ -160,10 +191,13 @@ Browser review must complete these journeys without losing state or hiding a pri
 
 1. sign in to Coverage, follow Current work into Generate Packets, finalize, and download;
 2. switch tools with proposals present and return to the same proposal state;
-3. reconcile the newest active batch and observe Current work update after the last packet;
+3. reconcile the newest active batch by checking sheets still present, confirm the missing sheets,
+   and observe the recorded whole-packet result;
 4. attempt to leave an unsaved territory draft through all three choices;
 5. complete a blocking first import;
 6. start a later territory expansion, use another tool during import, and activate the new
    territory only after success;
-7. repeat the complete workflow at representative desktop and portrait-tablet widths; and
-8. use the primary path with keyboard controls and reduced motion enabled.
+7. inspect packet shortfall, finalization, download, initial-import, background-import, and
+   correction-conflict recovery states without losing safe work;
+8. repeat the complete workflow at representative desktop and portrait-tablet widths; and
+9. use the primary path with keyboard controls and reduced motion enabled.
