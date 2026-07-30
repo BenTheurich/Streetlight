@@ -1,6 +1,6 @@
 # Phase 8 pilot access and onboarding design
 
-Status: approved founder decision  
+Status: approved founder decision
 Approved: 2026-07-29
 
 ## Goal

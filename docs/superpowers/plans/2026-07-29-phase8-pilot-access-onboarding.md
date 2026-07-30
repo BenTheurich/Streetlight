@@ -101,7 +101,7 @@ geocoding, Node test runner.
 - [x] Store every external ID before moving to the next provisioning state. Mark approved only
   after the invitation ID is stored.
 - [x] Run focused tests, lint, and TypeScript.
-- [ ] Commit `feat: add founder pilot approvals`.
+- [x] Commit `feat: add founder pilot approvals`.
 
 ### Task 4: First-sign-in onboarding and setup gate
 
@@ -124,16 +124,16 @@ geocoding, Node test runner.
 - Produces: authenticated `POST /api/onboarding`
 - Produces: one-mile `Outreach territory` and setup-only workspace
 
-- [ ] Write failing tests for provisional-session routing, exact onboarding validation, valid IANA
+- [x] Write failing tests for provisional-session routing, exact onboarding validation, valid IANA
   time zones, geocode failure, atomic one-mile territory creation, duplicate submission, existing
   workspace bypass, and first successful territory save unlocking all tools.
-- [ ] Run focused tests and confirm failure.
-- [ ] Implement the minimum organization-access resolver and onboarding transaction. Use existing
+- [x] Run focused tests and confirm failure.
+- [x] Implement the minimum organization-access resolver and onboarding transaction. Use existing
   Google geocoding and territory geometry helpers.
-- [ ] Render onboarding at `/` for a provisional church. Render only Territory Setup until its
+- [x] Render onboarding at `/` for a provisional church. Render only Territory Setup until its
   first save; hide and server-gate the other tools.
-- [ ] Run focused tests, the complete suite, lint, TypeScript, and production build.
-- [ ] Commit `feat: onboard invited pilot churches`.
+- [x] Run focused tests, the complete suite, lint, TypeScript, and production build.
+- [x] Commit `feat: onboard invited pilot churches`.
 
 ### Task 5: Phase evidence and handoff
 
@@ -142,9 +142,10 @@ geocoding, Node test runner.
 - Modify: `ENVIRONMENTS.md`
 - Modify: `web/README.md`
 
-- [ ] Document `STREETLIGHT_FOUNDER_EMAIL`, public/request behavior, and the live review steps
+- [x] Document `STREETLIGHT_FOUNDER_EMAIL`, public/request behavior, and the live review steps
   without recording secrets.
-- [ ] Record automated counts and set Phase 8 to `Awaiting human review`.
-- [ ] Verify a clean worktree and review the complete diff against the approved design.
-- [ ] Commit `docs: record phase 8 verification`.
-- [ ] Leave the real WorkOS invitation unsent and report the exact morning browser check.
+- [x] Record automated counts and set Phase 8 to `Awaiting human review`.
+- [x] Verify the complete diff against the approved design and resolve every Important review
+  finding.
+- [x] Commit `docs: record phase 8 verification`.
+- [x] Leave the real WorkOS invitation unsent and report the exact founder browser check.

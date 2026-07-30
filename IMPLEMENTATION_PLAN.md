@@ -45,8 +45,8 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 4 | Packet selection | Phase 3 | Complete | Founder approved the deterministic packet proposals and orphan-prevention behavior and merged Phase 4 locally on July 28, 2026; automated, canonical-data, and browser evidence is recorded below |
 | 5 | Batch finalization and PDF | Phase 4 | Complete | Atomic street and apartment reservations, newest/all-active downloads, and map-first Letter PDFs are implemented; 126 Node checks, 51 Python checks, Biome, TypeScript, production build, isolated-browser finalization/reload, rendered-PDF inspection, and founder review pass |
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
-| 7 | Authentication and church isolation | Phase 6 | Awaiting human review | WorkOS AuthKit guards the page and every API route; required church scope replaces pilot constants; two-organization isolation checks and credential-free build pass |
-| 8 | Pilot access and onboarding | Phase 7 | Pending | None |
+| 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
+| 8 | Pilot access and onboarding | Phase 7 | Awaiting human review | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented; 155 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
 | 9 | Application UX/UI polish | Phase 8 | Pending | None |
 | 10 | Deployment and recovery | Phase 9 | Pending | None |
 | 11 | Founder-church pilot | Phase 10 | Pending | None |
@@ -684,6 +684,25 @@ Turn an approved landing-page request into a correctly configured, invited churc
 
 Submit a pilot request from the landing page, approve it as the founder, accept the invitation in a
 second browser session, and reach the new church's territory setup.
+
+### Evidence
+
+- Signed-out `/` renders the approved landing page. Its exact five-field request is validated on
+  the server, protected by a honeypot, normalized, and stored once without creating an account.
+- Only the configured founder can see `/pilot-requests` or its API. Approval corrections are
+  applied before a church is provisioned, and every local/external identifier is stored before the
+  next step so an interrupted approval can be retried safely.
+- WorkOS is reached through a two-operation adapter whose automated checks use a fake provider;
+  no real invitation is sent during verification.
+- An invited church without a territory completes church name, full address, and IANA time-zone
+  onboarding. Streetlight geocodes the address and creates an empty one-mile circular territory.
+- New churches see only Territory Setup. The initial import waits for the administrator's explicit
+  save, which records onboarding completion and unlocks Coverage, Generate packets, and Reconcile.
+- Existing configured churches retain their current workspace and bypass onboarding.
+- Independent review found and resolved neutral-response, stable-identity, and concurrent-invitation
+  issues. Re-review found no remaining Critical or Important findings.
+- All 155 Node checks and 51 Python importer checks pass, along with Biome, TypeScript, and the
+  credential-safe Next.js production build.
 
 ### Human review
 
