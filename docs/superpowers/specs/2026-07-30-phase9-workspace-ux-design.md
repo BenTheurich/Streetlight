@@ -38,6 +38,8 @@ Preserve the approved single-map workspace and header:
   tool is communicated once by the tool navigation and once as the right panel's task heading.
 - The Google map remains mounted while tools change. Camera, basemap, selections, and in-progress
   tool state remain stable unless a completed mutation makes them stale.
+- The shared map supports ordinary direct dragging. It does not show a persistent **Pan** mode
+  button; drawing controls appear only inside Territory Setup while a drawing action is active.
 - Each tool owns one consistent right-hand workflow panel. The map remains the primary work
   surface rather than being squeezed by another permanent navigation rail.
 
@@ -74,19 +76,21 @@ Generate Packets is one progressive workflow inside the right panel:
 
 1. **Configure:** enter one or more packet quantities and tract targets.
 2. **Review proposals:** reach every proposed packet in one bounded, keyboard-operable list;
-   inspect all proposals together on the shared heatmap; select an individual proposal; and return
-   to the all-proposals view.
+   inspect all proposals together on the shared heatmap; and expand or collapse any packet inline
+   without replacing the list.
 3. **Finalize:** optionally name the batch, finalize it, and download the newest finalized batch
    or every active batch.
 
 Only controls for the current step are prominent. Earlier configuration remains editable until
 finalization. In the all-proposals view every packet is highlighted without a starting pin. List
-selection and map selection stay synchronized. Selecting one proposal dims the others, makes the
-selected route unmistakable, and displays its proposed starting address and pin. Validation and
-deterministic shortfall explanations appear beside the request or proposal they affect rather than
-at the bottom of a long panel. If Streetlight can produce fewer sensible packets than requested,
-it returns the smaller complete set and names the cleanup need instead of filling the request with
-misleading tiny packets.
+selection and map selection stay synchronized. Expanding one packet keeps the complete list
+visible, dims the other routes, makes the selected route unmistakable, and displays its proposed
+starting address and pin inside that row. Expanding another row transfers focus directly.
+Collapsing the open row restores the all-proposals map without a separate page or button.
+Validation and deterministic shortfall explanations appear beside the request or proposal they
+affect rather than at the bottom of a long panel. If Streetlight can produce fewer sensible packets
+than requested, it returns the smaller complete set and names the cleanup need instead of filling
+the request with misleading tiny packets.
 
 Generated proposals survive tool switching for the current browser session. A successful territory
 change invalidates them because eligibility or geometry may have changed.
