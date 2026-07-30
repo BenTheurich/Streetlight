@@ -16,11 +16,11 @@ import { TerritoryEditor } from './TerritoryEditor';
 
 type WorkspaceTool = 'coverage' | 'packets' | 'reconciliation' | 'territory';
 
-const tools: Array<{ id: WorkspaceTool; label: string }> = [
-  { id: 'coverage', label: 'Coverage' },
-  { id: 'packets', label: 'Generate packets' },
-  { id: 'reconciliation', label: 'Reconcile packets' },
-  { id: 'territory', label: 'Territory setup' },
+const tools: Array<{ id: WorkspaceTool; label: string; shortLabel: string }> = [
+  { id: 'coverage', label: 'Coverage', shortLabel: 'Coverage' },
+  { id: 'packets', label: 'Generate packets', shortLabel: 'Generate' },
+  { id: 'reconciliation', label: 'Reconcile packets', shortLabel: 'Reconcile' },
+  { id: 'territory', label: 'Territory setup', shortLabel: 'Territory' },
 ];
 
 export function StreetlightWorkspace({
@@ -49,10 +49,11 @@ export function StreetlightWorkspace({
   const [territory, setTerritory] = useState<TerritoryWorkspace | null>(null);
   const [territoryLoading, setTerritoryLoading] = useState(false);
   const [territoryError, setTerritoryError] = useState('');
+  const [territoryDirty, setTerritoryDirty] = useState(false);
+  const [territorySaving, setTerritorySaving] = useState(false);
+  const [pendingTool, setPendingTool] = useState<WorkspaceTool | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [overlayRoot, setOverlayRoot] = useState<HTMLDivElement | null>(null);
-  const availableTools = setupRequired ? tools.filter(({ id }) => id === 'territory') : tools;
-
   const loadTerritory = useCallback(async () => {
     setTerritoryLoading(true);
     setTerritoryError('');
@@ -98,38 +99,57 @@ export function StreetlightWorkspace({
 
   const refreshAfterTerritorySave = useCallback(
     async (saved: TerritoryWorkspace) => {
+      const completingSetup = setupRequired;
       setTerritory(saved);
       setPacketResult(null);
       setSelectedPacketIndex(null);
       await refreshCoverage();
       setSetupOnly(false);
-      setTool('coverage');
+      if (completingSetup) setTool('coverage');
     },
-    [refreshCoverage],
+    [refreshCoverage, setupRequired],
   );
+
+  function openTool(nextTool: WorkspaceTool): void {
+    if (nextTool === tool) return;
+    if (tool === 'territory' && territoryDirty && !territorySaving) {
+      setPendingTool(nextTool);
+      return;
+    }
+    setTool(nextTool);
+  }
+
+  function finishTerritoryLeave(): void {
+    if (!pendingTool) return;
+    setTool(pendingTool);
+    setPendingTool(null);
+  }
 
   return (
     <div className="territory-page">
       <header className="territory-header workspace-header">
         <div className="brand">
-          <Image alt="" height="32" src="/StreetlightLogo.png" width="32" />
+          <Image alt="" height="40" src="/landing/streetlight-logo-mark-v2.webp" width="24" />
           <span className="wordmark">Streetlight</span>
-          <span className="phase-label">{availableTools.find(({ id }) => id === tool)?.label}</span>
           {coverage.dataMode === 'demo' && <span className="demo-data-label">Demo data</span>}
         </div>
-        <nav aria-label="Administrator tools" className="workspace-tools">
-          {availableTools.map(({ id, label }) => (
-            <button
-              aria-pressed={tool === id}
-              className={tool === id ? 'active' : ''}
-              key={id}
-              onClick={() => setTool(id)}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
+        {!setupRequired && (
+          <nav aria-label="Administrator tools" className="workspace-tools">
+            {tools.map(({ id, label, shortLabel }) => (
+              <button
+                aria-label={label}
+                aria-pressed={tool === id}
+                className={tool === id ? 'active' : ''}
+                key={id}
+                onClick={() => openTool(id)}
+                type="button"
+              >
+                <span className="tool-label-long">{label}</span>
+                <span className="tool-label-short">{shortLabel}</span>
+              </button>
+            ))}
+          </nav>
+        )}
         <AdministratorAccount
           email={administratorEmail}
           pendingPilotRequests={pendingPilotRequests}
@@ -159,6 +179,7 @@ export function StreetlightWorkspace({
         </section>
         <CoverageDashboard
           active={tool === 'coverage'}
+          onOpenPackets={() => openTool('packets')}
           onOpenReconciliation={() => setTool('reconciliation')}
           onSelectSegment={setSelectedSegmentId}
           onWorkspaceChange={setCoverage}
@@ -186,8 +207,16 @@ export function StreetlightWorkspace({
             active={tool === 'territory'}
             initialData={territory}
             map={map}
+            onDirtyChange={setTerritoryDirty}
+            onDiscardAndLeave={finishTerritoryLeave}
+            onImportingChange={setTerritorySaving}
+            onReturnToSetup={() => setTool('territory')}
             onSaved={refreshAfterTerritorySave}
+            onSaveAndLeave={finishTerritoryLeave}
+            onStay={() => setPendingTool(null)}
             overlayRoot={overlayRoot}
+            pendingLeave={pendingTool !== null}
+            setupRequired={setupRequired}
           />
         )}
         {tool === 'territory' && !territory && (

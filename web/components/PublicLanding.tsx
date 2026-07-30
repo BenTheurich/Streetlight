@@ -379,7 +379,7 @@ export function PublicLanding() {
             <h2>Request received.</h2>
             <p data-pilot-message />
             <button type="button" data-pilot-close>
-              Return to Streetlight
+              Back to Streetlight
             </button>
           </div>
         </div>

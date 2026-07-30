@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { loadGoogleMaps } from '@/lib/google-maps-browser';
 
@@ -60,6 +61,13 @@ export function ChurchOnboarding({
 
   return (
     <main className="church-onboarding">
+      <header className="onboarding-header">
+        <div className="onboarding-brand">
+          <Image alt="" height="40" src="/landing/streetlight-logo-white-v2.webp" width="24" />
+          <span>Streetlight</span>
+        </div>
+        <a href="/logout">Sign out</a>
+      </header>
       <section>
         <p>WELCOME TO STREETLIGHT</p>
         <h1>Begin with your church.</h1>
@@ -137,7 +145,6 @@ export function ChurchOnboarding({
           </button>
         </form>
       </section>
-      <a href="/logout">Sign out</a>
     </main>
   );
 }

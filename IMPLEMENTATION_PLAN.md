@@ -47,7 +47,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
-| 9 | Application UX/UI polish | Phase 8 | Pending | None |
+| 9 | Application UX/UI polish | Phase 8 | Awaiting founder review | The approved unified-map workflow, inline packet review, reconciliation language, territory recovery states, responsive desktop/tablet/mobile layout, landing-page visual system, and WorkOS hosted branding are implemented; 161 Node checks, 51 Python checks, Biome, TypeScript, production build, and representative browser checks pass |
 | 10 | Outreach progress and presentation | Phase 9 | Pending | None |
 | 11 | Deployment and recovery | Phase 10 | Pending | None |
 | 12 | Founder-church pilot | Phase 11 | Pending | None |
@@ -766,6 +766,19 @@ church without changing its workflow.
 
 Run Coverage, Territory Setup, Generate Packets, Finalize/Download, and Reconcile at representative
 desktop and tablet widths with no clipped or unreachable controls.
+
+### Evidence
+
+- Coverage keeps the recurring work cycle visible while leaving all four tools directly available.
+- Packet proposals expand and collapse in place; the map shows all proposals until one packet is
+  selected, and download failures remain recoverable.
+- Reconciliation starts from the physical packet sheets still present.
+- Territory changes preserve the last saved workspace during background expansion imports, retain
+  actionable failures, and guard unsaved changes with Save, Discard, and Stay choices.
+- The approved landing-page color, spacing, logo, focus, and control system now carries through the
+  authenticated workspace, onboarding, request confirmation, and WorkOS Staging hosted pages.
+- Desktop, tablet, and mobile browser checks pass without horizontal overflow or unreachable tools.
+- 161 Node checks, 51 Python importer checks, Biome, TypeScript, and a production Next.js build pass.
 
 ### Human review
 

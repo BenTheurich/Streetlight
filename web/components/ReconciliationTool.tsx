@@ -253,7 +253,11 @@ export function ReconciliationTool({
         throw new Error('error' in result ? result.error : 'Could not reconcile packet batch');
       }
       replaceWorkspace(result);
-      setNotice('Packet table reconciled.');
+      setNotice(
+        preview.complete.length === 0
+          ? 'Reconciliation saved. No missing sheets were recorded as completed.'
+          : `${preview.complete.length} missing packet sheet${preview.complete.length === 1 ? '' : 's'} recorded as completed on ${formatDate(workspace?.asOf ?? result.asOf)}.`,
+      );
       await onChanged();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not reconcile packet batch');
@@ -340,8 +344,13 @@ export function ReconciliationTool({
               </section>
               {batch && activePackets.length > 0 && (
                 <section>
+                  <h2>Which packet sheets are still here?</h2>
+                  <p className="reconciliation-instructions">
+                    Check every sheet that is still physically on the table. Unchecked sheets will
+                    be recorded as completed.
+                  </p>
                   <div className="packet-results-header">
-                    <h2>Active sheets</h2>
+                    <strong>Active sheets</strong>
                     <div className="reconciliation-bulk-actions">
                       <button
                         className="secondary"

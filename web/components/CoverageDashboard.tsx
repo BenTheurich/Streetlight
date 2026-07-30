@@ -10,6 +10,7 @@ type CoverageDashboardProps = {
   selectedSegmentId: string | null;
   onSelectSegment: (id: string | null) => void;
   onWorkspaceChange: (workspace: CoverageWorkspace) => void;
+  onOpenPackets: () => void;
   onOpenReconciliation: () => void;
 };
 
@@ -32,6 +33,7 @@ export function CoverageDashboard({
   selectedSegmentId,
   onSelectSegment,
   onWorkspaceChange,
+  onOpenPackets,
   onOpenReconciliation,
 }: CoverageDashboardProps) {
   const [period, setPeriod] = useState(90);
@@ -114,10 +116,37 @@ export function CoverageDashboard({
   return (
     <aside className="territory-sidebar coverage-sidebar" hidden={!active}>
       <div className="sidebar-title">
-        <h1>{workspace.name}</h1>
-        <p>Coverage</p>
+        <h1>Coverage</h1>
+        <p>{workspace.name}</p>
       </div>
       <div className="sidebar-scroll">
+        <section className="current-work">
+          <h2>Current work</h2>
+          {workspace.activePackets > 0 ? (
+            <div>
+              <strong>
+                {workspace.activePackets} active packet
+                {workspace.activePackets === 1 ? '' : 's'} awaiting reconciliation
+              </strong>
+              <p>
+                {workspace.latestBatch
+                  ? `${workspace.latestBatch.name} is the newest finalized batch.`
+                  : 'Check which printed sheets are still on the table.'}
+              </p>
+              <button onClick={onOpenReconciliation} type="button">
+                Reconcile packets
+              </button>
+            </div>
+          ) : (
+            <div>
+              <strong>Coverage is ready for another batch.</strong>
+              <p>Generate connected packets from the streets that have waited longest.</p>
+              <button onClick={onOpenPackets} type="button">
+                Generate packets
+              </button>
+            </div>
+          )}
+        </section>
         <section className="coverage-summary">
           <div>
             <strong>{workspace.totals.eligibleHomes}</strong>
@@ -144,8 +173,8 @@ export function CoverageDashboard({
             </select>
           </label>
         </section>
-        <section>
-          <h2>Heatmap ranges</h2>
+        <details className="coverage-settings">
+          <summary>Heatmap ranges</summary>
           <form className="coverage-ranges" onSubmit={(event) => void saveRanges(event)}>
             {rangeFields.map(({ key, label }) => (
               <label key={key}>
@@ -183,7 +212,7 @@ export function CoverageDashboard({
               {rangeError}
             </p>
           </form>
-        </section>
+        </details>
         <section>
           <label className="coverage-field">
             Street segment

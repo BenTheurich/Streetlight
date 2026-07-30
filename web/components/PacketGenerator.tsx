@@ -24,15 +24,6 @@ type RequestRow = {
 
 const initialRow: RequestRow = { id: 0, quantity: '1', targetHomes: '30' };
 
-function downloadPacketPdf(scope: 'newest' | 'active'): void {
-  const link = document.createElement('a');
-  link.href = `/api/packets/pdf?scope=${scope}`;
-  link.download = '';
-  document.body.append(link);
-  link.click();
-  link.remove();
-}
-
 export function PacketGenerator({
   active,
   result,
@@ -50,6 +41,7 @@ export function PacketGenerator({
   const [generating, setGenerating] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [downloading, setDownloading] = useState<'newest' | 'active' | null>(null);
   const [finalized, setFinalized] = useState<FinalizedBatch | null>(null);
   const nextRowId = useRef(1);
 
@@ -107,8 +99,7 @@ export function PacketGenerator({
       onResultChange(next);
       onSelectedIndexChange(null);
       setNotice(
-        next.warnings[0] ??
-          `Generated ${next.proposals.length} packet proposal${next.proposals.length === 1 ? '' : 's'}.`,
+        `Generated ${next.proposals.length} packet proposal${next.proposals.length === 1 ? '' : 's'}.`,
       );
     } catch (error) {
       onResultChange(null);
@@ -138,13 +129,13 @@ export function PacketGenerator({
       }
       setFinalized(batch);
       setConfirming(false);
-      setNotice(`${batch.name} finalized. Your PDF download has started.`);
-      downloadPacketPdf('newest');
+      setNotice(`${batch.name} finalized.`);
       try {
         await onFinalized(batch);
       } catch {
         setNotice(`${batch.name} finalized. Reload the page to refresh the batch totals.`);
       }
+      await downloadPacketPdf('newest');
     } catch (error) {
       if (error instanceof Error && error.message.includes('Generate proposals again')) {
         discardResult();
@@ -152,6 +143,33 @@ export function PacketGenerator({
       setNotice(error instanceof Error ? error.message : 'Could not finalize packet batch');
     } finally {
       setFinalizing(false);
+    }
+  }
+
+  async function downloadPacketPdf(scope: 'newest' | 'active'): Promise<void> {
+    setDownloading(scope);
+    setNotice('');
+    try {
+      const response = await fetch(`/api/packets/pdf?scope=${scope}`);
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(result?.error || 'Could not download the packet PDF');
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = '';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setNotice(scope === 'newest' ? 'Newest batch downloaded.' : 'All active packets downloaded.');
+    } catch (error) {
+      setNotice(
+        `${error instanceof Error ? error.message : 'Could not download the packet PDF'}. The finalized batch is still saved.`,
+      );
+    } finally {
+      setDownloading(null);
     }
   }
 
@@ -244,63 +262,57 @@ export function PacketGenerator({
           <section className="packet-results">
             <div className="packet-results-header">
               <h2>Proposals</h2>
-              {selectedIndex !== null && (
-                <button
-                  className="secondary"
-                  onClick={() => onSelectedIndexChange(null)}
-                  type="button"
-                >
-                  Show all
-                </button>
-              )}
+              <span>{result.proposals.length} ready to review</span>
             </div>
-            {result.proposals.map((proposal, index) => {
-              const selected = index === selectedIndex;
-              return (
-                <article
-                  className={`packet-card${selected ? ' selected' : ''}`}
-                  key={
-                    proposal.kind === 'apartment'
-                      ? `apartment:${proposal.apartmentId}`
-                      : proposal.segments.map(({ id }) => id).join('|')
-                  }
-                >
-                  <button
-                    aria-pressed={selected}
-                    className="packet-card-button"
-                    onClick={() => onSelectedIndexChange(index)}
-                    type="button"
+            <div className="packet-proposal-list">
+              {result.proposals.map((proposal, index) => {
+                const selected = index === selectedIndex;
+                return (
+                  <article
+                    className={`packet-card${selected ? ' selected' : ''}`}
+                    key={
+                      proposal.kind === 'apartment'
+                        ? `apartment:${proposal.apartmentId}`
+                        : proposal.segments.map(({ id }) => id).join('|')
+                    }
                   >
-                    <strong>
-                      Packet {index + 1}
-                      {proposal.kind === 'apartment' ? ' · Apartment complex' : ''}
-                    </strong>
-                    <span>Target {proposal.targetHomes} tracts</span>
-                    <span>{proposal.estimatedHomes} estimated tracts</span>
-                  </button>
-                  {selected && (
-                    <div className="packet-card-detail">
+                    <button
+                      aria-expanded={selected}
+                      className="packet-card-button"
+                      onClick={() => onSelectedIndexChange(selected ? null : index)}
+                      type="button"
+                    >
                       <strong>
-                        {proposal.kind === 'apartment' ? 'Complex address' : 'Starting address'}
+                        Packet {index + 1}
+                        {proposal.kind === 'apartment' ? ' · Apartment complex' : ''}
                       </strong>
-                      <p>{proposal.start.address}</p>
-                      {proposal.kind !== 'apartment' && (
-                        <>
-                          <strong>Streets</strong>
-                          <p>{proposal.streetNames.join(', ')}</p>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </article>
-              );
-            })}
+                      <span>Target {proposal.targetHomes} tracts</span>
+                      <span>{proposal.estimatedHomes} estimated tracts</span>
+                    </button>
+                    {selected && (
+                      <div className="packet-card-detail">
+                        <strong>
+                          {proposal.kind === 'apartment' ? 'Complex address' : 'Starting address'}
+                        </strong>
+                        <p>{proposal.start.address}</p>
+                        {proposal.kind !== 'apartment' && (
+                          <>
+                            <strong>Streets</strong>
+                            <p>{proposal.streetNames.join(', ')}</p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
             {result.warnings.map((warning) => (
               <p className="packet-warning" key={warning}>
                 {warning}
               </p>
             ))}
-            {!finalized && (
+            {!finalized && result.proposals.length > 0 && (
               <div className="packet-finalize">
                 <label>
                   Batch name <span>(optional)</span>
@@ -350,16 +362,22 @@ export function PacketGenerator({
               packet
               {(finalized ?? latestBatch)?.packetCount === 1 ? '' : 's'}
             </p>
-            <button onClick={() => downloadPacketPdf('newest')} type="button">
-              Download newest batch
+            <button
+              disabled={downloading !== null}
+              onClick={() => void downloadPacketPdf('newest')}
+              type="button"
+            >
+              {downloading === 'newest' ? 'Downloading…' : 'Download newest batch'}
             </button>
             <button
               className="secondary"
-              disabled={activePackets === 0}
-              onClick={() => downloadPacketPdf('active')}
+              disabled={activePackets === 0 || downloading !== null}
+              onClick={() => void downloadPacketPdf('active')}
               type="button"
             >
-              Download all active packets ({activePackets})
+              {downloading === 'active'
+                ? 'Downloading…'
+                : `Download all active packets (${activePackets})`}
             </button>
           </section>
         )}
