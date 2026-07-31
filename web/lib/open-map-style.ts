@@ -48,6 +48,12 @@ type RouteFeature = {
   };
 };
 
+type RouteFallbackLabelFeature = {
+  type: 'Feature';
+  geometry: LineString;
+  properties: { streetName: string; streetNameKey: string };
+};
+
 type EndpointTreatment = 'selected_join' | 'network_continuation' | 'network_end' | 'ambiguous';
 
 function widthFamily(roadClass: string): keyof typeof WIDTHS {
@@ -170,6 +176,41 @@ function distanceMeters(start: Position, end: Position): number {
   return Math.hypot(...vector(start, end)) * 111_320;
 }
 
+function streetNameKey(value: string): string {
+  const words = value.trim().toUpperCase().split(/\s+/);
+  const directions: Record<string, string> = {
+    N: 'NORTH',
+    S: 'SOUTH',
+    E: 'EAST',
+    W: 'WEST',
+    NE: 'NORTHEAST',
+    NW: 'NORTHWEST',
+    SE: 'SOUTHEAST',
+    SW: 'SOUTHWEST',
+  };
+  const suffixes: Record<string, string> = {
+    AVE: 'AVENUE',
+    BLVD: 'BOULEVARD',
+    CIR: 'CIRCLE',
+    CT: 'COURT',
+    CV: 'COVE',
+    DR: 'DRIVE',
+    HTS: 'HEIGHTS',
+    HWY: 'HIGHWAY',
+    LN: 'LANE',
+    PKWY: 'PARKWAY',
+    PL: 'PLACE',
+    RD: 'ROAD',
+    ST: 'STREET',
+    TER: 'TERRACE',
+    TRL: 'TRAIL',
+  };
+  words[0] = directions[words[0]] ?? words[0];
+  const last = words.length - 1;
+  words[last] = suffixes[words[last]] ?? words[last];
+  return words.join(' ');
+}
+
 function trimTerminal(coordinates: Position[], atStart: boolean, meters: number): Position[] {
   const result = coordinates.map((coordinate): Position => [...coordinate]);
   const terminalIndex = atStart ? 0 : result.length - 1;
@@ -257,6 +298,34 @@ export function packetRouteFeatures(
       },
     };
   });
+}
+
+function packetRouteFallbackLabelFeatures(features: RouteFeature[]): RouteFallbackLabelFeature[] {
+  const longest = new Map<string, { feature: RouteFallbackLabelFeature; length: number }>();
+  for (const feature of features) {
+    const key = streetNameKey(feature.properties.streetName);
+    if (!key) continue;
+    const coordinates = feature.geometry.coordinates;
+    const length = coordinates
+      .slice(1)
+      .reduce(
+        (total, coordinate, index) => total + distanceMeters(coordinates[index], coordinate),
+        0,
+      );
+    if (length <= (longest.get(key)?.length ?? -1)) continue;
+    longest.set(key, {
+      feature: {
+        type: 'Feature',
+        geometry: feature.geometry,
+        properties: {
+          streetName: feature.properties.streetName.trim().replace(/\s+/g, ' '),
+          streetNameKey: key,
+        },
+      },
+      length,
+    });
+  }
+  return [...longest.values()].map(({ feature }) => feature);
 }
 
 function insertBefore(style: OpenMapStyle, beforeId: string, layers: StyleLayer[]): void {
@@ -592,9 +661,17 @@ export function buildOpenMapStyle(
 ): OpenMapStyle {
   const style = structuredClone(base);
   addBuildingLayer(style, generation.buildings);
+  const routeFeatures = packetRouteFeatures(packet, generation, zoom);
   style.sources.streetlightRoute = {
     type: 'geojson',
-    data: { type: 'FeatureCollection', features: packetRouteFeatures(packet, generation, zoom) },
+    data: { type: 'FeatureCollection', features: routeFeatures },
+  };
+  style.sources.streetlightRouteFallbackLabels = {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: packetRouteFallbackLabelFeatures(routeFeatures),
+    },
   };
   insertBefore(style, 'highway-name-minor', [
     {

@@ -230,6 +230,46 @@ test('style inserts only real buildings and a route with the same width expressi
   ]);
 });
 
+test('packet style keeps one dormant fallback label feature per selected street', () => {
+  const value = packet();
+  value.segments[0].streetName = 'N General Kearny Rd';
+  value.segments.push({
+    ...value.segments[0],
+    id: 'short-main',
+    streetName: ' north   general kearny road ',
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [0.002, 0],
+        [0.0021, 0],
+      ],
+    },
+  });
+  const style = buildOpenMapStyle(
+    { version: 8, sources: {}, layers: [{ id: 'highway-name-minor', type: 'symbol' }] },
+    value,
+    mapGeneration(),
+    18,
+  );
+  const source = style.sources.streetlightRouteFallbackLabels as {
+    data: {
+      features: Array<{
+        geometry: { coordinates: [number, number][] };
+        properties: { streetNameKey: string };
+      }>;
+    };
+  };
+
+  assert.equal(source.data.features.length, 1);
+  assert.equal(source.data.features[0].properties.streetNameKey, 'NORTH GENERAL KEARNY ROAD');
+  assert.deepEqual(source.data.features[0].geometry.coordinates[0], [0, 0]);
+  assert((source.data.features[0].geometry.coordinates.at(-1)?.[0] ?? 0) > 0.0008);
+  assert.equal(
+    style.layers.some(({ id }) => id === 'streetlight-route-fallback-labels'),
+    false,
+  );
+});
+
 test('packet starting pin reuses the safe building-centered house-number position', () => {
   const value = packet();
   value.start = { address: '1 Main Street', position: [0.00013, 0.00005] };

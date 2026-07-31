@@ -169,6 +169,8 @@ The module defines the only production rules for:
 - zoom-aware width expressions;
 - highway label font, fill, halo, spacing, and zoom sizes;
 - unchanged native OpenMapTiles highway-label placement, collision, and spacing;
+- one collision-safe fallback for a selected street only when no native label for that street is
+  visible after the initial placement pass;
 - route layer order;
 - bounds and zoom calculation;
 - starting pin and starting-house-number presentation; and
@@ -213,10 +215,17 @@ opens one controlled headless Chromium browser for the PDF request. For each req
    using the guide's 512-pixel Web Mercator world and a 1.20 bounds multiplier.
 4. Keep the resulting fractional zoom; do not floor it or use tract-count presets.
 5. Open a fresh page containing a non-interactive 1280-by-1280 MapLibre map.
-6. Wait for the map's `idle` event while listening for map errors and enforcing a render timeout.
-7. Capture only the map element as PNG.
-8. Embed the PNG in the existing 582-point square in the current PDF layout.
-9. Close the page and continue to the next packet.
+6. Wait for the map's initial `idle` event while listening for map errors and enforcing a render
+   timeout.
+7. Query visible features in the native highway-name layers. For each selected street name not
+   represented, add one fallback line-center label on its longest selected segment with ordinary
+   collision and edge avoidance enabled. Compare names case-insensitively after whitespace,
+   leading-compass, and common final-suffix normalization.
+8. Wait for the fallback placement pass to become idle, or finish immediately when no fallback is
+   needed.
+9. Capture only the map element as PNG.
+10. Embed the PNG in the existing 582-point square in the current PDF layout.
+11. Close the page and continue to the next packet.
 
 It closes each page after its packet succeeds or fails and closes the browser after the complete
 PDF succeeds or fails. A fresh page per packet prevents WebGL state from leaking between maps. Do
@@ -278,6 +287,8 @@ The implementation must leave focused checks proving:
 - only `network_continuation` display endpoints move;
 - a selected join remains continuous and a cul-de-sac remains untrimmed;
 - the selected route stays below the unchanged native OpenMapTiles highway-name layers;
+- a selected street with a visible native label gets no fallback, while a missing name is merely
+  offered one collision-safe fallback and is never forced to overlap;
 - only the starting house number renders, beneath the pin at the deterministic display point;
 - no other address labels, guessed buildings, or unresolved-address markers render;
 - the output PNG is exactly 1280 by 1280;

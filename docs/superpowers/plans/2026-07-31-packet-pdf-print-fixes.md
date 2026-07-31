@@ -137,3 +137,52 @@ Run: `git diff --check`
 - [x] **Step 5: Generate and inspect representative output**
 
 Generate ten packet pages with varied geographic extents, render every page to PNG, and create one grayscale conversion from a representative page. Verify road names, route fit, accepted buildings, the centered starting pin/number, attribution, QR/text layout, and grayscale contrast before handing the PDFs to the founder.
+
+### Task 4: Collision-safe labels for selected streets missing a native label
+
+**Files:**
+- Modify: `web/lib/open-map-style.ts`
+- Modify: `web/lib/open-map-renderer.ts`
+- Test: `web/lib/open-map-style.test.ts`
+- Test: `web/lib/open-map-renderer.test.ts`
+- Modify: `docs/PRINT_MAP_RENDERING_GUIDE.md`
+- Modify: `docs/superpowers/specs/2026-07-30-open-data-packet-pdf-design.md`
+
+**Interfaces:**
+- Produces: `streetlightRouteFallbackLabels`, one longest selected route feature per normalized street name.
+- Consumes: visible native features from `highway-name-minor` and `highway-name-major` after the initial idle render.
+
+- [x] **Step 1: Write failing behavior tests**
+
+```ts
+assert.equal(fallbackSource.data.features.length, 1);
+assert.equal(style.layers.some(({ id }) => id === 'streetlight-route-fallback-labels'), false);
+assert.match(html, /queryRenderedFeatures/);
+assert.match(html, /text-allow-overlap.*false/);
+assert.match(html, /symbol-avoid-edges.*true/);
+```
+
+- [x] **Step 2: Run the focused tests and confirm the fallback source and render pass are missing**
+
+Run from `web`: `node --experimental-strip-types --test lib/open-map-style.test.ts lib/open-map-renderer.test.ts`
+
+- [x] **Step 3: Implement the minimum two-pass render**
+
+Add one dormant fallback source to the packet style. On the first `idle`, query the two native
+highway-name layers, normalize visible and selected names by trimming, collapsing whitespace,
+uppercasing, and expanding leading compass and common final suffix abbreviations, then add one
+filtered `line-center` fallback symbol layer only for missing selected names. Keep
+`text-allow-overlap` and `text-ignore-placement` false and `symbol-avoid-edges` true. Mark the map
+ready only after the second `idle`, or immediately when no names are missing.
+
+- [x] **Step 4: Run focused tests and regenerate the ten varied packet pages**
+
+Run from `web`: `node --experimental-strip-types --test lib/open-map-style.test.ts lib/open-map-renderer.test.ts`
+
+Run from the worktree root: `node --experimental-strip-types tmp/pdfs/render-current-newest.mjs`
+
+- [x] **Step 5: Run the full verification and commit**
+
+Run from `web`: `pnpm test`, `pnpm typecheck`, `pnpm lint`, and `pnpm build`.
+
+Commit: `fix: add collision-safe packet label fallbacks`

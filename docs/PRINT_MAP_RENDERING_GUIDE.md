@@ -392,8 +392,17 @@ This operation creates render geometry in memory. It must never update
 Keep only the native OpenFreeMap/OpenMapTiles minor and major highway-name layers. Insert the
 orange route immediately below `highway-name-minor`, and leave both native label layers' sources,
 filters, line placement, collision handling, and spacing unchanged. Do not add a selected-route
-label source or layer, and do not suppress matching native street names. OpenMapTiles alone decides
-which names fit and where they repeat.
+label over a street that already has a visible native label, and do not suppress matching native
+street names.
+
+After the first idle render, query the two native highway-name layers and compare their visible
+names with the selected street names. For each selected street with no visible native label, offer
+one fallback label on its longest selected segment. The fallback uses ordinary MapLibre collision
+and edge avoidance; it must disappear rather than overlap another label or run off the map. Wait
+for the fallback placement pass to become idle before capture. Do not force every road to receive a
+label. Name comparison is case- and whitespace-insensitive and treats leading compass and common
+final street-suffix abbreviations as equivalent, so `N`/`North` and `Rd`/`Road` cannot create a
+duplicate fallback.
 
 ```text
 font:              Noto Sans Bold
@@ -409,6 +418,9 @@ interpolation:     linear
 
 Pure white text matters in print. The restrained dark halo supplies contrast without creating the
 heavy outlined-text appearance of the original OpenStreetMap style.
+
+Fallback labels reuse the same font, size, color, and halo. They use `line-center` placement with
+`text-allow-overlap: false`, `text-ignore-placement: false`, and `symbol-avoid-edges: true`.
 
 ## Starting marker and house numbers
 

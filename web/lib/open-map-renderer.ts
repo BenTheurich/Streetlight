@@ -30,6 +30,20 @@ export function packetMapDocument(
   maplibreScript: string,
   maplibreCss: string,
 ): string {
+  const fallbackSource = input.style.sources.streetlightRouteFallbackLabels as
+    | {
+        data?: {
+          features?: Array<{ properties?: { streetNameKey?: string } }>;
+        };
+      }
+    | undefined;
+  const fallbackStreetNames = [
+    ...new Set(
+      (fallbackSource?.data?.features ?? [])
+        .map(({ properties }) => properties?.streetNameKey)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ];
   return `<!doctype html>
 <html>
   <head>
@@ -91,7 +105,67 @@ export function packetMapDocument(
       new maplibregl.Marker({ element: marker, anchor: "bottom" })
         .setLngLat(${JSON.stringify(input.start.position)})
         .addTo(map);
-      map.once("idle", () => { window.__mapReady = true; });
+      map.once("idle", () => {
+        const normalizeStreetName = (value) => {
+          if (typeof value !== "string") return "";
+          const words = value.trim().toUpperCase().split(/\\s+/);
+          const directions = {
+            N: "NORTH", S: "SOUTH", E: "EAST", W: "WEST",
+            NE: "NORTHEAST", NW: "NORTHWEST", SE: "SOUTHEAST", SW: "SOUTHWEST"
+          };
+          const suffixes = {
+            AVE: "AVENUE", BLVD: "BOULEVARD", CIR: "CIRCLE", CT: "COURT",
+            CV: "COVE", DR: "DRIVE", HTS: "HEIGHTS", HWY: "HIGHWAY", LN: "LANE",
+            PKWY: "PARKWAY", PL: "PLACE", RD: "ROAD", ST: "STREET",
+            TER: "TERRACE", TRL: "TRAIL"
+          };
+          words[0] = directions[words[0]] || words[0];
+          const last = words.length - 1;
+          words[last] = suffixes[words[last]] || words[last];
+          return words.join(" ");
+        };
+        const visibleNames = new Set(
+          map.queryRenderedFeatures({
+            layers: ["highway-name-minor", "highway-name-major"]
+          }).flatMap(({ properties = {} }) =>
+            [properties.name_en, properties.name, properties["name:latin"]]
+              .map(normalizeStreetName)
+              .filter(Boolean)
+          )
+        );
+        const missingNames = ${escapeScript(JSON.stringify(fallbackStreetNames))}.filter(
+          (name) => !visibleNames.has(name)
+        );
+        if (missingNames.length === 0) {
+          window.__mapReady = true;
+          return;
+        }
+        map.once("idle", () => { window.__mapReady = true; });
+        map.addLayer({
+          id: "streetlight-route-fallback-labels",
+          type: "symbol",
+          source: "streetlightRouteFallbackLabels",
+          filter: ["in", ["get", "streetNameKey"], ["literal", missingNames]],
+          layout: {
+            "symbol-placement": "line-center",
+            "symbol-avoid-edges": true,
+            "text-field": ["get", "streetName"],
+            "text-font": ["Noto Sans Bold"],
+            "text-rotation-alignment": "map",
+            "text-size": ["interpolate", ["linear"], ["zoom"], 14, 12, 18, 17, 20, 19],
+            "text-letter-spacing": 0.01,
+            "text-allow-overlap": false,
+            "text-ignore-placement": false,
+            "text-keep-upright": true
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-blur": 0,
+            "text-halo-width": 1,
+            "text-halo-color": "#687985"
+          }
+        });
+      });
       map.on("error", (event) => {
         window.__mapError = String(event.error || event.message || "Unknown map error");
       });

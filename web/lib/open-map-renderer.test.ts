@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { chromium } from 'playwright';
 import {
   type OpenMapRenderInput,
   packetMapDocument,
@@ -130,4 +131,108 @@ test('render document labels only the starting house number beneath the pin', ()
   assert.match(html, /number\.textContent = "40192"/);
   assert.doesNotMatch(html, /1 Main Street|unpkg/);
   assert.match(html, /window\.__mapReady/);
+});
+
+test('render document offers a collision-safe fallback only when the native label is absent', async () => {
+  const input: OpenMapRenderInput = {
+    packetId: 'packet-one',
+    start: { number: '1', position: [0, 0] },
+    view: { center: [0.0005, 0], zoom: 19 },
+    style: {
+      version: 8,
+      sources: {
+        streetlightRouteFallbackLabels: {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: {
+                  type: 'LineString',
+                  coordinates: [
+                    [0, 0],
+                    [0.001, 0],
+                  ],
+                },
+                properties: {
+                  streetName: 'N General Kearny Rd',
+                  streetNameKey: 'NORTH GENERAL KEARNY ROAD',
+                },
+              },
+            ],
+          },
+        },
+      },
+      layers: [],
+    },
+    attribution: 'OpenFreeMap',
+  };
+  const fakeMapLibre = `
+    window.__addedLayers = [];
+    class FakeMap {
+      constructor() { setTimeout(() => this.emitIdle(), 0); }
+      once(name, callback) { if (name === "idle") this.idle = callback; }
+      on() {}
+      emitIdle() { const callback = this.idle; this.idle = undefined; if (callback) callback(); }
+      queryRenderedFeatures(options) {
+        window.__queriedLayers = options.layers;
+        return window.__renderedFeatures;
+      }
+      addLayer(layer) {
+        window.__addedLayers.push(layer);
+        setTimeout(() => this.emitIdle(), 0);
+      }
+    }
+    class FakeMarker {
+      setLngLat() { return this; }
+      addTo() { return this; }
+    }
+    window.maplibregl = { Map: FakeMap, Marker: FakeMarker };
+  `;
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const render = async (renderedFeatures: Array<{ properties: Record<string, string> }>) => {
+      const page = await browser.newPage();
+      await page.setContent(
+        packetMapDocument(
+          input,
+          `window.__renderedFeatures = ${JSON.stringify(renderedFeatures)};${fakeMapLibre}`,
+          '',
+        ),
+      );
+      await page.waitForFunction(
+        () => (window as unknown as { __mapReady?: boolean }).__mapReady === true,
+      );
+      const state = await page.evaluate(() => {
+        const values = window as unknown as {
+          __addedLayers: Array<{ filter: unknown[]; layout: Record<string, unknown> }>;
+          __queriedLayers: string[];
+        };
+        return {
+          addedLayers: values.__addedLayers,
+          queriedLayers: values.__queriedLayers,
+        };
+      });
+      await page.close();
+      return state;
+    };
+
+    const missing = await render([]);
+    assert.deepEqual(missing.queriedLayers, ['highway-name-minor', 'highway-name-major']);
+    assert.equal(missing.addedLayers.length, 1);
+    assert.deepEqual(missing.addedLayers[0].filter, [
+      'in',
+      ['get', 'streetNameKey'],
+      ['literal', ['NORTH GENERAL KEARNY ROAD']],
+    ]);
+    assert.equal(missing.addedLayers[0].layout['text-allow-overlap'], false);
+    assert.equal(missing.addedLayers[0].layout['text-ignore-placement'], false);
+    assert.equal(missing.addedLayers[0].layout['symbol-avoid-edges'], true);
+
+    const present = await render([{ properties: { name: ' N General Kearny Rd ' } }]);
+    assert.deepEqual(present.addedLayers, []);
+  } finally {
+    await browser.close();
+  }
 });
