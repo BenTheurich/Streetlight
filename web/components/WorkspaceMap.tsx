@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { MapLabData } from '@/lib/database';
 import { loadGoogleMaps, type StreetlightMapType } from '@/lib/google-maps-browser';
 import {
+  forwardMapCameraChange,
   googleZoomToMapLibre,
   type MapCamera,
   mapLibreZoomToGoogle,
@@ -85,16 +86,24 @@ export function WorkspaceMap({
         });
         map.on('move', () => {
           const center = map.getCenter();
-          const nextCamera = {
-            center: [center.lng, center.lat] as [number, number],
-            zoom: mapLibreZoomToGoogle(map.getZoom()),
-          };
-          cameraRef.current = nextCamera;
-          onCameraChangeRef.current(nextCamera);
           googleMapRef.current?.moveCamera({
             center: { lat: center.lat, lng: center.lng },
-            zoom: nextCamera.zoom,
+            zoom: mapLibreZoomToGoogle(map.getZoom()),
           });
+        });
+        map.on('moveend', () => {
+          const center = map.getCenter();
+          const currentCamera = cameraRef.current;
+          const nextCamera = forwardMapCameraChange(
+            currentCamera,
+            {
+              center: [center.lng, center.lat] as [number, number],
+              zoom: mapLibreZoomToGoogle(map.getZoom()),
+            },
+            onCameraChangeRef.current,
+          );
+          if (nextCamera === currentCamera) return;
+          cameraRef.current = nextCamera;
         });
         map.on('error', (event) => {
           if (!disposed && event.error && mapLoadErrorIsFatal(loaded)) setMapStatus('error');

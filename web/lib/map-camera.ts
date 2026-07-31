@@ -25,6 +25,16 @@ export function mergeMapCamera(current: MapCamera, next: MapCamera): MapCamera {
     : next;
 }
 
+export function forwardMapCameraChange(
+  current: MapCamera,
+  next: MapCamera,
+  publish: (camera: MapCamera) => void,
+): MapCamera {
+  const merged = mergeMapCamera(current, next);
+  if (merged !== current) publish(merged);
+  return merged;
+}
+
 export function positionBounds(positions: Position[]): [[number, number], [number, number]] | null {
   if (positions.length === 0) return null;
   const longitudes = positions.map(([longitude]) => longitude);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mergeMapCamera } from './map-camera.ts';
+import { forwardMapCameraChange, mergeMapCamera } from './map-camera.ts';
 
 test('camera synchronization ignores reflected updates but accepts real movement', () => {
   const current = { center: [-117.11, 33.54] as [number, number], zoom: 16 };
@@ -10,6 +10,26 @@ test('camera synchronization ignores reflected updates but accepts real movement
     center: [-117.12, 33.55],
     zoom: 17,
   });
+});
+
+test('controlled map events publish real movement but not reflected movement', () => {
+  const current = { center: [-117.11, 33.54] as [number, number], zoom: 16 };
+  const published: Array<{ center: [number, number]; zoom: number }> = [];
+
+  assert.equal(
+    forwardMapCameraChange(current, { center: [-117.11, 33.54], zoom: 16 }, (next) =>
+      published.push(next),
+    ),
+    current,
+  );
+  assert.equal(published.length, 0);
+  assert.deepEqual(
+    forwardMapCameraChange(current, { center: [-117.12, 33.55], zoom: 17 }, (next) =>
+      published.push(next),
+    ),
+    { center: [-117.12, 33.55], zoom: 17 },
+  );
+  assert.deepEqual(published, [{ center: [-117.12, 33.55], zoom: 17 }]);
 });
 
 test('Google and MapLibre cameras use the same geographic scale', async () => {
