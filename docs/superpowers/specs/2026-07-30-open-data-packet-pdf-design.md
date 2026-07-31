@@ -15,8 +15,10 @@ founder-approved open-data map. The new image must preserve the existing one-pag
 use real building polygons, remain deterministic across repeat downloads, and be suitable for
 paper use at different packet extents.
 
-This project changes the printed map only. The authenticated workspace continues to use Google
-Maps. The Google Maps directions QR code also remains unchanged.
+This project originally changed the printed map only. The later founder-approved Phase 9 migration
+also applies the same shared open-data road and label presentation to the authenticated Map view,
+while Google labeled hybrid remains the on-demand Satellite view. The Google Maps directions QR
+code remains unchanged.
 
 ## Product decision
 
@@ -52,7 +54,14 @@ page containing:
 - every selected street segment;
 - one starting-point marker;
 - required attribution; and
-- the existing Streetlight footer treatment.
+- the Streetlight footer treatment: wordmark at left, packet identifier at right, and the centered
+  default `Ye are the light of the world.` / `Matthew 5:14` brand verse between them.
+
+The verse uses the approved two-line Option A treatment: Georgia Italic at 10 points for the verse
+and Trebuchet Bold at approximately 6.25 points for the reference. Until the deferred church-wide
+print settings are implemented in Phase 10, this default is fixed. Phase 10 may add one saved
+church-wide footer message and one optional reference; it must retain this default when unchanged
+and must not add per-batch overrides.
 
 The existing PDF layout and `pdf-lib` assembly in `web/lib/packet-pdf.ts` remain in place. Only the
 function that supplies the map PNG changes. Repeat download remains read-only and never changes
@@ -322,9 +331,9 @@ Only after those checks does the open renderer replace Google for production PDF
 
 ## Non-goals
 
-This project does not:
+This PDF project does not by itself:
 
-- replace Google Maps in the authenticated workspace;
+- implement the separately approved authenticated-workspace migration;
 - build the separate Map Lab;
 - change packet selection or routing;
 - show house numbers beyond the starting house;

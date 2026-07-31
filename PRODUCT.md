@@ -278,8 +278,9 @@ The map occupies most of the page. Street names remain readable and every highli
 - Starting address
 - Google Maps QR code for the starting address
 - Estimated home count and number of tracts needed
+- Streetlight's centered brand verse: `Ye are the light of the world.` with `Matthew 5:14`
 
-Place the QR code beside the printed starting address, visually group them, and indicate that the QR opens directions. Show the estimated homes/tracts prominently at the upper left. The map contains every selected street segment and one proposed starting-point marker. The Streetlight wordmark or logo appears only in the lower-left corner of the page, outside the map, and the packet identifier appears opposite it in the lower-right corner. The page does not repeat the both-sides rule because that is part of the church's normal outreach process.
+Place the QR code beside the printed starting address, visually group them, and indicate that the QR opens directions. Show the estimated homes/tracts prominently at the upper left. The map contains every selected street segment and one proposed starting-point marker. The Streetlight wordmark or logo appears only in the lower-left corner of the page, outside the map, the packet identifier appears opposite it in the lower-right corner, and the brand verse sits between them as a quiet two-line footer treatment. The page does not repeat the both-sides rule because that is part of the church's normal outreach process.
 
 The first release does not include a written street list, address ranges, an individual-address list, a map legend, volunteer details, a proposed walking path, an end point, detailed navigation, or separate packet files.
 
@@ -336,6 +337,17 @@ The first dashboard contains:
 For a signed-in configured administrator, the website uses one persistent map workspace at `/`.
 Coverage, Generate Packets, Reconcile Packets, and Territory Setup are tools in that workspace
 rather than separate pages.
+
+The workspace's standard **Map** view uses MapLibre with Streetlight's approved pinned
+OpenFreeMap/OpenMapTiles presentation, OpenStreetMap geography, persisted Overture/FEMA buildings,
+and deterministic house-number placement. **Satellite** uses Google Maps JavaScript in labeled
+hybrid mode and loads only after the administrator first selects it. Both renderers preserve one
+camera and the same Streetlight overlays and editing state; changing the basemap must not change
+application data or workflow behavior.
+
+The interactive Map view and packet PDFs use the same shared open-data road widths, colors, and
+street-label presentation. Packet-only framing, route highlights, attribution, and starting-point
+layers remain print-specific.
 Switching tools keeps
 the map camera, Map/Satellite choice, and each tool's in-progress state. Coverage and Generate
 Packets share the complete heatmap; a selected packet adds a distinct review highlight and

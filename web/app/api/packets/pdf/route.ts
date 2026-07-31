@@ -21,9 +21,13 @@ export async function getPacketPdf(
   try {
     const selection = getPacketDownloadSelection(scope);
     const logo = await readFile(path.join(process.cwd(), 'public', 'StreetlightLogo.png'));
+    const footerVerse = await readFile(
+      path.join(process.cwd(), 'public', 'StreetlightFooterVerse.png'),
+    );
     const maps = await (options.renderMaps ?? renderOpenPacketMaps)(selection);
     const bytes = await renderPacketPdf(selection, {
       logo,
+      footerVerse,
       renderMap: async (packet) => {
         const map = maps.get(packet.id);
         if (!map) throw new Error('Could not render packet maps');

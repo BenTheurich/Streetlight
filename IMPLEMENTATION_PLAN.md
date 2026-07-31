@@ -745,6 +745,11 @@ church without changing its workflow.
   dimming the complete workspace and burying a small status message.
 - Clarify the shared map navigation, tool sidebars, empty states, loading states, warnings, and
   primary actions.
+- Replace the workspace's standard Google basemap with the approved MapLibre open-data map while
+  preserving every existing overlay and editing workflow. Retain Google labeled hybrid mode only
+  for Satellite, load it lazily, and keep both renderers synchronized to one camera.
+- Use the same shared road-width, color, and street-label presentation for the interactive open map
+  and packet PDFs; keep only print framing and packet overlays renderer-specific.
 - Make the complete approved workflow usable at supported desktop and tablet widths.
 - Preserve the existing map behavior and deterministic workflow.
 - Fix accessibility basics: keyboard operation, focus visibility, labels, contrast, and reduced
@@ -793,6 +798,9 @@ without turning the operational workspace into an analytics dashboard.
   recorded and remains lit through the end of the playback.
 - Let the completed view rest before the playback repeats, and honor reduced-motion preferences.
 - Use the same progress composition for full-screen presentation and static printing.
+- Add church-wide packet-footer message and optional reference controls. Preserve Streetlight's
+  default `Ye are the light of the world.` / `Matthew 5:14` treatment until an administrator
+  replaces it; do not add per-batch overrides.
 
 Do not add a report builder, rankings, volunteer statistics, a public display link, or video export.
 

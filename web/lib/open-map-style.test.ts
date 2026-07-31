@@ -425,8 +425,27 @@ test('map lab presents an accepted FEMA row gap as an ordinary building without 
   );
 });
 
-test('map lab tapers gray roads at territory zoom without changing the print basemap', () => {
+test('map lab and packet PDFs share the approved road and label presentation', () => {
+  const minorAt11 = ['match', ['get', 'class'], 'minor', 0.5, 'service', 0.3, 'track', 0.2, 0.5];
+  const minorAt13 = ['match', ['get', 'class'], 'minor', 1.25, 'service', 0.6, 'track', 0.4, 1.25];
+  const minorAt14Interactive = [
+    'match',
+    ['get', 'class'],
+    'minor',
+    2,
+    'service',
+    0.9,
+    'track',
+    0.6,
+    2,
+  ];
+  const minorAt16 = ['match', ['get', 'class'], 'minor', 9, 'service', 4, 'track', 3, 9];
   const minorAt14 = ['match', ['get', 'class'], 'minor', 8, 'service', 3, 'track', 2, 8];
+  const minorAt18 = ['match', ['get', 'class'], 'minor', 31, 'service', 12, 'track', 8, 31];
+  const labelSize = ['interpolate', ['linear'], ['zoom'], 13, 10, 16, 12, 18, 17, 20, 19];
+  const lowZoomLabelColor = ['step', ['zoom'], '#5f6f7b', 17, '#ffffff'];
+  const lowZoomLabelHalo = ['step', ['zoom'], 'rgba(255, 255, 255, 0.94)', 17, '#687985'];
+  const lowZoomLabelHaloWidth = ['step', ['zoom'], 1.25, 17, 1];
   const base = {
     version: 8,
     sources: { openmaptiles: { type: 'vector' } },
@@ -449,7 +468,7 @@ test('map lab tapers gray roads at territory zoom without changing the print bas
             14,
             minorAt14,
             18,
-            minorAt14,
+            minorAt18,
           ],
         },
       },
@@ -467,7 +486,20 @@ test('map lab tapers gray roads at territory zoom without changing the print bas
           'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 14, 13, 18, 40],
         },
       },
-      { id: 'highway-name-minor', type: 'symbol' },
+      {
+        id: 'highway-name-minor',
+        type: 'symbol',
+        minzoom: 15,
+        layout: { 'text-size': 12 },
+        paint: { 'text-color': '#ffffff', 'text-halo-color': '#687985', 'text-halo-width': 1 },
+      },
+      {
+        id: 'highway-name-major',
+        type: 'symbol',
+        minzoom: 12.2,
+        layout: { 'text-size': 12 },
+        paint: { 'text-color': '#ffffff', 'text-halo-color': '#687985', 'text-halo-width': 1 },
+      },
     ],
   };
 
@@ -479,11 +511,13 @@ test('map lab tapers gray roads at territory zoom without changing the print bas
     ['exponential', 1.4],
     ['zoom'],
     11,
-    0.5,
+    0.35,
     13,
-    1,
+    0.65,
     14,
-    2,
+    0.9,
+    16,
+    2.5,
     18,
     6,
   ]);
@@ -492,26 +526,52 @@ test('map lab tapers gray roads at territory zoom without changing the print bas
     ['exponential', 1.4],
     ['zoom'],
     11,
-    ['match', ['get', 'class'], 'minor', 1, 'service', 0.5, 'track', 0.35, 1],
+    minorAt11,
     13,
-    ['match', ['get', 'class'], 'minor', 4, 'service', 1.5, 'track', 1, 4],
+    minorAt13,
     14,
-    minorAt14,
+    minorAt14Interactive,
+    16,
+    minorAt16,
     18,
-    minorAt14,
+    minorAt18,
   ]);
   assert.deepEqual(
     map.layers.find(({ id }) => id === 'highway_major_inner')?.paint?.['line-width'],
-    ['interpolate', ['exponential', 1.4], ['zoom'], 11, 2.5, 13, 6, 14, 11, 18, 39],
+    ['interpolate', ['exponential', 1.4], ['zoom'], 11, 2, 13, 4, 14, 5, 16, 15, 18, 39],
   );
   assert.deepEqual(
     map.layers.find(({ id }) => id === 'highway_motorway_inner')?.paint?.['line-width'],
-    ['interpolate', ['exponential', 1.4], ['zoom'], 11, 4, 13, 8, 14, 13, 18, 40],
+    ['interpolate', ['exponential', 1.4], ['zoom'], 11, 4, 13, 6, 14, 8, 16, 18, 18, 40],
   );
-  assert.deepEqual(
-    print.layers.find(({ id }) => id === 'highway_minor')?.paint?.['line-width'],
-    base.layers.find(({ id }) => id === 'highway_minor')?.paint?.['line-width'],
-  );
+  for (const id of ['highway-name-minor', 'highway-name-major']) {
+    const label = map.layers.find((layer) => layer.id === id);
+    assert.deepEqual(label?.layout?.['text-size'], labelSize);
+    assert.deepEqual(label?.paint?.['text-color'], lowZoomLabelColor);
+    assert.deepEqual(label?.paint?.['text-halo-color'], lowZoomLabelHalo);
+    assert.deepEqual(label?.paint?.['text-halo-width'], lowZoomLabelHaloWidth);
+  }
+  assert.equal(map.layers.find(({ id }) => id === 'highway-name-minor')?.minzoom, 14);
+  for (const id of [
+    'highway_path',
+    'highway_minor',
+    'highway_major_inner',
+    'highway_motorway_inner',
+  ]) {
+    assert.deepEqual(
+      print.layers.find((layer) => layer.id === id)?.paint?.['line-width'],
+      map.layers.find((layer) => layer.id === id)?.paint?.['line-width'],
+    );
+  }
+  for (const id of ['highway-name-minor', 'highway-name-major']) {
+    const mapLabel = map.layers.find((layer) => layer.id === id);
+    const printLabel = print.layers.find((layer) => layer.id === id);
+    assert.equal(printLabel?.minzoom, mapLabel?.minzoom);
+    assert.deepEqual(printLabel?.layout?.['text-size'], mapLabel?.layout?.['text-size']);
+    assert.deepEqual(printLabel?.paint?.['text-color'], mapLabel?.paint?.['text-color']);
+    assert.deepEqual(printLabel?.paint?.['text-halo-color'], mapLabel?.paint?.['text-halo-color']);
+    assert.deepEqual(printLabel?.paint?.['text-halo-width'], mapLabel?.paint?.['text-halo-width']);
+  }
 });
 
 test('map lab waits until neighborhood zoom to show building footprints', () => {

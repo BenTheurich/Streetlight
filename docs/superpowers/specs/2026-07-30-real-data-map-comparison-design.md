@@ -83,3 +83,26 @@ Before presenting the comparison:
 The comparison succeeds if it gives the founder enough truthful visual evidence
 to decide whether a hosted open basemap with Overture overlays deserves a
 production-quality experiment.
+
+## Approved print-style refinement
+
+The custom-vector panel may refine the open basemap into reusable PDF-rendering
+rules without changing production:
+
+- Road widths remain class-and-zoom expressions. Ambiguous roads use the
+  thicker residential/minor curve.
+- Highlight geometry retains every stored source coordinate.
+- A selected endpoint that continues through another selected segment joins
+  normally.
+- A selected terminal endpoint is visually compensated by half its rendered
+  stroke width only when the complete Overture connector graph confirms that
+  another road segment continues from that connector.
+- A true network endpoint, including an ordinary dead end or cul-de-sac, keeps
+  the unmodified rounded cap. Missing or ambiguous topology also defaults to
+  the unmodified rounded cap.
+- Street-label fill remains pure white. Each text-size zoom anchor increases by
+  one pixel and the dark halo decreases from `1.35` to `1.0` pixels.
+
+Cap compensation is presentation-only and is calculated from the final map
+zoom, latitude, and the same class-based stroke width used to draw the route.
+It must not be stored as replacement street geometry.

@@ -58,6 +58,7 @@ test('PDF contains one Letter page per packet and uses every rendered map', asyn
 
   const bytes = await renderPacketPdf(selection, {
     logo: png,
+    footerVerse: png,
     renderMap: async (value) => {
       rendered.push(value.code);
       return png;
@@ -73,12 +74,31 @@ test('PDF contains one Letter page per packet and uses every rendered map', asyn
   }
 });
 
+test('PDF draws the Streetlight brand verse treatment in every footer', async () => {
+  const bytes = await renderPacketPdf(
+    { scope: 'newest', packets: [packet('packet-a', 'TEM-001')], mapGenerations: [] },
+    { logo: png, footerVerse: png, renderMap: async () => png },
+  );
+  const document = await PDFDocument.load(bytes);
+  const contents = document.getPages()[0].node.Contents();
+  assert(contents instanceof PDFArray);
+  const stream = document.context.lookup(contents.get(0)) as PDFRawStream;
+  assert(stream instanceof PDFRawStream);
+  const operators = Buffer.from(decodePDFRawStream(stream).decode()).toString('latin1');
+
+  assert.equal(operators.match(/\/Image-\d+ Do/g)?.length, 4);
+  assert.match(
+    operators,
+    /1 0 0 1 231 17 cm\n1 0 0 1 0 0 cm\n150 0 0 28 0 0 cm\n1 0 0 1 0 0 cm\n\/Image-\d+ Do/,
+  );
+});
+
 test('long starting street fits before the QR panel', async () => {
   const value = packet('packet-a', 'TEM-001');
   value.start.address = '39859 N GENERAL KEARNY RD, TEMECULA 92591';
   const bytes = await renderPacketPdf(
     { scope: 'newest', packets: [value], mapGenerations: [] },
-    { logo: png, renderMap: async () => png },
+    { logo: png, footerVerse: png, renderMap: async () => png },
   );
   const document = await PDFDocument.load(bytes);
   const contents = document.getPages()[0].node.Contents();
@@ -104,6 +124,7 @@ test('provider failure rejects the complete PDF instead of returning partial byt
   await assert.rejects(
     renderPacketPdf(selection, {
       logo: png,
+      footerVerse: png,
       renderMap: async () => {
         calls += 1;
         if (calls === 2) throw new Error('Open map unavailable');

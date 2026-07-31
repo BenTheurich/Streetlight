@@ -97,26 +97,45 @@ function coverageWidthExpression(): unknown[] {
 }
 
 const INTERACTIVE_ROAD_STOPS: Array<[string, unknown[]]> = [
-  ['highway_path', [11, 0.5, 13, 1]],
+  ['highway_path', [11, 0.35, 13, 0.65, 14, 0.9, 16, 2.5]],
   [
     'highway_minor',
     [
       11,
-      ['match', ['get', 'class'], 'minor', 1, 'service', 0.5, 'track', 0.35, 1],
+      ['match', ['get', 'class'], 'minor', 0.5, 'service', 0.3, 'track', 0.2, 0.5],
       13,
-      ['match', ['get', 'class'], 'minor', 4, 'service', 1.5, 'track', 1, 4],
+      ['match', ['get', 'class'], 'minor', 1.25, 'service', 0.6, 'track', 0.4, 1.25],
+      14,
+      ['match', ['get', 'class'], 'minor', 2, 'service', 0.9, 'track', 0.6, 2],
+      16,
+      ['match', ['get', 'class'], 'minor', 9, 'service', 4, 'track', 3, 9],
     ],
   ],
-  ['highway_major_inner', [11, 2.5, 13, 6]],
-  ['highway_motorway_inner', [11, 4, 13, 8]],
+  ['highway_major_inner', [11, 2, 13, 4, 14, 5, 16, 15]],
+  ['highway_motorway_inner', [11, 4, 13, 6, 14, 8, 16, 18]],
 ];
 
-function addInteractiveRoadStops(style: OpenMapStyle): void {
+function styleOpenRoads(style: OpenMapStyle): void {
   for (const [id, stops] of INTERACTIVE_ROAD_STOPS) {
     const paint = style.layers.find((layer) => layer.id === id)?.paint;
     const width = paint?.['line-width'];
     if (!paint || !Array.isArray(width) || width[0] !== 'interpolate') continue;
-    paint['line-width'] = [...width.slice(0, 3), ...stops, ...width.slice(3)];
+    paint['line-width'] = [...width.slice(0, 3), ...stops, ...width.slice(5)];
+  }
+  for (const id of ['highway-name-minor', 'highway-name-major']) {
+    const layer = style.layers.find((candidate) => candidate.id === id);
+    if (!layer) continue;
+    if (id === 'highway-name-minor') layer.minzoom = 14;
+    layer.layout = {
+      ...layer.layout,
+      'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 16, 12, 18, 17, 20, 19],
+    };
+    layer.paint = {
+      ...layer.paint,
+      'text-color': ['step', ['zoom'], '#5f6f7b', 17, '#ffffff'],
+      'text-halo-color': ['step', ['zoom'], 'rgba(255, 255, 255, 0.94)', 17, '#687985'],
+      'text-halo-width': ['step', ['zoom'], 1.25, 17, 1],
+    };
   }
 }
 
@@ -660,6 +679,7 @@ export function buildOpenMapStyle(
   zoom: number,
 ): OpenMapStyle {
   const style = structuredClone(base);
+  styleOpenRoads(style);
   addBuildingLayer(style, generation.buildings);
   const routeFeatures = packetRouteFeatures(packet, generation, zoom);
   style.sources.streetlightRoute = {
@@ -722,7 +742,7 @@ export function buildOpenLabStyle(
       }
     : structuredClone(base);
   if (!satellite) {
-    addInteractiveRoadStops(style);
+    styleOpenRoads(style);
     addBuildingLayer(style, data.buildings, 16);
     style.sources.streetlightHouseNumbers = {
       type: 'geojson',

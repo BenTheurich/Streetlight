@@ -8,6 +8,7 @@ export function googleMapsDirectionsUrl(address: string): string {
 
 type RenderPacketPdfOptions = {
   logo: Uint8Array;
+  footerVerse: Uint8Array;
   renderMap: (packet: DownloadPacket) => Promise<Uint8Array>;
 };
 
@@ -24,6 +25,7 @@ export async function renderPacketPdf(
   document.setCreator('Streetlight');
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   const logo = await document.embedPng(options.logo);
+  const footerVerse = await document.embedPng(options.footerVerse);
   const ink = rgb(49 / 255, 44 / 255, 38 / 255);
   const muted = rgb(116 / 255, 109 / 255, 100 / 255);
   const border = rgb(215 / 255, 209 / 255, 200 / 255);
@@ -106,6 +108,7 @@ export async function renderPacketPdf(
 
     page.drawImage(logo, { x: 15, y: 24, width: 20, height: 20 });
     page.drawText('STREETLIGHT', { x: 42, y: 31, size: 9, font: bold, color: ink });
+    page.drawImage(footerVerse, { x: 231, y: 17, width: 150, height: 28 });
     const codeWidth = bold.widthOfTextAtSize(packet.code, 9.5);
     page.drawText('PACKET', {
       x: 597 - codeWidth - 42,

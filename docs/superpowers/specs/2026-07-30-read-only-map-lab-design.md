@@ -292,9 +292,10 @@ The founder evaluates the lab separately from the PDF migration:
    pan/zoom responsiveness in single-map mode.
 7. Confirm ordinary workspace editing and Google behavior are unchanged.
 
-The founder approved the production direction recorded above on 2026-07-31. Applying it to the
-authenticated workspace remains a separate implementation request; this lab does not make that
-change itself.
+The founder approved the production direction recorded above on 2026-07-31 and subsequently
+requested its implementation in the authenticated workspace. This lab remains read-only; the
+production migration is tracked in Phase 9 and reuses the approved composition rather than adding
+another provider layer.
 
 ## Acceptance boundary
 

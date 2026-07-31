@@ -211,3 +211,98 @@ panel is stretched or cropped differently.
 Give the user the authenticated companion URL, the packet code, Overture release,
 feature counts, and any provider limitation encountered. Ask for their visual
 assessment without changing Streetlight's production provider.
+
+### Task 4: Refine the custom vector road treatment
+
+**Files:**
+- Modify: `tmp/map-comparison/render_custom_vector_map.cjs`
+- Regenerate: `tmp/map-comparison/custom-vector.png`
+- Replace: `.superpowers/brainstorm/win-map-comparison-20260730/content/custom-vector-real.png`
+
+**Interfaces:**
+- Consumes: the existing OpenFreeMap vector style plus the verified Overture/FEMA geometry
+- Produces: the same `1280 × 1280` panel with wider roads, brighter labels, and an unlabeled start pin
+
+- [ ] **Step 1: Refine only the approved style values**
+
+Use one shared class-and-zoom width system for the basemap and highlighted
+packet segments. At zoom 18, residential/minor roads use `31` pixels, service
+roads `12`, tracks `8`, paths `6`, and major roads `39`; every value interpolates
+at other zooms. Preserve each packet segment's stored `road_class`, map it to
+the matching curve, and remove the route, major-road, and motorway casings.
+
+- [ ] **Step 2: Make the start marker production-faithful**
+
+Remove the `40192` marker pill and reduce the custom marker to one compact,
+unlabeled green teardrop. Do not change the persisted start coordinate.
+
+- [ ] **Step 3: Regenerate and verify**
+
+Run:
+
+```powershell
+$env:NODE_PATH='C:\Users\benth\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules'
+& 'C:\Users\benth\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' '.\tmp\map-comparison\render_custom_vector_map.cjs'
+```
+
+Expected: `236 Overture + 5 FEMA buildings`, a `1280 × 1280` PNG, zero blue
+markers, no address-number pill, unchanged bounds, and legible white road names.
+
+### Task 5: Restore rounded topology-aware terminal caps
+
+**Files:**
+- Modify: `tmp/map-comparison/render_real_map_comparison.py`
+- Modify: `tmp/map-comparison/render_custom_vector_map.cjs`
+- Modify: `tmp/map-comparison/test_custom_vector_style.cjs`
+- Regenerate: `tmp/map-comparison/source-data.json`
+- Regenerate: `tmp/map-comparison/custom-vector.png`
+- Replace: `.superpowers/brainstorm/win-map-comparison-20260730/content/custom-vector-real.png`
+
+**Interfaces:**
+- Consumes: every selected segment's stored coordinates and the complete
+  territory segment connector references
+- Produces: immutable source geometry plus a derived display geometry whose
+  compensated rounded cap ends at the original confirmed junction coordinate
+
+- [ ] **Step 1: Add failing cap and label contracts**
+
+Assert that source geometry remains byte-for-byte equal to the packet geometry,
+cul-de-sac or ambiguous endpoints remain uncompensated, only selected-terminal
+endpoints with a non-selected connector continuation are compensated, the line
+cap is `round`, label sizes are `12`, `17`, and `19` at zooms `14`, `18`, and
+`20`, label fill is `#ffffff`, and halo width is `1`.
+
+- [ ] **Step 2: Run the style contract and verify failure**
+
+```powershell
+& 'C:\Users\benth\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' tmp\map-comparison\test_custom_vector_style.cjs
+```
+
+Expected: failure because the current route uses butt caps and the old label
+sizes and halo.
+
+- [ ] **Step 3: Export connector-continuation evidence**
+
+Extend the read-only comparison extractor to include enough nearby normalized
+segment topology to classify each selected endpoint as `selected_join`,
+`network_continuation`, `network_end`, or `ambiguous`. Do not infer
+continuation from street names or pixel positions.
+
+- [ ] **Step 4: Derive zoom-aware display geometry**
+
+Keep the source geometry unchanged. For each `network_continuation` terminal,
+move only the derived display endpoint inward along the geodesic line by half
+the class-and-zoom stroke width converted from pixels to meters at the final
+map latitude. Leave every other endpoint unchanged and render with round caps.
+
+- [ ] **Step 5: Refine the labels**
+
+Set label fill to `#ffffff`, halo width to `1`, and the continuous text-size
+expression to `14:12`, `18:17`, and `20:19`.
+
+- [ ] **Step 6: Regenerate and verify**
+
+Run the extractor, renderer, and style contract. Confirm `236 Overture + 5 FEMA
+buildings`, unchanged bounds and source coordinates, round cul-de-sac caps,
+compensated confirmed-junction caps, and no console errors. Replace the
+companion PNG and advance its cache key.
