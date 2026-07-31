@@ -591,6 +591,28 @@ test('map lab waits until neighborhood zoom to show building footprints', () => 
   assert.equal(print.layers.find(({ id }) => id === 'streetlight-buildings')?.minzoom, undefined);
 });
 
+test('workspace satellite overlay keeps Streetlight data without another basemap', () => {
+  const base = {
+    version: 8,
+    glyphs: 'https://example.com/fonts/{fontstack}/{range}.pbf',
+    sources: { openmaptiles: { type: 'vector' } },
+    layers: [{ id: 'highway-name-minor', type: 'symbol' }],
+  };
+
+  const style = buildOpenLabStyle(base, mapLabData(), 'overlay');
+
+  assert.equal('openmaptiles' in style.sources, false);
+  assert.equal('googleSatellite' in style.sources, false);
+  assert.equal('streetlightBuildings' in style.sources, false);
+  assert.equal(
+    style.layers.some(({ id }) => id === 'streetlight-house-numbers'),
+    false,
+  );
+  assert.ok('streetlightCoverage' in style.sources);
+  assert.ok('streetlightBoundary' in style.sources);
+  assert.ok('streetlightApartments' in style.sources);
+});
+
 test('map lab centers one-address building labels and preserves unmatched positions', () => {
   const base = {
     version: 8,

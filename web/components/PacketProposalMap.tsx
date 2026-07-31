@@ -1,13 +1,13 @@
 'use client';
 
+import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import { useEffect } from 'react';
-import { latLng } from '@/lib/google-maps-browser';
+import { positionBounds } from '@/lib/map-camera';
 import { type PacketProposal, proposalsForMap } from '@/lib/packet-selection';
-import { segmentStrokeWeight } from '@/lib/territory-map-style';
 
 type PacketProposalMapProps = {
   active: boolean;
-  map: google.maps.Map | null;
+  map: MapLibreMap | null;
   proposals: PacketProposal[];
   selectedIndex: number | null;
 };
@@ -22,71 +22,79 @@ export function PacketProposalMap({
     const visibleProposals = proposalsForMap(proposals, selectedIndex);
     if (!active || !map || visibleProposals.length === 0) return;
     let disposed = false;
-    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
-    const bounds = new google.maps.LatLngBounds();
-    const lines = visibleProposals.flatMap((proposal) =>
-      proposal.segments.flatMap((segment) => {
-        const path = segment.geometry.coordinates.map(latLng);
-        const baseWeight = Math.max(5, segmentStrokeWeight(map.getZoom() ?? 11) + 2);
-        const halo = new google.maps.Polyline({
-          map,
-          path,
-          strokeColor: '#FFFFFF',
-          strokeOpacity: 0.95,
-          strokeWeight: baseWeight + 4,
-          clickable: false,
-          zIndex: 10,
-        });
-        const highlight = new google.maps.Polyline({
-          map,
-          path,
-          strokeColor: '#1769FF',
-          strokeOpacity: 0.92,
-          strokeWeight: baseWeight,
-          clickable: false,
-          zIndex: 11,
-        });
-        for (const point of segment.geometry.coordinates) bounds.extend(latLng(point));
-        return [halo, highlight];
-      }),
+    const sourceId = 'streetlight-packet-proposals';
+    const haloId = 'streetlight-packet-proposals-halo';
+    const lineId = 'streetlight-packet-proposals-line';
+    const markers: MapLibreMarker[] = [];
+    const positions = visibleProposals.flatMap((proposal) =>
+      proposal.segments.flatMap(({ geometry }) => geometry.coordinates),
     );
-    for (const proposal of visibleProposals) {
-      if (proposal.kind === 'apartment') bounds.extend(latLng(proposal.start.position));
-    }
-    const selectedProposal = selectedIndex === null ? null : visibleProposals[0];
-    if (selectedProposal) bounds.extend(latLng(selectedProposal.start.position));
-    map.fitBounds(bounds, 56);
-    const zoomListener = map.addListener('zoom_changed', () => {
-      const weight = Math.max(5, segmentStrokeWeight(map.getZoom() ?? 11) + 2);
-      for (let index = 0; index < lines.length; index += 2) {
-        lines[index].setOptions({ strokeWeight: weight + 4 });
-        lines[index + 1].setOptions({ strokeWeight: weight });
-      }
+    map.addSource(sourceId, {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: visibleProposals.flatMap((proposal) =>
+          proposal.segments.map((segment) => ({
+            type: 'Feature' as const,
+            geometry: segment.geometry,
+            properties: {},
+          })),
+        ),
+      },
     });
+    const before = map.getLayer('highway-name-minor') ? 'highway-name-minor' : undefined;
+    map.addLayer(
+      {
+        id: haloId,
+        type: 'line',
+        source: sourceId,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#ffffff',
+          'line-opacity': 0.95,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 9, 14, 11],
+        },
+      },
+      before,
+    );
+    map.addLayer(
+      {
+        id: lineId,
+        type: 'line',
+        source: sourceId,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#1769ff',
+          'line-opacity': 0.92,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 5, 14, 7],
+        },
+      },
+      before,
+    );
+    const selectedProposal = selectedIndex === null ? null : visibleProposals[0];
     const markerProposals = visibleProposals.filter(
       (proposal) => proposal.kind === 'apartment' || proposal === selectedProposal,
     );
-    if (markerProposals.length > 0) {
-      void google.maps.importLibrary('marker').then((library) => {
-        if (disposed) return;
-        const { AdvancedMarkerElement } = library as google.maps.MarkerLibrary;
-        for (const proposal of markerProposals) {
-          markers.push(
-            new AdvancedMarkerElement({
-              map,
-              position: latLng(proposal.start.position),
-              title: proposal.kind === 'apartment' ? 'Apartment complex' : 'Starting address',
-              zIndex: 30,
-            }),
-          );
-        }
-      });
-    }
+    void import('maplibre-gl').then(({ Marker }) => {
+      if (disposed) return;
+      for (const proposal of markerProposals) {
+        const marker = new Marker({ color: '#1769ff' })
+          .setLngLat(proposal.start.position)
+          .addTo(map);
+        marker.getElement().title =
+          proposal.kind === 'apartment' ? 'Apartment complex' : 'Starting address';
+        markers.push(marker);
+      }
+    });
+    positions.push(...markerProposals.map(({ start }) => start.position));
+    const bounds = positionBounds(positions);
+    if (bounds) map.fitBounds(bounds, { padding: 56 });
     return () => {
       disposed = true;
-      zoomListener.remove();
-      for (const line of lines) line.setMap(null);
-      for (const marker of markers) marker.map = null;
+      for (const marker of markers) marker.remove();
+      if (map.getLayer(lineId)) map.removeLayer(lineId);
+      if (map.getLayer(haloId)) map.removeLayer(haloId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
     };
   }, [active, map, proposals, selectedIndex]);
 

@@ -1,5 +1,6 @@
 'use client';
 
+import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { TerritoryWorkspace } from '@/lib/database';
@@ -20,7 +21,7 @@ import {
   polygonIsSimple,
 } from '@/lib/territory-geometry';
 import { needsTerritoryImport } from '@/lib/territory-import';
-import { TerritoryMap } from './TerritoryMap';
+import { OpenTerritoryMap } from './OpenTerritoryMap';
 
 type PendingAddress = {
   formattedAddress: string;
@@ -81,7 +82,7 @@ export function TerritoryEditor({
 }: {
   active: boolean;
   initialData: TerritoryWorkspace;
-  map: google.maps.Map | null;
+  map: MapLibreMap | null;
   overlayRoot: HTMLDivElement | null;
   onDirtyChange: (dirty: boolean) => void;
   onDiscardAndLeave: () => void;
@@ -407,7 +408,7 @@ export function TerritoryEditor({
 
   return (
     <>
-      <TerritoryMap
+      <OpenTerritoryMap
         active={active}
         apartmentComplexes={liveApartments}
         boundaryShape={draft.boundaryShape}

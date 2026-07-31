@@ -392,6 +392,78 @@ button.administrator-account-trigger:not(:disabled):hover {
   background: #e8ece6;
 }
 
+.workspace-map-stack {
+  position: absolute;
+  inset: 0;
+}
+
+.workspace-satellite-map {
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.workspace-map-stack.satellite .workspace-satellite-map {
+  opacity: 1;
+}
+
+.workspace-open-map {
+  z-index: 1;
+}
+
+.workspace-map-stack.satellite .workspace-open-map,
+.workspace-map-stack.satellite .maplibregl-canvas {
+  background: transparent;
+}
+
+.workspace-church-marker {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.workspace-map-attribution {
+  position: absolute;
+  z-index: 3;
+  right: 0.35rem;
+  bottom: 0.25rem;
+  padding: 0.15rem 0.3rem;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 88%);
+  color: #4d555b;
+  font-size: 0.62rem;
+  pointer-events: none;
+}
+
+.map-edit-vertex,
+.map-edit-midpoint {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #a9403a;
+  box-shadow: 0 1px 4px rgb(16 26 41 / 35%);
+}
+
+.map-edit-vertex {
+  width: 16px;
+  height: 16px;
+}
+
+.map-edit-midpoint {
+  width: 11px;
+  height: 11px;
+  opacity: 0.72;
+}
+
+.map-edit-vertex:focus-visible,
+.map-edit-midpoint:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
 .map-overlay-root {
   position: absolute;
   inset: 0;

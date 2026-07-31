@@ -1,159 +1,18 @@
 'use client';
 
+import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { latLng } from '@/lib/google-maps-browser';
 import {
   buildReconciliationPreview,
-  type ReconciliationBatch,
   type ReconciliationPacket,
   type ReconciliationWorkspace,
 } from '@/lib/reconciliation';
-import { segmentStrokeWeight } from '@/lib/territory-map-style';
-
-const dispositionColors = {
-  complete: '#3E8B65',
-  active: '#1769FF',
-  cancel: '#77736C',
-};
+import { OpenReconciliationOverlay } from './OpenReconciliationOverlay';
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(
     new Date(`${value}T00:00:00Z`),
   );
-}
-
-function packetLabel(packet: ReconciliationPacket): string {
-  return `${packet.code} · ${packet.estimatedTracts} estimated tracts`;
-}
-
-function ReconciliationOverlay({
-  active,
-  batch,
-  cancelIds,
-  map,
-  presentIds,
-  selectedPacketId,
-}: {
-  active: boolean;
-  batch: ReconciliationBatch | null;
-  cancelIds: Set<string>;
-  map: google.maps.Map | null;
-  presentIds: Set<string>;
-  selectedPacketId: string | null;
-}) {
-  const lastFocusRef = useRef('');
-
-  useEffect(() => {
-    if (!active || !map || !batch) return;
-    let disposed = false;
-    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
-    const lines: Array<{
-      line: google.maps.Polyline;
-      selected: boolean;
-      halo: boolean;
-    }> = [];
-    const activePackets = batch.packets.filter(({ status }) => status === 'active');
-    const selected = batch.packets.find(({ id }) => id === selectedPacketId) ?? null;
-    const packets = [
-      ...activePackets,
-      ...(selected && selected.status !== 'active' ? [selected] : []),
-    ];
-    const disposition = (packet: ReconciliationPacket) =>
-      packet.status === 'cancelled' || cancelIds.has(packet.id)
-        ? 'cancel'
-        : packet.status === 'completed' || !presentIds.has(packet.id)
-          ? 'complete'
-          : 'active';
-    const fitBounds = new google.maps.LatLngBounds();
-    for (const packet of packets) {
-      const selectedPacket = packet.id === selectedPacketId;
-      const color = dispositionColors[disposition(packet)];
-      for (const segment of packet.segments) {
-        const path = segment.geometry.coordinates.map(latLng);
-        const weight = Math.max(5, segmentStrokeWeight(map.getZoom() ?? 11) + 2);
-        const halo = new google.maps.Polyline({
-          map,
-          path,
-          strokeColor: '#FFFFFF',
-          strokeOpacity: 0.9,
-          strokeWeight: weight + (selectedPacket ? 6 : 4),
-          clickable: false,
-          zIndex: selectedPacket ? 20 : 10,
-        });
-        const line = new google.maps.Polyline({
-          map,
-          path,
-          strokeColor: color,
-          strokeOpacity: 0.9,
-          strokeWeight: weight + (selectedPacket ? 2 : 0),
-          clickable: false,
-          zIndex: selectedPacket ? 21 : 11,
-        });
-        lines.push(
-          { line: halo, selected: selectedPacket, halo: true },
-          { line, selected: selectedPacket, halo: false },
-        );
-        if (!selected || selectedPacket) {
-          for (const point of segment.geometry.coordinates) fitBounds.extend(latLng(point));
-        }
-      }
-      if (packet.apartment && (!selected || selectedPacket)) {
-        fitBounds.extend(latLng(packet.apartment.position));
-      }
-    }
-    const focusKey = `${batch.id}:${selectedPacketId ?? 'all'}`;
-    if (lastFocusRef.current !== focusKey && !fitBounds.isEmpty()) {
-      map.fitBounds(fitBounds, 56);
-      lastFocusRef.current = focusKey;
-    }
-    const zoomListener = map.addListener('zoom_changed', () => {
-      const weight = Math.max(5, segmentStrokeWeight(map.getZoom() ?? 11) + 2);
-      for (const overlay of lines) {
-        overlay.line.setOptions({
-          strokeWeight:
-            weight + (overlay.halo ? (overlay.selected ? 6 : 4) : overlay.selected ? 2 : 0),
-        });
-      }
-    });
-    void google.maps.importLibrary('marker').then((library) => {
-      if (disposed) return;
-      const { AdvancedMarkerElement } = library as google.maps.MarkerLibrary;
-      for (const packet of packets.filter(({ apartment }) => apartment)) {
-        if (packet.id === selectedPacketId) continue;
-        const content = document.createElement('span');
-        content.className = 'reconciliation-apartment-marker';
-        content.style.setProperty('--reconciliation-color', dispositionColors[disposition(packet)]);
-        content.textContent = 'A';
-        markers.push(
-          new AdvancedMarkerElement({
-            map,
-            position: latLng(packet.apartment?.position as [number, number]),
-            content,
-            title: packetLabel(packet),
-            zIndex: 25,
-          }),
-        );
-      }
-      if (selected) {
-        markers.push(
-          new AdvancedMarkerElement({
-            map,
-            position: latLng(selected.start.position),
-            title: `Starting address: ${selected.start.address}`,
-            zIndex: 30,
-          }),
-        );
-      }
-    });
-    return () => {
-      disposed = true;
-      zoomListener.remove();
-      for (const overlay of lines) overlay.line.setMap(null);
-      for (const marker of markers) marker.map = null;
-    };
-  }, [active, batch, cancelIds, map, presentIds, selectedPacketId]);
-
-  return null;
 }
 
 export function ReconciliationTool({
@@ -162,7 +21,7 @@ export function ReconciliationTool({
   onChanged,
 }: {
   active: boolean;
-  map: google.maps.Map | null;
+  map: MapLibreMap | null;
   onChanged: () => Promise<void>;
 }) {
   const [workspace, setWorkspace] = useState<ReconciliationWorkspace | null>(null);
@@ -291,7 +150,7 @@ export function ReconciliationTool({
 
   return (
     <>
-      <ReconciliationOverlay
+      <OpenReconciliationOverlay
         active={active}
         batch={batch}
         cancelIds={cancelIds}

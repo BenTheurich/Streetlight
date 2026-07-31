@@ -779,8 +779,14 @@ desktop and tablet widths with no clipped or unreachable controls.
   Reconcile Packets rather than from the Coverage sidebar.
 - The approved landing-page color, spacing, logo, focus, and control system now carries through the
   authenticated workspace, onboarding, request confirmation, and WorkOS Staging hosted pages.
+- The authenticated standard map now uses the approved MapLibre/OpenFreeMap composition and keeps
+  Coverage, Territory Setup, packet previews, and reconciliation on one interaction surface. Google
+  labeled hybrid is created only after Satellite is selected and follows the same camera.
+- One shared style function now controls open-map and packet-PDF road widths, colors, and label
+  presentation, with a regression check preventing those renderers from drifting apart.
 - Desktop, tablet, and mobile browser checks pass without horizontal overflow or unreachable tools.
-- 161 Node checks, 51 Python importer checks, Biome, TypeScript, and a production Next.js build pass.
+- 203 Node checks, 51 Python importer checks, Biome with no errors, TypeScript, and a production
+  Next.js build pass.
 
 ### Human review
 

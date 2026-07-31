@@ -1,19 +1,22 @@
 'use client';
 
+import type { Map as MapLibreMap } from 'maplibre-gl';
 import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
-import type { CoverageWorkspace, TerritoryWorkspace } from '@/lib/database';
+import type { CoverageWorkspace, MapLabData, TerritoryWorkspace } from '@/lib/database';
+import type { StreetlightMapType } from '@/lib/google-maps-browser';
+import type { MapCamera } from '@/lib/map-camera';
 import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 import { AdministratorAccount } from './AdministratorAccount';
-import { AdminMap } from './AdminMap';
 import { CoverageDashboard } from './CoverageDashboard';
-import { CoverageMap } from './CoverageMap';
 import { HeatmapSettingsOverlay } from './HeatmapSettingsOverlay';
 import { MapLayersControl } from './MapLayersControl';
+import { OpenCoverageMap } from './OpenCoverageMap';
 import { PacketGenerator } from './PacketGenerator';
 import { PacketProposalMap } from './PacketProposalMap';
 import { ReconciliationTool } from './ReconciliationTool';
 import { TerritoryEditor } from './TerritoryEditor';
+import { WorkspaceMap } from './WorkspaceMap';
 
 type WorkspaceTool = 'coverage' | 'packets' | 'reconciliation' | 'territory';
 
@@ -53,9 +56,29 @@ export function StreetlightWorkspace({
   const [territoryDirty, setTerritoryDirty] = useState(false);
   const [territorySaving, setTerritorySaving] = useState(false);
   const [pendingTool, setPendingTool] = useState<WorkspaceTool | null>(null);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [map, setMap] = useState<MapLibreMap | null>(null);
+  const [mapData, setMapData] = useState<MapLabData | null>(null);
+  const [mapDataError, setMapDataError] = useState('');
+  const [mapType, setMapType] = useState<StreetlightMapType>('roadmap');
+  const [mapCamera, setMapCamera] = useState<MapCamera>({
+    center: initialData.center,
+    zoom: 11,
+  });
   const [overlayRoot, setOverlayRoot] = useState<HTMLDivElement | null>(null);
   const [heatmapSettingsOpen, setHeatmapSettingsOpen] = useState(false);
+  const refreshMapData = useCallback(async () => {
+    setMapDataError('');
+    try {
+      const response = await fetch('/api/map');
+      const result = (await response.json()) as MapLabData | { error: string };
+      if (!response.ok || 'error' in result) {
+        throw new Error('error' in result ? result.error : 'Could not load map data');
+      }
+      setMapData(result);
+    } catch (error) {
+      setMapDataError(error instanceof Error ? error.message : 'Could not load map data');
+    }
+  }, []);
   const loadTerritory = useCallback(async () => {
     setTerritoryLoading(true);
     setTerritoryError('');
@@ -72,6 +95,10 @@ export function StreetlightWorkspace({
       setTerritoryLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    void refreshMapData();
+  }, [refreshMapData]);
 
   useEffect(() => {
     if (tool === 'territory' && !territory && !territoryLoading && !territoryError) {
@@ -105,11 +132,11 @@ export function StreetlightWorkspace({
       setTerritory(saved);
       setPacketResult(null);
       setSelectedPacketIndex(null);
-      await refreshCoverage();
+      await Promise.all([refreshCoverage(), refreshMapData()]);
       setSetupOnly(false);
       if (completingSetup) setTool('coverage');
     },
-    [refreshCoverage, setupRequired],
+    [refreshCoverage, refreshMapData, setupRequired],
   );
 
   function openTool(nextTool: WorkspaceTool): void {
@@ -160,9 +187,24 @@ export function StreetlightWorkspace({
       </header>
       <main className="territory-workspace">
         <section className="map-panel">
-          <AdminMap apiKey={mapsApiKey} churchCenter={coverage.center} onMapChange={setMap} />
-          <MapLayersControl map={map} />
-          <CoverageMap
+          <WorkspaceMap
+            apiKey={mapsApiKey}
+            camera={mapCamera}
+            data={mapData}
+            mapType={mapType}
+            onCameraChange={setMapCamera}
+            onMapChange={setMap}
+          />
+          {mapDataError && (
+            <div className="map-unavailable" role="alert">
+              <strong>{mapDataError}</strong>
+              <button className="secondary" onClick={() => void refreshMapData()} type="button">
+                Retry
+              </button>
+            </div>
+          )}
+          <MapLayersControl onChange={setMapType} value={mapType} />
+          <OpenCoverageMap
             active={tool !== 'territory'}
             apartmentComplexes={coverage.apartmentComplexes}
             interactive={tool === 'coverage'}

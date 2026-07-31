@@ -7,19 +7,28 @@ import {
   type StreetlightMapType,
 } from '@/lib/google-maps-browser';
 
-export function MapLayersControl({ map }: { map: google.maps.Map | null }) {
+export function MapLayersControl({
+  map,
+  value,
+  onChange,
+}: {
+  map?: google.maps.Map | null;
+  value?: StreetlightMapType;
+  onChange?: (value: StreetlightMapType) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const [mapType, setMapType] = useState<StreetlightMapType>('roadmap');
+  const [uncontrolledMapType, setUncontrolledMapType] = useState<StreetlightMapType>('roadmap');
+  const mapType = value ?? uncontrolledMapType;
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!map) return;
-    const update = () => setMapType(normalizeStreetlightMapType(map.getMapTypeId()));
+    if (!map || value !== undefined) return;
+    const update = () => setUncontrolledMapType(normalizeStreetlightMapType(map.getMapTypeId()));
     update();
     const listener = map.addListener('maptypeid_changed', update);
     return () => listener.remove();
-  }, [map]);
+  }, [map, value]);
 
   useEffect(() => {
     if (!open) return;
@@ -39,11 +48,12 @@ export function MapLayersControl({ map }: { map: google.maps.Map | null }) {
     };
   }, [open]);
 
-  if (!map) return null;
+  if (!map && value === undefined) return null;
 
   function choose(next: StreetlightMapType) {
-    map?.setMapTypeId(googleMapTypeId(next));
-    setMapType(next);
+    if (onChange) onChange(next);
+    else map?.setMapTypeId(googleMapTypeId(next));
+    setUncontrolledMapType(next);
     setOpen(false);
     triggerRef.current?.focus();
   }

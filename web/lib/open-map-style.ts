@@ -712,8 +712,10 @@ export function buildOpenMapStyle(
 export function buildOpenLabStyle(
   base: OpenMapStyle,
   data: MapLabData,
-  satellite = false,
+  mode: boolean | 'overlay' = false,
 ): OpenMapStyle {
+  const satellite = mode === true;
+  const overlay = mode === 'overlay';
   const style: OpenMapStyle = satellite
     ? {
         version: 8,
@@ -740,8 +742,10 @@ export function buildOpenLabStyle(
           ),
         ],
       }
-    : structuredClone(base);
-  if (!satellite) {
+    : overlay
+      ? { version: 8, glyphs: base.glyphs, sources: {}, layers: [] }
+      : structuredClone(base);
+  if (!satellite && !overlay) {
     styleOpenRoads(style);
     addBuildingLayer(style, data.buildings, 16);
     style.sources.streetlightHouseNumbers = {
@@ -796,7 +800,7 @@ export function buildOpenLabStyle(
     },
   };
   insertBefore(style, 'highway-name-minor', [
-    ...(!satellite
+    ...(!satellite && !overlay
       ? [
           {
             id: 'streetlight-house-numbers',

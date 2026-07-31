@@ -20,3 +20,13 @@ export function mergeMapCamera(current: MapCamera, next: MapCamera): MapCamera {
     ? current
     : next;
 }
+
+export function positionBounds(positions: Position[]): [[number, number], [number, number]] | null {
+  if (positions.length === 0) return null;
+  const longitudes = positions.map(([longitude]) => longitude);
+  const latitudes = positions.map(([, latitude]) => latitude);
+  return [
+    [Math.min(...longitudes), Math.min(...latitudes)],
+    [Math.max(...longitudes), Math.max(...latitudes)],
+  ];
+}

@@ -135,6 +135,7 @@ function GooglePane({
           interactive={false}
           legend={data.legend}
           map={map}
+          onEditHeatmapRanges={() => {}}
           onSelectSegment={() => {}}
           segments={data.segments}
           selectedSegmentId={null}
