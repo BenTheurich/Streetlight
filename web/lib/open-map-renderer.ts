@@ -174,6 +174,24 @@ export function packetMapDocument(
 </html>`;
 }
 
+export async function captureOpenPacketPages(
+  input: OpenMapRenderInput[],
+  captureOne: (render: OpenMapRenderInput) => Promise<Uint8Array>,
+): Promise<Uint8Array[]> {
+  const images = new Array<Uint8Array>(input.length);
+  let nextIndex = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(3, input.length) }, async () => {
+      while (nextIndex < input.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        images[index] = await captureOne(input[index]);
+      }
+    }),
+  );
+  return images;
+}
+
 async function captureWithPlaywright(input: OpenMapRenderInput[]): Promise<Uint8Array[]> {
   const maplibreDirectory = path.join(process.cwd(), 'node_modules', 'maplibre-gl', 'dist');
   const [maplibreScript, maplibreCss] = await Promise.all([
@@ -182,36 +200,39 @@ async function captureWithPlaywright(input: OpenMapRenderInput[]): Promise<Uint8
   ]);
   const browser = await chromium.launch({ headless: true });
   try {
-    const images: Uint8Array[] = [];
-    for (const render of input) {
-      const page = await browser.newPage({
-        viewport: { width: 1280, height: 1280 },
-        deviceScaleFactor: 1,
-        ignoreHTTPSErrors: true,
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 1280 },
+      deviceScaleFactor: 1,
+      ignoreHTTPSErrors: true,
+    });
+    try {
+      return await captureOpenPacketPages(input, async (render) => {
+        const page = await context.newPage();
+        try {
+          await page.setContent(packetMapDocument(render, maplibreScript, maplibreCss), {
+            waitUntil: 'domcontentloaded',
+          });
+          await page.waitForFunction(
+            () =>
+              Boolean(
+                (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapReady ||
+                  (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapError,
+              ),
+            undefined,
+            { timeout: 120_000 },
+          );
+          const mapError = await page.evaluate(
+            () => (window as unknown as { __mapError?: string }).__mapError,
+          );
+          if (mapError) throw new Error(mapError);
+          return new Uint8Array(await page.locator('#map').screenshot());
+        } finally {
+          await page.close();
+        }
       });
-      try {
-        await page.setContent(packetMapDocument(render, maplibreScript, maplibreCss), {
-          waitUntil: 'domcontentloaded',
-        });
-        await page.waitForFunction(
-          () =>
-            Boolean(
-              (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapReady ||
-                (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapError,
-            ),
-          undefined,
-          { timeout: 120_000 },
-        );
-        const mapError = await page.evaluate(
-          () => (window as unknown as { __mapError?: string }).__mapError,
-        );
-        if (mapError) throw new Error(mapError);
-        images.push(new Uint8Array(await page.locator('#map').screenshot()));
-      } finally {
-        await page.close();
-      }
+    } finally {
+      await context.close();
     }
-    return images;
   } finally {
     await browser.close();
   }

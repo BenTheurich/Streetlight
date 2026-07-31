@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import {
+  captureOpenPacketPages,
   type OpenMapRenderInput,
   packetMapDocument,
   renderOpenPacketMaps,
@@ -80,6 +81,29 @@ const selection: PacketDownloadSelection = {
     },
   ],
 };
+
+test('captures at most three packet maps concurrently and preserves packet order', async () => {
+  const inputs = Array.from({ length: 6 }, (_, index) => ({
+    packetId: `packet-${index}`,
+  })) as OpenMapRenderInput[];
+  let active = 0;
+  let maximumActive = 0;
+
+  const images = await captureOpenPacketPages(inputs, async ({ packetId }) => {
+    active += 1;
+    maximumActive = Math.max(maximumActive, active);
+    const index = Number(packetId.slice('packet-'.length));
+    await new Promise((resolve) => setTimeout(resolve, (6 - index) * 2));
+    active -= 1;
+    return new Uint8Array([index]);
+  });
+
+  assert.equal(maximumActive, 3);
+  assert.deepEqual(
+    images.map((image) => image[0]),
+    [0, 1, 2, 3, 4, 5],
+  );
+});
 
 test('renders every packet with its recorded map generation', async () => {
   const received: OpenMapRenderInput[][] = [];
