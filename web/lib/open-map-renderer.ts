@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import path from 'node:path';
 import { chromium } from 'playwright';
 import baseStyleJson from './open-map-base-style.json' with { type: 'json' };
 import {
@@ -175,10 +175,10 @@ export function packetMapDocument(
 }
 
 async function captureWithPlaywright(input: OpenMapRenderInput[]): Promise<Uint8Array[]> {
-  const require = createRequire(import.meta.url);
+  const maplibreDirectory = path.join(process.cwd(), 'node_modules', 'maplibre-gl', 'dist');
   const [maplibreScript, maplibreCss] = await Promise.all([
-    readFile(require.resolve('maplibre-gl'), 'utf8'),
-    readFile(require.resolve('maplibre-gl/dist/maplibre-gl.css'), 'utf8'),
+    readFile(path.join(maplibreDirectory, 'maplibre-gl.js'), 'utf8'),
+    readFile(path.join(maplibreDirectory, 'maplibre-gl.css'), 'utf8'),
   ]);
   const browser = await chromium.launch({ headless: true });
   try {
