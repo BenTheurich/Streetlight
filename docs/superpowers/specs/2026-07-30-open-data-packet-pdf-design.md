@@ -168,7 +168,7 @@ The module defines the only production rules for:
 - road-class-to-width-family mapping;
 - zoom-aware width expressions;
 - highway label font, fill, halo, spacing, and zoom sizes;
-- selected-route labels sourced from packet route GeoJSON so short selected roads remain named;
+- unchanged native OpenMapTiles highway-label placement, collision, and spacing;
 - route layer order;
 - bounds and zoom calculation;
 - starting pin and starting-house-number presentation; and
@@ -277,7 +277,7 @@ The implementation must leave focused checks proving:
 - route casings and basemap road casings are absent;
 - only `network_continuation` display endpoints move;
 - a selected join remains continuous and a cul-de-sac remains untrimmed;
-- selected routes retain names even when the basemap would omit a short-road label;
+- the selected route stays below the unchanged native OpenMapTiles highway-name layers;
 - only the starting house number renders, beneath the pin at the deterministic display point;
 - no other address labels, guessed buildings, or unresolved-address markers render;
 - the output PNG is exactly 1280 by 1280;

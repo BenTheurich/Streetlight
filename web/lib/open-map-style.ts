@@ -170,15 +170,6 @@ function distanceMeters(start: Position, end: Position): number {
   return Math.hypot(...vector(start, end)) * 111_320;
 }
 
-function lineLengthMeters(coordinates: Position[]): number {
-  return coordinates
-    .slice(1)
-    .reduce(
-      (total, coordinate, index) => total + distanceMeters(coordinates[index], coordinate),
-      0,
-    );
-}
-
 function trimTerminal(coordinates: Position[], atStart: boolean, meters: number): Position[] {
   const result = coordinates.map((coordinate): Position => [...coordinate]);
   const terminalIndex = atStart ? 0 : result.length - 1;
@@ -266,59 +257,6 @@ export function packetRouteFeatures(
       },
     };
   });
-}
-
-function packetRouteLabelFeatures(features: RouteFeature[]): RouteFeature[] {
-  const longestByStreet = new Map<string, { feature: RouteFeature; length: number }>();
-  for (const feature of features) {
-    const coordinates = feature.geometry.coordinates;
-    const runs: Position[][] = [];
-    let run = [coordinates[0]];
-    for (let index = 1; index < coordinates.length - 1; index += 1) {
-      const previous = vector(coordinates[index - 1], coordinates[index]);
-      const next = vector(coordinates[index], coordinates[index + 1]);
-      run.push(coordinates[index]);
-      const cosine =
-        (previous[0] * next[0] + previous[1] * next[1]) /
-        (Math.hypot(...previous) * Math.hypot(...next));
-      if (Number.isFinite(cosine) && Math.acos(Math.max(-1, Math.min(1, cosine))) > Math.PI / 4) {
-        runs.push(run);
-        run = [coordinates[index]];
-      }
-    }
-    run.push(coordinates.at(-1) as Position);
-    runs.push(run);
-    const labelCoordinates = runs.reduce((longest, candidate) =>
-      lineLengthMeters(candidate) > lineLengthMeters(longest) ? candidate : longest,
-    );
-    const length = lineLengthMeters(labelCoordinates);
-    const key = feature.properties.streetName.trim().toUpperCase();
-    if (!key) continue;
-    if (length > (longestByStreet.get(key)?.length ?? -1)) {
-      longestByStreet.set(key, {
-        feature: {
-          ...feature,
-          geometry: { type: 'LineString', coordinates: labelCoordinates },
-        },
-        length,
-      });
-    }
-  }
-  return [...longestByStreet.values()].map(({ feature }) => feature);
-}
-
-function hideBaseLabelsForSelectedStreets(style: OpenMapStyle, streetNames: string[]): void {
-  const names = [...new Set(streetNames.map((name) => name.trim()).filter(Boolean))];
-  if (names.length === 0) return;
-  const exclusion = [
-    '!',
-    ['in', ['coalesce', ['get', 'name_en'], ['get', 'name']], ['literal', names]],
-  ];
-  for (const id of ['highway-name-minor', 'highway-name-major']) {
-    const layer = style.layers.find((candidate) => candidate.id === id);
-    if (!layer) continue;
-    layer.filter = layer.filter ? ['all', layer.filter, exclusion] : exclusion;
-  }
 }
 
 function insertBefore(style: OpenMapStyle, beforeId: string, layers: StyleLayer[]): void {
@@ -654,18 +592,9 @@ export function buildOpenMapStyle(
 ): OpenMapStyle {
   const style = structuredClone(base);
   addBuildingLayer(style, generation.buildings);
-  const routeFeatures = packetRouteFeatures(packet, generation, zoom);
-  hideBaseLabelsForSelectedStreets(
-    style,
-    routeFeatures.map(({ properties }) => properties.streetName),
-  );
   style.sources.streetlightRoute = {
     type: 'geojson',
-    data: { type: 'FeatureCollection', features: routeFeatures },
-  };
-  style.sources.streetlightRouteLabels = {
-    type: 'geojson',
-    data: { type: 'FeatureCollection', features: packetRouteLabelFeatures(routeFeatures) },
+    data: { type: 'FeatureCollection', features: packetRouteFeatures(packet, generation, zoom) },
   };
   insertBefore(style, 'highway-name-minor', [
     {
@@ -677,25 +606,6 @@ export function buildOpenMapStyle(
         'line-color': '#ef6c3c',
         'line-opacity': 0.96,
         'line-width': routeWidthExpression(),
-      },
-    },
-    {
-      id: 'streetlight-route-labels',
-      type: 'symbol',
-      source: 'streetlightRouteLabels',
-      layout: {
-        'symbol-placement': 'line-center',
-        'text-field': ['get', 'streetName'],
-        'text-font': ['Noto Sans Bold'],
-        'text-size': ['interpolate', ['linear'], ['zoom'], 14, 13, 18, 17],
-        'text-allow-overlap': true,
-        'text-ignore-placement': true,
-        'text-keep-upright': true,
-      },
-      paint: {
-        'text-color': '#ffffff',
-        'text-halo-color': '#716863',
-        'text-halo-width': 1.5,
       },
     },
   ]);

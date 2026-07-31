@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make production packet PDFs use the finalized open-map data and styling, fit each route tightly, label selected roads, show the starting house number, and remain legible when printed in grayscale.
+**Goal:** Make production packet PDFs use the finalized open-map data and styling, fit each route tightly, preserve native road labels, show the starting house number, and remain legible when printed in grayscale.
 
 **Architecture:** Reuse the existing Map Lab building/address matching in the packet renderer instead of creating a second matcher. Extend the immutable packet-generation snapshot with the accepted FEMA row gaps and source house numbers, then derive one display position that drives the camera, pin, and starting-number label. Advance a legacy batch to a building-bearing generation only through an exact segment/address parity migration.
 
@@ -57,7 +57,7 @@ return { importGeneration, overtureRelease, networkSegments, buildings, houseNum
 
 Run from `web`: `node --experimental-strip-types --test lib/batch-finalization.test.ts lib/open-map-style.test.ts`
 
-### Task 2: Fractional camera, route labels, pin number, and isolated captures
+### Task 2: Fractional camera, native label order, pin number, and isolated captures
 
 **Files:**
 - Modify: `web/lib/open-map-style.ts`
@@ -73,7 +73,8 @@ Run from `web`: `node --experimental-strip-types --test lib/batch-finalization.t
 
 ```ts
 assert.ok(!Number.isInteger(packetMapView(longPacket).zoom));
-assert.equal(style.layers.some(({ id }) => id === 'streetlight-route-labels'), true);
+assert.equal(style.layers.some(({ id }) => id === 'streetlight-route-labels'), false);
+assert.ok(routeLayerIndex < nativeHighwayLabelIndex);
 assert.match(packetMapDocument(input, script, css), />40192<\/div>/);
 assert.deepEqual(render.start.position, centeredBuildingPosition);
 ```
@@ -90,7 +91,7 @@ const start = packetStartDisplay(packet, generation);
 const view = packetMapView(packet, start.position);
 ```
 
-Add one selected-route symbol layer with pure-white text and a dark halo. Add the starting number beneath the existing marker. Keep one browser per PDF request and one fresh Playwright page per packet.
+Keep the selected route below the unchanged native OpenMapTiles highway-name layers; do not add a route-label source or suppress native names. Add the starting number beneath the existing marker. Keep one browser per PDF request and one fresh Playwright page per packet.
 
 - [x] **Step 4: Run the focused tests and confirm they pass**
 

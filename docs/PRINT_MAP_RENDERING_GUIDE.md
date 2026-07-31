@@ -389,12 +389,11 @@ This operation creates render geometry in memory. It must never update
 
 ## Street labels
 
-Keep only the OpenFreeMap/OpenMapTiles minor and major highway-name layers. For the selected route,
-add a dedicated label source derived from packet route GeoJSON so short selected roads remain named.
-Emit one label feature per unique selected street, using its longest route segment. Split that label
-line at turns sharper than 45 degrees and keep the longest resulting run so a street name is not
-centered across a hard corner. Suppress that street name in the two basemap highway-name layers to
-prevent duplicate labels.
+Keep only the native OpenFreeMap/OpenMapTiles minor and major highway-name layers. Insert the
+orange route immediately below `highway-name-minor`, and leave both native label layers' sources,
+filters, line placement, collision handling, and spacing unchanged. Do not add a selected-route
+label source or layer, and do not suppress matching native street names. OpenMapTiles alone decides
+which names fit and where they repeat.
 
 ```text
 font:              Noto Sans Bold
@@ -410,10 +409,6 @@ interpolation:     linear
 
 Pure white text matters in print. The restrained dark halo supplies contrast without creating the
 heavy outlined-text appearance of the original OpenStreetMap style.
-
-Selected-route labels use Noto Sans Bold, pure white fill, a `#716863` 1.5-pixel halo, and linear
-size stops of 13 pixels at zoom 14 and 17 pixels at zoom 18. They permit overlap only after the
-one-label-per-street and basemap-suppression rules have removed duplicates.
 
 ## Starting marker and house numbers
 
