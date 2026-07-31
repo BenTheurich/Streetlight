@@ -35,6 +35,10 @@ export function forwardMapCameraChange(
   return merged;
 }
 
+export function isReflectedMapCamera(published: MapCamera | null, incoming: MapCamera): boolean {
+  return published !== null && mergeMapCamera(published, incoming) === published;
+}
+
 export function positionBounds(positions: Position[]): [[number, number], [number, number]] | null {
   if (positions.length === 0) return null;
   const longitudes = positions.map(([longitude]) => longitude);

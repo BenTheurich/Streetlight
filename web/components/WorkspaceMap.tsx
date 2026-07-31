@@ -7,6 +7,7 @@ import { loadGoogleMaps, type StreetlightMapType } from '@/lib/google-maps-brows
 import {
   forwardMapCameraChange,
   googleZoomToMapLibre,
+  isReflectedMapCamera,
   type MapCamera,
   mapLibreZoomToGoogle,
   mapLoadErrorIsFatal,
@@ -37,6 +38,7 @@ export function WorkspaceMap({
   const markerRef = useRef<MapLibreMarker | null>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
   const cameraRef = useRef(camera);
+  const publishedCameraRef = useRef<MapCamera | null>(null);
   const mapTypeRef = useRef(mapType);
   const appliedMapTypeRef = useRef(mapType);
   const onCameraChangeRef = useRef(onCameraChange);
@@ -45,7 +47,6 @@ export function WorkspaceMap({
   const [googleRequested, setGoogleRequested] = useState(mapType === 'satellite');
   const [satelliteError, setSatelliteError] = useState('');
 
-  cameraRef.current = camera;
   mapTypeRef.current = mapType;
   onCameraChangeRef.current = onCameraChange;
   onMapChangeRef.current = onMapChange;
@@ -100,7 +101,10 @@ export function WorkspaceMap({
               center: [center.lng, center.lat] as [number, number],
               zoom: mapLibreZoomToGoogle(map.getZoom()),
             },
-            onCameraChangeRef.current,
+            (next) => {
+              publishedCameraRef.current = next;
+              onCameraChangeRef.current(next);
+            },
           );
           if (nextCamera === currentCamera) return;
           cameraRef.current = nextCamera;
@@ -138,6 +142,12 @@ export function WorkspaceMap({
   }, [data, mapType]);
 
   useEffect(() => {
+    if (isReflectedMapCamera(publishedCameraRef.current, camera)) {
+      publishedCameraRef.current = null;
+      return;
+    }
+    publishedCameraRef.current = null;
+    cameraRef.current = camera;
     const map = mapRef.current;
     if (!map || mapStatus !== 'ready') return;
     map.jumpTo({ center: camera.center, zoom: googleZoomToMapLibre(camera.zoom) });
