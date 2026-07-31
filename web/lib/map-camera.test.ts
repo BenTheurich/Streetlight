@@ -45,3 +45,12 @@ test('map fitting derives one bound from every visible position', async () => {
   );
   assert.equal(camera.positionBounds?.([]), null);
 });
+
+test('a recoverable MapLibre error after load does not replace the ready map', async () => {
+  const camera = (await import('./map-camera.ts')) as unknown as {
+    mapLoadErrorIsFatal?: (loaded: boolean) => boolean;
+  };
+
+  assert.equal(camera.mapLoadErrorIsFatal?.(false), true);
+  assert.equal(camera.mapLoadErrorIsFatal?.(true), false);
+});

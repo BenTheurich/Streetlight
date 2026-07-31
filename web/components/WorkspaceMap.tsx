@@ -4,7 +4,12 @@ import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import type { MapLabData } from '@/lib/database';
 import { loadGoogleMaps, type StreetlightMapType } from '@/lib/google-maps-browser';
-import { googleZoomToMapLibre, type MapCamera, mapLibreZoomToGoogle } from '@/lib/map-camera';
+import {
+  googleZoomToMapLibre,
+  type MapCamera,
+  mapLibreZoomToGoogle,
+  mapLoadErrorIsFatal,
+} from '@/lib/map-camera';
 import baseStyleJson from '@/lib/open-map-base-style.json';
 import { buildOpenLabStyle, type OpenMapStyle } from '@/lib/open-map-style';
 
@@ -51,6 +56,7 @@ export function WorkspaceMap({
     void import('maplibre-gl')
       .then(({ Map: MapLibre, Marker }) => {
         if (disposed || !openElementRef.current) return;
+        let loaded = false;
         const map = new MapLibre({
           attributionControl: false,
           center: cameraRef.current.center,
@@ -73,6 +79,7 @@ export function WorkspaceMap({
           .addTo(map);
         map.on('load', () => {
           if (disposed) return;
+          loaded = true;
           setMapStatus('ready');
           onMapChangeRef.current(map);
         });
@@ -90,7 +97,7 @@ export function WorkspaceMap({
           });
         });
         map.on('error', (event) => {
-          if (!disposed && event.error) setMapStatus('error');
+          if (!disposed && event.error && mapLoadErrorIsFatal(loaded)) setMapStatus('error');
         });
       })
       .catch(() => {
