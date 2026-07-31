@@ -90,6 +90,30 @@ function coverageWidthExpression(): unknown[] {
   return ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5];
 }
 
+const INTERACTIVE_ROAD_STOPS: Array<[string, unknown[]]> = [
+  ['highway_path', [11, 0.5, 13, 1]],
+  [
+    'highway_minor',
+    [
+      11,
+      ['match', ['get', 'class'], 'minor', 1, 'service', 0.5, 'track', 0.35, 1],
+      13,
+      ['match', ['get', 'class'], 'minor', 4, 'service', 1.5, 'track', 1, 4],
+    ],
+  ],
+  ['highway_major_inner', [11, 2.5, 13, 6]],
+  ['highway_motorway_inner', [11, 4, 13, 8]],
+];
+
+function addInteractiveRoadStops(style: OpenMapStyle): void {
+  for (const [id, stops] of INTERACTIVE_ROAD_STOPS) {
+    const paint = style.layers.find((layer) => layer.id === id)?.paint;
+    const width = paint?.['line-width'];
+    if (!paint || !Array.isArray(width) || width[0] !== 'interpolate') continue;
+    paint['line-width'] = [...width.slice(0, 3), ...stops, ...width.slice(3)];
+  }
+}
+
 function worldX(longitude: number): number {
   return (longitude + 180) / 360;
 }
@@ -243,7 +267,11 @@ function insertBefore(style: OpenMapStyle, beforeId: string, layers: StyleLayer[
   style.layers.splice(index < 0 ? style.layers.length : index, 0, ...layers);
 }
 
-function addBuildingLayer(style: OpenMapStyle, buildings: PacketMapGeneration['buildings']): void {
+function addBuildingLayer(
+  style: OpenMapStyle,
+  buildings: PacketMapGeneration['buildings'],
+  minzoom?: number,
+): void {
   style.sources.streetlightBuildings = {
     type: 'geojson',
     data: {
@@ -255,18 +283,290 @@ function addBuildingLayer(style: OpenMapStyle, buildings: PacketMapGeneration['b
       })),
     },
   };
-  insertBefore(style, 'highway_path', [
-    {
-      id: 'streetlight-buildings',
-      type: 'fill',
-      source: 'streetlightBuildings',
-      paint: {
-        'fill-color': '#e6e9ed',
-        'fill-opacity': 0.98,
-        'fill-outline-color': '#d2d7dc',
-      },
+  const layer: StyleLayer = {
+    id: 'streetlight-buildings',
+    type: 'fill',
+    source: 'streetlightBuildings',
+    paint: {
+      'fill-color': '#e6e9ed',
+      'fill-opacity': 0.98,
+      'fill-outline-color': '#d2d7dc',
     },
-  ]);
+  };
+  if (minzoom !== undefined) layer.minzoom = minzoom;
+  insertBefore(style, 'highway_path', [layer]);
+}
+
+type BuildingPolygon = Position[][];
+
+function buildingPolygons(building: MapLabData['buildings'][number]): BuildingPolygon[] {
+  return building.geometry.type === 'Polygon'
+    ? [building.geometry.coordinates]
+    : building.geometry.coordinates;
+}
+
+function pointInRing([longitude, latitude]: Position, ring: Position[]): boolean {
+  let inside = false;
+  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+    const start = ring[previous];
+    const end = ring[index];
+    if (
+      end[1] > latitude !== start[1] > latitude &&
+      longitude < ((start[0] - end[0]) * (latitude - end[1])) / (start[1] - end[1]) + end[0]
+    ) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function pointInBuilding(point: Position, polygon: BuildingPolygon): boolean {
+  return (
+    pointInRing(point, polygon[0] ?? []) &&
+    !polygon.slice(1).some((ring) => pointInRing(point, ring))
+  );
+}
+
+function pointToSegmentDistanceMeters(point: Position, start: Position, end: Position): number {
+  const scale = Math.cos(((point[1] + start[1] + end[1]) * Math.PI) / 540);
+  const x = (point[0] - start[0]) * scale;
+  const y = point[1] - start[1];
+  const dx = (end[0] - start[0]) * scale;
+  const dy = end[1] - start[1];
+  const lengthSquared = dx * dx + dy * dy;
+  const amount =
+    lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, (x * dx + y * dy) / lengthSquared));
+  return Math.hypot(x - amount * dx, y - amount * dy) * 111_320;
+}
+
+function distanceToBuilding(
+  point: Position,
+  building: MapLabData['buildings'][number],
+): { distance: number; polygon: BuildingPolygon } | null {
+  let nearest: { distance: number; polygon: BuildingPolygon } | null = null;
+  for (const polygon of buildingPolygons(building)) {
+    if (pointInBuilding(point, polygon)) return { distance: 0, polygon };
+    for (const ring of polygon) {
+      for (let index = 0; index < ring.length; index += 1) {
+        const distance = pointToSegmentDistanceMeters(
+          point,
+          ring[index],
+          ring[(index + 1) % ring.length],
+        );
+        if (!nearest || distance < nearest.distance) nearest = { distance, polygon };
+      }
+    }
+  }
+  return nearest;
+}
+
+function buildingLabelPosition(polygon: BuildingPolygon, fallback: Position): Position {
+  const ring = polygon[0] ?? [];
+  if (ring.length < 3) return fallback;
+  const origin = ring[0];
+  let twiceArea = 0;
+  let longitude = 0;
+  let latitude = 0;
+  for (let index = 0; index < ring.length; index += 1) {
+    const start = ring[index];
+    const end = ring[(index + 1) % ring.length];
+    const startX = start[0] - origin[0];
+    const startY = start[1] - origin[1];
+    const endX = end[0] - origin[0];
+    const endY = end[1] - origin[1];
+    const cross = startX * endY - endX * startY;
+    twiceArea += cross;
+    longitude += (startX + endX) * cross;
+    latitude += (startY + endY) * cross;
+  }
+  if (Math.abs(twiceArea) < 1e-20) return fallback;
+  const center: Position = [
+    origin[0] + longitude / (3 * twiceArea),
+    origin[1] + latitude / (3 * twiceArea),
+  ];
+  return pointInBuilding(center, polygon) ? center : fallback;
+}
+
+function positionedHouseNumbers(data: MapLabData): MapLabData['houseNumbers'] {
+  const gridSize = 0.001;
+  const houseNumberGrid = new Map<string, number[]>();
+  data.houseNumbers.forEach(({ position }, index) => {
+    const key = `${Math.floor(position[0] / gridSize)}:${Math.floor(position[1] / gridSize)}`;
+    houseNumberGrid.set(key, [...(houseNumberGrid.get(key) ?? []), index]);
+  });
+  const femaMatches = new Map<number, BuildingPolygon>();
+  for (const building of data.buildings) {
+    if (building.source !== 'fema') continue;
+    if (building.address) {
+      const candidateIndexes = data.houseNumbers.flatMap((houseNumber, index) =>
+        houseNumber.number === building.address?.number &&
+        houseNumber.street.trim().toUpperCase() === building.address.street.trim().toUpperCase()
+          ? [index]
+          : [],
+      );
+      const match =
+        candidateIndexes.length === 1
+          ? distanceToBuilding(data.houseNumbers[candidateIndexes[0]].position, building)
+          : null;
+      if (match) femaMatches.set(candidateIndexes[0], match.polygon);
+      continue;
+    }
+    if (!building.fema) continue;
+    const fema = building.fema;
+    const coordinates = buildingPolygons(building).flat(2);
+    if (coordinates.length === 0) continue;
+    const longitudes = coordinates.map(([longitude]) => longitude);
+    const latitudes = coordinates.map(([, latitude]) => latitude);
+    const latitudeMargin = (fema.distanceMeters + 0.01) / 111_320;
+    const latitude = latitudes.reduce((total, value) => total + value, 0) / latitudes.length;
+    const longitudeMargin = latitudeMargin / Math.max(Math.cos((latitude * Math.PI) / 180), 0.01);
+    const candidateIndexes = new Set<number>();
+    for (
+      let longitudeCell = Math.floor((Math.min(...longitudes) - longitudeMargin) / gridSize);
+      longitudeCell <= Math.floor((Math.max(...longitudes) + longitudeMargin) / gridSize);
+      longitudeCell += 1
+    ) {
+      for (
+        let latitudeCell = Math.floor((Math.min(...latitudes) - latitudeMargin) / gridSize);
+        latitudeCell <= Math.floor((Math.max(...latitudes) + latitudeMargin) / gridSize);
+        latitudeCell += 1
+      ) {
+        for (const index of houseNumberGrid.get(`${longitudeCell}:${latitudeCell}`) ?? []) {
+          candidateIndexes.add(index);
+        }
+      }
+    }
+    const candidates = [...candidateIndexes]
+      .map((index) => ({
+        index,
+        match: distanceToBuilding(data.houseNumbers[index].position, building),
+      }))
+      .filter(
+        (
+          candidate,
+        ): candidate is {
+          index: number;
+          match: { distance: number; polygon: BuildingPolygon };
+        } =>
+          candidate.match !== null &&
+          Math.abs(candidate.match.distance - fema.distanceMeters) <= 0.01,
+      );
+    if (candidates.length === 1) {
+      femaMatches.set(candidates[0].index, candidates[0].match.polygon);
+    }
+  }
+
+  const grid = new Map<string, Array<{ buildingIndex: number; polygon: BuildingPolygon }>>();
+  data.buildings.forEach((building, buildingIndex) => {
+    if (building.source === 'fema') return;
+    for (const polygon of buildingPolygons(building)) {
+      const ring = polygon[0] ?? [];
+      if (ring.length < 3) continue;
+      const longitudeCells = ring.map(([longitude]) => Math.floor(longitude / gridSize));
+      const latitudeCells = ring.map(([, latitude]) => Math.floor(latitude / gridSize));
+      for (
+        let longitudeCell = Math.min(...longitudeCells);
+        longitudeCell <= Math.max(...longitudeCells);
+        longitudeCell += 1
+      ) {
+        for (
+          let latitudeCell = Math.min(...latitudeCells);
+          latitudeCell <= Math.max(...latitudeCells);
+          latitudeCell += 1
+        ) {
+          const key = `${longitudeCell}:${latitudeCell}`;
+          const candidates = grid.get(key) ?? [];
+          candidates.push({ buildingIndex, polygon });
+          grid.set(key, candidates);
+        }
+      }
+    }
+  });
+
+  const candidatesByAddress = data.houseNumbers.map(({ position }) => {
+    const longitudeCell = Math.floor(position[0] / gridSize);
+    const latitudeCell = Math.floor(position[1] / gridSize);
+    const candidates = (grid.get(`${longitudeCell}:${latitudeCell}`) ?? []).filter(({ polygon }) =>
+      pointInBuilding(position, polygon),
+    );
+    const buildingIndexes = new Set(candidates.map(({ buildingIndex }) => buildingIndex));
+    if (buildingIndexes.size === 1) return [{ ...candidates[0], distance: 0 }];
+    if (buildingIndexes.size > 1) return [];
+
+    for (let longitude = longitudeCell - 1; longitude <= longitudeCell + 1; longitude += 1) {
+      for (let latitude = latitudeCell - 1; latitude <= latitudeCell + 1; latitude += 1) {
+        for (const { buildingIndex } of grid.get(`${longitude}:${latitude}`) ?? []) {
+          buildingIndexes.add(buildingIndex);
+        }
+      }
+    }
+    const nearest = [...buildingIndexes]
+      .map((buildingIndex) => ({
+        buildingIndex,
+        match: distanceToBuilding(position, data.buildings[buildingIndex]),
+      }))
+      .filter(
+        (
+          candidate,
+        ): candidate is {
+          buildingIndex: number;
+          match: { distance: number; polygon: BuildingPolygon };
+        } => candidate.match !== null,
+      )
+      .sort(
+        (left, right) =>
+          left.match.distance - right.match.distance || left.buildingIndex - right.buildingIndex,
+      )
+      .map(({ buildingIndex, match }) => ({ buildingIndex, ...match }));
+    return nearest;
+  });
+  const matches = candidatesByAddress.map(([nearest, runnerUp]) =>
+    nearest?.distance <= 10 && (!runnerUp || runnerUp.distance - nearest.distance >= 3)
+      ? nearest
+      : null,
+  );
+  const rows = new Map<string, number[]>();
+  data.houseNumbers.forEach((houseNumber, index) => {
+    const number = Number.parseInt(houseNumber.number, 10);
+    const street = houseNumber.street.trim().toUpperCase();
+    if (!street || !Number.isSafeInteger(number)) return;
+    const key = `${street}:${Math.abs(number) % 2}`;
+    rows.set(key, [...(rows.get(key) ?? []), index]);
+  });
+  for (const row of rows.values()) {
+    if (row.length < 3) continue;
+    const claims = new Map<number, number>();
+    for (const index of row) {
+      const nearest = candidatesByAddress[index][0];
+      if (nearest?.distance <= 10) {
+        claims.set(nearest.buildingIndex, (claims.get(nearest.buildingIndex) ?? 0) + 1);
+      }
+    }
+    for (const index of row) {
+      const nearest = candidatesByAddress[index][0];
+      if (!matches[index] && nearest?.distance <= 10 && claims.get(nearest.buildingIndex) === 1) {
+        matches[index] = nearest;
+      }
+    }
+  }
+  const addressCounts = new Map<number, number>();
+  for (const match of matches) {
+    if (match)
+      addressCounts.set(match.buildingIndex, (addressCounts.get(match.buildingIndex) ?? 0) + 1);
+  }
+  return data.houseNumbers.map((houseNumber, index) => {
+    const femaPolygon = femaMatches.get(index);
+    if (femaPolygon) {
+      return {
+        ...houseNumber,
+        position: buildingLabelPosition(femaPolygon, houseNumber.position),
+      };
+    }
+    const match = matches[index];
+    return match && addressCounts.get(match.buildingIndex) === 1
+      ? { ...houseNumber, position: buildingLabelPosition(match.polygon, houseNumber.position) }
+      : houseNumber;
+  });
 }
 
 export function buildOpenMapStyle(
@@ -305,12 +605,14 @@ export function buildOpenLabStyle(
   const style: OpenMapStyle = satellite
     ? {
         version: 8,
+        glyphs: base.glyphs,
         sources: {
           googleSatellite: {
             type: 'raster',
             tiles: ['/api/founder/map-lab/satellite/{z}/{x}/{y}'],
             tileSize: 256,
           },
+          openmaptiles: structuredClone(base.sources.openmaptiles),
         },
         layers: [
           {
@@ -319,10 +621,29 @@ export function buildOpenLabStyle(
             source: 'googleSatellite',
             layout: { visibility: 'none' },
           },
+          ...structuredClone(
+            base.layers.filter(
+              ({ id }) => id === 'highway-name-minor' || id === 'highway-name-major',
+            ),
+          ),
         ],
       }
     : structuredClone(base);
-  if (!satellite) addBuildingLayer(style, data.buildings);
+  if (!satellite) {
+    addInteractiveRoadStops(style);
+    addBuildingLayer(style, data.buildings, 16);
+    style.sources.streetlightHouseNumbers = {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: positionedHouseNumbers(data).map(({ number, position }) => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: position },
+          properties: { number },
+        })),
+      },
+    };
+  }
   style.sources.streetlightCoverage = {
     type: 'geojson',
     data: {
@@ -363,6 +684,27 @@ export function buildOpenLabStyle(
     },
   };
   insertBefore(style, 'highway-name-minor', [
+    ...(!satellite
+      ? [
+          {
+            id: 'streetlight-house-numbers',
+            type: 'symbol',
+            source: 'streetlightHouseNumbers',
+            minzoom: 18,
+            layout: {
+              'text-field': ['get', 'number'],
+              'text-size': 10,
+              'text-font': ['Noto Sans Bold'],
+              'text-allow-overlap': false,
+            },
+            paint: {
+              'text-color': '#7b8794',
+              'text-halo-color': 'rgba(255, 255, 255, 0.72)',
+              'text-halo-width': 0.5,
+            },
+          },
+        ]
+      : []),
     {
       id: 'streetlight-boundary',
       type: 'line',

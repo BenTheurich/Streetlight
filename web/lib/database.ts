@@ -13,6 +13,7 @@ import {
   parseCoverageThresholds,
   validateCoverageDate,
 } from './coverage.ts';
+import femaAuditJson from './fema-cross-reference-audit.json' with { type: 'json' };
 import type { ImportedMapBuilding, ImportedTerritoryInput } from './overture-import.ts';
 import {
   type DownloadPacket,
@@ -247,7 +248,12 @@ export type MapLabData = {
     }
   >;
   apartmentComplexes: CoverageWorkspaceApartment[];
-  buildings: ImportedMapBuilding[];
+  buildings: Array<
+    ImportedMapBuilding & {
+      address?: { number: string; street: string };
+    }
+  >;
+  houseNumbers: Array<{ number: string; street: string; position: Position }>;
   attribution: {
     base: string;
     roads: string;
@@ -259,6 +265,20 @@ export type MapLabData = {
 export type MapLabBuildingCounts = {
   overture: number;
   fema: number;
+};
+
+const femaAudit = femaAuditJson as unknown as {
+  churchId: string;
+  territoryId: string;
+  overtureRelease: string;
+  importGeneration: number;
+  candidates: Array<{
+    sourceId: string;
+    classification: 'addressed_suppressed' | 'unaddressed';
+    confidence: 'high_confidence' | 'unresolved' | 'excluded';
+    geometry: ImportedMapBuilding['geometry'];
+    address: { number: string; street: string } | null;
+  }>;
 };
 
 export type PacketGenerationWorkspace = {
@@ -673,6 +693,50 @@ export function getMapLabData(filename?: string): MapLabData {
             : null,
       }),
     );
+    const houseNumbers = (
+      database
+        .prepare(
+          `SELECT a.house_number, a.street, a.longitude, a.latitude
+          FROM segment_addresses a
+          JOIN street_segments s ON s.id = a.street_segment_id
+          WHERE s.church_id = ? AND s.territory_id = ? AND s.is_current = 1
+            AND a.house_number IS NOT NULL AND length(trim(a.house_number)) > 0
+          ORDER BY a.id`,
+        )
+        .all(workspaceChurchId(), workspaceTerritoryId()) as Array<{
+        house_number: string;
+        street: string;
+        longitude: number;
+        latitude: number;
+      }>
+    ).map(({ house_number, street, longitude, latitude }) => ({
+      number: house_number.trim(),
+      street: street.trim(),
+      position: [longitude, latitude] as Position,
+    }));
+    const acceptedFemaGaps: MapLabData['buildings'] =
+      filename === undefined &&
+      femaAudit.churchId === workspaceChurchId() &&
+      femaAudit.territoryId === workspaceTerritoryId() &&
+      femaAudit.importGeneration === generation.import_generation &&
+      femaAudit.overtureRelease === (generation.import_release ?? OVERTURE_RELEASE)
+        ? femaAudit.candidates.flatMap((candidate) =>
+            candidate.classification === 'addressed_suppressed' &&
+            candidate.confidence === 'high_confidence' &&
+            candidate.address
+              ? [
+                  {
+                    source: 'fema' as const,
+                    sourceId: candidate.sourceId,
+                    geometry: candidate.geometry,
+                    fema: null,
+                    address: candidate.address,
+                  },
+                ]
+              : [],
+          )
+        : [];
+    const mapBuildings = [...buildings, ...acceptedFemaGaps];
     return {
       churchId: workspaceChurchId(),
       territoryId: workspaceTerritoryId(),
@@ -693,12 +757,13 @@ export function getMapLabData(filename?: string): MapLabData {
         roadClass: roadClasses.get(segment.id) ?? 'residential',
       })),
       apartmentComplexes: coverage.apartmentComplexes,
-      buildings,
+      buildings: mapBuildings,
+      houseNumbers,
       attribution: {
         base: 'OpenFreeMap © OpenMapTiles',
         roads: 'Data from OpenStreetMap',
         buildings: 'Overture Maps',
-        fema: buildings.some(({ source }) => source === 'fema') ? 'FEMA USA Structures' : null,
+        fema: mapBuildings.some(({ source }) => source === 'fema') ? 'FEMA USA Structures' : null,
       },
     };
   } finally {

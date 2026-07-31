@@ -1,8 +1,10 @@
 # Founder-only read-only Map Lab
 
-Status: founder-approved design
+Status: founder-approved design; pilot building and label strategies finalized
 
 Approved: 2026-07-30
+
+Production migration direction approved: 2026-07-31
 
 Depends on: [`Open-data packet PDF maps`](2026-07-30-open-data-packet-pdf-design.md)
 
@@ -17,6 +19,35 @@ workspace later.
 
 The lab is an evaluation surface, not a production map migration. It is private, read-only,
 separate from the normal workspace, and removable without rolling back any production behavior.
+
+## Founder-approved production direction
+
+The lab established the target architecture for a later, separately requested migration of the
+authenticated workspace:
+
+- **Map** uses MapLibre with the approved OpenFreeMap/OpenMapTiles style, OpenStreetMap geography,
+  persisted Overture/FEMA buildings, and Streetlight's existing interactive overlays.
+- **Satellite** uses the Google Maps JavaScript API in labeled `hybrid` mode. It does not reproduce
+  satellite mode by placing raw Google Map Tiles API imagery beneath MapLibre labels.
+- The initial Map view does not load Google Maps JavaScript. The application initializes Google
+  only after the user first selects Satellite.
+- After that first selection, the Google map remains mounted while hidden so later Map/Satellite
+  toggles reuse the same instance instead of creating another billable map load.
+- Both renderers share the same center and Google-equivalent zoom. A toggle transfers the latest
+  camera before revealing the destination renderer.
+- Both modes show the same current coverage segments, apartment markers, territory boundary, and
+  applicable workspace interaction state. Switching providers must not change application data.
+- Packet PDFs continue using only the approved open-data renderer. Satellite imagery is never
+  printed.
+
+The Open pane's raw-tile satellite implementation below remains useful only as Map Lab evidence.
+Do not copy its tile endpoint, session flow, or OpenFreeMap label overlay into the production
+workspace migration. Do not add a generic map-provider abstraction; reuse the two existing map
+compositions and the lab's shared-camera conversion.
+
+This split keeps the no-cost open renderer as the default while retaining Google's smoother,
+better-labeled satellite experience only when requested. Keeping the lazily created Google map
+alive also prevents ordinary toggling from repeatedly initializing billable Dynamic Maps loads.
 
 ## Scope and access
 
@@ -58,8 +89,9 @@ The Google pane uses the actual production `AdminMap` and `CoverageMap` behavior
 facsimile. It displays the current territory, the existing read-only coverage segments, and
 apartment markers using the same data and styling administrators see today.
 
-All edit controls and normal workspace sidebars are omitted. The pane may retain Google's native
-Map/Satellite control because it is part of the production baseline being evaluated.
+All edit controls and normal workspace sidebars are omitted. The pane retains the existing
+Map/Satellite control; its Satellite choice uses Google's labeled hybrid rendering so street names
+remain visible.
 
 The lab must not change the production Google components merely to make comparison easier. If a
 small read-only prop is required to suppress editing UI, it must default to current production
@@ -67,14 +99,29 @@ behavior.
 
 ## Open pane
 
-The Open pane uses MapLibre GL JS and the pinned PDF basemap style, building presentation, labels,
-colors, and layer order. Its interactive coverage overlay uses the production map's zoom-aware
-2–5-pixel stroke scale instead of the thicker print-route widths. It reads the current church's
-persisted Overture and accepted FEMA building generation.
+The Open pane uses MapLibre GL JS and the pinned PDF basemap's presentation, labels, colors, and
+layer order. It extends the road-width curves below the packet renderer's first zoom stop so roads
+taper naturally in territory-scale views, without changing the approved print widths. Building
+footprints begin at Google-equivalent zoom 17. The interactive coverage overlay uses the production
+map's zoom-aware 2–5-pixel stroke scale instead of the thicker print-route widths. The pane reads
+the current church's persisted building generation and the 11 founder-approved pilot FEMA row-gap
+fallbacks described below. Approved fallbacks use the same neutral building style as Overture;
+rejected candidates are not sent to the browser.
 
 The pane overlays:
 
 - current normalized street segments with the same coverage-age colors as the production map;
+- real retained house numbers at their imported address-point coordinates beginning at
+  Google-equivalent zoom 19, with collision avoidance. Center an Overture label when exactly one
+  address lies inside exactly one displayed footprint, or when the nearest footprint is within 10
+  meters and at least 3 meters closer than the runner-up. For a remaining label, treat addresses
+  with the same normalized street and numeric parity as one road-side row; a row of at least three
+  addresses may use its nearest footprint within 10 meters only when no other address in that row
+  claims the footprint. The global one-address-per-footprint guard still applies. Center a FEMA
+  fallback's uniquely matched address using the fallback's persisted address-to-structure
+  distance; for an approved row-gap fallback, use its explicit accepted address association.
+  Preserve the imported address position for multi-address, overlapping, unmatched, or otherwise
+  ambiguous cases;
 - apartment markers with the same current status information; and
 - the current territory boundary needed to understand coverage.
 
@@ -103,6 +150,7 @@ In satellite mode:
 
 - hide Overture/FEMA building fills because the imagery already depicts roofs;
 - keep coverage lines, apartment markers, and the territory boundary;
+- keep the OpenFreeMap major and minor street-name layers above the imagery;
 - keep Google attribution visible as required; and
 - restore the same camera when switching back to Map.
 
@@ -119,8 +167,11 @@ Add one founder-only, church-scoped read endpoint for the Open pane. It returns:
 - church and territory identifiers needed by the page;
 - current territory bounds;
 - current normalized street segment IDs, geometry, road class, street name, and coverage state;
+- numbered address points assigned to current street segments, containing only the house number
+  and coordinate needed for display;
 - current apartment coordinates and review/coverage state;
-- current persisted map buildings with source metadata;
+- current persisted map buildings with source metadata, plus only the founder-approved pilot FEMA
+  row-gap fallbacks while this remains a lab;
 - current import generation and Overture release; and
 - attribution metadata needed by the displayed layers.
 
@@ -129,6 +180,36 @@ no church ID that can override the session and has no POST, PUT, PATCH, or DELET
 
 The payload does not include resident names, volunteer information, unit identifiers, or data
 outside the selected church.
+
+### Final FEMA building strategy
+
+Overture remains the preferred footprint source. The existing direct FEMA fallback accepts a real
+Single Family Dwelling not marked as an outbuilding when a numbered Overture address is within 10
+meters of the FEMA polygon and no Overture footprint is within 10 meters of that address. It
+deduplicates by FEMA building ID and retains the matched address, measured distance, source dates,
+and retrieval provenance.
+
+The pilot revealed a narrow false-suppression case: an address can be within 10 meters of a
+neighboring Overture house while its own footprint is missing. For those candidates, first reject
+any FEMA polygon within 5 meters of an Overture footprint or without a numbered Overture address
+within 10 meters. Then accept only a FEMA Single Family Dwelling that is not an outbuilding and has
+an Overture footprint on the same side of its named road both before and after it. Each along-road
+gap must be no larger than 35 meters, each neighbor's road setback must be within 12 meters of the
+candidate, the candidate area must be 0.55–2.5 times the local median, and compactness must be at
+least 0.45. The local comparison uses same-side 40–800 square-meter Overture footprints within 100
+meters and 90 meters along the road tangent.
+
+That deterministic rule accepted 11 of the 50 addressed pilot candidates. Founder review found no
+clear false positives and one apparent false negative. The lab now renders those 11 exactly like
+ordinary FEMA fallbacks and centers each associated house number on its footprint. The other 39
+candidates and all unaddressed FEMA-only structures are omitted entirely.
+
+The pinned JSON is immutable evidence for this exact pilot generation, not the production import
+mechanism. A later production importer must recompute the same rule from pinned source releases,
+persist complete FEMA provenance, and then supply the accepted polygons to both the interactive map
+and packet renderer. Because each accepted polygon already has an address, it improves display
+completeness without adding another house to counts. Map Lab itself remains read-only and does not
+write `map_buildings`, packet data, or PDF generations.
 
 ## Diagnostics
 
@@ -173,12 +254,21 @@ The implementation must leave focused checks proving:
 - Compare mode mounts both panes and preserves one camera when switching modes;
 - bidirectional camera synchronization does not loop;
 - the Google pane uses current production coverage and apartment presentation;
-- the Open pane uses the pinned PDF basemap style while its coverage overlay uses the production
-  map's interactive zoom-aware stroke scale;
-- the Open pane displays persisted Overture and accepted FEMA buildings from the current
-  generation;
+- the Open pane preserves the pinned PDF widths at packet zooms, adds tapered interactive widths
+  below those zooms, delays buildings until Google-equivalent zoom 17, and uses the production
+  map's interactive zoom-aware coverage stroke scale;
+- the Open pane displays persisted Overture/FEMA buildings plus the 11 accepted pilot row gaps as
+  ordinary buildings, sends no unresolved candidates to the client, and changes no production
+  counts or persistence;
+- Open Map shows real numbered address points only from Google-equivalent zoom 19 and Open
+  Satellite does not duplicate Google's address labels. A unique one-address Overture footprint,
+  a nearest Overture footprint within 10 meters that wins by at least 3 meters, a uniquely claimed
+  nearest footprint in a three-address same-street/parity row, a uniquely identified persisted FEMA
+  fallback, and an explicitly associated approved row-gap fallback center their labels, while
+  multi-address and ambiguous cases retain their imported coordinates;
 - Google satellite requests begin only after explicit selection;
-- satellite mode hides building fills but keeps Streetlight overlays and required attribution;
+- satellite modes keep street names visible; the Open pane hides building fills but keeps
+  Streetlight overlays and required attribution;
 - pane errors remain isolated;
 - diagnostics remain in memory and write nothing; and
 - normal production workspace routes and behavior remain unchanged.
@@ -194,17 +284,17 @@ The founder evaluates the lab separately from the PDF migration:
 2. Pan and zoom through dense neighborhoods, parks, major roads, service roads, dead ends, and
    known Overture/FEMA coverage gaps.
 3. Compare street-label readability, road hierarchy, coverage-line alignment, apartment markers,
-   building completeness, and general visual calm against Google.
+   building completeness, house-number placement, and general visual calm against Google.
 4. Enter Compare mode at several zoom levels and confirm both cameras remain synchronized.
-5. Switch the Open pane between Map and Satellite and confirm the camera and Streetlight overlays
-   remain stable.
+5. Switch both panes between Map and Satellite and confirm street names remain visible while the
+   camera and Streetlight overlays remain stable.
 6. Review ready time, payload size, feature counts, browser console errors, and subjective
    pan/zoom responsiveness in single-map mode.
 7. Confirm ordinary workspace editing and Google behavior are unchanged.
 
-The founder then makes a separate product decision: keep Google in the workspace, revise the
-experiment, or design a production interactive-map migration. Approval of the packet PDF renderer
-does not imply approval of the interactive map.
+The founder approved the production direction recorded above on 2026-07-31. Applying it to the
+authenticated workspace remains a separate implementation request; this lab does not make that
+change itself.
 
 ## Acceptance boundary
 
@@ -226,7 +316,8 @@ The Map Lab does not:
 - migrate packet PDF rendering, which is the preceding project;
 - build a generic map-provider abstraction;
 - build vector tiles or a map data service before payload measurement;
+- infer house numbers or move an address label when the nearest building is ambiguous;
 - persist diagnostics or add analytics;
 - cache or prefetch Google satellite tiles;
 - use satellite imagery in printed packets; or
-- create a permanent product feature before the founder approves a later migration.
+- perform the separately approved production workspace migration.

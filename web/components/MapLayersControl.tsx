@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { normalizeStreetlightMapType, type StreetlightMapType } from '@/lib/google-maps-browser';
+import {
+  googleMapTypeId,
+  normalizeStreetlightMapType,
+  type StreetlightMapType,
+} from '@/lib/google-maps-browser';
 
 export function MapLayersControl({ map }: { map: google.maps.Map | null }) {
   const [open, setOpen] = useState(false);
@@ -38,7 +42,7 @@ export function MapLayersControl({ map }: { map: google.maps.Map | null }) {
   if (!map) return null;
 
   function choose(next: StreetlightMapType) {
-    map?.setMapTypeId(next);
+    map?.setMapTypeId(googleMapTypeId(next));
     setMapType(next);
     setOpen(false);
     triggerRef.current?.focus();

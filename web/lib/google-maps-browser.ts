@@ -5,7 +5,11 @@ let mapsPromise: Promise<typeof google.maps> | undefined;
 export type StreetlightMapType = 'roadmap' | 'satellite';
 
 export function normalizeStreetlightMapType(value: string | null | undefined): StreetlightMapType {
-  return value === 'satellite' ? 'satellite' : 'roadmap';
+  return value === 'satellite' || value === 'hybrid' ? 'satellite' : 'roadmap';
+}
+
+export function googleMapTypeId(value: StreetlightMapType): 'roadmap' | 'hybrid' {
+  return value === 'satellite' ? 'hybrid' : 'roadmap';
 }
 
 export function loadGoogleMaps(apiKey: string): Promise<typeof google.maps> {

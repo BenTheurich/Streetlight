@@ -50,6 +50,22 @@ test('map lab data is founder-only, church-scoped, and read-only', async () => {
       }),
       '2026-07-30T00:00:00Z',
     );
+  const segmentId = database
+    .prepare(
+      `SELECT id
+      FROM street_segments
+      WHERE church_id = ? AND territory_id = ? AND is_current = 1
+      ORDER BY id
+      LIMIT 1`,
+    )
+    .get('church-temecula-pilot', 'territory-temecula-pilot') as { id: string };
+  const insertAddress = database.prepare(
+    `INSERT INTO segment_addresses
+      (street_segment_id, house_number, street, longitude, latitude)
+    VALUES (?, ?, 'Amberley Circle', ?, ?)`,
+  );
+  insertAddress.run(segmentId.id, '31308', -117.1114, 33.5395);
+  insertAddress.run(segmentId.id, null, -117.1115, 33.5396);
   database.close();
 
   try {
@@ -72,6 +88,7 @@ test('map lab data is founder-only, church-scoped, and read-only', async () => {
       bounds: [number, number, number, number];
       segments: Array<{ roadClass: string; coverageClass: string }>;
       buildings: Array<{ sourceId: string }>;
+      houseNumbers: Array<{ number: string; street: string; position: [number, number] }>;
     };
     assert.equal(result.churchId, 'church-temecula-pilot');
     assert.equal(result.territoryId, 'territory-temecula-pilot');
@@ -81,6 +98,10 @@ test('map lab data is founder-only, church-scoped, and read-only', async () => {
       result.buildings.map(({ sourceId }) => sourceId),
       ['building-current'],
     );
+    assert.equal('femaAuditCandidates' in result, false);
+    assert.deepEqual(result.houseNumbers, [
+      { number: '31308', street: 'Amberley Circle', position: [-117.1114, 33.5395] },
+    ]);
 
     const override = await handleMapLabData(
       request('GET', '?churchId=other'),

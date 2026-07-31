@@ -2,7 +2,7 @@
 
 Status: approved founder direction  
 Approved: 2026-07-27
-Updated: 2026-07-29
+Updated: 2026-07-31
 
 ## Authority
 
@@ -100,6 +100,14 @@ Apartment complexes are separate tracked outreach units.
 - The first release uses one deterministic global Overture pipeline for transportation segments,
   address points, and residential building footprints. Do not add city-by-city or county-by-county
   production integrations. Authoritative local data may be used only as a test reference.
+- FEMA USA Structures may fill a displayed footprint gap only for a Single Family Dwelling that is
+  not marked as an outbuilding. Accept either a direct match to a numbered Overture address within
+  10 meters when no Overture footprint is within 10 meters, or the approved same-side row-gap rule:
+  the FEMA polygon is not within 5 meters of an Overture footprint, has a numbered address within
+  10 meters, is bracketed by nearby Overture homes on the same side of the named road, and passes
+  the documented spacing, setback, area, and compactness limits. Deduplicate by FEMA building ID,
+  retain match provenance, and omit unresolved candidates. A fallback paired with an already
+  counted address improves the map but does not add another estimated home.
 - Address assignment prefers a nearby matching street name, but name agreement is evidence rather
   than a hard requirement. An otherwise unmatched address may be assigned to an unambiguous nearby
   plausible residential road. Ambiguous addresses remain unmatched.
@@ -432,10 +440,15 @@ The founder-church pilot uses the smallest operational stack that supports the e
 - WorkOS AuthKit provides invite-only email/password authentication, persistent sessions,
   invitation emails, and one organization per church. Use the standard WorkOS domain during the
   pilot; do not purchase its custom-domain add-on.
-- Google Maps remains the provider for the primary interactive map, geocoding, and road snapping.
-  Printable packet maps use Streetlight's pinned OpenFreeMap/OpenMapTiles style with OpenStreetMap
-  roads, Overture building footprints, and eligible FEMA USA Structures fallbacks. Configure Google
-  API quotas before deployment.
+- The primary interactive street map uses MapLibre with Streetlight's pinned
+  OpenFreeMap/OpenMapTiles style, OpenStreetMap geography, Overture building footprints, and
+  eligible FEMA USA Structures fallbacks. Selecting Satellite lazily initializes Google Maps
+  JavaScript in labeled hybrid mode; after its first use, keep that map instance mounted and reuse
+  it across Map/Satellite toggles. Ordinary map viewing must not load Google Maps. Both modes
+  preserve the same camera and Streetlight overlays.
+- Printable packet maps use the same pinned open-data cartography and never use Google imagery.
+  Google remains the provider for geocoding, road snapping, satellite viewing, and the printed
+  directions QR code. Configure Google API quotas before deployment.
 - Enable Railway sleeping where compatible and set a hard spending limit. Use the generated Railway
   domain until the founder church approves the pilot; `streetlight.church` remains a possible later
   purchase.

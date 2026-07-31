@@ -15,5 +15,10 @@ test('map lab mounts only selected engines and keeps diagnostics in component me
   assert.match(source, /setLayoutProperty\('satellite', 'visibility', 'visible'\)/);
   assert.match(source, /key=\{`open-\$\{openKey\}`\}/);
   assert.match(source, /key=\{`google-\$\{googleKey\}`\}/);
+  assert.doesNotMatch(source, /FEMA gap audit/);
+  assert.doesNotMatch(source, /high-confidence row gaps/);
+  assert.doesNotMatch(source, /unresolved candidates/);
+  assert.doesNotMatch(source, /without Overture address/);
+  assert.doesNotMatch(source, /Audit only — not counted/);
   assert.doesNotMatch(source, /method:\s*['"](POST|PUT|PATCH|DELETE)/);
 });

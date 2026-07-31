@@ -319,7 +319,13 @@ function OpenPane({
         {data && (
           <span className="map-lab-attribution">
             {satellite
-              ? `Google Maps${satelliteCopyright ? ` · ${satelliteCopyright}` : ''}`
+              ? [
+                  `Google Maps${satelliteCopyright ? ` · ${satelliteCopyright}` : ''}`,
+                  data.attribution.base,
+                  data.attribution.roads,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
               : [
                   data.attribution.base,
                   data.attribution.roads,

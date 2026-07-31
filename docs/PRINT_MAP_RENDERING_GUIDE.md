@@ -167,7 +167,7 @@ A production territory import must handle service pagination and record the FEMA
 source, product date, image date, and retrieval time. FEMA is U.S.-only; outside its coverage,
 Streetlight renders Overture buildings alone.
 
-### Deterministic fallback rule
+### Deterministic fallback rules
 
 Use a `10 meter` point-to-polygon distance threshold.
 
@@ -188,6 +188,27 @@ For each numbered Overture address:
 5. Deduplicate accepted fallbacks by FEMA `BUILD_ID`.
 6. Record the address ID, FEMA building ID, and measured distance as validation provenance.
 7. If the checks fail, render nothing for that address. Do not draw a guessed building.
+
+The direct rule can falsely suppress a missing home when its address is within 10 meters of a
+neighboring Overture footprint. Apply this second, narrower row-gap rule only to those suppressed
+candidates:
+
+1. Reject a FEMA polygon within 5 meters of any Overture footprint or without a numbered Overture
+   address within 10 meters.
+2. Require `PRIM_OCC === "Single Family Dwelling"` and a non-truthy `OUTBLDG`.
+3. Require an Overture footprint on the same side of the named road both before and after the FEMA
+   polygon. Each along-road gap must be at most 35 meters and each neighbor's road setback must be
+   within 12 meters of the candidate's setback.
+4. Require candidate area to be 0.55–2.5 times the local median and compactness to be at least
+   0.45. Compute the median from same-side 40–800 square-meter Overture footprints within 100 meters
+   and no more than 90 meters along the road tangent.
+5. Deduplicate by FEMA `BUILD_ID`, retain the matched address and full FEMA provenance, and reject
+   every unresolved candidate.
+
+The founder pilot accepted 11 of 50 addressed row-gap candidates with no observed false positives
+and one apparent false negative. These thresholds are the approved deterministic rule, not values
+to tune per screenshot or locality. The accepted polygon improves map completeness but does not add
+another estimated home because its matched address is already counted.
 
 The approved sample contained 236 Overture building polygons and only 5 accepted FEMA fallbacks.
 Those numbers are evidence for that packet, not constants for other territories.
