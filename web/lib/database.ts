@@ -281,6 +281,45 @@ const femaAudit = femaAuditJson as unknown as {
   }>;
 };
 
+function withAcceptedFemaGaps(
+  buildings: MapLabData['buildings'],
+  scope: {
+    churchId: string;
+    territoryId: string;
+    importGeneration: number;
+    overtureRelease: string;
+  },
+): MapLabData['buildings'] {
+  if (
+    femaAudit.churchId !== scope.churchId ||
+    femaAudit.territoryId !== scope.territoryId ||
+    femaAudit.importGeneration !== scope.importGeneration ||
+    femaAudit.overtureRelease !== scope.overtureRelease
+  ) {
+    return buildings;
+  }
+  const sourceIds = new Set(buildings.map(({ sourceId }) => sourceId));
+  return [
+    ...buildings,
+    ...femaAudit.candidates.flatMap((candidate) =>
+      candidate.classification === 'addressed_suppressed' &&
+      candidate.confidence === 'high_confidence' &&
+      candidate.address &&
+      !sourceIds.has(candidate.sourceId)
+        ? [
+            {
+              source: 'fema' as const,
+              sourceId: candidate.sourceId,
+              geometry: candidate.geometry,
+              fema: null,
+              address: candidate.address,
+            },
+          ]
+        : [],
+    ),
+  ];
+}
+
 export type PacketGenerationWorkspace = {
   center: Position;
   segments: PacketSelectionSegment[];
@@ -714,29 +753,12 @@ export function getMapLabData(filename?: string): MapLabData {
       street: street.trim(),
       position: [longitude, latitude] as Position,
     }));
-    const acceptedFemaGaps: MapLabData['buildings'] =
-      filename === undefined &&
-      femaAudit.churchId === workspaceChurchId() &&
-      femaAudit.territoryId === workspaceTerritoryId() &&
-      femaAudit.importGeneration === generation.import_generation &&
-      femaAudit.overtureRelease === (generation.import_release ?? OVERTURE_RELEASE)
-        ? femaAudit.candidates.flatMap((candidate) =>
-            candidate.classification === 'addressed_suppressed' &&
-            candidate.confidence === 'high_confidence' &&
-            candidate.address
-              ? [
-                  {
-                    source: 'fema' as const,
-                    sourceId: candidate.sourceId,
-                    geometry: candidate.geometry,
-                    fema: null,
-                    address: candidate.address,
-                  },
-                ]
-              : [],
-          )
-        : [];
-    const mapBuildings = [...buildings, ...acceptedFemaGaps];
+    const mapBuildings = withAcceptedFemaGaps(buildings, {
+      churchId: workspaceChurchId(),
+      territoryId: workspaceTerritoryId(),
+      importGeneration: generation.import_generation,
+      overtureRelease: generation.import_release ?? OVERTURE_RELEASE,
+    });
     return {
       churchId: workspaceChurchId(),
       territoryId: workspaceTerritoryId(),
@@ -1143,6 +1165,14 @@ export function getPacketDownloadSelection(
       WHERE church_id = ? AND territory_id = ? AND import_generation = ?
       ORDER BY source, source_feature_id`,
     );
+    const houseNumberRows = database.prepare(
+      `SELECT a.house_number, a.street, a.longitude, a.latitude
+      FROM segment_addresses a
+      JOIN street_segments s ON s.id = a.street_segment_id
+      WHERE s.church_id = ? AND s.territory_id = ? AND s.import_generation = ?
+        AND a.house_number IS NOT NULL AND length(trim(a.house_number)) > 0
+      ORDER BY a.id`,
+    );
     const mapGenerations = [...new Set(packets.map(({ importGeneration }) => importGeneration))]
       .sort((first, second) => first - second)
       .map((importGeneration) => {
@@ -1163,7 +1193,7 @@ export function getPacketDownloadSelection(
           fema_product_date: string | null;
           fema_image_date: string | null;
         }>;
-        const buildings = rawBuildings.map((building) => ({
+        const storedBuildings = rawBuildings.map((building) => ({
           source: building.source,
           sourceId: building.source_feature_id,
           geometry: parseGeometry<
@@ -1186,9 +1216,32 @@ export function getPacketDownloadSelection(
                 }
               : null,
         }));
+        const overtureRelease = rawBuildings[0]?.overture_release ?? OVERTURE_RELEASE;
+        const buildings = withAcceptedFemaGaps(storedBuildings, {
+          churchId: workspaceChurchId(),
+          territoryId: workspaceTerritoryId(),
+          importGeneration,
+          overtureRelease,
+        });
+        const houseNumbers = (
+          houseNumberRows.all(
+            workspaceChurchId(),
+            workspaceTerritoryId(),
+            importGeneration,
+          ) as Array<{
+            house_number: string;
+            street: string;
+            longitude: number;
+            latitude: number;
+          }>
+        ).map(({ house_number, street, longitude, latitude }) => ({
+          number: house_number.trim(),
+          street: street.trim(),
+          position: [longitude, latitude] as Position,
+        }));
         return {
           importGeneration,
-          overtureRelease: rawBuildings[0]?.overture_release ?? OVERTURE_RELEASE,
+          overtureRelease,
           networkSegments: (
             networkRows.all(
               workspaceChurchId(),
@@ -1207,6 +1260,7 @@ export function getPacketDownloadSelection(
             geometry: parseGeometry<LineString>(segment.geometry_geojson),
           })),
           buildings,
+          houseNumbers,
         };
       });
     return { scope, packets, mapGenerations };

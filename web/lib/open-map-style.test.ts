@@ -6,9 +6,11 @@ import {
   buildOpenMapStyle,
   packetMapView,
   packetRouteFeatures,
+  packetStartDisplay,
   roadWidthAtZoom,
 } from './open-map-style.ts';
 import type { DownloadPacket, PacketMapGeneration } from './packet-finalization.ts';
+import type { LineString } from './territory-geometry.ts';
 
 function packet(): DownloadPacket {
   return {
@@ -88,6 +90,7 @@ function mapGeneration(): PacketMapGeneration {
         fema: null,
       },
     ],
+    houseNumbers: [],
   };
 }
 
@@ -107,8 +110,17 @@ test('packet view derives zoom from complete geometry instead of road names', ()
   const long = packetMapView(longPacket);
 
   assert(short.zoom > long.zoom);
+  assert(Math.abs(long.zoom - 12.872674880270605) < 1e-12);
+  assert.equal(Number.isInteger(long.zoom), false);
   assert(Math.abs(short.center[0] - 0.0005) < 1e-12);
   assert.equal(short.center[1], 0);
+});
+
+test('packet view includes the optimized starting-house position', () => {
+  const view = packetMapView(packet(), [0.002, 0]);
+
+  assert(Math.abs(view.center[0] - 0.001) < 1e-12);
+  assert(view.zoom < 19);
 });
 
 test('route trimming is topology-aware and leaves a real network end rounded', () => {
@@ -148,6 +160,8 @@ test('style inserts only real buildings and a route with the same width expressi
     data: { features: unknown[] };
   };
   const routeLayer = style.layers.find(({ id }) => id === 'streetlight-route');
+  const routeLabels = style.layers.find(({ id }) => id === 'streetlight-route-labels');
+  const baseLabels = style.layers.find(({ id }) => id === 'highway-name-minor');
 
   assert.equal(buildingSource.data.features.length, 1);
   assert.equal(
@@ -155,6 +169,24 @@ test('style inserts only real buildings and a route with the same width expressi
     0,
   );
   assert.deepEqual(routeLayer?.layout, { 'line-cap': 'round', 'line-join': 'round' });
+  assert.deepEqual(routeLabels?.layout, {
+    'symbol-placement': 'line-center',
+    'text-field': ['get', 'streetName'],
+    'text-font': ['Noto Sans Bold'],
+    'text-size': ['interpolate', ['linear'], ['zoom'], 14, 13, 18, 17],
+    'text-allow-overlap': true,
+    'text-ignore-placement': true,
+    'text-keep-upright': true,
+  });
+  assert.deepEqual(routeLabels?.paint, {
+    'text-color': '#ffffff',
+    'text-halo-color': '#716863',
+    'text-halo-width': 1.5,
+  });
+  assert.deepEqual(baseLabels?.filter, [
+    '!',
+    ['in', ['coalesce', ['get', 'name_en'], ['get', 'name']], ['literal', ['Main Street']]],
+  ]);
   assert.deepEqual(routeLayer?.paint?.['line-width'], [
     'interpolate',
     ['exponential', 1.4],
@@ -208,6 +240,68 @@ test('style inserts only real buildings and a route with the same width expressi
       42,
     ],
   ]);
+});
+
+test('packet style labels one longest straight route run for each street', () => {
+  const value = packet();
+  value.segments.push({
+    ...value.segments[0],
+    id: 'short-main',
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [0.002, 0],
+        [0.0021, 0],
+      ],
+    },
+  });
+  value.segments.push({
+    ...value.segments[0],
+    id: 'bent-road',
+    streetName: 'Bent Road',
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [0.01, 0],
+        [0.01, 0.002],
+        [0.011, 0.002],
+      ],
+    },
+  });
+  const style = buildOpenMapStyle(
+    { version: 8, sources: {}, layers: [{ id: 'highway-name-minor', type: 'symbol' }] },
+    value,
+    mapGeneration(),
+    18,
+  );
+  const source = style.sources.streetlightRouteLabels as {
+    data: { features: Array<{ geometry: LineString }> };
+  };
+
+  assert.equal(source.data.features.length, 2);
+  assert.deepEqual(source.data.features[0].geometry.coordinates[0], [0, 0]);
+  assert((source.data.features[0].geometry.coordinates.at(-1)?.[0] ?? 0) > 0.0008);
+  assert.deepEqual(source.data.features[1].geometry.coordinates, [
+    [0.01, 0],
+    [0.01, 0.002],
+  ]);
+  assert.equal(
+    style.layers.find(({ id }) => id === 'streetlight-route-labels')?.source,
+    'streetlightRouteLabels',
+  );
+});
+
+test('packet starting pin reuses the safe building-centered house-number position', () => {
+  const value = packet();
+  value.start = { address: '1 Main Street', position: [0.00013, 0.00005] };
+  const generation = mapGeneration();
+  generation.houseNumbers = [{ number: '1', street: 'Main Street', position: [0.00013, 0.00005] }];
+
+  const display = packetStartDisplay(value, generation);
+
+  assert.equal(display.number, '1');
+  assert(Math.abs(display.position[0] - 0.00005) < 1e-12);
+  assert(Math.abs(display.position[1] - 0.00005) < 1e-12);
 });
 
 function mapLabData(): MapLabData {

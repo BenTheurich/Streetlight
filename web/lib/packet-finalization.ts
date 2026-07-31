@@ -60,7 +60,12 @@ export type PacketMapGeneration = {
     roadClass: string;
     geometry: PacketProposal['segments'][number]['geometry'];
   }>;
-  buildings: ImportedMapBuilding[];
+  buildings: Array<
+    ImportedMapBuilding & {
+      address?: { number: string; street: string };
+    }
+  >;
+  houseNumbers: Array<{ number: string; street: string; position: Position }>;
 };
 
 export type PacketDownloadSelection = {

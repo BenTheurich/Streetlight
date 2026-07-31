@@ -76,7 +76,13 @@ export async function renderPacketPdf(
       color: muted,
     });
     const [street, ...locality] = packet.start.address.split(', ');
-    page.drawText(street, { x: 318, y: 724, size: 12, font: bold, color: ink });
+    page.drawText(street, {
+      x: 318,
+      y: 724,
+      size: Math.min(12, 169 / bold.widthOfTextAtSize(street, 1)),
+      font: bold,
+      color: ink,
+    });
     page.drawText(locality.join(', '), { x: 318, y: 705, size: 10.5, font: bold, color: ink });
     page.drawRectangle({ x: 497, y: 681, width: 94, height: 94, color: rgb(1, 1, 1) });
     page.drawImage(qr, { x: 501, y: 685, width: 86, height: 86 });

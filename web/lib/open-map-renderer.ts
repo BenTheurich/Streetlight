@@ -2,13 +2,18 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
 import baseStyleJson from './open-map-base-style.json' with { type: 'json' };
-import { buildOpenMapStyle, type OpenMapStyle, packetMapView } from './open-map-style.ts';
+import {
+  buildOpenMapStyle,
+  type OpenMapStyle,
+  packetMapView,
+  packetStartDisplay,
+} from './open-map-style.ts';
 import type { PacketDownloadSelection } from './packet-finalization.ts';
 import type { Position } from './territory-geometry.ts';
 
 export type OpenMapRenderInput = {
   packetId: string;
-  start: Position;
+  start: { number: string; position: Position };
   view: { center: Position; zoom: number };
   style: OpenMapStyle;
   attribution: string;
@@ -34,9 +39,9 @@ export function packetMapDocument(
       ${maplibreCss}
       html, body, #map { width: 1280px; height: 1280px; margin: 0; overflow: hidden; }
       body { background: #f7f8f9; font-family: "Segoe UI", Arial, sans-serif; }
-      .start-marker { position: relative; width: 32px; height: 38px; }
+      .start-marker { position: relative; width: 72px; height: 38px; }
       .start-pin {
-        position: absolute; left: 3px; top: 2px; width: 27px; height: 27px;
+        position: absolute; left: 23px; top: 2px; width: 27px; height: 27px;
         box-sizing: border-box; border: 3px solid #fff;
         border-radius: 50% 50% 50% 0; background: #0f7055;
         box-shadow: -2px 2px 4px rgba(40, 58, 68, .28);
@@ -45,6 +50,12 @@ export function packetMapDocument(
       .start-pin::after {
         content: ""; position: absolute; left: 7px; top: 7px; width: 7px; height: 7px;
         border-radius: 50%; background: #fff;
+      }
+      .start-number {
+        position: absolute; left: 50%; top: 39px; transform: translateX(-50%);
+        color: #26323b; font-size: 16px; font-weight: 700; line-height: 1;
+        white-space: nowrap; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff,
+          -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 3px #fff;
       }
       .attribution {
         position: absolute; right: 8px; bottom: 7px; z-index: 4;
@@ -73,8 +84,12 @@ export function packetMapDocument(
       const marker = document.createElement("div");
       marker.className = "start-marker";
       marker.innerHTML = '<div class="start-pin"></div>';
+      const number = document.createElement("div");
+      number.className = "start-number";
+      number.textContent = ${JSON.stringify(input.start.number)};
+      marker.append(number);
       new maplibregl.Marker({ element: marker, anchor: "bottom" })
-        .setLngLat(${JSON.stringify(input.start)})
+        .setLngLat(${JSON.stringify(input.start.position)})
         .addTo(map);
       map.once("idle", () => { window.__mapReady = true; });
       map.on("error", (event) => {
@@ -93,30 +108,34 @@ async function captureWithPlaywright(input: OpenMapRenderInput[]): Promise<Uint8
   ]);
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage({
-      viewport: { width: 1280, height: 1280 },
-      deviceScaleFactor: 1,
-      ignoreHTTPSErrors: true,
-    });
     const images: Uint8Array[] = [];
     for (const render of input) {
-      await page.setContent(packetMapDocument(render, maplibreScript, maplibreCss), {
-        waitUntil: 'domcontentloaded',
+      const page = await browser.newPage({
+        viewport: { width: 1280, height: 1280 },
+        deviceScaleFactor: 1,
+        ignoreHTTPSErrors: true,
       });
-      await page.waitForFunction(
-        () =>
-          Boolean(
-            (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapReady ||
-              (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapError,
-          ),
-        undefined,
-        { timeout: 120_000 },
-      );
-      const mapError = await page.evaluate(
-        () => (window as unknown as { __mapError?: string }).__mapError,
-      );
-      if (mapError) throw new Error(mapError);
-      images.push(new Uint8Array(await page.locator('#map').screenshot()));
+      try {
+        await page.setContent(packetMapDocument(render, maplibreScript, maplibreCss), {
+          waitUntil: 'domcontentloaded',
+        });
+        await page.waitForFunction(
+          () =>
+            Boolean(
+              (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapReady ||
+                (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapError,
+            ),
+          undefined,
+          { timeout: 120_000 },
+        );
+        const mapError = await page.evaluate(
+          () => (window as unknown as { __mapError?: string }).__mapError,
+        );
+        if (mapError) throw new Error(mapError);
+        images.push(new Uint8Array(await page.locator('#map').screenshot()));
+      } finally {
+        await page.close();
+      }
     }
     return images;
   } finally {
@@ -133,10 +152,11 @@ export async function renderOpenPacketMaps(
       ({ importGeneration }) => importGeneration === packet.importGeneration,
     );
     if (!generation) throw new Error('Could not render packet maps: import generation missing');
-    const view = packetMapView(packet);
+    const start = packetStartDisplay(packet, generation);
+    const view = packetMapView(packet, start.position);
     return {
       packetId: packet.id,
-      start: packet.start.position,
+      start,
       view,
       style: buildOpenMapStyle(
         baseStyleJson as unknown as OpenMapStyle,

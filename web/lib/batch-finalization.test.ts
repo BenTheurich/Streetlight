@@ -338,12 +338,14 @@ test('download scopes return the newest complete batch or all active packets old
       newest.mapGenerations.map((generation) => ({
         importGeneration: generation.importGeneration,
         buildingIds: generation.buildings.map(({ sourceId }) => sourceId),
+        houseNumbers: generation.houseNumbers.map(({ number }) => number),
         networkCount: generation.networkSegments.length,
       })),
       [
         {
           importGeneration: 1,
           buildingIds: ['building-generation-one'],
+          houseNumbers: ['10', '20', '30', '40'],
           networkCount: 4,
         },
       ],
@@ -376,5 +378,32 @@ test('download scopes return the newest complete batch or all active packets old
       })),
       [{ importGeneration: 1, buildingIds: ['building-generation-one'] }],
     );
+  });
+});
+
+test('packet maps include approved FEMA row gaps only for their recorded generation', () => {
+  withDatabase((filename) => {
+    preparePacketGraph(filename);
+    finalizePacketBatch(reviewedInput(filename), {
+      filename,
+      now: new Date('2026-07-28T19:30:00.000Z'),
+      asOf: '2026-07-28',
+    });
+    const database = openDatabase(filename);
+    try {
+      database.exec(`
+        UPDATE territories SET import_generation = 9;
+        UPDATE street_segments SET import_generation = 9;
+        UPDATE map_buildings SET import_generation = 9;
+        UPDATE batches SET import_generation = 9;
+      `);
+    } finally {
+      database.close();
+    }
+
+    const generation = getPacketDownloadSelection('newest', filename).mapGenerations[0];
+    assert.equal(generation.importGeneration, 9);
+    assert.ok(generation.buildings.some(({ sourceId }) => sourceId === '6026720'));
+    assert.equal(generation.buildings.filter(({ source }) => source === 'fema').length, 11);
   });
 });

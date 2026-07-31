@@ -511,6 +511,85 @@ test('migration 015 warns for a known low-quality legacy Overture import', () =>
   }
 });
 
+test('migration 022 advances only finalized street batches with identical map geography', () => {
+  const database = openDatabase(':memory:');
+  try {
+    migrateDatabase(database);
+    database.exec(`
+      INSERT INTO churches (id, name) VALUES
+        ('safe-church', 'Safe Church'),
+        ('changed-church', 'Changed Church');
+      INSERT INTO territories
+        (id, church_id, name, center_latitude, center_longitude, radius_meters,
+          boundary_geojson, import_generation)
+      VALUES
+        ('safe-territory', 'safe-church', 'Safe', 1, 1, 1000, '{}', 2),
+        ('changed-territory', 'changed-church', 'Changed', 1, 1, 1000, '{}', 2);
+      INSERT INTO street_segments
+        (id, church_id, territory_id, street_name, geometry_geojson, estimated_homes,
+          import_segment_id, is_current, import_generation)
+      VALUES
+        ('safe@1', 'safe-church', 'safe-territory', 'Safe Road', '[[0,0],[1,1]]', 10,
+          'safe', 0, 1),
+        ('safe@2', 'safe-church', 'safe-territory', 'Safe Road', '[[0,0],[1,1]]', 10,
+          'safe', 1, 2),
+        ('changed@1', 'changed-church', 'changed-territory', 'Changed Road',
+          '[[0,0],[1,1]]', 10, 'changed', 0, 1),
+        ('changed@2', 'changed-church', 'changed-territory', 'Changed Road',
+          '[[0,0],[1,1]]', 10, 'changed', 1, 2);
+      INSERT INTO segment_addresses
+        (street_segment_id, house_number, street, longitude, latitude)
+      VALUES
+        ('safe@1', '10', 'Safe Road', 1, 1),
+        ('safe@2', '10', 'Safe Road', 1, 1),
+        ('changed@1', '20', 'Changed Road', 1, 1),
+        ('changed@2', '22', 'Changed Road', 1, 1);
+      INSERT INTO batches (id, church_id, name, status, finalized_at, import_generation) VALUES
+        ('safe-batch', 'safe-church', 'Safe', 'finalized', CURRENT_TIMESTAMP, 1),
+        ('changed-batch', 'changed-church', 'Changed', 'finalized', CURRENT_TIMESTAMP, 1);
+      INSERT INTO packets
+        (id, church_id, batch_id, packet_code, start_address, estimated_homes, status)
+      VALUES
+        ('safe-packet', 'safe-church', 'safe-batch', 'SAFE', '10 Safe Road', 10, 'active'),
+        ('changed-packet', 'changed-church', 'changed-batch', 'CHANGED', '20 Changed Road',
+          10, 'active');
+      INSERT INTO packet_segments
+        (church_id, packet_id, street_segment_id, sequence_number)
+      VALUES
+        ('safe-church', 'safe-packet', 'safe@1', 0),
+        ('changed-church', 'changed-packet', 'changed@1', 0);
+      INSERT INTO map_buildings
+        (church_id, territory_id, import_generation, source, source_feature_id,
+          geometry_geojson, overture_release, retrieved_at)
+      VALUES
+        ('safe-church', 'safe-territory', 2, 'overture', 'safe-building', '{}', 'release',
+          CURRENT_TIMESTAMP),
+        ('changed-church', 'changed-territory', 2, 'overture', 'changed-building', '{}',
+          'release', CURRENT_TIMESTAMP);
+    `);
+
+    database.exec(
+      readFileSync(
+        path.join(import.meta.dirname, 'migrations', '022_backfill_packet_map_generations.sql'),
+        'utf8',
+      ),
+    );
+
+    assert.deepEqual(
+      database
+        .prepare('SELECT id, import_generation FROM batches ORDER BY id')
+        .all()
+        .map((row) => ({ ...row })),
+      [
+        { id: 'changed-batch', import_generation: 1 },
+        { id: 'safe-batch', import_generation: 2 },
+      ],
+    );
+  } finally {
+    database.close();
+  }
+});
+
 test('exclusion rows default to enabled and reject invalid states', () => {
   withDatabase((filename) => {
     const database = openDatabase(filename);

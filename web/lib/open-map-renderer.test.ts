@@ -20,7 +20,7 @@ const selection: PacketDownloadSelection = {
       batchName: 'Outreach',
       importGeneration: 1,
       estimatedHomes: 12,
-      start: { address: '1 Main Street', position: [0, 0] },
+      start: { address: '1 Main Street', position: [0.00013, 0.00005] },
       segments: [
         {
           id: 'selected',
@@ -56,7 +56,26 @@ const selection: PacketDownloadSelection = {
           },
         },
       ],
-      buildings: [],
+      buildings: [
+        {
+          source: 'overture',
+          sourceId: 'building-one',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [0, 0],
+                [0.0001, 0],
+                [0.0001, 0.0001],
+                [0, 0.0001],
+                [0, 0],
+              ],
+            ],
+          },
+          fema: null,
+        },
+      ],
+      houseNumbers: [{ number: '1', street: 'Main Street', position: [0.00013, 0.00005] }],
     },
   ],
 };
@@ -72,6 +91,9 @@ test('renders every packet with its recorded map generation', async () => {
   assert.equal(received.length, 1);
   assert.equal(received[0][0].packetId, 'packet-one');
   assert.equal(received[0][0].view.zoom, 19);
+  assert.equal(received[0][0].start.number, '1');
+  assert(Math.abs(received[0][0].start.position[0] - 0.00005) < 1e-12);
+  assert(Math.abs(received[0][0].start.position[1] - 0.00005) < 1e-12);
   assert(received[0][0].style.layers.some(({ id }) => id === 'streetlight-route'));
 });
 
@@ -93,10 +115,10 @@ test('retries one complete transient capture failure and then fails clearly', as
   );
 });
 
-test('render document is pinned, printable, and does not label a house number', () => {
+test('render document labels only the starting house number beneath the pin', () => {
   const input: OpenMapRenderInput = {
     packetId: 'packet-one',
-    start: [0, 0],
+    start: { number: '40192', position: [0, 0] },
     view: { center: [0.0005, 0], zoom: 19 },
     style: { version: 8, sources: {}, layers: [] },
     attribution: 'OpenFreeMap · Overture Maps',
@@ -105,6 +127,7 @@ test('render document is pinned, printable, and does not label a house number', 
 
   assert.match(html, /width: 1280px; height: 1280px/);
   assert.match(html, /OpenFreeMap · Overture Maps/);
-  assert.doesNotMatch(html, /1 Main Street|unpkg|house-number/);
+  assert.match(html, /number\.textContent = "40192"/);
+  assert.doesNotMatch(html, /1 Main Street|unpkg/);
   assert.match(html, /window\.__mapReady/);
 });

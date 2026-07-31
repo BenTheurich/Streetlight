@@ -113,14 +113,14 @@ The approved prototype renders a square `1280 × 1280` PNG, which the current PD
    ```
 
 3. Find the packet's world-coordinate bounding box.
-4. Multiply its width and height by `1.28`. This provides 14% breathing room on each side.
-5. Choose the largest integer zoom that fits both padded dimensions:
+4. Multiply its width and height by `1.20`. This provides 10% breathing room on each side.
+5. Choose the fractional zoom that fits both padded dimensions using MapLibre's 512-pixel world:
 
    ```text
-   zoom = floor(log2(min(
-     1280 / (256 × paddedWorldWidth),
-     1280 / (256 × paddedWorldHeight)
-   )))
+   zoom = log2(min(
+     1280 / (512 × paddedWorldWidth),
+     1280 / (512 × paddedWorldHeight)
+   ))
    ```
 
 6. Clamp the prototype zoom to `0…19`.
@@ -389,8 +389,12 @@ This operation creates render geometry in memory. It must never update
 
 ## Street labels
 
-Keep only the OpenFreeMap/OpenMapTiles minor and major highway-name layers. They remain above the
-orange route so volunteers can read the street name inside the highlighted road.
+Keep only the OpenFreeMap/OpenMapTiles minor and major highway-name layers. For the selected route,
+add a dedicated label source derived from packet route GeoJSON so short selected roads remain named.
+Emit one label feature per unique selected street, using its longest route segment. Split that label
+line at turns sharper than 45 degrees and keep the longest resulting run so a street name is not
+centered across a hard corner. Suppress that street name in the two basemap highway-name layers to
+prevent duplicate labels.
 
 ```text
 font:              Noto Sans Bold
@@ -407,6 +411,10 @@ interpolation:     linear
 Pure white text matters in print. The restrained dark halo supplies contrast without creating the
 heavy outlined-text appearance of the original OpenStreetMap style.
 
+Selected-route labels use Noto Sans Bold, pure white fill, a `#716863` 1.5-pixel halo, and linear
+size stops of 13 pixels at zoom 14 and 17 pixels at zoom 18. They permit overlap only after the
+one-label-per-street and basemap-suppression rules have removed duplicates.
+
 ## Starting marker and house numbers
 
 The approved custom-vector prototype draws a green pin at the stored packet starting coordinate:
@@ -417,12 +425,9 @@ white border: 3 px
 white center
 ```
 
-The latest comparison intentionally omitted all house-number labels, including the starting house
-number, while the PDF treatment was still being evaluated. The production migration must make one
-explicit choice before release:
-
-- draw only the packet's stored starting house number beside the pin; or
-- rely on the existing printed `STARTING ADDRESS` block above the map.
+Draw only the packet's stored starting house number directly below the pin tip. Reuse the same
+safe building-centered position computed by the Map Lab address matcher for both the marker and the
+number. If no safe building match exists, retain the immutable packet starting coordinate.
 
 Do not restore general address labels. They add clutter and may make an address appear attached to
 the wrong footprint.
@@ -446,10 +451,22 @@ The smallest production path that preserves the approved result is:
    ```
 
 5. Wait for `idle`; fail if MapLibre emits a map error.
-6. Capture only the map element as PNG.
-7. Embed the PNG through the existing `pdf-lib` flow.
-8. Keep the existing Google walking-directions QR code. The QR destination is independent of the
+6. Use one Chromium browser per PDF request and one fresh page per packet so canvas state cannot
+   leak between PDF pages.
+7. Capture only the map element as PNG.
+8. Embed the PNG through the existing `pdf-lib` flow.
+9. Keep the existing Google walking-directions QR code. The QR destination is independent of the
    printed basemap.
+
+Generate one color PDF only. The approved orange route, gray roads, white labels, building fills,
+marker, QR code, and address typography must remain distinguishable when an ordinary printer or
+driver converts that PDF to grayscale; do not add a separate one-bit or black-and-white mode.
+
+Finalized packets normally read roads, buildings, and addresses from their recorded import
+generation. A migration may advance a street-only batch to a newer building-bearing generation
+only when the complete segment geometry, street/class metadata, estimated-home counts, and address
+rows match exactly and the recorded generation has no building layer. Never fall back to "latest"
+map data at render time.
 
 The attribution control is disabled only because the print renderer draws a permanent attribution
 line itself. Never omit that replacement.

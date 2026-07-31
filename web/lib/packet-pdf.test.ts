@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PDFDocument } from 'pdf-lib';
+import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream } from 'pdf-lib';
 import type { DownloadPacket, PacketDownloadSelection } from './packet-finalization.ts';
 import { googleMapsDirectionsUrl, renderPacketPdf } from './packet-pdf.ts';
 
@@ -71,6 +71,26 @@ test('PDF contains one Letter page per packet and uses every rendered map', asyn
   for (const page of document.getPages()) {
     assert.deepEqual(page.getSize(), { width: 612, height: 792 });
   }
+});
+
+test('long starting street fits before the QR panel', async () => {
+  const value = packet('packet-a', 'TEM-001');
+  value.start.address = '39859 N GENERAL KEARNY RD, TEMECULA 92591';
+  const bytes = await renderPacketPdf(
+    { scope: 'newest', packets: [value], mapGenerations: [] },
+    { logo: png, renderMap: async () => png },
+  );
+  const document = await PDFDocument.load(bytes);
+  const contents = document.getPages()[0].node.Contents();
+  assert(contents instanceof PDFArray);
+  const stream = document.context.lookup(contents.get(0)) as PDFRawStream;
+  assert(stream instanceof PDFRawStream);
+  const operators = Buffer.from(decodePDFRawStream(stream).decode()).toString('latin1');
+  const street = operators.match(
+    /\/Helvetica-Bold-\d+ ([\d.]+) Tf\n24 TL\n1 0 0 1 318 724 Tm\n<3339383539204E2047454E4552414C204B4541524E59205244> Tj/,
+  );
+  assert(street);
+  assert.ok((182.028 / 12) * Number(street[1]) <= 169);
 });
 
 test('provider failure rejects the complete PDF instead of returning partial bytes', async () => {
