@@ -784,8 +784,12 @@ desktop and tablet widths with no clipped or unreachable controls.
   labeled hybrid is created only after Satellite is selected and follows the same camera.
 - One shared style function now controls open-map and packet-PDF road widths, colors, and label
   presentation, with a regression check preventing those renderers from drifting apart.
+- Packet PDFs now share one browser context per complete capture attempt and render no more than
+  three maps concurrently while preserving packet order and all-or-nothing retries. The seeded
+  five-packet browser download fell from 14.7 seconds to 5.14 seconds and exposes a packet-aware
+  busy message with both download actions disabled during the request.
 - Desktop, tablet, and mobile browser checks pass without horizontal overflow or unreachable tools.
-- 203 Node checks, 51 Python importer checks, Biome with no errors, TypeScript, and a production
+- 208 Node checks, 51 Python importer checks, Biome with no errors, TypeScript, and a production
   Next.js build pass.
 
 ### Human review

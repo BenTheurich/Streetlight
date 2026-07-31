@@ -3,6 +3,7 @@
 import { type FormEvent, useRef, useState } from 'react';
 import type { CoverageWorkspace } from '@/lib/database';
 import type { FinalizedBatch, ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
+import { packetDownloadProgress } from './packet-download-progress';
 
 type PacketGeneratorProps = {
   active: boolean;
@@ -175,6 +176,8 @@ export function PacketGenerator({
 
   const proposedHomes =
     result?.proposals.reduce((total, proposal) => total + proposal.estimatedHomes, 0) ?? 0;
+  const newestPacketCount = (finalized ?? latestBatch)?.packetCount ?? 0;
+  const downloadProgress = packetDownloadProgress(downloading, newestPacketCount, activePackets);
 
   return (
     <aside className="territory-sidebar packet-sidebar" hidden={!active}>
@@ -351,13 +354,14 @@ export function PacketGenerator({
           </section>
         )}
         {(latestBatch || finalized) && (
-          <section className="packet-downloads">
+          <section aria-busy={downloadProgress.busy} className="packet-downloads">
             <h2>Downloads</h2>
             <p>
               Newest: {(finalized ?? latestBatch)?.name} · {(finalized ?? latestBatch)?.packetCount}{' '}
               packet
               {(finalized ?? latestBatch)?.packetCount === 1 ? '' : 's'}
             </p>
+            {downloadProgress.message && <p aria-live="polite">{downloadProgress.message}</p>}
             <button
               disabled={downloading !== null}
               onClick={() => void downloadPacketPdf('newest')}
