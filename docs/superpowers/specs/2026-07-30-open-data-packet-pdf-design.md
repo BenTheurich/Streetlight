@@ -4,6 +4,8 @@ Status: founder-approved design
 
 Approved: 2026-07-30
 
+Updated: 2026-07-31
+
 Implementation reference: [`docs/PRINT_MAP_RENDERING_GUIDE.md`](../../PRINT_MAP_RENDERING_GUIDE.md)
 
 ## Purpose
@@ -21,6 +23,9 @@ Maps. The Google Maps directions QR code also remains unchanged.
 The open-data renderer becomes the only production renderer for packet PDF maps after the migration
 passes its automated, visual, print, licensing, and founder-review gates.
 
+Streetlight produces one color PDF. Its contrast must remain legible when a church prints that PDF
+in grayscale; there is no separate black-and-white file or one-bit rendering mode.
+
 The production stack is deliberately specific:
 
 - MapLibre GL JS renders the map in headless Chromium.
@@ -28,7 +33,7 @@ The production stack is deliberately specific:
 - OpenFreeMap hosts the OpenMapTiles vector tiles, sprites, and fonts used by that style.
 - OpenStreetMap supplies the basemap geography distributed through OpenFreeMap.
 - Overture supplies Streetlight road geometry, addresses, and preferred building footprints.
-- FEMA USA Structures supplies only deterministic, address-confirmed U.S. building fallbacks.
+- FEMA USA Structures supplies only deterministic, accepted U.S. building fallbacks.
 - Streetlight supplies packet bounds, route styling, endpoint treatment, the starting pin, and
   printed attribution.
 
@@ -53,9 +58,10 @@ The existing PDF layout and `pdf-lib` assembly in `web/lib/packet-pdf.ts` remain
 function that supplies the map PNG changes. Repeat download remains read-only and never changes
 packet, reservation, or coverage data.
 
-The map renders no house-number labels, including beside the starting pin. The existing printed
-`STARTING ADDRESS` block and the pin identify the starting house without risking a number appearing
-attached to the wrong building.
+The map renders only the packet's starting house number, beneath the starting pin. The renderer
+reuses Map Lab's deterministic address-to-building positioning rule for both. When the match is
+unambiguous, the pin and number use the building display point; otherwise they remain at the stored
+address coordinate. No other house numbers render.
 
 ## Persisted building data
 
@@ -98,6 +104,7 @@ FEMA rows additionally store the provenance that justified their inclusion:
 - measured point-to-polygon distance in meters;
 - `PRIM_OCC`;
 - `OUTBLDG`;
+- any spacing, setback, area, and compactness measurements required by the accepted rule; and
 - FEMA source, product date, and image date when supplied.
 
 The combination of church, territory, generation, source, and source feature ID is unique. Source
@@ -109,8 +116,10 @@ cleanup until retained-data size has been measured and a safe retention rule is 
 
 ### FEMA acceptance
 
-FEMA matching runs once during import, never during PDF download. It uses the exact deterministic
-rule in `docs/PRINT_MAP_RENDERING_GUIDE.md`:
+FEMA matching runs once during import, never during PDF download. It uses the two exact,
+deterministic rules in `PRODUCT.md` and `docs/PRINT_MAP_RENDERING_GUIDE.md`.
+
+The direct rule is:
 
 1. Consider only numbered Overture addresses.
 2. If an Overture building is within 10 meters of the address point, add no fallback.
@@ -120,6 +129,11 @@ rule in `docs/PRINT_MAP_RENDERING_GUIDE.md`:
 5. Deduplicate accepted rows by FEMA `BUILD_ID`.
 6. Store the matched address and distance as provenance.
 
+The same-side row-gap rule may additionally accept an addressed FEMA polygon when it passes every
+documented 5-meter footprint-separation, same-side neighbor, spacing, setback, area, and compactness
+limit. Store its full provenance. These thresholds are global product rules, not values tuned per
+route or screenshot.
+
 An unmatched address produces no marker, rectangle, or estimated footprint.
 
 ## Finalized packet snapshot
@@ -127,10 +141,10 @@ An unmatched address produces no marker, rectangle, or estimated footprint.
 Finalizing a batch records the territory `import_generation` used by that batch. All packets in the
 batch use that one generation.
 
-PDF download reads packet geometry, topology, addresses, and buildings from the recorded
-generation. It never queries the current territory generation in place of the recorded one and
-never contacts Overture or FEMA. Consequently, importing a newer territory generation does not
-change the map in an already-finalized batch.
+PDF download reads packet geometry, topology, addresses, and every accepted Overture, direct FEMA,
+and row-gap FEMA building from the recorded generation. It never queries the current territory
+generation in place of the recorded one and never contacts Overture or FEMA. Consequently,
+importing a newer territory generation does not change the map in an already-finalized batch.
 
 The founder territory receives one complete real-data import that includes persisted buildings
 before the open renderer becomes authoritative. Existing finalized batches that predate a recorded
@@ -154,14 +168,19 @@ The module defines the only production rules for:
 - road-class-to-width-family mapping;
 - zoom-aware width expressions;
 - highway label font, fill, halo, spacing, and zoom sizes;
+- selected-route labels sourced from packet route GeoJSON so short selected roads remain named;
 - route layer order;
 - bounds and zoom calculation;
-- starting pin presentation; and
+- starting pin and starting-house-number presentation; and
 - permanent attribution.
 
 It must implement the numeric values and formulas in the rendering guide, including the thicker
 minor-road fallback for unknown classes. Screenshot-specific coordinates, road names, zooms,
 endpoint offsets, and hard-coded final pixel widths are prohibited.
+
+The color palette has one grayscale-safe hierarchy: highlighted routes remain materially darker
+than ordinary roads and buildings, while route names use pure white text with a dark halo. The pin
+and starting number remain high contrast in both color and grayscale.
 
 ## Shared route and topology rules
 
@@ -185,23 +204,24 @@ abstraction.
 ## Server render flow
 
 `web/app/api/packets/pdf/route.ts` retains its authenticated, church-scoped download behavior. It
-opens one controlled headless Chromium page for the PDF request. For each requested packet it:
+opens one controlled headless Chromium browser for the PDF request. For each requested packet it:
 
 1. Load the immutable packet, recorded import generation, complete relevant road graph, persisted
    buildings, and starting position.
 2. Build the MapLibre style and GeoJSON sources using the shared rules.
-3. Calculate a square viewport from all selected coordinates and the starting position using the
-   guide's Web Mercator formula and 1.28 bounds multiplier.
-4. Reset the page to a non-interactive 1280-by-1280 MapLibre map.
-5. Wait for the map's `idle` event while listening for map errors and enforcing a render timeout.
-6. Capture only the map element as PNG.
-7. Embed the PNG in the existing 582-point square in the current PDF layout.
-8. Reset the page and continue to the next packet.
+3. Calculate a square viewport from all selected coordinates and the starting display position
+   using the guide's 512-pixel Web Mercator world and a 1.20 bounds multiplier.
+4. Keep the resulting fractional zoom; do not floor it or use tract-count presets.
+5. Open a fresh page containing a non-interactive 1280-by-1280 MapLibre map.
+6. Wait for the map's `idle` event while listening for map errors and enforcing a render timeout.
+7. Capture only the map element as PNG.
+8. Embed the PNG in the existing 582-point square in the current PDF layout.
+9. Close the page and continue to the next packet.
 
-It closes the page after the complete PDF succeeds or fails. A fresh page per PDF request is
-sufficient for the pilot. Do not add a browser pool, worker queue, cache, or standalone render
-service unless measured production render time or memory demonstrates that the simple path is
-inadequate.
+It closes each page after its packet succeeds or fails and closes the browser after the complete
+PDF succeeds or fails. A fresh page per packet prevents WebGL state from leaking between maps. Do
+not add a browser pool, worker queue, cache, or standalone render service unless measured production
+render time or memory demonstrates that the simple path is inadequate.
 
 ## Attribution and production gate
 
@@ -243,19 +263,23 @@ The implementation must leave focused checks proving:
 - a U.S. import activates roads, addresses, apartments, Overture buildings, and FEMA fallbacks in
   one generation or activates none of them;
 - an outside-coverage import records `overture_only`;
-- FEMA fallback rows satisfy and preserve the 10-meter, residential, non-outbuilding, and
-  deduplication rules;
+- FEMA fallback rows satisfy and preserve either the direct-match rule or every approved row-gap
+  threshold, plus the residential, non-outbuilding, and deduplication rules;
 - batch finalization records one import generation;
 - repeat download selects the recorded generation after a newer import becomes current;
 - pre-migration batches use an explicit matching-generation backfill;
-- viewport bounds include every route coordinate and the starting position;
+- viewport bounds include every route coordinate and the starting display position at the 1.20
+  multiplier;
 - short, medium, and long packets select different zooms through the same formula;
+- viewport zoom remains fractional and never uses tract-count presets;
 - road and route widths use the documented class-and-zoom expressions;
 - unknown roads use the minor width family;
 - route casings and basemap road casings are absent;
 - only `network_continuation` display endpoints move;
 - a selected join remains continuous and a cul-de-sac remains untrimmed;
-- no address labels, guessed buildings, or unresolved-address markers render;
+- selected routes retain names even when the basemap would omit a short-road label;
+- only the starting house number renders, beneath the pin at the deterministic display point;
+- no other address labels, guessed buildings, or unresolved-address markers render;
 - the output PNG is exactly 1280 by 1280;
 - attribution appears in the PNG and remains present in the PDF;
 - the existing packet code, address block, tract count, QR payload, logo, page count, and layout
@@ -278,9 +302,10 @@ Before cutover, the founder:
 5. Checks residential, service, major, and ambiguous roads at multiple zooms.
 6. Checks route joins, ordinary intersections, dead ends, and cul-de-sacs.
 7. Scans the Google directions QR code.
-8. Prints sample pages and approves street readability, route clarity, building coverage, pin,
-   attribution, and overall page layout.
-9. Reviews the recorded provider terms and attribution decision.
+8. Prints sample pages in color and grayscale and approves street readability, route clarity,
+   building coverage, pin and starting number, attribution, and overall page layout.
+9. Confirms that the one PDF remains legible in grayscale without a separate black-and-white mode.
+10. Reviews the recorded provider terms and attribution decision.
 
 Only after those checks does the open renderer replace Google for production PDF maps.
 
@@ -291,7 +316,8 @@ This project does not:
 - replace Google Maps in the authenticated workspace;
 - build the separate Map Lab;
 - change packet selection or routing;
-- add address or house-number labels to maps;
+- show house numbers beyond the starting house;
+- create a separate black-and-white or one-bit PDF;
 - infer buildings from addresses;
 - provide FEMA coverage outside the United States;
 - self-host OpenFreeMap;
