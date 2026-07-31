@@ -8,6 +8,7 @@ import { AdministratorAccount } from './AdministratorAccount';
 import { AdminMap } from './AdminMap';
 import { CoverageDashboard } from './CoverageDashboard';
 import { CoverageMap } from './CoverageMap';
+import { HeatmapSettingsOverlay } from './HeatmapSettingsOverlay';
 import { MapLayersControl } from './MapLayersControl';
 import { PacketGenerator } from './PacketGenerator';
 import { PacketProposalMap } from './PacketProposalMap';
@@ -54,6 +55,7 @@ export function StreetlightWorkspace({
   const [pendingTool, setPendingTool] = useState<WorkspaceTool | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [overlayRoot, setOverlayRoot] = useState<HTMLDivElement | null>(null);
+  const [heatmapSettingsOpen, setHeatmapSettingsOpen] = useState(false);
   const loadTerritory = useCallback(async () => {
     setTerritoryLoading(true);
     setTerritoryError('');
@@ -116,6 +118,7 @@ export function StreetlightWorkspace({
       setPendingTool(nextTool);
       return;
     }
+    setHeatmapSettingsOpen(false);
     setTool(nextTool);
   }
 
@@ -165,6 +168,7 @@ export function StreetlightWorkspace({
             interactive={tool === 'coverage'}
             legend={coverage.legend}
             map={map}
+            onEditHeatmapRanges={() => setHeatmapSettingsOpen(true)}
             onSelectSegment={selectCoverageSegment}
             segments={coverage.segments}
             selectedSegmentId={tool === 'coverage' ? selectedSegmentId : null}
@@ -174,6 +178,12 @@ export function StreetlightWorkspace({
             map={map}
             proposals={packetResult?.proposals ?? []}
             selectedIndex={selectedPacketIndex}
+          />
+          <HeatmapSettingsOverlay
+            onClose={() => setHeatmapSettingsOpen(false)}
+            onSaved={setCoverage}
+            open={heatmapSettingsOpen}
+            thresholds={coverage.thresholds}
           />
           <div className="map-overlay-root" ref={setOverlayRoot} />
         </section>
@@ -221,17 +231,15 @@ export function StreetlightWorkspace({
         )}
         {tool === 'territory' && !territory && (
           <aside className="territory-sidebar">
-            <div className="sidebar-title">
-              <h1>Territory Setup</h1>
-              <p>
-                {territoryLoading ? 'Loading saved territory…' : 'Saved territory unavailable.'}
+            <div className="sidebar-scroll">
+              <p
+                className={territoryError ? 'field-error' : 'empty-state'}
+                role={territoryError ? 'alert' : undefined}
+              >
+                {territoryError ||
+                  (territoryLoading ? 'Loading saved territory…' : 'Saved territory unavailable.')}
               </p>
-            </div>
-            {territoryError && (
-              <div className="sidebar-scroll">
-                <p className="field-error" role="alert">
-                  {territoryError}
-                </p>
+              {territoryError && (
                 <button
                   onClick={() => {
                     setTerritoryError('');
@@ -241,8 +249,8 @@ export function StreetlightWorkspace({
                 >
                   Retry
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </aside>
         )}
       </main>

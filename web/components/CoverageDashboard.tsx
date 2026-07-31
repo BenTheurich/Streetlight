@@ -1,7 +1,7 @@
 'use client';
 
-import { type FormEvent, useState } from 'react';
-import { type CoverageThresholds, countEligibleHomesCovered } from '@/lib/coverage';
+import { type CSSProperties, useState } from 'react';
+import { countEligibleHomesByCoverageClass, stackCoverageLabelRows } from '@/lib/coverage';
 import type { CoverageWorkspace, CoverageWorkspaceSegment } from '@/lib/database';
 
 type CoverageDashboardProps = {
@@ -14,13 +14,7 @@ type CoverageDashboardProps = {
   onOpenReconciliation: () => void;
 };
 
-const periods = [30, 90, 180, 365];
-const rangeFields: Array<{ key: keyof CoverageThresholds; label: string }> = [
-  { key: 'yellowAfterDays', label: 'Yellow starts at' },
-  { key: 'orangeAfterDays', label: 'Orange starts at' },
-  { key: 'redAfterDays', label: 'Red starts at' },
-];
-
+const coverageClasses = ['green', 'yellow', 'orange', 'red'] as const;
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(
     new Date(`${value}T00:00:00Z`),
@@ -36,18 +30,36 @@ export function CoverageDashboard({
   onOpenPackets,
   onOpenReconciliation,
 }: CoverageDashboardProps) {
-  const [period, setPeriod] = useState(90);
   const [dates, setDates] = useState<Record<string, string>>({});
-  const [rangeDraft, setRangeDraft] = useState({
-    yellowAfterDays: String(workspace.thresholds.yellowAfterDays),
-    orangeAfterDays: String(workspace.thresholds.orangeAfterDays),
-    redAfterDays: String(workspace.thresholds.redAfterDays),
-  });
   const [activeMutation, setActiveMutation] = useState<string | null>(null);
-  const [rangeError, setRangeError] = useState('');
   const [notice, setNotice] = useState('');
   const selected = workspace.segments.find((segment) => segment.id === selectedSegmentId) ?? null;
-  const coveredHomes = countEligibleHomesCovered(workspace.segments, workspace.asOf, period);
+  const distribution = countEligibleHomesByCoverageClass(workspace.segments);
+  const distributionItems = coverageClasses.map((coverageClass) => ({
+    coverageClass,
+    homes: distribution[coverageClass],
+  }));
+  const totalHomes = distributionItems.reduce((total, item) => total + item.homes, 0);
+  const visibleDistributionItems = distributionItems.filter((item) => item.homes > 0);
+  let precedingHomes = 0;
+  const positionedDistributionItems = visibleDistributionItems.map((item) => {
+    const positionPercent = ((precedingHomes + item.homes / 2) / totalHomes) * 100;
+    precedingHomes += item.homes;
+    return { ...item, positionPercent };
+  });
+  const labelRows = stackCoverageLabelRows([
+    ...positionedDistributionItems.map(({ positionPercent }) => ({
+      positionPercent,
+      gapPercent: 12,
+    })),
+    { positionPercent: 100, gapPercent: 25 },
+  ]);
+  const distributionMarkers = positionedDistributionItems.map((item, index) => ({
+    ...item,
+    labelRow: labelRows[index],
+  }));
+  const totalLabelRow = labelRows.at(-1) ?? 0;
+  const maxLabelRow = Math.max(...labelRows, 0);
 
   async function mutate(eventId: string, coveredOn: string | null) {
     setActiveMutation(eventId);
@@ -71,39 +83,6 @@ export function CoverageDashboard({
     }
   }
 
-  async function saveRanges(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setActiveMutation('heatmap-ranges');
-    setRangeError('');
-    setNotice('');
-    try {
-      const response = await fetch('/api/coverage', {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          yellowAfterDays: Number(rangeDraft.yellowAfterDays),
-          orangeAfterDays: Number(rangeDraft.orangeAfterDays),
-          redAfterDays: Number(rangeDraft.redAfterDays),
-        }),
-      });
-      const result = (await response.json()) as CoverageWorkspace | { error: string };
-      if (!response.ok || 'error' in result) {
-        throw new Error('error' in result ? result.error : 'Could not save heatmap ranges');
-      }
-      onWorkspaceChange(result);
-      setRangeDraft({
-        yellowAfterDays: String(result.thresholds.yellowAfterDays),
-        orangeAfterDays: String(result.thresholds.orangeAfterDays),
-        redAfterDays: String(result.thresholds.redAfterDays),
-      });
-      setNotice('Heatmap ranges saved.');
-    } catch (error) {
-      setRangeError(error instanceof Error ? error.message : 'Could not save heatmap ranges');
-    } finally {
-      setActiveMutation(null);
-    }
-  }
-
   function rootDate(root: CoverageWorkspaceSegment['roots'][number]): string {
     return (
       dates[root.eventId] ??
@@ -115,105 +94,50 @@ export function CoverageDashboard({
 
   return (
     <aside className="territory-sidebar coverage-sidebar" hidden={!active}>
-      <div className="sidebar-title">
-        <h1>Coverage</h1>
-        <p>{workspace.name}</p>
-      </div>
       <div className="sidebar-scroll">
-        <section className="current-work">
-          <h2>Current work</h2>
-          {workspace.activePackets > 0 ? (
-            <div>
-              <strong>
-                {workspace.activePackets} active packet
-                {workspace.activePackets === 1 ? '' : 's'} awaiting reconciliation
-              </strong>
-              <p>
-                {workspace.latestBatch
-                  ? `${workspace.latestBatch.name} is the newest finalized batch.`
-                  : 'Check which printed sheets are still on the table.'}
-              </p>
-              <button onClick={onOpenReconciliation} type="button">
-                Reconcile packets
-              </button>
-            </div>
-          ) : (
-            <div>
-              <strong>Coverage is ready for another batch.</strong>
-              <p>Generate connected packets from the streets that have waited longest.</p>
-              <button onClick={onOpenPackets} type="button">
-                Generate packets
-              </button>
-            </div>
-          )}
-        </section>
-        <section className="coverage-summary">
-          <div>
-            <strong>{workspace.totals.eligibleHomes}</strong>
-            <span>Total estimated homes</span>
-          </div>
-          <div>
-            <strong>{coveredHomes}</strong>
-            <span>Estimated homes covered</span>
-          </div>
-          <div>
-            <strong>{workspace.activePackets}</strong>
-            <span>Active packets</span>
-          </div>
-        </section>
-        <section>
-          <label className="coverage-field">
-            Coverage period
-            <select onChange={(event) => setPeriod(Number(event.target.value))} value={period}>
-              {periods.map((days) => (
-                <option key={days} value={days}>
-                  Last {days} days
-                </option>
-              ))}
-            </select>
-          </label>
-        </section>
-        <details className="coverage-settings">
-          <summary>Heatmap ranges</summary>
-          <form className="coverage-ranges" onSubmit={(event) => void saveRanges(event)}>
-            {rangeFields.map(({ key, label }) => (
-              <label key={key}>
-                {label}
-                <span>
-                  <input
-                    aria-describedby="heatmap-ranges-error"
-                    aria-invalid={rangeError ? true : undefined}
-                    max="3650"
-                    min="1"
-                    onChange={(event) => {
-                      setRangeError('');
-                      setRangeDraft((current) => ({
-                        ...current,
-                        [key]: event.target.value,
-                      }));
-                    }}
-                    required
-                    step="1"
-                    type="number"
-                    value={rangeDraft[key]}
-                  />
-                  days
-                </span>
-              </label>
-            ))}
-            <button disabled={activeMutation === 'heatmap-ranges'} type="submit">
-              Save ranges
-            </button>
-            <p
-              className="coverage-range-error"
-              id="heatmap-ranges-error"
-              role={rangeError ? 'alert' : undefined}
+        <section aria-labelledby="coverage-distribution-heading" className="coverage-distribution">
+          <h2 id="coverage-distribution-heading">Current estimated progress</h2>
+          <div
+            className="coverage-distribution-chart"
+            style={{ '--coverage-max-label-row': maxLabelRow } as CSSProperties}
+          >
+            <div
+              aria-label={visibleDistributionItems
+                .map(
+                  (item) => `${item.coverageClass}: ${item.homes.toLocaleString()} estimated homes`,
+                )
+                .join('; ')}
+              className="coverage-distribution-bar"
+              role="img"
             >
-              {rangeError}
+              {distributionMarkers.map((item) => (
+                <span
+                  className={`coverage-distribution-segment ${item.coverageClass}`}
+                  key={item.coverageClass}
+                  style={{ flexGrow: item.homes }}
+                >
+                  <span
+                    className={
+                      item.homes / totalHomes < 0.08
+                        ? 'coverage-distribution-marker edge'
+                        : 'coverage-distribution-marker'
+                    }
+                    style={{ '--coverage-label-row': item.labelRow } as CSSProperties}
+                  >
+                    <strong>{item.homes.toLocaleString()}</strong>
+                  </span>
+                </span>
+              ))}
+            </div>
+            <p
+              className="coverage-distribution-total"
+              style={{ '--coverage-label-row': totalLabelRow } as CSSProperties}
+            >
+              <strong>{totalHomes.toLocaleString()}</strong> total
             </p>
-          </form>
-        </details>
-        <section>
+          </div>
+        </section>
+        <section className="coverage-segment-picker">
           <label className="coverage-field">
             Street segment
             <select
@@ -311,6 +235,41 @@ export function CoverageDashboard({
             )}
           </section>
         )}
+        <section className="current-work">
+          <h2>Current work</h2>
+          {workspace.activePackets > 0 ? (
+            <div className="current-work-layout">
+              <span aria-hidden="true" className="current-work-count">
+                {workspace.activePackets}
+              </span>
+              <div className="current-work-copy">
+                <strong>
+                  <span className="sr-only">{workspace.activePackets} </span>
+                  active packet
+                  {workspace.activePackets === 1 ? '' : 's'} awaiting reconciliation
+                </strong>
+                <p>
+                  {workspace.latestBatch
+                    ? `${workspace.latestBatch.name} is the newest finalized batch.`
+                    : 'Check which printed sheets are still on the table.'}
+                </p>
+                <button onClick={onOpenReconciliation} type="button">
+                  Reconcile packets
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="current-work-layout current-work-layout-ready">
+              <div className="current-work-copy">
+                <strong>Coverage is ready for another batch.</strong>
+                <p>Generate connected packets from the streets that have waited longest.</p>
+                <button onClick={onOpenPackets} type="button">
+                  Generate packets
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
       <div className="sidebar-actions">
         <p aria-live="polite">{notice}</p>

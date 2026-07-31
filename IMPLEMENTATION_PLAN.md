@@ -775,6 +775,8 @@ desktop and tablet widths with no clipped or unreachable controls.
 - Reconciliation starts from the physical packet sheets still present.
 - Territory changes preserve the last saved workspace during background expansion imports, retain
   actionable failures, and guard unsaved changes with Save, Discard, and Stay choices.
+- Heatmap ranges are edited from the shared map legend across Coverage, Generate Packets, and
+  Reconcile Packets rather than from the Coverage sidebar.
 - The approved landing-page color, spacing, logo, focus, and control system now carries through the
   authenticated workspace, onboarding, request confirmation, and WorkOS Staging hosted pages.
 - Desktop, tablet, and mobile browser checks pass without horizontal overflow or unreachable tools.

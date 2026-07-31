@@ -178,10 +178,6 @@ export function PacketGenerator({
 
   return (
     <aside className="territory-sidebar packet-sidebar" hidden={!active}>
-      <div className="sidebar-title">
-        <h1>Generate outreach packets</h1>
-        <p>Build, review, and print outreach routes.</p>
-      </div>
       <div className="sidebar-scroll">
         {qualityWarnings.length > 0 && (
           <div className="import-quality-warning" role="alert">

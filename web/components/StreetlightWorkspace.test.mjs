@@ -17,12 +17,46 @@ test('the workspace uses one branded header without a duplicate current-tool lab
   assert.match(source, /aria-label="Administrator tools"/);
 });
 
+test('tool sidebars begin with task content instead of repeating the selected tool name', () => {
+  for (const filename of [
+    './CoverageDashboard.tsx',
+    './PacketGenerator.tsx',
+    './ReconciliationTool.tsx',
+    './StreetlightWorkspace.tsx',
+    './TerritoryEditor.tsx',
+  ]) {
+    const source = readFileSync(new URL(filename, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /sidebar-title/);
+  }
+});
+
 test('coverage makes the current outreach continuation explicit without hiding other tools', () => {
   const source = readFileSync(new URL('./CoverageDashboard.tsx', import.meta.url), 'utf8');
 
   assert.match(source, />Current work</);
   assert.match(source, /onOpenPackets/);
   assert.match(source, /onOpenReconciliation/);
+});
+
+test('heatmap ranges are edited from the shared map legend instead of the coverage sidebar', () => {
+  const workspace = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
+  const map = readFileSync(new URL('./CoverageMap.tsx', import.meta.url), 'utf8');
+  const dashboard = readFileSync(new URL('./CoverageDashboard.tsx', import.meta.url), 'utf8');
+  const settings = readFileSync(new URL('./HeatmapSettingsOverlay.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+
+  assert.match(map, /aria-label="Edit heatmap ranges"/);
+  assert.match(map, /<circle cx="12" cy="12" r="3"/);
+  assert.match(workspace, /<HeatmapSettingsOverlay/);
+  assert.doesNotMatch(dashboard, /Heatmap ranges/);
+  assert.match(settings, /days since last outreach/);
+  assert.doesNotMatch(settings, /Choose how long a street waits/);
+  assert.match(settings, /className="heatmap-settings-backdrop"/);
+  assert.match(settings, /aria-label="Dismiss heatmap settings"/);
+  assert.match(styles, /\.heatmap-settings-form input::-webkit-inner-spin-button/);
+  assert.match(styles, /width: min\(100%, 390px\)/);
+  assert.match(styles, /:focus-visible[\s\S]*?outline: 2px solid var\(--ink\)/);
+  assert.doesNotMatch(styles, /:focus-visible[\s\S]{0,150}#(?:5e8eff|1769ff)/);
 });
 
 test('proposal rows expand and collapse inline without a separate show-all control', () => {

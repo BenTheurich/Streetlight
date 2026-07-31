@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as coverageModule from './coverage.ts';
 import {
   calendarDateInTimeZone,
   classifyCoverage,
+  countEligibleHomesByCoverageClass,
   countEligibleHomesCovered,
   coverageLegend,
   DEFAULT_COVERAGE_THRESHOLDS,
@@ -78,6 +80,32 @@ test('heatmap legend derives every label from custom transitions', () => {
       ({ label }) => label,
     ),
     ['0-29 days', '30-59 days', '60-89 days', '90+ days or never', 'Excluded'],
+  );
+});
+
+test('coverage distribution counts eligible estimated homes in each heatmap class', () => {
+  assert.deepEqual(
+    countEligibleHomesByCoverageClass([
+      { coverageClass: 'green', eligible: true, estimatedHomes: 8 },
+      { coverageClass: 'yellow', eligible: true, estimatedHomes: 13 },
+      { coverageClass: 'orange', eligible: true, estimatedHomes: 21 },
+      { coverageClass: 'red', eligible: true, estimatedHomes: 34 },
+      { coverageClass: 'red', eligible: false, estimatedHomes: 55 },
+    ]),
+    { green: 8, yellow: 13, orange: 21, red: 34 },
+  );
+});
+
+test('coverage labels move to the next free row when their anchors would overlap', () => {
+  assert.deepEqual(
+    coverageModule.stackCoverageLabelRows?.([
+      { positionPercent: 10, gapPercent: 12 },
+      { positionPercent: 17, gapPercent: 12 },
+      { positionPercent: 30, gapPercent: 12 },
+      { positionPercent: 82, gapPercent: 12 },
+      { positionPercent: 100, gapPercent: 25 },
+    ]),
+    [0, 1, 0, 0, 1],
   );
 });
 

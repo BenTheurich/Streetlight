@@ -61,18 +61,6 @@ function seedFullTerritoryDemo(target, sourceFilename, asOf) {
   if (source === target) throw new Error('Coverage demo source and target must differ');
   if (!existsSync(source)) throw new Error('Coverage demo source does not exist');
 
-  const sourceDatabase = openDatabase(source);
-  try {
-    const eventCount = sourceDatabase
-      .prepare('SELECT COUNT(*) AS count FROM coverage_events')
-      .get().count;
-    if (eventCount !== 0) {
-      throw new Error('Coverage demo source must have empty coverage history');
-    }
-  } finally {
-    sourceDatabase.close();
-  }
-
   rmSync(target, { force: true });
   copyFileSync(source, target);
   const database = openDatabase(target);
@@ -87,11 +75,16 @@ function seedFullTerritoryDemo(target, sourceFilename, asOf) {
     if (!center) throw new Error('Coverage demo territory is missing');
     const segments = database
       .prepare(
-        `SELECT id, geometry_geojson
-        FROM street_segments
-        WHERE church_id = ? AND territory_id = ? AND is_current = 1
-          AND activation_kind <> 'hidden'
-        ORDER BY id`,
+        `SELECT segment.id, segment.geometry_geojson
+        FROM street_segments AS segment
+        WHERE segment.church_id = ? AND segment.territory_id = ? AND segment.is_current = 1
+          AND segment.activation_kind <> 'hidden'
+          AND NOT EXISTS (
+            SELECT 1 FROM coverage_events AS event
+            WHERE event.church_id = segment.church_id
+              AND event.street_segment_id = segment.id
+          )
+        ORDER BY segment.id`,
       )
       .all(churchId, territoryId)
       .map((segment) => ({

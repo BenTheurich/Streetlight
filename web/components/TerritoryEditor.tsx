@@ -482,11 +482,6 @@ export function TerritoryEditor({
         )}
 
       <aside aria-busy={saving} className="territory-sidebar" hidden={!active} inert={saving}>
-        <div className="sidebar-title">
-          <h1>Territory Setup</h1>
-          <p>Choose an outer boundary, then remove unsuitable areas.</p>
-        </div>
-
         <div className="sidebar-scroll">
           {(savedWorkspace.import.quality?.warnings.length ?? 0) > 0 && (
             <div className="import-quality-warning" role="alert">

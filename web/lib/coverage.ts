@@ -237,6 +237,39 @@ export function coverageLegend(thresholds: CoverageThresholds): CoverageLegendIt
   ];
 }
 
+export function countEligibleHomesByCoverageClass(
+  segments: Array<
+    Pick<CoverageSegmentInput, 'eligible' | 'estimatedHomes'> & {
+      coverageClass: CoverageClass;
+    }
+  >,
+): Record<CoverageClass, number> {
+  const totals: Record<CoverageClass, number> = { green: 0, yellow: 0, orange: 0, red: 0 };
+  for (const segment of segments) {
+    if (segment.eligible) totals[segment.coverageClass] += segment.estimatedHomes;
+  }
+  return totals;
+}
+
+export function stackCoverageLabelRows(
+  labels: Array<{ positionPercent: number; gapPercent: number }>,
+): number[] {
+  const rows: Array<typeof labels> = [];
+  return labels.map((label) => {
+    const openRow = rows.findIndex((row) =>
+      row.every(
+        (other) =>
+          Math.abs(label.positionPercent - other.positionPercent) >=
+          Math.max(label.gapPercent, other.gapPercent),
+      ),
+    );
+    const rowIndex = openRow === -1 ? rows.length : openRow;
+    if (!rows[rowIndex]) rows[rowIndex] = [];
+    rows[rowIndex].push(label);
+    return rowIndex;
+  });
+}
+
 export function countEligibleHomesCovered(
   segments: CoverageSegment[],
   asOf: string,

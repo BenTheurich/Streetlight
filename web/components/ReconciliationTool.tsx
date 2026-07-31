@@ -300,10 +300,6 @@ export function ReconciliationTool({
         selectedPacketId={selectedPacketId}
       />
       <aside className="territory-sidebar reconciliation-sidebar" hidden={!active}>
-        <div className="sidebar-title">
-          <h1>Reconcile packets</h1>
-          <p>Match Streetlight to the paper sheets still on the table.</p>
-        </div>
         <div className="sidebar-scroll">
           {loading && <p className="empty-state">Loading packet batches…</p>}
           {!loading && !workspace && (

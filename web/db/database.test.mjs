@@ -2077,7 +2077,7 @@ test('coverage demo can copy the full empty-history territory into geographic ag
   }
 });
 
-test('coverage demo refuses to mix fake bands with source outreach history', async () => {
+test('coverage demo preserves source history and adds bands only to untouched streets', async () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-covered-demo-source-'));
   const sourceFilename = path.join(directory, 'streetlight.db');
   const demoFilename = path.join(directory, 'coverage-demo.db');
@@ -2094,15 +2094,24 @@ test('coverage demo refuses to mix fake bands with source outreach history', asy
       )
       .run('real-history', 'church-temecula-pilot', segment.id, '2026-07-01', 'completed', null, 0);
     source.close();
+    const sourceBefore = readFileSync(sourceFilename);
 
     const { seedCoverageDemo } = await import('./seed-coverage-demo.mjs');
-    assert.throws(
-      () => seedCoverageDemo(demoFilename, '2026-07-28', sourceFilename),
-      /empty coverage history/i,
+    seedCoverageDemo(demoFilename, '2026-07-28', sourceFilename);
+
+    assert.deepEqual(readFileSync(sourceFilename), sourceBefore);
+    const demo = openDatabase(demoFilename);
+    assert.equal(
+      demo.prepare('SELECT COUNT(*) AS count FROM coverage_events').get().count > 1,
+      true,
     );
-    const after = openDatabase(sourceFilename);
-    assert.equal(after.prepare('SELECT COUNT(*) AS count FROM coverage_events').get().count, 1);
-    after.close();
+    assert.equal(
+      demo
+        .prepare('SELECT COUNT(*) AS count FROM coverage_events WHERE street_segment_id = ?')
+        .get(segment.id).count,
+      1,
+    );
+    demo.close();
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

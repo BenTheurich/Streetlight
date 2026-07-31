@@ -203,7 +203,9 @@ The main map colors segments by time since last coverage:
 Each territory stores the day when segments transition to yellow, orange, and red. The defaults are
 90, 180, and 365 days. Administrators may edit those three ascending thresholds. The meaning and
 order of the colors do not change, and never-covered segments are always red. The exact visual
-palette remains a design decision.
+palette remains a design decision. Heatmap ranges are a shared map setting: every tool that shows
+the heatmap exposes the same settings control in the map legend instead of placing the editor in a
+tool-specific sidebar.
 
 ## Packet generation
 
@@ -328,11 +330,18 @@ or none; it is rejected while any target is reserved by a newer active packet.
 The first dashboard contains:
 
 - Coverage heatmap
-- Total estimated homes in the territory
-- Homes covered during a selected period
-- Number of active packets
+- Current estimated progress: a proportional distribution of eligible estimated homes across the
+  saved heatmap colors, with the total estimated homes
+- Number of active packets in Current Work
 - Generate Batch action
 - Reconcile Batch action
+
+The distribution excludes ineligible streets and uses the same saved age ranges and coverage state
+as the map. Each non-empty color band labels its estimated-home count at the band's midpoint.
+Empty bands and duplicate day-range labels are omitted because the adjacent map legend explains
+the colors. Labels that would overlap move down to the next available row while keeping their
+guide lines anchored to the correct band. Coverage does not add a separate reporting-period
+control.
 
 For a signed-in configured administrator, the website uses one persistent map workspace at `/`.
 Coverage, Generate Packets, Reconcile Packets, and Territory Setup are tools in that workspace
@@ -352,6 +361,11 @@ Switching tools keeps
 the map camera, Map/Satellite choice, and each tool's in-progress state. Coverage and Generate
 Packets share the complete heatmap; a selected packet adds a distinct review highlight and
 starting pin above it. Territory Setup replaces the heatmap treatment with its editing overlays.
+The tool switcher is centered over the map canvas rather than the full page. Because it already
+identifies the active tool, each right sidebar begins with its task content instead of repeating the
+tool name in a second header.
+Coverage places its territory summary and map controls first. Its current-work continuation sits
+at the bottom of the sidebar so it remains available without outweighing the map inspection tools.
 The saved church location uses the founder-supplied church marker in every tool, and the header
 uses the founder-supplied logo beside the `STREETLIGHT` text. A compact lower-right **Layers** card
 opens the Map/Satellite chooser without loading a second map or static-map thumbnail.
