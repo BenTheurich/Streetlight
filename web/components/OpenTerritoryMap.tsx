@@ -30,6 +30,7 @@ type OpenTerritoryMapProps = {
   segments: TerritorySegment[];
   apartmentComplexes: ApartmentComplex[];
   exclusions: ExclusionArea[];
+  mutationLocked: boolean;
   selectedExclusionId: string | null;
   selectedHiddenRoadGroupId: string | null;
   selectedSegmentId: string | null;
@@ -63,6 +64,7 @@ export function OpenTerritoryMap({
   segments,
   apartmentComplexes,
   exclusions,
+  mutationLocked,
   selectedExclusionId,
   selectedHiddenRoadGroupId,
   selectedSegmentId,
@@ -79,18 +81,22 @@ export function OpenTerritoryMap({
   selectedApartmentId,
 }: OpenTerritoryMapProps) {
   const drawingRef = useRef(drawing);
+  const mutationLockedRef = useRef(mutationLocked);
   const addPointRef = useRef(onAddDrawingPoint);
   const previousCenterRef = useRef(center);
   drawingRef.current = drawing;
+  mutationLockedRef.current = mutationLocked;
   addPointRef.current = onAddDrawingPoint;
 
   useEffect(() => {
     if (!active || !map) return;
     const addPoint = (event: { lngLat: { lng: number; lat: number } }) => {
-      if (drawingRef.current) addPointRef.current([event.lngLat.lng, event.lngLat.lat]);
+      if (drawingRef.current && !mutationLockedRef.current) {
+        addPointRef.current([event.lngLat.lng, event.lngLat.lat]);
+      }
     };
     const addCenterPoint = (event: KeyboardEvent) => {
-      if (!drawingRef.current || event.key !== 'Enter') return;
+      if (!drawingRef.current || mutationLockedRef.current || event.key !== 'Enter') return;
       const point = map.getCenter();
       event.preventDefault();
       addPointRef.current([point.lng, point.lat]);
@@ -197,7 +203,7 @@ export function OpenTerritoryMap({
             roadGroupId: segment.roadGroupId,
             active: segment.active,
             manuallyExcluded: segment.manuallyExcluded,
-            selectable: !drawing && appearance.selectable,
+            selectable: !drawing && !mutationLocked && appearance.selectable,
             color: appearance.strokeColor,
             opacity: appearance.strokeOpacity,
             weightOffset: appearance.weightOffset,
@@ -212,6 +218,7 @@ export function OpenTerritoryMap({
       ['+', ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5], ['get', 'weightOffset']],
     ]);
     const select = (event: MapLayerMouseEvent) => {
+      if (mutationLocked) return;
       const properties = event.features?.[0]?.properties;
       if (!properties?.selectable) return;
       if (properties.active || properties.manuallyExcluded) onSelectSegment(properties.id);
@@ -237,6 +244,7 @@ export function OpenTerritoryMap({
     active,
     drawing,
     map,
+    mutationLocked,
     onSelectHiddenRoadGroup,
     onSelectSegment,
     segments,
@@ -269,6 +277,7 @@ export function OpenTerritoryMap({
     map.setPaintProperty(circleId, 'circle-radius', ['case', ['get', 'selected'], 13, 10]);
     map.setPaintProperty(circleId, 'circle-stroke-width', ['case', ['get', 'selected'], 3, 2]);
     const select = (event: MapLayerMouseEvent) => {
+      if (mutationLocked) return;
       const id = event.features?.[0]?.properties?.id;
       if (typeof id === 'string') onSelectApartment(id);
     };
@@ -286,7 +295,15 @@ export function OpenTerritoryMap({
       map.off('mouseenter', circleId, point);
       map.off('mouseleave', circleId, clear);
     };
-  }, [active, apartmentComplexes, drawing, map, onSelectApartment, selectedApartmentId]);
+  }, [
+    active,
+    apartmentComplexes,
+    drawing,
+    map,
+    mutationLocked,
+    onSelectApartment,
+    selectedApartmentId,
+  ]);
 
   useEffect(() => {
     if (!active || !map) return;
@@ -337,13 +354,14 @@ export function OpenTerritoryMap({
       before,
     );
     const select = (event: MapLayerMouseEvent) => {
+      if (mutationLocked) return;
       const id = event.features?.[0]?.properties?.id;
       if (typeof id === 'string') onSelectExclusion(id);
     };
     map.on('click', fillId, select);
     map.on('click', lineId, select);
     const selected = exclusions.find(({ id }) => id === selectedExclusionId);
-    if (selected && !drawing) {
+    if (selected && !drawing && !mutationLocked) {
       const points = selected.geometry.coordinates[0].slice(0, -1);
       const preview = (nextPoints: Position[]) => {
         (map.getSource(sourceId) as GeoJSONSource | undefined)?.setData({
@@ -374,8 +392,14 @@ export function OpenTerritoryMap({
             preview(next);
             return next;
           };
-          marker.on('drag', updateVertex);
-          marker.on('dragend', () => onExclusionChange(selected.id, updateVertex()));
+          marker.on('drag', () => {
+            if (mutationLockedRef.current) return;
+            updateVertex();
+          });
+          marker.on('dragend', () => {
+            if (mutationLockedRef.current) return;
+            onExclusionChange(selected.id, updateVertex());
+          });
           markers.push(marker);
 
           const nextIndex = (index + 1) % points.length;
@@ -393,8 +417,14 @@ export function OpenTerritoryMap({
             preview(next);
             return next;
           };
-          midpointMarker.on('drag', updateMidpoint);
-          midpointMarker.on('dragend', () => onExclusionChange(selected.id, updateMidpoint()));
+          midpointMarker.on('drag', () => {
+            if (mutationLockedRef.current) return;
+            updateMidpoint();
+          });
+          midpointMarker.on('dragend', () => {
+            if (mutationLockedRef.current) return;
+            onExclusionChange(selected.id, updateMidpoint());
+          });
           markers.push(midpointMarker);
         });
       });
@@ -408,7 +438,16 @@ export function OpenTerritoryMap({
       if (map.getLayer(fillId)) map.removeLayer(fillId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
     };
-  }, [active, drawing, exclusions, map, onExclusionChange, onSelectExclusion, selectedExclusionId]);
+  }, [
+    active,
+    drawing,
+    exclusions,
+    map,
+    mutationLocked,
+    onExclusionChange,
+    onSelectExclusion,
+    selectedExclusionId,
+  ]);
 
   useEffect(() => {
     if (!active || !map) return;
@@ -436,30 +475,38 @@ export function OpenTerritoryMap({
       },
       before,
     );
-    void import('maplibre-gl').then(({ Marker }) => {
-      if (disposed) return;
-      drawingPoints.forEach((point, index) => {
-        const element = document.createElement('button');
-        element.className = 'map-edit-vertex';
-        element.type = 'button';
-        element.ariaLabel = `Move drawing vertex ${index + 1}`;
-        const marker = new Marker({ draggable: true, element }).setLngLat(point).addTo(map);
-        const update = () => {
-          const moved = marker.getLngLat();
-          const next = [...drawingPoints];
-          next[index] = [moved.lng, moved.lat];
-          (map.getSource(sourceId) as GeoJSONSource | undefined)?.setData({
-            type: 'Feature',
-            properties: {},
-            geometry: { type: 'LineString', coordinates: next },
+    if (!mutationLocked) {
+      void import('maplibre-gl').then(({ Marker }) => {
+        if (disposed) return;
+        drawingPoints.forEach((point, index) => {
+          const element = document.createElement('button');
+          element.className = 'map-edit-vertex';
+          element.type = 'button';
+          element.ariaLabel = `Move drawing vertex ${index + 1}`;
+          const marker = new Marker({ draggable: true, element }).setLngLat(point).addTo(map);
+          const update = () => {
+            const moved = marker.getLngLat();
+            const next = [...drawingPoints];
+            next[index] = [moved.lng, moved.lat];
+            (map.getSource(sourceId) as GeoJSONSource | undefined)?.setData({
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates: next },
+            });
+            return next;
+          };
+          marker.on('drag', () => {
+            if (mutationLockedRef.current) return;
+            update();
           });
-          return next;
-        };
-        marker.on('drag', update);
-        marker.on('dragend', () => onDrawingPointsChange(update()));
-        markers.push(marker);
+          marker.on('dragend', () => {
+            if (mutationLockedRef.current) return;
+            onDrawingPointsChange(update());
+          });
+          markers.push(marker);
+        });
       });
-    });
+    }
     return () => {
       disposed = true;
       map.getCanvas().style.cursor = '';
@@ -467,7 +514,7 @@ export function OpenTerritoryMap({
       if (map.getLayer(lineId)) map.removeLayer(lineId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
     };
-  }, [active, drawing, drawingPoints, map, onDrawingPointsChange]);
+  }, [active, drawing, drawingPoints, map, mutationLocked, onDrawingPointsChange]);
 
   return null;
 }

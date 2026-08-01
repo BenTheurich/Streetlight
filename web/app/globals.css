@@ -1390,7 +1390,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   color: #a64e27;
 }
 
-.sidebar-actions > div {
+.sidebar-actions > div:not(.operation-status) {
   display: grid;
   grid-template-columns: 1fr 1.35fr;
   gap: 0.5rem;
@@ -1415,54 +1415,6 @@ button.administrator-account-trigger:not(:disabled):hover {
   display: grid;
   grid-template-columns: 0.65fr 1fr 1fr;
   gap: 0.4rem;
-}
-
-.territory-import-banner {
-  position: fixed;
-  z-index: 20;
-  top: 92px;
-  left: 50%;
-  display: flex;
-  width: min(620px, calc(100vw - 2rem));
-  align-items: center;
-  gap: 1rem;
-  padding: 0.85rem 0.9rem;
-  border: 1px solid #c9b078;
-  border-radius: 12px;
-  background: #fff8e8;
-  box-shadow: 0 12px 30px rgb(16 26 41 / 18%);
-  color: var(--ink);
-  transform: translateX(-50%);
-}
-
-.territory-import-banner.failed {
-  border-color: #d2a099;
-  background: #fff4f1;
-}
-
-.territory-import-banner > div {
-  display: grid;
-  min-width: 0;
-  gap: 0.18rem;
-}
-
-.territory-import-banner strong,
-.territory-import-banner span {
-  display: block;
-}
-
-.territory-import-banner strong {
-  font-size: 0.8rem;
-}
-
-.territory-import-banner span {
-  color: var(--muted);
-  font-size: 0.7rem;
-  line-height: 1.4;
-}
-
-.territory-import-banner button {
-  flex: 0 0 auto;
 }
 
 .coverage-page {
@@ -2234,11 +2186,11 @@ button.administrator-account-trigger:not(:disabled):hover {
   font-size: 0.65rem;
 }
 
-.reconciliation-sidebar .sidebar-actions > div {
+.reconciliation-sidebar .sidebar-actions > div:not(.operation-status) {
   grid-template-columns: 1fr;
 }
 
-.reconciliation-sidebar .sidebar-actions > div.reviewing {
+.reconciliation-sidebar .sidebar-actions > div.reviewing:not(.operation-status) {
   grid-template-columns: 1fr 1.35fr;
 }
 
@@ -2577,7 +2529,7 @@ button.administrator-account-trigger:not(:disabled):hover {
     overflow: visible;
   }
 
-  .territory-import-banner {
+  .operation-status.global {
     top: 96px;
   }
 }
@@ -2655,8 +2607,11 @@ button.administrator-account-trigger:not(:disabled):hover {
     grid-template-columns: 1fr;
   }
 
-  .territory-import-banner {
-    align-items: stretch;
-    flex-direction: column;
+  .operation-status.global {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .operation-status.global .operation-status-action {
+    grid-column: 1 / -1;
   }
 }

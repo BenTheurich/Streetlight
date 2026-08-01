@@ -65,25 +65,78 @@ test('proposal rows expand and collapse inline without a separate show-all contr
   assert.match(source, /!finalized && result\.proposals\.length > 0/);
 });
 
+test('one packet operation lock owns every mutation and PDF entry point', () => {
+  const source = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /const packetOperationBusy = packetRequestControlsDisabled/);
+  assert.equal(source.match(/disabled={packetOperationBusy}/g)?.length, 10);
+  assert.match(source, /disabled={packetOperationBusy \|\| activePackets === 0}/);
+  assert.equal(source.match(/if \(packetOperationBusy\) return;/g)?.length, 3);
+});
+
 test('territory drawing and long imports stay in the approved workflow', () => {
   const source = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
 
   assert.doesNotMatch(source, />\s*Pan\s*</);
-  assert.match(source, /territory-import-banner/);
+  assert.match(source, /placement={operationPlacement}/);
+  assert.match(source, /The previous saved territory is still active/);
+  assert.match(source, /!backgroundImportComplete/);
+  assert.doesNotMatch(source, /territory-import-banner/);
+});
+
+test('territory verification keeps global tool navigation available without unmounting the draft', () => {
+  const workspace = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
+  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+
+  assert.match(territory, /onImportingChange\(leaveControlsDisabled\)/);
+  assert.match(workspace, /territoryDirty && !territorySaving/);
+  assert.match(workspace, /\{territory && \(\s*<TerritoryEditor/);
+});
+
+test('workflow surfaces use one atomic operation status without duplicate live copy', () => {
+  const packets = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
+  const reconciliation = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
+  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+
+  assert.match(packets, /<OperationStatus/);
+  assert.match(packets, /downloadProgress\.headline/);
+  assert.doesNotMatch(packets, /<p aria-live="polite">{notice}<\/p>/);
+
+  assert.match(reconciliation, /<OperationStatus/);
+  assert.doesNotMatch(reconciliation, /<p aria-live="polite">{notice}<\/p>/);
+
+  assert.match(territory, /<OperationStatus/);
+  assert.doesNotMatch(territory, /territory-import-banner/);
 });
 
 test('territory editing keeps shared street overlays visible and redraws while vertices move', () => {
   const source = readFileSync(new URL('./OpenTerritoryMap.tsx', import.meta.url), 'utf8');
+  const editor = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /getSource\('streetlightCoverage'\)/);
   assert.match(source, /setLayoutProperty\('streetlight-coverage', 'visibility', 'visible'\)/);
-  assert.match(source, /marker\.on\('drag', updateVertex\)/);
-  assert.match(source, /midpointMarker\.on\('drag', updateMidpoint\)/);
   assert.match(source, /type: 'LineString' as const, coordinates: drawingPoints/);
+  assert.match(editor, /mutationLocked={leaveControlsDisabled}/);
+  assert.match(source, /mutationLocked: boolean/);
+  assert.match(source, /!mutationLockedRef\.current/);
+  assert.match(source, /selected && !drawing && !mutationLocked/);
+  assert.match(source, /if \(!mutationLocked\) \{\s*void import\('maplibre-gl'\)/);
+  assert.equal(source.match(/if \(mutationLockedRef\.current\) return;/g)?.length, 6);
+  assert.doesNotMatch(source, /dragPan\.disable|scrollZoom\.disable/);
 });
 
 test('reconciliation leads with the physical paper question', () => {
   const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /Which packet sheets are still here\?/);
+});
+
+test('reconciliation correction status and retry stay with the affected packet', () => {
+  const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /type CorrectionAttempt =/);
+  assert.match(source, /attempt: \{ packetId: packet\.id, coveredOn \}/);
+  assert.equal(source.match(/correctionStatus\(packet\)/g)?.length, 2);
+  assert.match(source, /void correct\(packet, correctionFeedback\.attempt\.coveredOn\)/);
+  assert.doesNotMatch(source, /operation === 'correction'/);
 });

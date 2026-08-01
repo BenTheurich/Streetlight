@@ -22,10 +22,22 @@ import {
 } from '@/lib/territory-geometry';
 import { needsTerritoryImport } from '@/lib/territory-import';
 import { OpenTerritoryMap } from './OpenTerritoryMap';
+import { OperationStatus } from './OperationStatus';
+import {
+  isTerritoryWorkspacePayload,
+  readMutationResult,
+  territoryLeaveControlsDisabled,
+} from './operation-state';
 
 type PendingAddress = {
   formattedAddress: string;
   center: Position;
+};
+
+type TerritorySaveFailure = {
+  message: string;
+  recovery: 'retry' | 'reload';
+  willImport: boolean;
 };
 
 function VertexControls({
@@ -113,7 +125,8 @@ export function TerritoryEditor({
   const [geocoding, setGeocoding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [importFailure, setImportFailure] = useState('');
+  const [saveFailure, setSaveFailure] = useState<TerritorySaveFailure | null>(null);
+  const [backgroundImportComplete, setBackgroundImportComplete] = useState(false);
   const [notice, setNotice] = useState('Saved territory loaded.');
   const addressInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -159,6 +172,11 @@ export function TerritoryEditor({
   const hasUnsavedChanges = hasUnsavedTerritoryChanges(savedDraft, draft, drawingPoints);
   const importRequired = needsTerritoryImport(savedWorkspace.import, draft);
   const canSave = isDirty || importRequired;
+  const verificationRequired = saveFailure?.recovery === 'reload';
+  const leaveControlsDisabled = territoryLeaveControlsDisabled({
+    saving,
+    verificationRequired,
+  });
   const radiusError =
     !Number.isFinite(Number(radiusInput)) || Number(radiusInput) < 1 || Number(radiusInput) > 20
       ? 'Enter a boundary distance from 1 to 20 miles.'
@@ -198,7 +216,10 @@ export function TerritoryEditor({
 
   useEffect(() => onDirtyChange(hasUnsavedChanges), [hasUnsavedChanges, onDirtyChange]);
 
-  useEffect(() => onImportingChange(saving), [onImportingChange, saving]);
+  useEffect(
+    () => onImportingChange(leaveControlsDisabled),
+    [leaveControlsDisabled, onImportingChange],
+  );
 
   useEffect(() => {
     if (addressEditing) {
@@ -364,47 +385,115 @@ export function TerritoryEditor({
     const leaveWhileImportRuns = leaveAfterSave && willImport && !setupRequired;
     setSaving(true);
     setImporting(willImport);
-    setImportFailure('');
+    setSaveFailure(null);
+    setBackgroundImportComplete(false);
     if (leaveWhileImportRuns) onSaveAndLeave();
     setNotice('Saving changes…');
-    try {
-      const response = await fetch('/api/territory', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft),
-      });
-      const result = (await response.json()) as TerritoryWorkspace | { error: string };
-      if (!response.ok || 'error' in result) {
-        throw new Error('error' in result ? result.error : 'Could not save territory');
-      }
-      const nextDraft = territoryDraftFromWorkspace(result);
-      setSavedWorkspace(result);
-      setDraft(nextDraft);
-      setSavedDraft(structuredClone(nextDraft));
-      setRadiusInput(String(nextDraft.radiusMiles));
-      setSelectedExclusionId(null);
-      setSelectedHiddenRoadGroupId(null);
-      setSelectedSegmentId(null);
-      setSelectedApartmentId(null);
-      try {
-        await onSaved(result);
-        setNotice('Territory changes saved.');
-      } catch {
-        setNotice('Territory saved, but coverage could not refresh. Reload the page to retry.');
-      }
-      if (leaveAfterSave && !leaveWhileImportRuns) onSaveAndLeave();
-    } catch (error) {
+    const outcome = await readMutationResult(
+      () =>
+        fetch('/api/territory', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(draft),
+        }),
+      isTerritoryWorkspacePayload,
+    );
+    if (outcome.status !== 'success') {
       const message =
-        error instanceof Error
-          ? error.message
-          : 'Could not save territory changes. Your draft is still here.';
+        outcome.status === 'rejected'
+          ? outcome.message
+          : willImport
+            ? 'Streetlight could not confirm whether the street import and territory save finished. Your current draft is still visible. Reload to verify before trying again.'
+            : 'Streetlight could not confirm whether the territory changes were saved. Your current draft is still visible. Reload to verify before trying again.';
+      setSaveFailure({ message, recovery: outcome.recovery, willImport });
       setNotice(message);
-      if (willImport) setImportFailure(message);
-    } finally {
       setSaving(false);
       setImporting(false);
+      return;
     }
+
+    const result = outcome.value;
+    const nextDraft = territoryDraftFromWorkspace(result);
+    setSavedWorkspace(result);
+    setDraft(nextDraft);
+    setSavedDraft(structuredClone(nextDraft));
+    setRadiusInput(String(nextDraft.radiusMiles));
+    setSelectedExclusionId(null);
+    setSelectedHiddenRoadGroupId(null);
+    setSelectedSegmentId(null);
+    setSelectedApartmentId(null);
+    try {
+      await onSaved(result);
+      setNotice('Territory changes saved.');
+    } catch {
+      setNotice('Territory saved, but coverage could not refresh. Reload the page to retry.');
+    }
+    if (willImport && !setupRequired) setBackgroundImportComplete(true);
+    if (leaveAfterSave && !leaveWhileImportRuns) onSaveAndLeave();
+    setSaving(false);
+    setImporting(false);
   }
+
+  const operationPlacement =
+    importing || saveFailure?.willImport || backgroundImportComplete
+      ? setupRequired
+        ? 'surface'
+        : 'global'
+      : 'surface';
+  const saveStatus =
+    saving || saveFailure || backgroundImportComplete ? (
+      <OperationStatus
+        action={
+          saveFailure ? (
+            saveFailure.recovery === 'reload' ? (
+              <button onClick={() => window.location.reload()} type="button">
+                Reload to verify
+              </button>
+            ) : !active && !setupRequired ? (
+              <button onClick={onReturnToSetup} type="button">
+                Return to Territory Setup
+              </button>
+            ) : undefined
+          ) : backgroundImportComplete ? (
+            <button onClick={() => setBackgroundImportComplete(false)} type="button">
+              Dismiss
+            </button>
+          ) : undefined
+        }
+        detail={
+          saveFailure
+            ? saveFailure.recovery === 'reload'
+              ? saveFailure.message
+              : saveFailure.willImport
+                ? setupRequired
+                  ? `${saveFailure.message} Your setup choices are still here.`
+                  : `${saveFailure.message} Your previous saved territory is still active.`
+                : `${saveFailure.message} Your draft is still here.`
+            : backgroundImportComplete
+              ? 'The street import finished and the territory was saved. Reload if map totals have not refreshed.'
+              : importing
+                ? setupRequired
+                  ? 'Streetlight is preparing the first coverage map. Keep this page open.'
+                  : 'The previous saved territory is still active. You can keep working.'
+                : 'Your draft stays here until Streetlight confirms the save.'
+        }
+        headline={
+          saveFailure
+            ? saveFailure.recovery === 'reload'
+              ? 'Could not confirm territory save'
+              : saveFailure.willImport
+                ? 'Street import did not finish'
+                : 'Territory changes were not saved'
+            : backgroundImportComplete
+              ? 'Street data refreshed'
+              : importing
+                ? 'Importing street data'
+                : 'Saving territory changes'
+        }
+        placement={operationPlacement}
+        tone={saveFailure ? 'error' : backgroundImportComplete ? 'success' : 'busy'}
+      />
+    ) : null;
 
   return (
     <>
@@ -417,6 +506,7 @@ export function TerritoryEditor({
         drawingPoints={drawingPoints}
         exclusions={draft.exclusions}
         map={map}
+        mutationLocked={leaveControlsDisabled}
         onAddDrawingPoint={addDrawingPoint}
         onDrawingPointsChange={changeDrawingPoints}
         onExclusionChange={changeExclusion}
@@ -482,8 +572,8 @@ export function TerritoryEditor({
           overlayRoot,
         )}
 
-      <aside aria-busy={saving} className="territory-sidebar" hidden={!active} inert={saving}>
-        <div className="sidebar-scroll">
+      <aside aria-busy={saving} className="territory-sidebar" hidden={!active}>
+        <div className="sidebar-scroll" inert={saving || verificationRequired}>
           {(savedWorkspace.import.quality?.warnings.length ?? 0) > 0 && (
             <div className="import-quality-warning" role="alert">
               <strong>Street data may be incomplete</strong>
@@ -908,16 +998,23 @@ export function TerritoryEditor({
         </div>
 
         <div className="sidebar-actions">
+          {operationPlacement === 'surface' && saveStatus}
           {pendingLeave ? (
             <div className="territory-leave-prompt" role="alert">
               <strong>Save territory changes before leaving?</strong>
               <p>Your draft will stay here until you choose what to do.</p>
               <div>
-                <button className="secondary" onClick={onStay} type="button">
+                <button
+                  className="secondary"
+                  disabled={leaveControlsDisabled}
+                  onClick={onStay}
+                  type="button"
+                >
                   Stay
                 </button>
                 <button
                   className="secondary"
+                  disabled={leaveControlsDisabled}
                   onClick={() => {
                     cancelChanges();
                     onDiscardAndLeave();
@@ -926,21 +1023,27 @@ export function TerritoryEditor({
                 >
                   Discard changes
                 </button>
-                <button onClick={() => void saveChanges(true)} type="button">
-                  Save changes
+                <button
+                  disabled={leaveControlsDisabled}
+                  onClick={() => void saveChanges(true)}
+                  type="button"
+                >
+                  {saveFailure?.recovery === 'retry' ? 'Try save again' : 'Save changes'}
                 </button>
               </div>
             </div>
           ) : (
             <>
-              <p aria-live="polite">{polygonError || notice}</p>
+              {!saving && !saveFailure && !backgroundImportComplete && (
+                <p aria-live="polite">{polygonError || notice}</p>
+              )}
               {importRequired && !importing && (
                 <p className="import-notice">Street data will refresh when saved.</p>
               )}
               <div>
                 <button
                   className="secondary"
-                  disabled={!hasUnsavedChanges || saving}
+                  disabled={!hasUnsavedChanges || saving || verificationRequired}
                   onClick={cancelChanges}
                   type="button"
                 >
@@ -948,43 +1051,27 @@ export function TerritoryEditor({
                 </button>
                 <button
                   disabled={
-                    !canSave || saving || mode === 'draw' || Boolean(radiusError || polygonError)
+                    !canSave ||
+                    saving ||
+                    verificationRequired ||
+                    mode === 'draw' ||
+                    Boolean(radiusError || polygonError)
                   }
                   onClick={() => void saveChanges()}
                   type="button"
                 >
-                  {saving ? 'Saving…' : 'Save changes'}
+                  {saving
+                    ? 'Saving…'
+                    : saveFailure?.recovery === 'retry'
+                      ? 'Try save again'
+                      : 'Save changes'}
                 </button>
               </div>
             </>
           )}
         </div>
       </aside>
-      {(importing || importFailure) && (
-        <div
-          className={`territory-import-banner${importFailure ? ' failed' : ''}`}
-          role={importFailure ? 'alert' : 'status'}
-          aria-live="polite"
-        >
-          <div>
-            <strong>
-              {importFailure ? 'Street import did not finish' : 'Importing street data'}
-            </strong>
-            <span>
-              {importFailure
-                ? `${importFailure} Your previous saved territory is still active.`
-                : setupRequired
-                  ? 'Streetlight is preparing the first coverage map. Keep this page open.'
-                  : 'The previous territory stays active while this finishes. You can keep working.'}
-            </span>
-          </div>
-          {importFailure && (
-            <button onClick={onReturnToSetup} type="button">
-              Return to Territory Setup
-            </button>
-          )}
-        </div>
-      )}
+      {operationPlacement === 'global' && saveStatus}
     </>
   );
 }

@@ -8,12 +8,37 @@ import {
   type ReconciliationWorkspace,
 } from '@/lib/reconciliation';
 import { OpenReconciliationOverlay } from './OpenReconciliationOverlay';
+import { OperationStatus } from './OperationStatus';
+import { isReconciliationWorkspacePayload, readMutationResult } from './operation-state';
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(
     new Date(`${value}T00:00:00Z`),
   );
 }
+
+type CorrectionAttempt = {
+  packetId: string;
+  coveredOn: string | null;
+};
+
+type ReconciliationOperation =
+  | { kind: 'confirm' }
+  | { kind: 'correction'; attempt: CorrectionAttempt };
+
+type ReconciliationFeedbackBase = {
+  detail: string;
+  headline: string;
+  recovery?: 'retry' | 'reload';
+  tone: 'error' | 'success';
+};
+
+type ReconciliationFeedback =
+  | (ReconciliationFeedbackBase & { operation: 'load' | 'confirm' })
+  | (ReconciliationFeedbackBase & {
+      operation: 'correction';
+      attempt: CorrectionAttempt;
+    });
 
 export function ReconciliationTool({
   active,
@@ -31,14 +56,17 @@ export function ReconciliationTool({
   const [selectedPacketId, setSelectedPacketId] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState('');
+  const [operation, setOperation] = useState<ReconciliationOperation | null>(null);
+  const [feedback, setFeedback] = useState<ReconciliationFeedback | null>(null);
   const requestedRef = useRef(false);
+  const busy = operation !== null;
+  const verificationRequired = feedback?.recovery === 'reload';
+  const mutationControlsDisabled = busy || verificationRequired;
 
   const load = useCallback(async () => {
     requestedRef.current = true;
     setLoading(true);
-    setNotice('');
+    setFeedback(null);
     try {
       const response = await fetch('/api/reconciliation');
       const result = (await response.json()) as ReconciliationWorkspace | { error: string };
@@ -51,7 +79,12 @@ export function ReconciliationTool({
       );
     } catch (error) {
       requestedRef.current = false;
-      setNotice(error instanceof Error ? error.message : 'Could not load packet reconciliation');
+      setFeedback({
+        detail: `${error instanceof Error ? error.message : 'Could not load packet reconciliation'}. No packet records were changed.`,
+        headline: 'Packet batches could not be loaded',
+        operation: 'load',
+        tone: 'error',
+      });
     } finally {
       setLoading(false);
     }
@@ -94,58 +127,172 @@ export function ReconciliationTool({
 
   async function confirm(): Promise<void> {
     if (!batch) return;
-    setBusy(true);
-    setNotice('');
-    try {
-      const response = await fetch('/api/reconciliation', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          batchId: batch.id,
-          activePacketIds: activePackets.map(({ id }) => id),
-          presentPacketIds: [...presentIds],
-          cancelPacketIds: [...cancelIds],
+    setOperation({ kind: 'confirm' });
+    setFeedback(null);
+    const outcome = await readMutationResult(
+      () =>
+        fetch('/api/reconciliation', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            batchId: batch.id,
+            activePacketIds: activePackets.map(({ id }) => id),
+            presentPacketIds: [...presentIds],
+            cancelPacketIds: [...cancelIds],
+          }),
         }),
-      });
-      const result = (await response.json()) as ReconciliationWorkspace | { error: string };
-      if (!response.ok || 'error' in result) {
-        throw new Error('error' in result ? result.error : 'Could not reconcile packet batch');
-      }
-      replaceWorkspace(result);
-      setNotice(
-        preview.complete.length === 0
-          ? 'Reconciliation saved. No missing sheets were recorded as completed.'
-          : `${preview.complete.length} missing packet sheet${preview.complete.length === 1 ? '' : 's'} recorded as completed on ${formatDate(workspace?.asOf ?? result.asOf)}.`,
+      isReconciliationWorkspacePayload,
+    );
+    if (outcome.status !== 'success') {
+      setFeedback(
+        outcome.status === 'rejected'
+          ? {
+              detail: `${outcome.message}. Your packet choices are still selected.`,
+              headline: 'Reconciliation was not saved',
+              operation: 'confirm',
+              recovery: outcome.recovery,
+              tone: 'error',
+            }
+          : {
+              detail:
+                'Streetlight could not confirm whether the reconciliation was saved. Your packet choices are still selected. Reload to verify before trying again.',
+              headline: 'Could not confirm reconciliation',
+              operation: 'confirm',
+              recovery: outcome.recovery,
+              tone: 'error',
+            },
       );
-      await onChanged();
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not reconcile packet batch');
-    } finally {
-      setBusy(false);
+      setOperation(null);
+      return;
     }
+
+    const result = outcome.value;
+    replaceWorkspace(result);
+    const detail =
+      preview.complete.length === 0
+        ? 'No missing sheets were recorded as completed.'
+        : `${preview.complete.length} missing packet sheet${preview.complete.length === 1 ? '' : 's'} recorded as completed on ${formatDate(workspace?.asOf ?? result.asOf)}.`;
+    try {
+      await onChanged();
+      setFeedback({
+        detail,
+        headline: 'Reconciliation saved',
+        operation: 'confirm',
+        tone: 'success',
+      });
+    } catch {
+      setFeedback({
+        detail: `${detail} Reload the page to refresh the coverage map.`,
+        headline: 'Reconciliation saved',
+        operation: 'confirm',
+        tone: 'success',
+      });
+    }
+    setOperation(null);
   }
 
   async function correct(packet: ReconciliationPacket, coveredOn: string | null): Promise<void> {
-    setBusy(true);
-    setNotice('');
-    try {
-      const response = await fetch('/api/reconciliation', {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ packetId: packet.id, coveredOn }),
-      });
-      const result = (await response.json()) as ReconciliationWorkspace | { error: string };
-      if (!response.ok || 'error' in result) {
-        throw new Error('error' in result ? result.error : 'Could not change packet completion');
-      }
-      replaceWorkspace(result);
-      setNotice(coveredOn === null ? 'Packet completion undone.' : 'Packet date changed.');
-      await onChanged();
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not change packet completion');
-    } finally {
-      setBusy(false);
+    const attempt: CorrectionAttempt = { packetId: packet.id, coveredOn };
+    setOperation({ kind: 'correction', attempt: { packetId: packet.id, coveredOn } });
+    setFeedback(null);
+    const outcome = await readMutationResult(
+      () =>
+        fetch('/api/reconciliation', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ packetId: packet.id, coveredOn }),
+        }),
+      isReconciliationWorkspacePayload,
+    );
+    if (outcome.status !== 'success') {
+      setFeedback(
+        outcome.status === 'rejected'
+          ? {
+              detail: `${outcome.message}. Saved reconciliation history is unchanged.`,
+              headline: 'Packet history was not changed',
+              attempt,
+              operation: 'correction',
+              recovery: outcome.recovery,
+              tone: 'error',
+            }
+          : {
+              detail:
+                'Streetlight could not confirm whether packet history changed. Reload to verify the saved history before trying again.',
+              headline: 'Could not confirm packet history',
+              attempt,
+              operation: 'correction',
+              recovery: outcome.recovery,
+              tone: 'error',
+            },
+      );
+      setOperation(null);
+      return;
     }
+
+    replaceWorkspace(outcome.value);
+    const detail = coveredOn === null ? 'Packet completion was undone.' : 'Packet date changed.';
+    try {
+      await onChanged();
+      setFeedback({
+        detail,
+        headline: 'Packet history updated',
+        attempt,
+        operation: 'correction',
+        tone: 'success',
+      });
+    } catch {
+      setFeedback({
+        detail: `${detail} Reload the page to refresh the coverage map.`,
+        headline: 'Packet history updated',
+        attempt,
+        operation: 'correction',
+        tone: 'success',
+      });
+    }
+    setOperation(null);
+  }
+
+  function correctionStatus(packet: ReconciliationPacket) {
+    const correcting = operation?.kind === 'correction' && operation.attempt.packetId === packet.id;
+    const correctionFeedback =
+      feedback && 'attempt' in feedback && feedback.attempt.packetId === packet.id
+        ? feedback
+        : null;
+
+    if (correcting) {
+      return (
+        <OperationStatus
+          detail="Streetlight is updating this whole packet while keeping its history."
+          headline="Updating packet history"
+          tone="busy"
+        />
+      );
+    }
+    if (!correctionFeedback) return null;
+
+    return (
+      <OperationStatus
+        action={
+          correctionFeedback.recovery === 'reload' ? (
+            <button onClick={() => window.location.reload()} type="button">
+              Reload to verify
+            </button>
+          ) : correctionFeedback.tone === 'error' ? (
+            <button
+              onClick={() => void correct(packet, correctionFeedback.attempt.coveredOn)}
+              type="button"
+            >
+              {correctionFeedback.attempt.coveredOn === null
+                ? 'Try undo again'
+                : 'Try date change again'}
+            </button>
+          ) : undefined
+        }
+        detail={correctionFeedback.detail}
+        headline={correctionFeedback.headline}
+        tone={correctionFeedback.tone}
+      />
+    );
   }
 
   return (
@@ -159,12 +306,25 @@ export function ReconciliationTool({
         selectedPacketId={selectedPacketId}
       />
       <aside className="territory-sidebar reconciliation-sidebar" hidden={!active}>
-        <div className="sidebar-scroll">
-          {loading && <p className="empty-state">Loading packet batches…</p>}
+        <div className="sidebar-scroll" inert={operation?.kind === 'confirm'}>
+          {loading && (
+            <OperationStatus
+              detail="Streetlight is loading finalized packet sheets and their saved history."
+              headline="Loading packet batches"
+              tone="busy"
+            />
+          )}
           {!loading && !workspace && (
-            <button className="secondary" onClick={() => void load()} type="button">
-              Retry
-            </button>
+            <OperationStatus
+              action={
+                <button className="secondary" onClick={() => void load()} type="button">
+                  Try again
+                </button>
+              }
+              detail={feedback?.detail ?? 'No saved packet data was changed.'}
+              headline={feedback?.headline ?? 'Packet batches are unavailable'}
+              tone="error"
+            />
           )}
           {workspace && workspace.batches.length === 0 && (
             <p className="empty-state">No finalized packet batches yet.</p>
@@ -304,6 +464,7 @@ export function ReconciliationTool({
                               </select>
                             </label>
                           )}
+                          {correctionStatus(packet)}
                         </article>
                       );
                     })}
@@ -357,7 +518,7 @@ export function ReconciliationTool({
                                 Outreach date
                                 <input
                                   defaultValue={packet.completedOn ?? workspace.asOf}
-                                  disabled={busy}
+                                  disabled={mutationControlsDisabled}
                                   max={workspace.asOf}
                                   name="coveredOn"
                                   required
@@ -365,12 +526,12 @@ export function ReconciliationTool({
                                 />
                               </label>
                               <div>
-                                <button disabled={busy} type="submit">
+                                <button disabled={mutationControlsDisabled} type="submit">
                                   Change date
                                 </button>
                                 <button
                                   className="danger"
-                                  disabled={busy}
+                                  disabled={mutationControlsDisabled}
                                   onClick={() => {
                                     if (
                                       window.confirm(
@@ -387,6 +548,7 @@ export function ReconciliationTool({
                               </div>
                             </form>
                           )}
+                          {correctionStatus(packet)}
                         </article>
                       );
                     })}
@@ -419,21 +581,50 @@ export function ReconciliationTool({
           )}
         </div>
         <div className="sidebar-actions">
-          <p aria-live="polite">{notice}</p>
+          {operation?.kind === 'confirm' ? (
+            <OperationStatus
+              detail="Your packet choices are locked while Streetlight records the whole batch."
+              headline="Saving reconciliation"
+              tone="busy"
+            />
+          ) : (
+            feedback?.operation === 'confirm' && (
+              <OperationStatus
+                action={
+                  feedback.recovery === 'reload' ? (
+                    <button onClick={() => window.location.reload()} type="button">
+                      Reload to verify
+                    </button>
+                  ) : undefined
+                }
+                detail={feedback.detail}
+                headline={feedback.headline}
+                tone={feedback.tone}
+              />
+            )
+          )}
           {batch && activePackets.length > 0 && (
             <div className={reviewing ? 'reviewing' : ''}>
               {reviewing ? (
                 <>
                   <button
                     className="secondary"
-                    disabled={busy}
+                    disabled={mutationControlsDisabled}
                     onClick={() => setReviewing(false)}
                     type="button"
                   >
                     Back
                   </button>
-                  <button disabled={busy} onClick={() => void confirm()} type="button">
-                    {busy ? 'Saving…' : 'Confirm reconciliation'}
+                  <button
+                    disabled={mutationControlsDisabled}
+                    onClick={() => void confirm()}
+                    type="button"
+                  >
+                    {busy
+                      ? 'Saving…'
+                      : feedback?.operation === 'confirm' && feedback.tone === 'error'
+                        ? 'Try reconciliation again'
+                        : 'Confirm reconciliation'}
                   </button>
                 </>
               ) : (
