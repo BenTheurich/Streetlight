@@ -1,5 +1,18 @@
 import type { BoundaryShape, Position } from './territory-geometry.ts';
 
+export const apartmentLayerIds = [
+  'streetlight-apartment-clusters',
+  'streetlight-apartment-cluster-count',
+  'streetlight-apartments',
+  'streetlight-apartment-labels',
+] as const;
+
+export type ApartmentSelectionSource = 'map' | 'selector';
+
+export function createApartmentSelection(id: string, source: ApartmentSelectionSource) {
+  return { id, source };
+}
+
 export const coverageColors = {
   red: '#B4473D',
   orange: '#D66B2D',
@@ -14,6 +27,39 @@ export function apartmentMarkerColor(status: 'needs_review' | 'ready' | 'deferre
     ready: '#1769ff',
     deferred: '#77736c',
   }[status];
+}
+
+export function apartmentOptionLabel(apartment: {
+  address: string | null;
+  reviewStatus: 'needs_review' | 'ready' | 'deferred';
+  estimatedTracts: number;
+}): string {
+  const status = {
+    needs_review: 'Needs review',
+    ready: 'Ready',
+    deferred: 'Deferred',
+  }[apartment.reviewStatus];
+  return `${apartment.address ?? 'Address unavailable'} · ${status} · ${apartment.estimatedTracts} estimated tract${apartment.estimatedTracts === 1 ? '' : 's'}`;
+}
+
+export function apartmentFocusZoom(
+  source: ApartmentSelectionSource,
+  currentZoom: number,
+): number | null {
+  return source === 'selector' ? Math.max(16, currentZoom) : null;
+}
+
+export function apartmentAllowsDrawingPoint(apartmentHit: boolean): boolean {
+  return !apartmentHit;
+}
+
+export async function expandApartmentCluster(
+  source: { getClusterExpansionZoom: (clusterId: number) => Promise<number> },
+  clusterId: number,
+  center: Position,
+  move: (camera: { center: Position; zoom: number }) => void,
+): Promise<void> {
+  move({ center, zoom: await source.getClusterExpansionZoom(clusterId) });
 }
 
 export function boundaryStrokePaths(ring: Position[], shape: BoundaryShape): Position[][] {

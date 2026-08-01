@@ -14,6 +14,78 @@ test('apartment markers distinguish review states', () => {
   assert.equal(apartmentMarkerColor('deferred'), '#77736c');
 });
 
+test('apartment interaction keeps selection origin, camera threshold, and drawing isolation explicit', async () => {
+  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
+  const optionLabel = module.apartmentOptionLabel as
+    | ((apartment: {
+        address: string | null;
+        reviewStatus: 'needs_review' | 'ready' | 'deferred';
+        estimatedTracts: number;
+      }) => string)
+    | undefined;
+  const focusZoom = module.apartmentFocusZoom as
+    | ((source: 'map' | 'selector', zoom: number) => number | null)
+    | undefined;
+  const createSelection = module.createApartmentSelection as
+    | ((id: string, source: 'map' | 'selector') => { id: string; source: 'map' | 'selector' })
+    | undefined;
+  const apartmentAllowsDrawingPoint = module.apartmentAllowsDrawingPoint as
+    | ((apartmentHit: boolean) => boolean)
+    | undefined;
+  const expandCluster = module.expandApartmentCluster as
+    | ((
+        source: { getClusterExpansionZoom: (id: number) => Promise<number> },
+        id: number,
+        center: [number, number],
+        move: (camera: { center: [number, number]; zoom: number }) => void,
+      ) => Promise<void>)
+    | undefined;
+
+  assert.equal(typeof optionLabel, 'function');
+  assert.equal(
+    optionLabel?.({ address: null, reviewStatus: 'needs_review', estimatedTracts: 18 }),
+    'Address unavailable · Needs review · 18 estimated tracts',
+  );
+  assert.equal(
+    optionLabel?.({ address: '1 Main Street', reviewStatus: 'ready', estimatedTracts: 1 }),
+    '1 Main Street · Ready · 1 estimated tract',
+  );
+  assert.equal(focusZoom?.('map', 11), null);
+  assert.equal(focusZoom?.('selector', 11), 16);
+  assert.equal(focusZoom?.('selector', 17.25), 17.25);
+  assert.equal(typeof createSelection, 'function');
+  assert.deepEqual(createSelection?.('apartment-one', 'map'), {
+    id: 'apartment-one',
+    source: 'map',
+  });
+  assert.deepEqual(createSelection?.('apartment-one', 'selector'), {
+    id: 'apartment-one',
+    source: 'selector',
+  });
+  assert.equal(typeof apartmentAllowsDrawingPoint, 'function');
+  assert.equal(apartmentAllowsDrawingPoint?.(false), true);
+  assert.equal(apartmentAllowsDrawingPoint?.(true), false);
+
+  assert.equal(typeof expandCluster, 'function');
+  let requestedId = 0;
+  let camera: { center: [number, number]; zoom: number } | null = null;
+  await expandCluster?.(
+    {
+      getClusterExpansionZoom: async (id) => {
+        requestedId = id;
+        return 14.5;
+      },
+    },
+    27,
+    [-117.1, 33.5],
+    (next) => {
+      camera = next;
+    },
+  );
+  assert.equal(requestedId, 27);
+  assert.deepEqual(camera, { center: [-117.1, 33.5], zoom: 14.5 });
+});
+
 test('square boundary strokes restart on each side instead of crossing corners', () => {
   const ring = [
     [-2, -1],

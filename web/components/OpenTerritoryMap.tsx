@@ -5,6 +5,7 @@ import type {
   MapLayerMouseEvent,
   Map as MapLibreMap,
   Marker as MapLibreMarker,
+  MapMouseEvent,
 } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import type { ApartmentComplex, ExclusionArea, TerritorySegment } from '@/lib/database';
@@ -15,8 +16,13 @@ import {
   territoryBoundary,
 } from '@/lib/territory-geometry';
 import {
+  type ApartmentSelectionSource,
+  apartmentAllowsDrawingPoint,
+  apartmentFocusZoom,
+  apartmentLayerIds,
   apartmentMarkerColor,
   boundaryStrokePaths,
+  expandApartmentCluster,
   segmentMapAppearance,
   segmentVisibleOnMap,
 } from '@/lib/territory-map-style';
@@ -45,6 +51,8 @@ type OpenTerritoryMapProps = {
   onSelectSegment: (id: string) => void;
   onSelectApartment: (id: string) => void;
   selectedApartmentId: string | null;
+  selectedApartmentPosition: Position | null;
+  apartmentSelectionSource: ApartmentSelectionSource | null;
 };
 
 function beforeRoadLabels(map: MapLibreMap): string | undefined {
@@ -79,6 +87,8 @@ export function OpenTerritoryMap({
   onSelectSegment,
   onSelectApartment,
   selectedApartmentId,
+  selectedApartmentPosition,
+  apartmentSelectionSource,
 }: OpenTerritoryMapProps) {
   const drawingRef = useRef(drawing);
   const mutationLockedRef = useRef(mutationLocked);
@@ -90,8 +100,16 @@ export function OpenTerritoryMap({
 
   useEffect(() => {
     if (!active || !map) return;
-    const addPoint = (event: { lngLat: { lng: number; lat: number } }) => {
-      if (drawingRef.current && !mutationLockedRef.current) {
+    const addPoint = (event: MapMouseEvent) => {
+      const apartmentHit =
+        map.queryRenderedFeatures(event.point, {
+          layers: apartmentLayerIds.filter((id) => map.getLayer(id)),
+        }).length > 0;
+      if (
+        !mutationLockedRef.current &&
+        drawingRef.current &&
+        apartmentAllowsDrawingPoint(apartmentHit)
+      ) {
         addPointRef.current([event.lngLat.lng, event.lngLat.lat]);
       }
     };
@@ -116,6 +134,19 @@ export function OpenTerritoryMap({
       map.easeTo({ center });
     }
   }, [active, center, map]);
+
+  useEffect(() => {
+    if (
+      !active ||
+      !map ||
+      !selectedApartmentId ||
+      !selectedApartmentPosition ||
+      !apartmentSelectionSource
+    )
+      return;
+    const zoom = apartmentFocusZoom(apartmentSelectionSource, map.getZoom());
+    if (zoom !== null) map.easeTo({ center: selectedApartmentPosition, zoom });
+  }, [active, apartmentSelectionSource, map, selectedApartmentId, selectedApartmentPosition]);
 
   useEffect(() => {
     if (!active || !map) return;
@@ -255,8 +286,8 @@ export function OpenTerritoryMap({
 
   useEffect(() => {
     if (!active || !map) return;
+    const clusterId = 'streetlight-apartment-clusters';
     const circleId = 'streetlight-apartments';
-    const labelId = 'streetlight-apartment-labels';
     (map.getSource('streetlightApartments') as GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection',
       features: apartmentComplexes
@@ -272,8 +303,7 @@ export function OpenTerritoryMap({
           },
         })),
     });
-    map.setLayoutProperty(circleId, 'visibility', 'visible');
-    map.setLayoutProperty(labelId, 'visibility', 'visible');
+    for (const id of apartmentLayerIds) map.setLayoutProperty(id, 'visibility', 'visible');
     map.setPaintProperty(circleId, 'circle-radius', ['case', ['get', 'selected'], 13, 10]);
     map.setPaintProperty(circleId, 'circle-stroke-width', ['case', ['get', 'selected'], 3, 2]);
     const select = (event: MapLayerMouseEvent) => {
@@ -281,18 +311,34 @@ export function OpenTerritoryMap({
       const id = event.features?.[0]?.properties?.id;
       if (typeof id === 'string') onSelectApartment(id);
     };
+    const expand = (event: MapLayerMouseEvent) => {
+      const feature = event.features?.[0];
+      const id = feature?.properties?.cluster_id;
+      if (typeof id !== 'number' || feature?.geometry.type !== 'Point' || mutationLocked) return;
+      const source = map.getSource('streetlightApartments') as GeoJSONSource | undefined;
+      if (!source) return;
+      void expandApartmentCluster(source, id, feature.geometry.coordinates as Position, (camera) =>
+        map.easeTo(camera),
+      );
+    };
     const point = () => {
       map.getCanvas().style.cursor = 'pointer';
     };
     const clear = () => {
       map.getCanvas().style.cursor = drawing ? 'crosshair' : '';
     };
+    map.on('click', clusterId, expand);
     map.on('click', circleId, select);
+    map.on('mouseenter', clusterId, point);
     map.on('mouseenter', circleId, point);
+    map.on('mouseleave', clusterId, clear);
     map.on('mouseleave', circleId, clear);
     return () => {
+      map.off('click', clusterId, expand);
       map.off('click', circleId, select);
+      map.off('mouseenter', clusterId, point);
       map.off('mouseenter', circleId, point);
+      map.off('mouseleave', clusterId, clear);
       map.off('mouseleave', circleId, clear);
     };
   }, [

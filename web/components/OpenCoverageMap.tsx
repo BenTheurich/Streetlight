@@ -14,7 +14,7 @@ import {
   coverageSelectionCameraOptions,
   positionBounds,
 } from '@/lib/map-camera';
-import { apartmentMarkerColor, coverageColors } from '@/lib/territory-map-style';
+import { apartmentLayerIds, apartmentMarkerColor, coverageColors } from '@/lib/territory-map-style';
 
 type OpenCoverageMapProps = {
   active: boolean;
@@ -54,8 +54,7 @@ export function OpenCoverageMap({
       'streetlight-boundary',
       'streetlight-coverage-selection',
       'streetlight-coverage',
-      'streetlight-apartments',
-      'streetlight-apartment-labels',
+      ...apartmentLayerIds,
     ]) {
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visibility);
     }

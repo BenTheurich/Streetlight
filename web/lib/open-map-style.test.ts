@@ -380,6 +380,52 @@ test('workspace map keeps real buildings and uses the interactive coverage strok
   );
 });
 
+test('workspace map clusters apartments identically over map and satellite styles', () => {
+  const data = openMapData();
+  data.apartmentComplexes = [
+    {
+      id: 'apartment-one',
+      sourceId: 'source-one',
+      address: '1 Main Street',
+      position: [0, 0],
+      estimatedTracts: 18,
+      evidence: { apartmentBuilding: true, distinctUnits: 18 },
+      reviewStatus: 'needs_review',
+      withinBoundary: true,
+      lastCoveredOn: null,
+      coverageClass: 'red',
+      roots: [],
+    },
+  ];
+  const base = {
+    version: 8,
+    glyphs: 'https://example.com/fonts/{fontstack}/{range}.pbf',
+    sources: { openmaptiles: { type: 'vector' } },
+    layers: [{ id: 'highway-name-minor', type: 'symbol' }],
+  };
+
+  const map = buildWorkspaceMapStyle(base, data);
+  const satellite = buildWorkspaceMapStyle(base, data, true);
+
+  for (const style of [map, satellite]) {
+    const source = style.sources.streetlightApartments as Record<string, unknown>;
+    assert.equal(source.cluster, true);
+    assert.equal(source.clusterRadius, 44);
+    assert.equal(source.clusterMaxZoom, 15);
+
+    const cluster = style.layers.find(({ id }) => id === 'streetlight-apartment-clusters');
+    const count = style.layers.find(({ id }) => id === 'streetlight-apartment-cluster-count');
+    const marker = style.layers.find(({ id }) => id === 'streetlight-apartments');
+    const label = style.layers.find(({ id }) => id === 'streetlight-apartment-labels');
+    assert.deepEqual(cluster?.filter, ['has', 'point_count']);
+    assert.equal(cluster?.paint?.['circle-color'], '#34445a');
+    assert.deepEqual(count?.filter, ['has', 'point_count']);
+    assert.deepEqual(count?.layout?.['text-field'], ['get', 'point_count_abbreviated']);
+    assert.deepEqual(marker?.filter, ['!', ['has', 'point_count']]);
+    assert.deepEqual(label?.filter, ['!', ['has', 'point_count']]);
+  }
+});
+
 test('workspace map presents an accepted FEMA row gap as an ordinary building without audit layers', () => {
   const data = openMapData();
   data.buildings.push({

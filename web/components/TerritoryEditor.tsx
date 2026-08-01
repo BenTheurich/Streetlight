@@ -21,6 +21,11 @@ import {
   polygonIsSimple,
 } from '@/lib/territory-geometry';
 import { needsTerritoryImport } from '@/lib/territory-import';
+import {
+  type ApartmentSelectionSource,
+  apartmentOptionLabel,
+  createApartmentSelection,
+} from '@/lib/territory-map-style';
 import { OpenTerritoryMap } from './OpenTerritoryMap';
 import { OperationStatus } from './OperationStatus';
 import {
@@ -116,7 +121,10 @@ export function TerritoryEditor({
   const [showHiddenRoads, setShowHiddenRoads] = useState(false);
   const [selectedHiddenRoadGroupId, setSelectedHiddenRoadGroupId] = useState<string | null>(null);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
-  const [selectedApartmentId, setSelectedApartmentId] = useState<string | null>(null);
+  const [apartmentSelection, setApartmentSelection] = useState<{
+    id: string;
+    source: ApartmentSelectionSource;
+  } | null>(null);
   const [polygonError, setPolygonError] = useState('');
   const [radiusInput, setRadiusInput] = useState(String(initialDraft.radiusMiles));
   const [addressEditing, setAddressEditing] = useState(false);
@@ -200,7 +208,7 @@ export function TerritoryEditor({
     ) ?? null;
   const selectedApartment =
     liveApartments.find(
-      (apartment) => apartment.withinBoundary && apartment.id === selectedApartmentId,
+      (apartment) => apartment.withinBoundary && apartment.id === apartmentSelection?.id,
     ) ?? null;
 
   useEffect(() => {
@@ -256,7 +264,7 @@ export function TerritoryEditor({
     setSelectedHiddenRoadGroupId(roadGroupId);
     setSelectedSegmentId(null);
     setSelectedExclusionId(null);
-    setSelectedApartmentId(null);
+    setApartmentSelection(null);
     setMode('pan');
   }, []);
 
@@ -264,7 +272,7 @@ export function TerritoryEditor({
     setSelectedSegmentId(segmentId);
     setSelectedHiddenRoadGroupId(null);
     setSelectedExclusionId(null);
-    setSelectedApartmentId(null);
+    setApartmentSelection(null);
     setMode('pan');
     setPolygonError('');
   }, []);
@@ -273,13 +281,13 @@ export function TerritoryEditor({
     setSelectedExclusionId(exclusionId);
     setSelectedHiddenRoadGroupId(null);
     setSelectedSegmentId(null);
-    setSelectedApartmentId(null);
+    setApartmentSelection(null);
     setMode('pan');
     setPolygonError('');
   }, []);
 
-  const selectApartment = useCallback((apartmentId: string) => {
-    setSelectedApartmentId(apartmentId);
+  const selectApartment = useCallback((apartmentId: string, source: ApartmentSelectionSource) => {
+    setApartmentSelection(createApartmentSelection(apartmentId, source));
     setSelectedExclusionId(null);
     setSelectedHiddenRoadGroupId(null);
     setSelectedSegmentId(null);
@@ -293,7 +301,7 @@ export function TerritoryEditor({
     setSelectedExclusionId(null);
     setSelectedHiddenRoadGroupId(null);
     setSelectedSegmentId(null);
-    setSelectedApartmentId(null);
+    setApartmentSelection(null);
     setPolygonError('');
   }
 
@@ -335,7 +343,7 @@ export function TerritoryEditor({
     setSelectedExclusionId(null);
     setSelectedHiddenRoadGroupId(null);
     setSelectedSegmentId(null);
-    setSelectedApartmentId(null);
+    setApartmentSelection(null);
     setPolygonError('');
     setAddressEditing(false);
     setPendingAddress(null);
@@ -421,7 +429,7 @@ export function TerritoryEditor({
     setSelectedExclusionId(null);
     setSelectedHiddenRoadGroupId(null);
     setSelectedSegmentId(null);
-    setSelectedApartmentId(null);
+    setApartmentSelection(null);
     try {
       await onSaved(result);
       setNotice('Territory changes saved.');
@@ -513,13 +521,15 @@ export function TerritoryEditor({
         onSelectExclusion={selectExclusion}
         onSelectHiddenRoadGroup={selectHiddenRoadGroup}
         onSelectSegment={selectSegment}
-        onSelectApartment={selectApartment}
+        apartmentSelectionSource={apartmentSelection?.source ?? null}
+        onSelectApartment={(id) => selectApartment(id, 'map')}
         radiusMiles={draft.radiusMiles}
         segments={live.segments}
         selectedExclusionId={selectedExclusionId}
         selectedHiddenRoadGroupId={selectedHiddenRoadGroupId}
         selectedSegmentId={selectedSegment?.id ?? null}
         selectedApartmentId={selectedApartment?.id ?? null}
+        selectedApartmentPosition={selectedApartment?.position ?? null}
         showHiddenRoads={showHiddenRoads}
       />
       {active &&
@@ -731,6 +741,25 @@ export function TerritoryEditor({
               <h2>Apartment complex</h2>
               <span>{liveApartments.filter(({ withinBoundary }) => withinBoundary).length}</span>
             </div>
+            <label className="apartment-selector">
+              Apartment complex
+              <select
+                onChange={(event) => {
+                  if (event.target.value) selectApartment(event.target.value, 'selector');
+                  else setApartmentSelection(null);
+                }}
+                value={selectedApartment?.id ?? ''}
+              >
+                <option value="">Choose a complex</option>
+                {liveApartments
+                  .filter(({ withinBoundary }) => withinBoundary)
+                  .map((apartment) => (
+                    <option key={apartment.id} value={apartment.id}>
+                      {apartmentOptionLabel(apartment)}
+                    </option>
+                  ))}
+              </select>
+            </label>
             {selectedApartment ? (
               <div className="apartment-card">
                 <strong>{selectedApartment.address ?? 'Address unavailable'}</strong>
@@ -778,7 +807,7 @@ export function TerritoryEditor({
                 )}
               </div>
             ) : (
-              <p className="empty-state">Select an apartment marker on the map.</p>
+              <p className="empty-state">Choose a complex or select its map marker.</p>
             )}
           </section>
 

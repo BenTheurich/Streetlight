@@ -754,6 +754,9 @@ export function buildWorkspaceMapStyle(
   };
   style.sources.streetlightApartments = {
     type: 'geojson',
+    cluster: true,
+    clusterRadius: 44,
+    clusterMaxZoom: 15,
     data: {
       type: 'FeatureCollection',
       features: data.apartmentComplexes.map((apartment) => ({
@@ -816,9 +819,34 @@ export function buildWorkspaceMapStyle(
       },
     },
     {
+      id: 'streetlight-apartment-clusters',
+      type: 'circle',
+      source: 'streetlightApartments',
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': '#34445a',
+        'circle-radius': ['step', ['get', 'point_count'], 15, 10, 18, 50, 21],
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 2,
+      },
+    },
+    {
+      id: 'streetlight-apartment-cluster-count',
+      type: 'symbol',
+      source: 'streetlightApartments',
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': ['get', 'point_count_abbreviated'],
+        'text-size': 11,
+        'text-font': ['Noto Sans Bold'],
+      },
+      paint: { 'text-color': '#ffffff' },
+    },
+    {
       id: 'streetlight-apartments',
       type: 'circle',
       source: 'streetlightApartments',
+      filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-color': ['get', 'color'],
         'circle-radius': 10,
@@ -830,6 +858,7 @@ export function buildWorkspaceMapStyle(
       id: 'streetlight-apartment-labels',
       type: 'symbol',
       source: 'streetlightApartments',
+      filter: ['!', ['has', 'point_count']],
       layout: {
         'text-field': ['get', 'label'],
         'text-size': 11,

@@ -1109,6 +1109,15 @@ button.administrator-account-trigger:not(:disabled):hover {
   background: #f2f6f7;
 }
 
+.apartment-selector {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
 .segment-card {
   border-color: #dcc7b8;
   background: #fbf3ed;
