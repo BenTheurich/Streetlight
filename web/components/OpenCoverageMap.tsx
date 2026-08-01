@@ -14,7 +14,13 @@ import {
   coverageSelectionCameraOptions,
   positionBounds,
 } from '@/lib/map-camera';
-import { apartmentLayerIds, apartmentMarkerColor, coverageColors } from '@/lib/territory-map-style';
+import type { Position } from '@/lib/territory-geometry';
+import {
+  apartmentLayerIds,
+  apartmentMarkerColor,
+  coverageColors,
+  expandApartmentCluster,
+} from '@/lib/territory-map-style';
 
 type OpenCoverageMapProps = {
   active: boolean;
@@ -133,6 +139,24 @@ export function OpenCoverageMap({
     const bounds = selected ? positionBounds(selected.geometry.coordinates) : null;
     if (options && bounds) map.fitBounds(bounds, options);
   }, [active, map, segments, selectedSegmentId, selectionSource]);
+
+  useEffect(() => {
+    if (!active || !map) return;
+    const expand = (event: MapLayerMouseEvent) => {
+      const feature = event.features?.[0];
+      const id = feature?.properties?.cluster_id;
+      if (typeof id !== 'number' || feature?.geometry.type !== 'Point') return;
+      const source = map.getSource('streetlightApartments') as GeoJSONSource | undefined;
+      if (!source) return;
+      void expandApartmentCluster(source, id, feature.geometry.coordinates as Position, (camera) =>
+        map.easeTo(camera),
+      );
+    };
+    map.on('click', 'streetlight-apartment-clusters', expand);
+    return () => {
+      map.off('click', 'streetlight-apartment-clusters', expand);
+    };
+  }, [active, map]);
 
   useEffect(() => {
     if (!active || !interactive || !map) return;

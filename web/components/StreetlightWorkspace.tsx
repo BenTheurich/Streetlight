@@ -234,7 +234,7 @@ export function StreetlightWorkspace({
         <CoverageDashboard
           active={tool === 'coverage'}
           onOpenPackets={() => openTool('packets')}
-          onOpenReconciliation={() => setTool('reconciliation')}
+          onOpenReconciliation={() => openTool('reconciliation')}
           onSelectSegment={selectCoverageSearchResult}
           onWorkspaceChange={setCoverage}
           selectedSegmentId={selectedSegmentId}

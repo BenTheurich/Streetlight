@@ -1452,8 +1452,8 @@ button.administrator-account-trigger:not(:disabled):hover {
   top: 0.38rem;
   right: 0.38rem;
   display: grid;
-  width: 36px;
-  min-height: 36px;
+  width: 44px;
+  min-height: 44px;
   padding: 0;
   border: 0;
   border-radius: 8px;
@@ -1537,8 +1537,8 @@ button.administrator-account-trigger:not(:disabled):hover {
 
 .heatmap-settings-dialog .icon-button {
   display: grid;
-  width: 40px;
-  min-height: 40px;
+  width: 44px;
+  min-height: 44px;
   flex: 0 0 auto;
   padding: 0;
   border: 0;

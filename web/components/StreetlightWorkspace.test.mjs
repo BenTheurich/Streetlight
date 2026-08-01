@@ -38,6 +38,21 @@ test('coverage makes the current outreach continuation explicit without hiding o
   assert.match(source, /onOpenReconciliation/);
 });
 
+test('Current Work opens reconciliation through the guarded tool transition', () => {
+  const source = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /onOpenReconciliation=\{\(\) => openTool\('reconciliation'\)\}/);
+  assert.doesNotMatch(source, /onOpenReconciliation=\{\(\) => setTool\('reconciliation'\)\}/);
+});
+
+test('the shared coverage map expands apartment clusters and removes its click handler', () => {
+  const source = readFileSync(new URL('./OpenCoverageMap.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /expandApartmentCluster\(/);
+  assert.match(source, /map\.on\('click', 'streetlight-apartment-clusters', expand\)/);
+  assert.match(source, /map\.off\('click', 'streetlight-apartment-clusters', expand\)/);
+});
+
 test('heatmap ranges are edited from the shared map legend instead of the coverage sidebar', () => {
   const workspace = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
   const map = readFileSync(new URL('./OpenCoverageMap.tsx', import.meta.url), 'utf8');
