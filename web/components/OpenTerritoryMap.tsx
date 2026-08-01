@@ -1,6 +1,11 @@
 'use client';
 
-import type { MapLayerMouseEvent, Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
+import type {
+  GeoJSONSource,
+  MapLayerMouseEvent,
+  Map as MapLibreMap,
+  Marker as MapLibreMarker,
+} from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import type { ApartmentComplex, ExclusionArea, TerritorySegment } from '@/lib/database';
 import {
@@ -112,21 +117,13 @@ export function OpenTerritoryMap({
     const lineSource = 'territory-boundary-line';
     const fillLayer = 'territory-boundary-fill';
     const lineLayer = 'territory-boundary-line';
-    const boundary = territoryBoundary(center, radiusMiles, boundaryShape);
     map.addSource(fillSource, {
       type: 'geojson',
-      data: { type: 'Feature', properties: {}, geometry: boundary },
+      data: { type: 'FeatureCollection', features: [] },
     });
     map.addSource(lineSource, {
       type: 'geojson',
-      data: {
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'MultiLineString',
-          coordinates: boundaryStrokePaths(boundary.coordinates[0], boundaryShape),
-        },
-      },
+      data: { type: 'FeatureCollection', features: [] },
     });
     const before = beforeRoadLabels(map);
     map.addLayer(
@@ -158,65 +155,62 @@ export function OpenTerritoryMap({
       if (map.getSource(lineSource)) map.removeSource(lineSource);
       if (map.getSource(fillSource)) map.removeSource(fillSource);
     };
+  }, [active, map]);
+
+  useEffect(() => {
+    if (!active || !map) return;
+    const boundary = territoryBoundary(center, radiusMiles, boundaryShape);
+    (map.getSource('territory-boundary-fill') as GeoJSONSource | undefined)?.setData({
+      type: 'Feature',
+      properties: {},
+      geometry: boundary,
+    });
+    (map.getSource('territory-boundary-line') as GeoJSONSource | undefined)?.setData({
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'MultiLineString',
+        coordinates: boundaryStrokePaths(boundary.coordinates[0], boundaryShape),
+      },
+    });
   }, [active, boundaryShape, center, map, radiusMiles]);
 
   useEffect(() => {
     if (!active || !map) return;
-    const sourceId = 'territory-segments';
-    const layerId = 'territory-segments';
+    const layerId = 'streetlight-coverage';
     const visibleSegments = segments.filter((segment) =>
       segmentVisibleOnMap(segment, showHiddenRoads),
     );
-    map.addSource(sourceId, {
-      type: 'geojson',
-      data: {
-        type: 'FeatureCollection',
-        features: visibleSegments.map((segment) => {
-          const appearance = segmentMapAppearance(
-            segment,
-            selectedSegmentId,
-            selectedHiddenRoadGroupId,
-          );
-          return {
-            type: 'Feature' as const,
-            geometry: segment.geometry,
-            properties: {
-              id: segment.id,
-              roadGroupId: segment.roadGroupId,
-              active: segment.active,
-              manuallyExcluded: segment.manuallyExcluded,
-              selectable: !drawing && appearance.selectable,
-              color: appearance.strokeColor,
-              opacity: appearance.strokeOpacity,
-              weightOffset: appearance.weightOffset,
-              sort: appearance.zIndex,
-            },
-          };
-        }),
-      },
+    (map.getSource('streetlightCoverage') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: visibleSegments.map((segment) => {
+        const appearance = segmentMapAppearance(
+          segment,
+          selectedSegmentId,
+          selectedHiddenRoadGroupId,
+        );
+        return {
+          type: 'Feature' as const,
+          geometry: segment.geometry,
+          properties: {
+            id: segment.id,
+            roadGroupId: segment.roadGroupId,
+            active: segment.active,
+            manuallyExcluded: segment.manuallyExcluded,
+            selectable: !drawing && appearance.selectable,
+            color: appearance.strokeColor,
+            opacity: appearance.strokeOpacity,
+            weightOffset: appearance.weightOffset,
+          },
+        };
+      }),
     });
-    map.addLayer(
-      {
-        id: layerId,
-        type: 'line',
-        source: sourceId,
-        layout: {
-          'line-cap': 'round',
-          'line-join': 'round',
-          'line-sort-key': ['get', 'sort'],
-        },
-        paint: {
-          'line-color': ['get', 'color'],
-          'line-opacity': ['get', 'opacity'],
-          'line-width': [
-            'max',
-            1,
-            ['+', ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5], ['get', 'weightOffset']],
-          ],
-        },
-      },
-      beforeRoadLabels(map),
-    );
+    map.setLayoutProperty('streetlight-coverage', 'visibility', 'visible');
+    map.setPaintProperty('streetlight-coverage', 'line-width', [
+      'max',
+      1,
+      ['+', ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5], ['get', 'weightOffset']],
+    ]);
     const select = (event: MapLayerMouseEvent) => {
       const properties = event.features?.[0]?.properties;
       if (!properties?.selectable) return;
@@ -238,8 +232,6 @@ export function OpenTerritoryMap({
       map.off('click', layerId, select);
       map.off('mouseenter', layerId, point);
       map.off('mouseleave', layerId, clear);
-      if (map.getLayer(layerId)) map.removeLayer(layerId);
-      if (map.getSource(sourceId)) map.removeSource(sourceId);
     };
   }, [
     active,
@@ -255,56 +247,27 @@ export function OpenTerritoryMap({
 
   useEffect(() => {
     if (!active || !map) return;
-    const sourceId = 'territory-apartments';
-    const circleId = 'territory-apartments';
-    const labelId = 'territory-apartment-labels';
-    map.addSource(sourceId, {
-      type: 'geojson',
-      data: {
-        type: 'FeatureCollection',
-        features: apartmentComplexes
-          .filter(({ withinBoundary }) => withinBoundary)
-          .map((apartment) => ({
-            type: 'Feature' as const,
-            geometry: { type: 'Point' as const, coordinates: apartment.position },
-            properties: {
-              id: apartment.id,
-              label: 'A',
-              color: apartmentMarkerColor(apartment.reviewStatus),
-              selected: apartment.id === selectedApartmentId,
-            },
-          })),
-      },
+    const circleId = 'streetlight-apartments';
+    const labelId = 'streetlight-apartment-labels';
+    (map.getSource('streetlightApartments') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: apartmentComplexes
+        .filter(({ withinBoundary }) => withinBoundary)
+        .map((apartment) => ({
+          type: 'Feature' as const,
+          geometry: { type: 'Point' as const, coordinates: apartment.position },
+          properties: {
+            id: apartment.id,
+            label: 'A',
+            color: apartmentMarkerColor(apartment.reviewStatus),
+            selected: apartment.id === selectedApartmentId,
+          },
+        })),
     });
-    const before = beforeRoadLabels(map);
-    map.addLayer(
-      {
-        id: circleId,
-        type: 'circle',
-        source: sourceId,
-        paint: {
-          'circle-color': ['get', 'color'],
-          'circle-radius': ['case', ['get', 'selected'], 13, 10],
-          'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': ['case', ['get', 'selected'], 3, 2],
-        },
-      },
-      before,
-    );
-    map.addLayer(
-      {
-        id: labelId,
-        type: 'symbol',
-        source: sourceId,
-        layout: {
-          'text-field': ['get', 'label'],
-          'text-size': 11,
-          'text-font': ['Noto Sans Bold'],
-        },
-        paint: { 'text-color': '#ffffff' },
-      },
-      before,
-    );
+    map.setLayoutProperty(circleId, 'visibility', 'visible');
+    map.setLayoutProperty(labelId, 'visibility', 'visible');
+    map.setPaintProperty(circleId, 'circle-radius', ['case', ['get', 'selected'], 13, 10]);
+    map.setPaintProperty(circleId, 'circle-stroke-width', ['case', ['get', 'selected'], 3, 2]);
     const select = (event: MapLayerMouseEvent) => {
       const id = event.features?.[0]?.properties?.id;
       if (typeof id === 'string') onSelectApartment(id);
@@ -322,9 +285,6 @@ export function OpenTerritoryMap({
       map.off('click', circleId, select);
       map.off('mouseenter', circleId, point);
       map.off('mouseleave', circleId, clear);
-      if (map.getLayer(labelId)) map.removeLayer(labelId);
-      if (map.getLayer(circleId)) map.removeLayer(circleId);
-      if (map.getSource(sourceId)) map.removeSource(sourceId);
     };
   }, [active, apartmentComplexes, drawing, map, onSelectApartment, selectedApartmentId]);
 
@@ -385,6 +345,20 @@ export function OpenTerritoryMap({
     const selected = exclusions.find(({ id }) => id === selectedExclusionId);
     if (selected && !drawing) {
       const points = selected.geometry.coordinates[0].slice(0, -1);
+      const preview = (nextPoints: Position[]) => {
+        (map.getSource(sourceId) as GeoJSONSource | undefined)?.setData({
+          type: 'FeatureCollection',
+          features: exclusions.map((exclusion) => ({
+            type: 'Feature' as const,
+            geometry: exclusion.id === selected.id ? closePolygon(nextPoints) : exclusion.geometry,
+            properties: {
+              id: exclusion.id,
+              enabled: exclusion.enabled,
+              selected: exclusion.id === selectedExclusionId,
+            },
+          })),
+        });
+      };
       void import('maplibre-gl').then(({ Marker }) => {
         if (disposed) return;
         points.forEach((point, index) => {
@@ -393,12 +367,15 @@ export function OpenTerritoryMap({
           element.type = 'button';
           element.ariaLabel = `Move vertex ${index + 1}`;
           const marker = new Marker({ draggable: true, element }).setLngLat(point).addTo(map);
-          marker.on('dragend', () => {
+          const updateVertex = () => {
             const next = [...points];
             const moved = marker.getLngLat();
             next[index] = [moved.lng, moved.lat];
-            onExclusionChange(selected.id, next);
-          });
+            preview(next);
+            return next;
+          };
+          marker.on('drag', updateVertex);
+          marker.on('dragend', () => onExclusionChange(selected.id, updateVertex()));
           markers.push(marker);
 
           const nextIndex = (index + 1) % points.length;
@@ -409,12 +386,15 @@ export function OpenTerritoryMap({
           const midpointMarker = new Marker({ draggable: true, element: midpointElement })
             .setLngLat(midpoint(point, points[nextIndex]))
             .addTo(map);
-          midpointMarker.on('dragend', () => {
+          const updateMidpoint = () => {
             const inserted = midpointMarker.getLngLat();
             const next = [...points];
             next.splice(index + 1, 0, [inserted.lng, inserted.lat]);
-            onExclusionChange(selected.id, next);
-          });
+            preview(next);
+            return next;
+          };
+          midpointMarker.on('drag', updateMidpoint);
+          midpointMarker.on('dragend', () => onExclusionChange(selected.id, updateMidpoint()));
           markers.push(midpointMarker);
         });
       });
@@ -438,29 +418,15 @@ export function OpenTerritoryMap({
         map.getCanvas().style.cursor = '';
       };
     const sourceId = 'territory-drawing';
-    const fillId = 'territory-drawing-fill';
     const lineId = 'territory-drawing-line';
     const markers: MapLibreMarker[] = [];
     let disposed = false;
-    const geometry =
-      drawingPoints.length >= 3
-        ? closePolygon(drawingPoints)
-        : { type: 'LineString' as const, coordinates: drawingPoints };
+    const geometry = { type: 'LineString' as const, coordinates: drawingPoints };
     map.addSource(sourceId, {
       type: 'geojson',
       data: { type: 'Feature', properties: {}, geometry },
     });
     const before = beforeRoadLabels(map);
-    map.addLayer(
-      {
-        id: fillId,
-        type: 'fill',
-        source: sourceId,
-        filter: ['==', ['geometry-type'], 'Polygon'],
-        paint: { 'fill-color': '#a9403a', 'fill-opacity': 0.25 },
-      },
-      before,
-    );
     map.addLayer(
       {
         id: lineId,
@@ -478,12 +444,19 @@ export function OpenTerritoryMap({
         element.type = 'button';
         element.ariaLabel = `Move drawing vertex ${index + 1}`;
         const marker = new Marker({ draggable: true, element }).setLngLat(point).addTo(map);
-        marker.on('dragend', () => {
+        const update = () => {
           const moved = marker.getLngLat();
           const next = [...drawingPoints];
           next[index] = [moved.lng, moved.lat];
-          onDrawingPointsChange(next);
-        });
+          (map.getSource(sourceId) as GeoJSONSource | undefined)?.setData({
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: next },
+          });
+          return next;
+        };
+        marker.on('drag', update);
+        marker.on('dragend', () => onDrawingPointsChange(update()));
         markers.push(marker);
       });
     });
@@ -492,7 +465,6 @@ export function OpenTerritoryMap({
       map.getCanvas().style.cursor = '';
       for (const marker of markers) marker.remove();
       if (map.getLayer(lineId)) map.removeLayer(lineId);
-      if (map.getLayer(fillId)) map.removeLayer(fillId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
     };
   }, [active, drawing, drawingPoints, map, onDrawingPointsChange]);

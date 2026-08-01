@@ -74,6 +74,16 @@ test('territory drawing and long imports stay in the approved workflow', () => {
   assert.match(source, /territory-import-banner/);
 });
 
+test('territory editing keeps shared street overlays visible and redraws while vertices move', () => {
+  const source = readFileSync(new URL('./OpenTerritoryMap.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /getSource\('streetlightCoverage'\)/);
+  assert.match(source, /setLayoutProperty\('streetlight-coverage', 'visibility', 'visible'\)/);
+  assert.match(source, /marker\.on\('drag', updateVertex\)/);
+  assert.match(source, /midpointMarker\.on\('drag', updateMidpoint\)/);
+  assert.match(source, /type: 'LineString' as const, coordinates: drawingPoints/);
+});
+
 test('reconciliation leads with the physical paper question', () => {
   const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
 
