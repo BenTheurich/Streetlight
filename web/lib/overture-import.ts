@@ -78,7 +78,7 @@ export type ImportedTerritoryInput = {
   center: Position;
   radiusMiles: number;
   completedAt: string;
-  normalizerVersion: 10;
+  normalizerVersion: 11;
   buildingMode: 'overture_fema' | 'overture_only';
   mapBuildings: ImportedMapBuilding[];
   quality: ImportQuality;
@@ -315,7 +315,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     !Number.isFinite(value.radiusMiles) ||
     (value.radiusMiles as number) <= 0 ||
     !isIsoTimestamp(value.completedAt) ||
-    value.normalizerVersion !== 10 ||
+    value.normalizerVersion !== 11 ||
     !isSuccessfulImportQuality(value.quality) ||
     !Array.isArray(value.apartmentComplexes) ||
     !Array.isArray(value.segments) ||
@@ -430,7 +430,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     center: value.center,
     radiusMiles: value.radiusMiles as number,
     completedAt: value.completedAt,
-    normalizerVersion: 10,
+    normalizerVersion: 11,
     buildingMode: value.buildingMode as ImportedTerritoryInput['buildingMode'],
     mapBuildings,
     quality: {

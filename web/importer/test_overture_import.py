@@ -85,6 +85,34 @@ def building(
     }
 
 
+def box(center_x_meters, center_y_meters, width_meters=10, height_meters=10):
+    half_width = width_meters / 2 / 111_320
+    half_height = height_meters / 2 / 111_320
+    center_x = center_x_meters / 111_320
+    center_y = center_y_meters / 111_320
+    return [
+        [center_x - half_width, center_y - half_height],
+        [center_x + half_width, center_y - half_height],
+        [center_x + half_width, center_y + half_height],
+        [center_x - half_width, center_y + half_height],
+        [center_x - half_width, center_y - half_height],
+    ]
+
+
+def fema_building(source_id, coordinates):
+    return {
+        "id": source_id,
+        "geometry": {"type": "Polygon", "coordinates": [coordinates]},
+        "properties": {
+            "PRIM_OCC": "Single Family Dwelling",
+            "OUTBLDG": None,
+            "SOURCE": "FEMA",
+            "PROD_DATE": None,
+            "IMAGE_DATE": None,
+        },
+    }
+
+
 class NormalizeFeaturesTest(TestCase):
     def test_separates_apartment_buildings_and_five_unit_premises_from_street_counts(self):
         roads = [
@@ -1082,6 +1110,316 @@ class NormalizeFeaturesTest(TestCase):
             "2025-01-02T00:00:00+00:00",
         )
 
+    def test_map_buildings_add_row_gap_fema_between_same_side_neighbors(self):
+        roads = [
+            road(
+                "home-road",
+                "residential",
+                "Home Road",
+                [[-0.001, 0], [0.001, 0]],
+            )
+        ]
+        overture = [
+            building("left-home", "house", box(-12, 20)),
+            building("right-home", "house", box(12, 20)),
+        ]
+        addresses = [
+            address(
+                "Home Road",
+                -5 / 111_320,
+                20 / 111_320,
+                number="20",
+                source_id="address-20",
+            ),
+            address(
+                "Home Road",
+                -12 / 111_320,
+                20 / 111_320,
+                number="18",
+                source_id="neighbor-left",
+            ),
+            address(
+                "Home Road",
+                12 / 111_320,
+                20 / 111_320,
+                number="22",
+                source_id="neighbor-right",
+            ),
+        ]
+
+        result = select_map_buildings(
+            addresses,
+            overture,
+            [fema_building("missing-home", box(0, 20))],
+            roads,
+        )
+
+        self.assertEqual(
+            [(item["source"], item["sourceId"]) for item in result],
+            [
+                ("fema", "missing-home"),
+                ("overture", "left-home"),
+                ("overture", "right-home"),
+            ],
+        )
+        self.assertEqual(result[0]["fema"]["addressSourceId"], "address-20")
+
+    def test_map_building_metrics_separate_direct_and_row_gap(self):
+        roads = [
+            road(
+                "home-road",
+                "residential",
+                "Home Road",
+                [[-0.002, 0], [0.002, 0]],
+            )
+        ]
+        overture = [
+            building("left-home", "house", box(-12, 20)),
+            building("right-home", "house", box(12, 20)),
+        ]
+        addresses = [
+            address(
+                "Home Road",
+                0,
+                20 / 111_320,
+                number="20",
+                source_id="row-gap-address",
+            ),
+            address(
+                "Home Road",
+                -12 / 111_320,
+                20 / 111_320,
+                number="18",
+                source_id="left-address",
+            ),
+            address(
+                "Home Road",
+                12 / 111_320,
+                20 / 111_320,
+                number="22",
+                source_id="right-address",
+            ),
+            address(
+                "Home Road",
+                100 / 111_320,
+                20 / 111_320,
+                number="30",
+                source_id="direct-address",
+            ),
+        ]
+
+        selected, metrics = select_map_buildings(
+            addresses,
+            overture,
+            [
+                fema_building("row-gap", box(0, 20)),
+                fema_building("direct-gap", box(100, 20)),
+            ],
+            roads,
+            include_metrics=True,
+        )
+
+        self.assertEqual(
+            [(item["source"], item["sourceId"]) for item in selected],
+            [
+                ("fema", "direct-gap"),
+                ("fema", "row-gap"),
+                ("overture", "left-home"),
+                ("overture", "right-home"),
+            ],
+        )
+        self.assertEqual(
+            metrics,
+            {
+                "rawOvertureBuildings": 2,
+                "rawFemaStructures": 2,
+                "selectedOvertureBuildings": 2,
+                "directFemaGapFills": 1,
+                "rowGapFemaGapFills": 1,
+                "femaResolvedBuildings": 2,
+                "selectedMapBuildings": 4,
+            },
+        )
+
+    def test_map_buildings_reject_unbracketed_and_bad_shape_row_gaps(self):
+        roads = [
+            road(
+                "home-road",
+                "residential",
+                "Home Road",
+                [[-0.001, 0], [0.001, 0]],
+            )
+        ]
+        overture = [
+            building("left-home", "house", box(-19, 20)),
+            building("right-home", "house", box(19, 20)),
+        ]
+        addresses = [
+            address(
+                "Home Road",
+                33 / 111_320,
+                20 / 111_320,
+                number="38",
+                source_id="address-unbracketed",
+            ),
+            address(
+                "Home Road",
+                -5 / 111_320,
+                20 / 111_320,
+                number="20",
+                source_id="address-skinny",
+            ),
+        ]
+
+        result = select_map_buildings(
+            addresses,
+            overture,
+            [
+                fema_building("unbracketed", box(38, 20)),
+                fema_building("skinny", box(0, 20, height_meters=2)),
+            ],
+            roads,
+        )
+
+        self.assertEqual(
+            [(item["source"], item["sourceId"]) for item in result],
+            [("overture", "left-home"), ("overture", "right-home")],
+        )
+
+    def test_map_buildings_reject_low_compactness_row_gap_with_typical_area(self):
+        roads = [
+            road(
+                "home-road",
+                "residential",
+                "Home Road",
+                [[-0.001, 0], [0.001, 0]],
+            )
+        ]
+        overture = [
+            building("left-home", "house", box(-17, 20)),
+            building("right-home", "house", box(17, 20)),
+        ]
+        addresses = [
+            address(
+                "Home Road",
+                -2 / 111_320,
+                20 / 111_320,
+                number="20",
+                source_id="address-20",
+            ),
+            address(
+                "Home Road",
+                -17 / 111_320,
+                20 / 111_320,
+                number="18",
+                source_id="neighbor-left",
+            ),
+            address(
+                "Home Road",
+                17 / 111_320,
+                20 / 111_320,
+                number="22",
+                source_id="neighbor-right",
+            ),
+        ]
+
+        result = select_map_buildings(
+            addresses,
+            overture,
+            [fema_building("skinny", box(0, 20, width_meters=4, height_meters=25))],
+            roads,
+        )
+
+        self.assertEqual(
+            [(item["source"], item["sourceId"]) for item in result],
+            [("overture", "left-home"), ("overture", "right-home")],
+        )
+
+    def test_row_gap_ignores_closer_buildings_outside_the_setback_row(self):
+        roads = [
+            road(
+                "home-road",
+                "residential",
+                "Home Road",
+                [[-0.001, 0], [0.001, 0]],
+            )
+        ]
+        overture = [
+            building("left-home", "house", box(-19, 20)),
+            building("right-home", "house", box(19, 20)),
+            building("backyard-structure", "house", box(5, 60)),
+        ]
+        addresses = [
+            address(
+                "Home Road",
+                -5 / 111_320,
+                20 / 111_320,
+                number="20",
+                source_id="address-20",
+            ),
+            address(
+                "Home Road",
+                -19 / 111_320,
+                20 / 111_320,
+                number="18",
+                source_id="neighbor-left",
+            ),
+            address(
+                "Home Road",
+                19 / 111_320,
+                20 / 111_320,
+                number="22",
+                source_id="neighbor-right",
+            ),
+        ]
+
+        result = select_map_buildings(
+            addresses,
+            overture,
+            [fema_building("missing-home", box(0, 20))],
+            roads,
+        )
+
+        self.assertIn(
+            ("fema", "missing-home"),
+            [(item["source"], item["sourceId"]) for item in result],
+        )
+
+    def test_row_gap_requires_addressed_overture_homes_on_both_sides(self):
+        roads = [
+            road(
+                "home-road",
+                "residential",
+                "Home Road",
+                [[-0.001, 0], [0.001, 0]],
+            )
+        ]
+        overture = [
+            building("left-unaddressed", "house", box(-19, 20)),
+            building("right-unaddressed", "house", box(19, 20)),
+        ]
+        addresses = [
+            address(
+                "Home Road",
+                -5 / 111_320,
+                20 / 111_320,
+                number="20",
+                source_id="address-20",
+            )
+        ]
+
+        result = select_map_buildings(
+            addresses,
+            overture,
+            [fema_building("not-a-confirmed-gap", box(0, 20))],
+            roads,
+        )
+
+        self.assertNotIn(
+            ("fema", "not-a-confirmed-gap"),
+            [(item["source"], item["sourceId"]) for item in result],
+        )
+
 
 class ImportCompletenessTest(TestCase):
     center = [-117.0, 33.5]
@@ -1249,6 +1587,28 @@ class ImportCompletenessTest(TestCase):
 
 
 class BenchmarkMetricsTest(TestCase):
+    def test_building_audit_reports_false_positives_and_false_negatives(self):
+        result = benchmark_module.audit_metrics(
+            selected_ids={"accepted", "false-positive"},
+            expected_ids={"accepted", "missed"},
+            reviewed_ids={"accepted", "false-positive", "missed"},
+        )
+
+        self.assertEqual(
+            result,
+            {
+                "reviewedCandidates": 3,
+                "expectedAccepted": 2,
+                "selectedReviewed": 2,
+                "truePositives": 1,
+                "falsePositiveIds": ["false-positive"],
+                "falseNegativeIds": ["missed"],
+                "precision": 0.5,
+                "recall": 0.5,
+                "passed": False,
+            },
+        )
+
     def test_classifies_exact_high_confidence_and_usable_boundaries(self):
         classify = getattr(
             importer_module,
@@ -1479,11 +1839,42 @@ class BenchmarkMetricsTest(TestCase):
         with (
             patch.object(benchmark_module, "AREAS", areas),
             patch.object(benchmark_module, "run_area", side_effect=result),
+            patch.object(
+                benchmark_module,
+                "run_building_audit",
+                return_value={"passed": True},
+            ),
             redirect_stdout(StringIO()),
         ):
             self.assertTrue(benchmark_module.main([]))
             classifications["usable"] = "below_usable_floor"
             self.assertFalse(benchmark_module.main([]))
+
+    def test_benchmark_cli_rejects_a_building_audit_regression(self):
+        areas = {"usable": (0, 0, 1)}
+        area_result = {
+            "area": "usable",
+            "benchmark": {"classification": "usable_with_warnings"},
+        }
+        audit = {
+            "falsePositiveIds": ["false-positive"],
+            "falseNegativeIds": [],
+            "precision": 0.5,
+            "recall": 1.0,
+            "passed": False,
+        }
+
+        with (
+            patch.object(benchmark_module, "AREAS", areas),
+            patch.object(benchmark_module, "run_area", return_value=area_result),
+            patch.object(benchmark_module, "run_building_audit", return_value=audit),
+            redirect_stdout(StringIO()),
+        ):
+            self.assertFalse(benchmark_module.main([]))
+            audit["falsePositiveIds"] = []
+            audit["precision"] = 1.0
+            audit["passed"] = True
+            self.assertTrue(benchmark_module.main([]))
 
     def test_benchmark_cache_reuses_the_exact_downloaded_sources(self):
         sources = (
@@ -1492,6 +1883,7 @@ class BenchmarkMetricsTest(TestCase):
             [],
         )
         reference = [address("Oak Road", 0.0005, 0.00005, number="1")]
+        fema = [fema_building("fema-home", box(0, 20))]
         with (
             TemporaryDirectory() as directory,
             patch.object(benchmark_module, "download_features", return_value=sources) as download,
@@ -1500,14 +1892,89 @@ class BenchmarkMetricsTest(TestCase):
                 "download_nad_reference",
                 return_value=reference,
             ) as download_reference,
+            patch.object(
+                benchmark_module,
+                "download_fema_features",
+                return_value=fema,
+            ) as download_fema,
         ):
             first = benchmark_module.load_sources("test-area", 0, 0, 1, directory)
             second = benchmark_module.load_sources("test-area", 0, 0, 1, directory)
 
-        self.assertEqual(first, (*sources, reference))
+        self.assertEqual(first, (*sources, reference, fema))
         self.assertEqual(second, first)
         download.assert_called_once_with(0, 0, 1)
         download_reference.assert_called_once_with(0, 0, 1)
+        download_fema.assert_called_once_with(0, 0, 1)
+
+    def test_benchmark_replaces_legacy_cache_without_complete_map_buildings(self):
+        current_sources = (
+            [road("oak", "residential", "Oak Road", [[0, 0], [0.001, 0]])],
+            [address("Oak Road", 0.0005, 0.00005, number="1")],
+            [building("complete-footprint", "house", box(0, 20))],
+        )
+        reference = [address("Oak Road", 0.0005, 0.00005, number="1")]
+        fema = [fema_building("fema-home", box(0, 20))]
+        with TemporaryDirectory() as directory:
+            benchmark_module.Path(directory, "test-area.json").write_text(
+                json.dumps(
+                    {
+                        "cacheVersion": 3,
+                        "center": [0, 0],
+                        "radiusMiles": 1,
+                        "roads": current_sources[0],
+                        "addresses": current_sources[1],
+                        "buildings": [],
+                        "reference": reference,
+                        "fema": fema,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with (
+                patch.object(
+                    benchmark_module,
+                    "download_features",
+                    return_value=current_sources,
+                ) as download,
+                patch.object(
+                    benchmark_module,
+                    "download_nad_reference",
+                    return_value=reference,
+                ),
+                patch.object(
+                    benchmark_module,
+                    "download_fema_features",
+                    return_value=fema,
+                ),
+            ):
+                result = benchmark_module.load_sources("test-area", 0, 0, 1, directory)
+
+        self.assertEqual(result, (*current_sources, reference, fema))
+        download.assert_called_once_with(0, 0, 1)
+
+    def test_building_audit_reuses_its_complete_dedicated_cache(self):
+        fixture = {"center": [0, 0], "radiusMiles": 1}
+        cached = {
+            "cacheVersion": benchmark_module.CACHE_VERSION,
+            **fixture,
+            "roads": [road("oak", "residential", "Oak Road", [[0, 0], [0.001, 0]])],
+            "addresses": [address("Oak Road", 0.0005, 0.00005, number="1")],
+            "buildings": [building("complete-footprint", "house", box(0, 20))],
+        }
+        with TemporaryDirectory() as directory:
+            benchmark_module.Path(directory, "temecula-building-audit.json").write_text(
+                json.dumps(cached),
+                encoding="utf-8",
+            )
+            with patch.object(
+                benchmark_module,
+                "download_features",
+                side_effect=AssertionError("complete audit cache must be reused"),
+            ):
+                result = benchmark_module.load_audit_overture(fixture, directory)
+
+        self.assertEqual(result, (cached["roads"], cached["addresses"], cached["buildings"]))
 
 
 class ImportBoundaryTest(TestCase):
@@ -1801,7 +2268,7 @@ class ImportBoundaryTest(TestCase):
         self.assertEqual(parsed["release"], OVERTURE_RELEASE)
         self.assertEqual(parsed["center"], [-117.1274, 33.5107])
         self.assertEqual(parsed["radiusMiles"], 1)
-        self.assertEqual(parsed["normalizerVersion"], 10)
+        self.assertEqual(parsed["normalizerVersion"], 11)
         self.assertEqual(parsed["buildingMode"], "overture_only")
         self.assertEqual(
             [(item["source"], item["sourceId"]) for item in parsed["mapBuildings"]],
@@ -1823,6 +2290,38 @@ class ImportBoundaryTest(TestCase):
         })
         self.assertEqual(parsed["segments"][0]["id"], "overture:road-1:0")
         self.assertEqual(output.getvalue().count("\n"), 1)
+
+    def test_cli_uses_overture_only_when_fema_service_is_unavailable(self):
+        output = StringIO()
+        diagnostics = StringIO()
+
+        with redirect_stdout(output), redirect_stderr(diagnostics):
+            main(
+                [
+                    "--longitude",
+                    "-117.1274",
+                    "--latitude",
+                    "33.5107",
+                    "--radius-miles",
+                    "1",
+                ],
+                download=lambda *_: (
+                    [],
+                    [],
+                    [building("building-1", "house", box(0, 0))],
+                ),
+                download_fema=lambda *_: (_ for _ in ()).throw(
+                    OSError("service unavailable")
+                ),
+            )
+
+        parsed = json.loads(output.getvalue())
+        self.assertEqual(parsed["buildingMode"], "overture_only")
+        self.assertEqual(
+            [(item["source"], item["sourceId"]) for item in parsed["mapBuildings"]],
+            [("overture", "building-1")],
+        )
+        self.assertIn("FEMA USA Structures unavailable", diagnostics.getvalue())
 
     def test_cli_rejects_nonpositive_radius_before_downloading(self):
         with redirect_stderr(StringIO()):

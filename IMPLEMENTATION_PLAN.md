@@ -795,7 +795,17 @@ desktop and tablet widths with no clipped or unreachable controls.
 - The founder-only side-by-side Map Lab, its Google Map Tiles proxy, and the obsolete Google-only
   map components are removed. Production retains Google only for labeled hybrid Satellite,
   address lookup, and the printed directions QR; packet map images use only the open renderer.
-- 201 Node checks, 53 Python importer checks, Biome with no errors, TypeScript, and a production
+- The founder-approved FEMA row-gap rule now runs during every territory import, older version-10
+  territories require replacement, and an unavailable FEMA service falls back to Overture-only
+  buildings without aborting the import. The 11 reviewed Temecula gaps are persisted for historical
+  generation 9; replay finds all 11 with no false positives or misses. The five fixed Overture/NAD
+  holdouts retain their prior classifications and exact benchmark metrics.
+- The production building selector now supplies the benchmark's Overture/FEMA decision counts. The
+  five holdouts resolve 18 display footprints from FEMA, including one Ames row-gap recovery. The
+  separate 50-candidate founder audit selects exactly its 11 approved Temecula gaps with 100 percent
+  precision and recall; exact results are recorded in
+  [`docs/benchmarks/2026-08-01-building-selection-v11.md`](docs/benchmarks/2026-08-01-building-selection-v11.md).
+- 202 Node checks, 64 Python importer checks, Biome with no errors, TypeScript, and a production
   Next.js build pass.
 
 ### Human review

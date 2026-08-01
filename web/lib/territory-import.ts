@@ -22,7 +22,7 @@ export function needsTerritoryImport(
   if (
     imported.kind === 'proof' ||
     imported.release !== OVERTURE_RELEASE ||
-    imported.normalizerVersion !== 10 ||
+    imported.normalizerVersion !== 11 ||
     imported.quality == null ||
     imported.center === null ||
     imported.radiusMiles === null

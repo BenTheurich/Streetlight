@@ -66,7 +66,7 @@ function importedTerritory(segments) {
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 10,
+    normalizerVersion: 11,
     buildingMode: 'overture_fema',
     mapBuildings: [
       {
@@ -584,6 +584,69 @@ test('migration 022 advances only finalized street batches with identical map ge
         { id: 'changed-batch', import_generation: 1 },
         { id: 'safe-batch', import_generation: 2 },
       ],
+    );
+  } finally {
+    database.close();
+  }
+});
+
+test('migration 023 persists the approved legacy FEMA row gaps', () => {
+  const database = openDatabase(':memory:');
+  try {
+    migrateDatabase(database);
+    database.exec(`
+      INSERT INTO churches (id, name)
+      VALUES ('church-temecula-pilot', 'Temecula Pilot');
+      INSERT INTO territories
+        (id, church_id, name, center_latitude, center_longitude, radius_meters,
+          boundary_geojson, import_generation, import_release, import_completed_at)
+      VALUES
+        ('territory-temecula-pilot', 'church-temecula-pilot', 'Pilot', 33.54, -117.12,
+          1609.344, '{}', 9, '2026-06-17.0', '2026-07-30T00:00:00.000Z');
+    `);
+
+    database.exec(
+      readFileSync(
+        path.join(import.meta.dirname, 'migrations', '023_persist_legacy_fema_row_gaps.sql'),
+        'utf8',
+      ),
+    );
+
+    assert.equal(
+      database
+        .prepare(
+          `SELECT COUNT(*) AS count FROM map_buildings
+          WHERE church_id = 'church-temecula-pilot'
+            AND territory_id = 'territory-temecula-pilot'
+            AND import_generation = 9
+            AND source = 'fema'`,
+        )
+        .get().count,
+      11,
+    );
+    assert.deepEqual(
+      JSON.parse(
+        database
+          .prepare(
+            `SELECT geometry_geojson FROM map_buildings
+            WHERE source_feature_id = '6027521'`,
+          )
+          .get().geometry_geojson,
+      ),
+      {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-117.0974739, 33.518515],
+            [-117.097551, 33.5184975],
+            [-117.0975754, 33.5185729],
+            [-117.0974082, 33.5186108],
+            [-117.097349, 33.5184277],
+            [-117.097439, 33.5184073],
+            [-117.0974739, 33.518515],
+          ],
+        ],
+      },
     );
   } finally {
     database.close();

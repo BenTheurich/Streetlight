@@ -65,7 +65,7 @@ function preparePacketGraph(filename: string, includeApartment = false): void {
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',
-    normalizerVersion: 10,
+    normalizerVersion: 11,
     buildingMode: 'overture_fema',
     mapBuildings: [
       {
@@ -381,7 +381,7 @@ test('download scopes return the newest complete batch or all active packets old
   });
 });
 
-test('packet maps include approved FEMA row gaps only for their recorded generation', () => {
+test('packet maps include persisted FEMA row gaps for their recorded generation', () => {
   withDatabase((filename) => {
     preparePacketGraph(filename);
     finalizePacketBatch(reviewedInput(filename), {
@@ -396,6 +396,16 @@ test('packet maps include approved FEMA row gaps only for their recorded generat
         UPDATE street_segments SET import_generation = 9;
         UPDATE map_buildings SET import_generation = 9;
         UPDATE batches SET import_generation = 9;
+        INSERT INTO map_buildings
+          (church_id, territory_id, import_generation, source, source_feature_id,
+            geometry_geojson, overture_release, retrieved_at, fema_address_source_id,
+            fema_distance_meters, fema_occupancy, fema_outbuilding, fema_source)
+        VALUES
+          ('church-temecula-pilot', 'territory-temecula-pilot', 9, 'fema',
+            'persisted-row-gap',
+            '{"type":"Polygon","coordinates":[[[-117.117,33.5429],[-117.1169,33.5429],[-117.1169,33.543],[-117.117,33.5429]]]}',
+            '2026-06-17.0', '2026-07-29T00:00:00.000Z', 'address-row-gap', 0,
+            'Single Family Dwelling', 0, 'FEMA USA Structures');
       `);
     } finally {
       database.close();
@@ -403,7 +413,7 @@ test('packet maps include approved FEMA row gaps only for their recorded generat
 
     const generation = getPacketDownloadSelection('newest', filename).mapGenerations[0];
     assert.equal(generation.importGeneration, 9);
-    assert.ok(generation.buildings.some(({ sourceId }) => sourceId === '6026720'));
-    assert.equal(generation.buildings.filter(({ source }) => source === 'fema').length, 11);
+    assert.ok(generation.buildings.some(({ sourceId }) => sourceId === 'persisted-row-gap'));
+    assert.equal(generation.buildings.filter(({ source }) => source === 'fema').length, 1);
   });
 });

@@ -13,7 +13,6 @@ import {
   parseCoverageThresholds,
   validateCoverageDate,
 } from './coverage.ts';
-import femaAuditJson from './fema-cross-reference-audit.json' with { type: 'json' };
 import type { ImportedMapBuilding, ImportedTerritoryInput } from './overture-import.ts';
 import {
   type DownloadPacket,
@@ -261,59 +260,6 @@ export type OpenMapData = {
     fema: string | null;
   };
 };
-
-const femaAudit = femaAuditJson as unknown as {
-  churchId: string;
-  territoryId: string;
-  overtureRelease: string;
-  importGeneration: number;
-  candidates: Array<{
-    sourceId: string;
-    classification: 'addressed_suppressed' | 'unaddressed';
-    confidence: 'high_confidence' | 'unresolved' | 'excluded';
-    geometry: ImportedMapBuilding['geometry'];
-    address: { number: string; street: string } | null;
-  }>;
-};
-
-function withAcceptedFemaGaps(
-  buildings: OpenMapData['buildings'],
-  scope: {
-    churchId: string;
-    territoryId: string;
-    importGeneration: number;
-    overtureRelease: string;
-  },
-): OpenMapData['buildings'] {
-  if (
-    femaAudit.churchId !== scope.churchId ||
-    femaAudit.territoryId !== scope.territoryId ||
-    femaAudit.importGeneration !== scope.importGeneration ||
-    femaAudit.overtureRelease !== scope.overtureRelease
-  ) {
-    return buildings;
-  }
-  const sourceIds = new Set(buildings.map(({ sourceId }) => sourceId));
-  return [
-    ...buildings,
-    ...femaAudit.candidates.flatMap((candidate) =>
-      candidate.classification === 'addressed_suppressed' &&
-      candidate.confidence === 'high_confidence' &&
-      candidate.address &&
-      !sourceIds.has(candidate.sourceId)
-        ? [
-            {
-              source: 'fema' as const,
-              sourceId: candidate.sourceId,
-              geometry: candidate.geometry,
-              fema: null,
-              address: candidate.address,
-            },
-          ]
-        : [],
-    ),
-  ];
-}
 
 export type PacketGenerationWorkspace = {
   center: Position;
@@ -748,12 +694,6 @@ export function getOpenMapData(filename?: string): OpenMapData {
       street: street.trim(),
       position: [longitude, latitude] as Position,
     }));
-    const mapBuildings = withAcceptedFemaGaps(buildings, {
-      churchId: workspaceChurchId(),
-      territoryId: workspaceTerritoryId(),
-      importGeneration: generation.import_generation,
-      overtureRelease: generation.import_release ?? OVERTURE_RELEASE,
-    });
     return {
       churchId: workspaceChurchId(),
       territoryId: workspaceTerritoryId(),
@@ -774,13 +714,13 @@ export function getOpenMapData(filename?: string): OpenMapData {
         roadClass: roadClasses.get(segment.id) ?? 'residential',
       })),
       apartmentComplexes: coverage.apartmentComplexes,
-      buildings: mapBuildings,
+      buildings,
       houseNumbers,
       attribution: {
         base: 'OpenFreeMap © OpenMapTiles',
         roads: 'Data from OpenStreetMap',
         buildings: 'Overture Maps',
-        fema: mapBuildings.some(({ source }) => source === 'fema') ? 'FEMA USA Structures' : null,
+        fema: buildings.some(({ source }) => source === 'fema') ? 'FEMA USA Structures' : null,
       },
     };
   } finally {
@@ -1185,12 +1125,7 @@ export function getPacketDownloadSelection(
               : null,
         }));
         const overtureRelease = rawBuildings[0]?.overture_release ?? OVERTURE_RELEASE;
-        const buildings = withAcceptedFemaGaps(storedBuildings, {
-          churchId: workspaceChurchId(),
-          territoryId: workspaceTerritoryId(),
-          importGeneration,
-          overtureRelease,
-        });
+        const buildings = storedBuildings;
         const houseNumbers = (
           houseNumberRows.all(
             workspaceChurchId(),

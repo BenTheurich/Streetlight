@@ -46,7 +46,7 @@ function preparePacketGraph(filename: string): void {
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',
-    normalizerVersion: 10,
+    normalizerVersion: 11,
     buildingMode: 'overture_fema',
     mapBuildings: [],
     quality: {

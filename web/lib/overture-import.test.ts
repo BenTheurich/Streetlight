@@ -13,7 +13,7 @@ const validOutput = {
   center: requestedCenter,
   radiusMiles: 1,
   completedAt: '2026-07-27T12:00:00.000Z',
-  normalizerVersion: 10,
+  normalizerVersion: 11,
   buildingMode: 'overture_fema',
   mapBuildings: [
     {

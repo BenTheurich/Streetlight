@@ -20,6 +20,16 @@ GROUP_MATCH_MAX_ANGLE_DEGREES = 30
 ADDRESS_CLUSTER_GAP_METERS = 150
 BUILDING_ADDRESS_DISTANCE_METERS = 15
 MAP_BUILDING_MATCH_METERS = 10
+FEMA_DUPLICATE_METERS = 5
+ROW_GAP_MAX_NEIGHBOR_METERS = 35
+ROW_GAP_MAX_SETBACK_DIFFERENCE_METERS = 12
+ROW_GAP_MIN_AREA_RATIO = 0.55
+ROW_GAP_MAX_AREA_RATIO = 2.5
+ROW_GAP_MIN_COMPACTNESS = 0.45
+ROW_GAP_LOCAL_RADIUS_METERS = 100
+ROW_GAP_MAX_ALONG_METERS = 90
+ROW_GAP_MIN_LOCAL_AREA_SQUARE_METERS = 40
+ROW_GAP_MAX_LOCAL_AREA_SQUARE_METERS = 800
 FEMA_STRUCTURES_URL = (
     "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/"
     "USA_Structures_View/FeatureServer/0/query"
@@ -526,6 +536,175 @@ def _geometry_distance(point, geometry):
     return min(distances, default=math.inf)
 
 
+def _geometry_area_square_meters(geometry):
+    return sum(
+        max(
+            0,
+            _ring_area_square_meters(polygon[0])
+            - sum(_ring_area_square_meters(hole) for hole in polygon[1:]),
+        )
+        for polygon in _geometry_polygons(geometry)
+        if polygon and polygon[0]
+    )
+
+
+def _ring_perimeter_meters(ring):
+    return sum(
+        math.hypot(*_local_vector(end, start))
+        for start, end in zip(ring, ring[1:])
+    )
+
+
+def _geometry_compactness(geometry):
+    area = _geometry_area_square_meters(geometry)
+    perimeter = sum(
+        _ring_perimeter_meters(ring)
+        for polygon in _geometry_polygons(geometry)
+        for ring in polygon
+    )
+    return 4 * math.pi * area / (perimeter * perimeter) if perimeter else 0
+
+
+def _mutual_centroid_to_footprint_distance(first, second):
+    return min(
+        _geometry_distance(_building_point(first), second),
+        _geometry_distance(_building_point(second), first),
+    )
+
+
+def _local_vector(point, origin):
+    return (
+        (point[0] - origin[0]) * 111_320 * math.cos(math.radians(origin[1])),
+        (point[1] - origin[1]) * 111_320,
+    )
+
+
+def _nearest_named_road_tangent(point, street, roads):
+    best = None
+    for road in roads:
+        name = _display_name(road)
+        if not name or not _street_names_equivalent(name, street):
+            continue
+        for line_index, coordinates in enumerate(_lines(road["geometry"])):
+            for segment_index, (start, end) in enumerate(
+                zip(coordinates, coordinates[1:])
+            ):
+                ax, ay = _local_vector(start, point)
+                bx, by = _local_vector(end, point)
+                dx, dy = bx - ax, by - ay
+                length_squared = dx * dx + dy * dy
+                if not length_squared:
+                    continue
+                amount = max(0, min(1, -(ax * dx + ay * dy) / length_squared))
+                projection = (ax + amount * dx, ay + amount * dy)
+                distance = math.hypot(*projection)
+                key = (distance, road["id"], line_index, segment_index)
+                if best is None or key < best[0]:
+                    length = math.sqrt(length_squared)
+                    best = (key, projection, (dx / length, dy / length))
+    if best is None or best[0][0] > NAME_MATCH_DISTANCE_METERS:
+        return None
+    return best[1], best[2]
+
+
+def _median(values):
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    return (
+        ordered[middle]
+        if len(ordered) % 2
+        else (ordered[middle - 1] + ordered[middle]) / 2
+    )
+
+
+def _is_row_gap_candidate(
+    candidate,
+    address_item,
+    roads,
+    overture,
+    addressed_overture_ids,
+):
+    geometry = candidate["geometry"]
+    # ponytail: FEMA row-gap candidates are sparse; add a spatial index only if imports profile here.
+    if min(
+        (
+            _mutual_centroid_to_footprint_distance(
+                geometry,
+                building["geometry"],
+            )
+            for building in overture
+        ),
+        default=math.inf,
+    ) <= FEMA_DUPLICATE_METERS:
+        return False
+    center = _building_point(geometry)
+    road_match = _nearest_named_road_tangent(
+        center,
+        address_item["properties"]["street"],
+        roads,
+    )
+    if road_match is None:
+        return False
+    road_projection, tangent = road_match
+    candidate_side = tangent[0] * -road_projection[1] - tangent[1] * -road_projection[0]
+    if abs(candidate_side) < 1:
+        return False
+    candidate_setback = abs(candidate_side)
+    local = []
+    for building in overture:
+        building_center = _building_point(building["geometry"])
+        x, y = _local_vector(building_center, center)
+        distance = math.hypot(x, y)
+        along = x * tangent[0] + y * tangent[1]
+        offset_x = x - road_projection[0]
+        offset_y = y - road_projection[1]
+        side = tangent[0] * offset_y - tangent[1] * offset_x
+        area = _geometry_area_square_meters(building["geometry"])
+        if (
+            distance <= ROW_GAP_LOCAL_RADIUS_METERS
+            and abs(along) <= ROW_GAP_MAX_ALONG_METERS
+            and side * candidate_side > 0
+            and ROW_GAP_MIN_LOCAL_AREA_SQUARE_METERS
+            <= area
+            <= ROW_GAP_MAX_LOCAL_AREA_SQUARE_METERS
+        ):
+            local.append(
+                {
+                    "along": along,
+                    "setback_difference": abs(abs(side) - candidate_setback),
+                    "area": area,
+                    "addressed": building["id"] in addressed_overture_ids,
+                }
+            )
+    if not local:
+        return False
+    row_neighbors = [
+        item
+        for item in local
+        if item["addressed"]
+        and item["setback_difference"] <= ROW_GAP_MAX_SETBACK_DIFFERENCE_METERS
+    ]
+    before = [item for item in row_neighbors if item["along"] < 0]
+    after = [item for item in row_neighbors if item["along"] > 0]
+    if not before or not after:
+        return False
+    before_neighbor = max(before, key=lambda item: item["along"])
+    after_neighbor = min(after, key=lambda item: item["along"])
+    if (
+        abs(before_neighbor["along"]) > ROW_GAP_MAX_NEIGHBOR_METERS
+        or after_neighbor["along"] > ROW_GAP_MAX_NEIGHBOR_METERS
+    ):
+        return False
+    local_median = _median([item["area"] for item in local])
+    candidate_area = _geometry_area_square_meters(geometry)
+    return (
+        ROW_GAP_MIN_AREA_RATIO
+        <= candidate_area / local_median
+        <= ROW_GAP_MAX_AREA_RATIO
+        and _geometry_compactness(geometry) >= ROW_GAP_MIN_COMPACTNESS
+    )
+
+
 def _nearby_feature(point, features):
     latitude_delta = MAP_BUILDING_MATCH_METERS / 111_320
     longitude_delta = latitude_delta / max(math.cos(math.radians(point[1])), 0.01)
@@ -558,7 +737,13 @@ def _iso_date(value):
     return value if isinstance(value, str) else None
 
 
-def select_map_buildings(addresses, overture_buildings, fema_buildings):
+def select_map_buildings(
+    addresses,
+    overture_buildings,
+    fema_buildings,
+    roads=(),
+    include_metrics=False,
+):
     overture = []
     seen_overture = set()
     for building in overture_buildings:
@@ -572,6 +757,10 @@ def select_map_buildings(addresses, overture_buildings, fema_buildings):
         if building.get("id") and building.get("geometry")
     ]
     fallbacks = {}
+    direct_fallback_ids = set()
+    row_gap_fallback_ids = set()
+    row_gap_candidates = {}
+    addressed_overture_ids = set()
     for address_item in sorted(
         (
             item
@@ -583,8 +772,16 @@ def select_map_buildings(addresses, overture_buildings, fema_buildings):
         key=lambda item: item["id"],
     ):
         point = address_item["geometry"]["coordinates"]
-        overture_distance, _ = _nearby_feature(point, overture)
+        overture_distance, overture_building = _nearby_feature(point, overture)
         if overture_distance <= MAP_BUILDING_MATCH_METERS:
+            if overture_building is not None:
+                addressed_overture_ids.add(overture_building["id"])
+            fema_distance, fema_building = _nearby_feature(point, fema)
+            if fema_building is not None and fema_distance <= MAP_BUILDING_MATCH_METERS:
+                row_gap_candidates.setdefault(
+                    fema_building["id"],
+                    (fema_building, address_item, fema_distance),
+                )
             continue
         fema_distance, fema_building = _nearby_feature(point, fema)
         if fema_building is None:
@@ -613,6 +810,39 @@ def select_map_buildings(addresses, overture_buildings, fema_buildings):
                 },
             },
         )
+        direct_fallback_ids.add(fema_building["id"])
+    for source_id, (fema_building, address_item, fema_distance) in sorted(
+        row_gap_candidates.items()
+    ):
+        properties = fema_building.get("properties", {})
+        if (
+            source_id in fallbacks
+            or properties.get("PRIM_OCC") != "Single Family Dwelling"
+            or bool(properties.get("OUTBLDG"))
+            or not _is_row_gap_candidate(
+                fema_building,
+                address_item,
+                roads,
+                overture,
+                addressed_overture_ids,
+            )
+        ):
+            continue
+        fallbacks[source_id] = {
+            "source": "fema",
+            "sourceId": source_id,
+            "geometry": fema_building["geometry"],
+            "fema": {
+                "addressSourceId": address_item["id"],
+                "distanceMeters": round(fema_distance, 3),
+                "occupancy": "Single Family Dwelling",
+                "outbuilding": False,
+                "source": properties.get("SOURCE"),
+                "productDate": _iso_date(properties.get("PROD_DATE")),
+                "imageDate": _iso_date(properties.get("IMAGE_DATE")),
+            },
+        }
+        row_gap_fallback_ids.add(source_id)
     result = [
         {
             "source": "overture",
@@ -623,7 +853,18 @@ def select_map_buildings(addresses, overture_buildings, fema_buildings):
         for building in overture
     ]
     result.extend(fallbacks.values())
-    return sorted(result, key=lambda item: (item["source"], item["sourceId"]))
+    result = sorted(result, key=lambda item: (item["source"], item["sourceId"]))
+    if not include_metrics:
+        return result
+    return result, {
+        "rawOvertureBuildings": len(overture),
+        "rawFemaStructures": len(fema),
+        "selectedOvertureBuildings": len(overture),
+        "directFemaGapFills": len(direct_fallback_ids),
+        "rowGapFemaGapFills": len(row_gap_fallback_ids),
+        "femaResolvedBuildings": len(fallbacks),
+        "selectedMapBuildings": len(result),
+    }
 
 
 def _apartment_address(address_item):
@@ -1762,15 +2003,20 @@ def main(
             args.latitude,
             args.radius_miles,
         )
-        fema_buildings = download_fema(
-            args.longitude,
-            args.latitude,
-            args.radius_miles,
-        )
+        try:
+            fema_buildings = download_fema(
+                args.longitude,
+                args.latitude,
+                args.radius_miles,
+            )
+        except (OSError, TimeoutError, ValueError, RuntimeError) as error:
+            print(f"FEMA USA Structures unavailable: {error}", file=sys.stderr)
+            fema_buildings = []
         map_buildings = select_map_buildings(
             addresses,
             buildings,
             fema_buildings,
+            roads,
         )
     print(
         json.dumps(
@@ -1779,7 +2025,7 @@ def main(
                 "center": [args.longitude, args.latitude],
                 "radiusMiles": args.radius_miles,
                 "completedAt": datetime.now(timezone.utc).isoformat(),
-                "normalizerVersion": 10,
+                "normalizerVersion": 11,
                 "buildingMode": (
                     "overture_fema" if fema_buildings else "overture_only"
                 ),

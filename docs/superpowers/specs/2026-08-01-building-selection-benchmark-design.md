@@ -39,9 +39,15 @@ mock buildings or satellite-derived guesses.
 
 ## Cache and failures
 
-Extend the existing per-area cache with FEMA data without discarding valid cached Overture and NAD
-sources. A missing FEMA cache triggers only the FEMA download. Invalid provider responses fail the
-benchmark explicitly rather than silently reporting zero structures.
+Cache the complete Overture, NAD, and FEMA inputs per area. Legacy version-3 caches are invalid for
+this benchmark because they retained only residential-classified Overture buildings rather than
+the complete production footprint layer; replace them once with version 4. A version-4 cache that
+is missing only FEMA triggers only the FEMA download. Invalid provider responses fail the benchmark
+explicitly rather than silently reporting zero structures.
+
+The founder-audit Overture snapshot uses its own cache version because its dedicated cache has
+always contained the complete footprint layer; it remains reusable when the five-area cache format
+changes.
 
 ## Verification
 
