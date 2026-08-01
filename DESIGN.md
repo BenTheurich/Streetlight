@@ -46,6 +46,14 @@ spacing:
   md: "16px"
   lg: "24px"
   xl: "36px"
+operational:
+  selected: "{colors.packet-blue}"
+  focusRing: "{colors.packet-blue}"
+  quietHover: "#f0eadf"
+  warningSurface: "#fff8e8"
+  errorSurface: "#fff4f1"
+  floatingElevation: "0 14px 30px rgba(48, 45, 40, 0.16)"
+  recoveryElevation: "0 12px 30px rgb(16 26 41 / 18%)"
 components:
   button-primary:
     backgroundColor: "{colors.ink}"
@@ -127,6 +135,9 @@ coverage state.
 
 **The Rare Light Rule.** Amber is most effective when scarce. Use it for atmosphere and emphasis,
 not every button or heading.
+
+Operational selection and keyboard focus share Packet Blue. Quiet hover uses a warm neutral surface;
+warning and error surfaces use pale paper tints with a non-color cue and explicit language.
 
 ## Typography
 

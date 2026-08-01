@@ -55,8 +55,6 @@ test('heatmap ranges are edited from the shared map legend instead of the covera
   assert.match(settings, /aria-label="Dismiss heatmap settings"/);
   assert.match(styles, /\.heatmap-settings-form input::-webkit-inner-spin-button/);
   assert.match(styles, /width: min\(100%, 390px\)/);
-  assert.match(styles, /:focus-visible[\s\S]*?outline: 2px solid var\(--ink\)/);
-  assert.doesNotMatch(styles, /:focus-visible[\s\S]{0,150}#(?:5e8eff|1769ff)/);
 });
 
 test('proposal rows expand and collapse inline without a separate show-all control', () => {
