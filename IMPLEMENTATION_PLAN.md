@@ -47,7 +47,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
-| 9 | Application UX/UI polish | Phase 8 | Awaiting founder review | The approved unified-map workflow, inline packet review, reconciliation language, territory recovery states, responsive desktop/tablet/mobile layout, landing-page visual system, and WorkOS hosted branding are implemented; 201 Node checks, 53 Python checks, Biome, TypeScript, production build, and representative browser checks pass |
+| 9 | Application UX/UI polish | Phase 8 | Awaiting human review | The approved unified-map workflow, truthful operation states, searchable Coverage inspection, docked Current Work, clustered apartment selection, responsive layout, landing-page visual system, and WorkOS hosted branding are implemented; 243 Node checks, 64 Python checks, Biome with no errors, TypeScript, production build, and one combined browser pass succeed |
 | 10 | Outreach progress and presentation | Phase 9 | Pending | None |
 | 11 | Deployment and recovery | Phase 10 | Pending | None |
 | 12 | Founder-church pilot | Phase 11 | Pending | None |
@@ -805,13 +805,57 @@ desktop and tablet widths with no clipped or unreachable controls.
   separate 50-candidate founder audit selects exactly its 11 approved Temecula gaps with 100 percent
   precision and recall; exact results are recorded in
   [`docs/benchmarks/2026-08-01-building-selection-v11.md`](docs/benchmarks/2026-08-01-building-selection-v11.md).
-- 202 Node checks, 64 Python importer checks, Biome with no errors, TypeScript, and a production
-  Next.js build pass.
+- Coverage now starts unselected, searches human street names without exposing internal IDs, keeps
+  duplicate names distinguishable by context, fits the map only for search selections, and docks
+  Current Work at the bottom of the sidebar without changing the approved legend or estimated-
+  progress bar.
+- Proposal generation, finalization, PDF downloads, territory imports, reconciliation, and
+  corrections use one truthful operation-state treatment with recovery that distinguishes a
+  confirmed rejection from an uncertain mutation result. Existing drafts and choices remain
+  available while operations are pending or need reload verification.
+- Apartment markers now cluster with counts at overview zoom, expand to individual state-colored
+  markers, and remain keyboard-selectable from the sidebar. Territory drawing continues to own map
+  interaction while an exclusion is being drawn.
+- One combined browser pass covered signed-out landing behavior and the authenticated Coverage,
+  Generate, Finalize/Download, Reconcile, and Territory workflows at 1440-by-900 desktop and
+  768-by-1024 portrait-tablet widths. It verified search, Current Work, operation recovery,
+  Map/Satellite synchronization, apartment selection, and preservation of the landing page,
+  legend, estimated-progress bar, and packet workflow.
+- One final independent branch review found no Critical issues. Its three Important findings were
+  fixed: apartment clusters expand on every shared open map, heatmap controls meet 44-by-44-pixel
+  targets, and Current Work uses the guarded tool transition.
+- The single final integration run passes 243 Node checks and 64 Python importer checks, Biome with
+  no errors (24 retained warnings), TypeScript, and the Next.js 16.2.11 production build. The build
+  retains non-fatal worktree-root and broad file-tracing warnings documented for founder review.
 
 ### Human review
 
-The founder reviews the complete authenticated workflow for clarity, consistency, and readiness to
-show another church.
+Phase 9 is at the founder-review checkpoint. The founder:
+
+- Reviews the signed-out landing page and confirms that its composition and request workflow remain
+  unchanged apart from the approved brand-verse treatment.
+- At desktop and portrait-tablet widths, opens Coverage, searches a unique street and duplicate
+  street names, checks the no-results announcement, selects a result, and confirms that neither the
+  result nor the detail exposes an internal segment ID.
+- Confirms Current Work remains a quiet continuation at the bottom of Coverage and opens Reconcile
+  through the normal guarded tool transition.
+- Generates proposals, finalizes a review batch, downloads its PDF, and confirms that pending,
+  success, failure, and reload-verification states remain understandable and recoverable.
+- Reviews apartment clusters at overview zoom, expands one cluster, selects individual complexes
+  from both the map and sidebar, switches Map/Satellite, and confirms exclusion drawing does not
+  accidentally select apartments.
+- Confirms the landing page, heatmap legend, estimated-progress bar, and existing paper-based
+  reconciliation workflow still feel approved and familiar.
+- Starts the production build locally and confirms the Next.js development `N` indicator is absent;
+  the automated final-verification environment could build successfully but could not keep a
+  background production listener alive long enough for this visual confirmation.
+
+Minor polish intentionally deferred to this checkpoint: the singular copy currently reads
+`1 estimated tracts`. The combined browser environment also could not reliably target a cluster by
+map coordinate, emulate reduced motion, visually reopen the generated PDF, or repeat a fresh
+territory-import recovery. Focused automated checks cover those application contracts, but the
+founder should include any of them that materially affect approval. Biome's 24 retained warnings
+and the non-fatal worktree build warnings are unchanged cleanup candidates, not workflow blockers.
 
 ### Completion condition
 
