@@ -56,9 +56,8 @@ GOOGLE_MAPS_BROWSER_API_KEY=your_browser_restricted_key
 GOOGLE_MAPS_SERVER_API_KEY=your_server_restricted_key
 ```
 
-The browser key renders the interactive administrator map. The server key resolves a
-changed church address and powers founder-only Map Lab satellite tiles without exposing that
-credential to the browser. See
+The browser key powers the labeled hybrid Satellite view and church-address suggestions. The
+server key resolves a changed church address without exposing that credential to the browser. See
 [ENVIRONMENTS.md](ENVIRONMENTS.md) for the required API and application restrictions.
 
 Coverage is derived from append-only outreach events. Changing a date and undoing a completion add

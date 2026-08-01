@@ -47,7 +47,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
-| 9 | Application UX/UI polish | Phase 8 | Awaiting founder review | The approved unified-map workflow, inline packet review, reconciliation language, territory recovery states, responsive desktop/tablet/mobile layout, landing-page visual system, and WorkOS hosted branding are implemented; 209 Node checks, 53 Python checks, Biome, TypeScript, production build, and representative browser checks pass |
+| 9 | Application UX/UI polish | Phase 8 | Awaiting founder review | The approved unified-map workflow, inline packet review, reconciliation language, territory recovery states, responsive desktop/tablet/mobile layout, landing-page visual system, and WorkOS hosted branding are implemented; 201 Node checks, 53 Python checks, Biome, TypeScript, production build, and representative browser checks pass |
 | 10 | Outreach progress and presentation | Phase 9 | Pending | None |
 | 11 | Deployment and recovery | Phase 10 | Pending | None |
 | 12 | Founder-church pilot | Phase 11 | Pending | None |
@@ -792,7 +792,10 @@ desktop and tablet widths with no clipped or unreachable controls.
   without rebuilding layers, redraws exclusion edits throughout a vertex drag, and keeps an
   unfinished polygon open until the administrator explicitly finishes it.
 - Desktop, tablet, and mobile browser checks pass without horizontal overflow or unreachable tools.
-- 209 Node checks, 53 Python importer checks, Biome with no errors, TypeScript, and a production
+- The founder-only side-by-side Map Lab, its Google Map Tiles proxy, and the obsolete Google-only
+  map components are removed. Production retains Google only for labeled hybrid Satellite,
+  address lookup, and the printed directions QR; packet map images use only the open renderer.
+- 201 Node checks, 53 Python importer checks, Biome with no errors, TypeScript, and a production
   Next.js build pass.
 
 ### Human review

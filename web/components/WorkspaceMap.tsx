@@ -2,7 +2,7 @@
 
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
-import type { MapLabData } from '@/lib/database';
+import type { OpenMapData } from '@/lib/database';
 import { loadGoogleMaps, type StreetlightMapType } from '@/lib/google-maps-browser';
 import {
   forwardMapCameraChange,
@@ -13,12 +13,12 @@ import {
   mapLoadErrorIsFatal,
 } from '@/lib/map-camera';
 import baseStyleJson from '@/lib/open-map-base-style.json';
-import { buildOpenLabStyle, type OpenMapStyle } from '@/lib/open-map-style';
+import { buildWorkspaceMapStyle, type OpenMapStyle } from '@/lib/open-map-style';
 
 type WorkspaceMapProps = {
   apiKey: string;
   camera: MapCamera;
-  data: MapLabData | null;
+  data: OpenMapData | null;
   mapType: StreetlightMapType;
   onCameraChange: (camera: MapCamera) => void;
   onMapChange: (map: MapLibreMap | null) => void;
@@ -63,10 +63,10 @@ export function WorkspaceMap({
           attributionControl: false,
           center: cameraRef.current.center,
           container: openElementRef.current,
-          style: buildOpenLabStyle(
+          style: buildWorkspaceMapStyle(
             baseStyleJson as unknown as OpenMapStyle,
             data,
-            mapTypeRef.current === 'satellite' ? 'overlay' : false,
+            mapTypeRef.current === 'satellite',
           ) as maplibregl.StyleSpecification,
           zoom: googleZoomToMapLibre(cameraRef.current.zoom),
         });
@@ -132,10 +132,10 @@ export function WorkspaceMap({
     appliedMapTypeRef.current = mapType;
     onMapChangeRef.current(null);
     map.setStyle(
-      buildOpenLabStyle(
+      buildWorkspaceMapStyle(
         baseStyleJson as unknown as OpenMapStyle,
         data,
-        mapType === 'satellite' ? 'overlay' : false,
+        mapType === 'satellite',
       ) as maplibregl.StyleSpecification,
     );
     map.once('style.load', () => onMapChangeRef.current(map));

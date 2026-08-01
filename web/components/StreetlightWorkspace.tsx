@@ -3,7 +3,7 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
-import type { CoverageWorkspace, MapLabData, TerritoryWorkspace } from '@/lib/database';
+import type { CoverageWorkspace, OpenMapData, TerritoryWorkspace } from '@/lib/database';
 import type { StreetlightMapType } from '@/lib/google-maps-browser';
 import type { MapCamera } from '@/lib/map-camera';
 import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
@@ -57,7 +57,7 @@ export function StreetlightWorkspace({
   const [territorySaving, setTerritorySaving] = useState(false);
   const [pendingTool, setPendingTool] = useState<WorkspaceTool | null>(null);
   const [map, setMap] = useState<MapLibreMap | null>(null);
-  const [mapData, setMapData] = useState<MapLabData | null>(null);
+  const [mapData, setMapData] = useState<OpenMapData | null>(null);
   const [mapDataError, setMapDataError] = useState('');
   const [mapType, setMapType] = useState<StreetlightMapType>('roadmap');
   const [mapCamera, setMapCamera] = useState<MapCamera>({
@@ -70,7 +70,7 @@ export function StreetlightWorkspace({
     setMapDataError('');
     try {
       const response = await fetch('/api/map');
-      const result = (await response.json()) as MapLabData | { error: string };
+      const result = (await response.json()) as OpenMapData | { error: string };
       if (!response.ok || 'error' in result) {
         throw new Error('error' in result ? result.error : 'Could not load map data');
       }

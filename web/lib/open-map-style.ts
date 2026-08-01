@@ -1,4 +1,4 @@
-import type { MapLabData } from './database.ts';
+import type { OpenMapData } from './database.ts';
 import type { DownloadPacket, PacketMapGeneration } from './packet-finalization.ts';
 import { endpointMeetsInterior } from './packet-selection.ts';
 import type { LineString, Position } from './territory-geometry.ts';
@@ -384,7 +384,7 @@ function addBuildingLayer(
 
 type BuildingPolygon = Position[][];
 
-function buildingPolygons(building: MapLabData['buildings'][number]): BuildingPolygon[] {
+function buildingPolygons(building: OpenMapData['buildings'][number]): BuildingPolygon[] {
   return building.geometry.type === 'Polygon'
     ? [building.geometry.coordinates]
     : building.geometry.coordinates;
@@ -426,7 +426,7 @@ function pointToSegmentDistanceMeters(point: Position, start: Position, end: Pos
 
 function distanceToBuilding(
   point: Position,
-  building: MapLabData['buildings'][number],
+  building: OpenMapData['buildings'][number],
 ): { distance: number; polygon: BuildingPolygon } | null {
   let nearest: { distance: number; polygon: BuildingPolygon } | null = null;
   for (const polygon of buildingPolygons(building)) {
@@ -473,8 +473,8 @@ function buildingLabelPosition(polygon: BuildingPolygon, fallback: Position): Po
 }
 
 export function positionedHouseNumbers(
-  data: Pick<MapLabData, 'buildings' | 'houseNumbers'>,
-): MapLabData['houseNumbers'] {
+  data: Pick<OpenMapData, 'buildings' | 'houseNumbers'>,
+): OpenMapData['houseNumbers'] {
   const gridSize = 0.001;
   const houseNumberGrid = new Map<string, number[]>();
   data.houseNumbers.forEach(({ position }, index) => {
@@ -709,43 +709,15 @@ export function buildOpenMapStyle(
   return style;
 }
 
-export function buildOpenLabStyle(
+export function buildWorkspaceMapStyle(
   base: OpenMapStyle,
-  data: MapLabData,
-  mode: boolean | 'overlay' = false,
+  data: OpenMapData,
+  overlay = false,
 ): OpenMapStyle {
-  const satellite = mode === true;
-  const overlay = mode === 'overlay';
-  const style: OpenMapStyle = satellite
-    ? {
-        version: 8,
-        glyphs: base.glyphs,
-        sources: {
-          googleSatellite: {
-            type: 'raster',
-            tiles: ['/api/founder/map-lab/satellite/{z}/{x}/{y}'],
-            tileSize: 256,
-          },
-          openmaptiles: structuredClone(base.sources.openmaptiles),
-        },
-        layers: [
-          {
-            id: 'satellite',
-            type: 'raster',
-            source: 'googleSatellite',
-            layout: { visibility: 'none' },
-          },
-          ...structuredClone(
-            base.layers.filter(
-              ({ id }) => id === 'highway-name-minor' || id === 'highway-name-major',
-            ),
-          ),
-        ],
-      }
-    : overlay
-      ? { version: 8, glyphs: base.glyphs, sources: {}, layers: [] }
-      : structuredClone(base);
-  if (!satellite && !overlay) {
+  const style: OpenMapStyle = overlay
+    ? { version: 8, glyphs: base.glyphs, sources: {}, layers: [] }
+    : structuredClone(base);
+  if (!overlay) {
     styleOpenRoads(style);
     addBuildingLayer(style, data.buildings, 16);
     style.sources.streetlightHouseNumbers = {
@@ -800,7 +772,7 @@ export function buildOpenLabStyle(
     },
   };
   insertBefore(style, 'highway-name-minor', [
-    ...(!satellite && !overlay
+    ...(!overlay
       ? [
           {
             id: 'streetlight-house-numbers',

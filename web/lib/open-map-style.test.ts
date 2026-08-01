@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { MapLabData } from './database.ts';
+import type { OpenMapData } from './database.ts';
 import {
-  buildOpenLabStyle,
   buildOpenMapStyle,
+  buildWorkspaceMapStyle,
   packetMapView,
   packetRouteFeatures,
   packetStartDisplay,
@@ -283,7 +283,7 @@ test('packet starting pin reuses the safe building-centered house-number positio
   assert(Math.abs(display.position[1] - 0.00005) < 1e-12);
 });
 
-function mapLabData(): MapLabData {
+function openMapData(): OpenMapData {
   return {
     churchId: 'church',
     territoryId: 'territory',
@@ -339,8 +339,8 @@ function mapLabData(): MapLabData {
   };
 }
 
-test('map lab keeps real buildings and uses the interactive coverage stroke scale', () => {
-  const data = mapLabData();
+test('workspace map keeps real buildings and uses the interactive coverage stroke scale', () => {
+  const data = openMapData();
   const base = {
     version: 8,
     glyphs: 'https://example.com/fonts/{fontstack}/{range}.pbf',
@@ -363,33 +363,25 @@ test('map lab keeps real buildings and uses the interactive coverage stroke scal
     ],
   };
 
-  const map = buildOpenLabStyle(base, data);
-  const satellite = buildOpenLabStyle(base, data, true);
+  const map = buildWorkspaceMapStyle(base, data);
+  const overlay = buildWorkspaceMapStyle(base, data, true);
   assert.ok(map.layers.some(({ id }) => id === 'streetlight-buildings'));
   assert.ok(map.layers.some(({ id }) => id === 'streetlight-coverage'));
   assert.equal(
-    satellite.layers.some(({ id }) => id === 'streetlight-buildings'),
+    overlay.layers.some(({ id }) => id === 'streetlight-buildings'),
     false,
   );
-  assert.ok(satellite.layers.some(({ id }) => id === 'streetlight-coverage'));
-  assert.equal(satellite.glyphs, base.glyphs);
-  assert.deepEqual(satellite.sources.openmaptiles, base.sources.openmaptiles);
-  assert.deepEqual(
-    satellite.layers.filter(({ type }) => type === 'symbol').map(({ id }) => id),
-    ['streetlight-apartment-labels', 'highway-name-minor', 'highway-name-major'],
-  );
-  assert.ok(
-    satellite.layers.findIndex(({ id }) => id === 'streetlight-coverage') <
-      satellite.layers.findIndex(({ id }) => id === 'highway-name-minor'),
-  );
+  assert.ok(overlay.layers.some(({ id }) => id === 'streetlight-coverage'));
+  assert.equal(overlay.glyphs, base.glyphs);
+  assert.equal('openmaptiles' in overlay.sources, false);
   assert.deepEqual(
     map.layers.find(({ id }) => id === 'streetlight-coverage')?.paint?.['line-width'],
     ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5],
   );
 });
 
-test('map lab presents an accepted FEMA row gap as an ordinary building without audit layers', () => {
-  const data = mapLabData();
+test('workspace map presents an accepted FEMA row gap as an ordinary building without audit layers', () => {
+  const data = openMapData();
   data.buildings.push({
     source: 'fema',
     sourceId: 'accepted-gap',
@@ -408,7 +400,7 @@ test('map lab presents an accepted FEMA row gap as an ordinary building without 
     ],
   };
 
-  const style = buildOpenLabStyle(base, data);
+  const style = buildWorkspaceMapStyle(base, data);
   const source = style.sources.streetlightBuildings as {
     data: { features: Array<{ properties: { source: string; sourceId: string } }> };
   };
@@ -425,7 +417,7 @@ test('map lab presents an accepted FEMA row gap as an ordinary building without 
   );
 });
 
-test('map lab and packet PDFs share the approved road and label presentation', () => {
+test('workspace map and packet PDFs share the approved road and label presentation', () => {
   const minorAt11 = ['match', ['get', 'class'], 'minor', 0.5, 'service', 0.3, 'track', 0.2, 0.5];
   const minorAt13 = ['match', ['get', 'class'], 'minor', 1.25, 'service', 0.6, 'track', 0.4, 1.25];
   const minorAt14Interactive = [
@@ -503,7 +495,7 @@ test('map lab and packet PDFs share the approved road and label presentation', (
     ],
   };
 
-  const map = buildOpenLabStyle(base, mapLabData());
+  const map = buildWorkspaceMapStyle(base, openMapData());
   const print = buildOpenMapStyle(base, packet(), mapGeneration(), 18);
 
   assert.deepEqual(map.layers.find(({ id }) => id === 'highway_path')?.paint?.['line-width'], [
@@ -574,7 +566,7 @@ test('map lab and packet PDFs share the approved road and label presentation', (
   }
 });
 
-test('map lab waits until neighborhood zoom to show building footprints', () => {
+test('workspace map waits until neighborhood zoom to show building footprints', () => {
   const base = {
     version: 8,
     sources: { openmaptiles: { type: 'vector' } },
@@ -584,7 +576,7 @@ test('map lab waits until neighborhood zoom to show building footprints', () => 
     ],
   };
 
-  const map = buildOpenLabStyle(base, mapLabData());
+  const map = buildWorkspaceMapStyle(base, openMapData());
   const print = buildOpenMapStyle(base, packet(), mapGeneration(), 18);
 
   assert.equal(map.layers.find(({ id }) => id === 'streetlight-buildings')?.minzoom, 16);
@@ -599,10 +591,9 @@ test('workspace satellite overlay keeps Streetlight data without another basemap
     layers: [{ id: 'highway-name-minor', type: 'symbol' }],
   };
 
-  const style = buildOpenLabStyle(base, mapLabData(), 'overlay');
+  const style = buildWorkspaceMapStyle(base, openMapData(), true);
 
   assert.equal('openmaptiles' in style.sources, false);
-  assert.equal('googleSatellite' in style.sources, false);
   assert.equal('streetlightBuildings' in style.sources, false);
   assert.equal(
     style.layers.some(({ id }) => id === 'streetlight-house-numbers'),
@@ -613,7 +604,7 @@ test('workspace satellite overlay keeps Streetlight data without another basemap
   assert.ok('streetlightApartments' in style.sources);
 });
 
-test('map lab centers one-address building labels and preserves unmatched positions', () => {
+test('workspace map centers one-address building labels and preserves unmatched positions', () => {
   const base = {
     version: 8,
     glyphs: 'https://example.com/fonts/{fontstack}/{range}.pbf',
@@ -624,8 +615,8 @@ test('map lab centers one-address building labels and preserves unmatched positi
     ],
   };
 
-  const map = buildOpenLabStyle(base, mapLabData());
-  const satellite = buildOpenLabStyle(base, mapLabData(), true);
+  const map = buildWorkspaceMapStyle(base, openMapData());
+  const overlay = buildWorkspaceMapStyle(base, openMapData(), true);
   const source = map.sources.streetlightHouseNumbers as {
     data: { features: unknown[] };
   };
@@ -650,15 +641,15 @@ test('map lab centers one-address building labels and preserves unmatched positi
     'text-font': ['Noto Sans Bold'],
     'text-allow-overlap': false,
   });
-  assert.equal('streetlightHouseNumbers' in satellite.sources, false);
+  assert.equal('streetlightHouseNumbers' in overlay.sources, false);
   assert.equal(
-    satellite.layers.some(({ id }) => id === 'streetlight-house-numbers'),
+    overlay.layers.some(({ id }) => id === 'streetlight-house-numbers'),
     false,
   );
 });
 
-test('map lab centers a nearby address only when one building wins by three meters', () => {
-  const data = mapLabData();
+test('workspace map centers a nearby address only when one building wins by three meters', () => {
+  const data = openMapData();
   data.houseNumbers = [
     { number: '31308', street: 'Amberley Circle', position: [0.00013, 0.00005] },
   ];
@@ -670,7 +661,7 @@ test('map lab centers a nearby address only when one building wins by three mete
       { id: 'highway-name-minor', type: 'symbol' },
     ],
   };
-  const centered = buildOpenLabStyle(base, data);
+  const centered = buildWorkspaceMapStyle(base, data);
   const centeredSource = centered.sources.streetlightHouseNumbers as {
     data: { features: Array<{ geometry: { coordinates: [number, number] } }> };
   };
@@ -694,7 +685,7 @@ test('map lab centers a nearby address only when one building wins by three mete
       ],
     },
   });
-  const ambiguous = buildOpenLabStyle(base, data);
+  const ambiguous = buildWorkspaceMapStyle(base, data);
   const ambiguousSource = ambiguous.sources.streetlightHouseNumbers as {
     data: { features: Array<{ geometry: { coordinates: [number, number] } }> };
   };
@@ -702,8 +693,8 @@ test('map lab centers a nearby address only when one building wins by three mete
   assert.deepEqual(ambiguousSource.data.features[0].geometry.coordinates, [0.00013, 0.00005]);
 });
 
-test('map lab centers a same-street address row with one unique nearest building per number', () => {
-  const data = mapLabData();
+test('workspace map centers a same-street address row with one unique nearest building per number', () => {
+  const data = openMapData();
   data.buildings.push(
     {
       ...data.buildings[0],
@@ -742,8 +733,8 @@ test('map lab centers a same-street address row with one unique nearest building
     { number: '100', street: 'Row Road', position: [0.00012, 0.00005] },
     { number: '102', street: 'Row Road', position: [0.00027, 0.00005] },
     { number: '104', street: 'Row Road', position: [0.00042, 0.00005] },
-  ] as MapLabData['houseNumbers'];
-  const map = buildOpenLabStyle(
+  ] as OpenMapData['houseNumbers'];
+  const map = buildWorkspaceMapStyle(
     {
       version: 8,
       sources: { openmaptiles: { type: 'vector' } },
@@ -769,13 +760,13 @@ test('map lab centers a same-street address row with one unique nearest building
   });
 });
 
-test('map lab leaves multiple addresses in one building at their real positions', () => {
-  const data = mapLabData();
+test('workspace map leaves multiple addresses in one building at their real positions', () => {
+  const data = openMapData();
   data.houseNumbers = [
     { number: '31308', street: 'Amberley Circle', position: [0.00002, 0.00003] },
     { number: '31310', street: 'Amberley Circle', position: [0.00008, 0.00007] },
   ];
-  const map = buildOpenLabStyle(
+  const map = buildWorkspaceMapStyle(
     {
       version: 8,
       sources: { openmaptiles: { type: 'vector' } },
@@ -799,8 +790,8 @@ test('map lab leaves multiple addresses in one building at their real positions'
   );
 });
 
-test('map lab centers the uniquely matched FEMA fallback label', () => {
-  const data = mapLabData();
+test('workspace map centers the uniquely matched FEMA fallback label', () => {
+  const data = openMapData();
   data.buildings = [
     {
       ...data.buildings[0],
@@ -820,7 +811,7 @@ test('map lab centers the uniquely matched FEMA fallback label', () => {
     { number: '31308', street: 'Amberley Circle', position: [0.000109, 0.00005] },
     { number: '31310', street: 'Amberley Circle', position: [0.00002, 0.00002] },
   ];
-  const map = buildOpenLabStyle(
+  const map = buildWorkspaceMapStyle(
     {
       version: 8,
       sources: { openmaptiles: { type: 'vector' } },
@@ -840,8 +831,8 @@ test('map lab centers the uniquely matched FEMA fallback label', () => {
   assert.deepEqual(source.data.features[1].geometry.coordinates, [0.00002, 0.00002]);
 });
 
-test('map lab centers the approved FEMA row-gap address on its building', () => {
-  const data = mapLabData();
+test('workspace map centers the approved FEMA row-gap address on its building', () => {
+  const data = openMapData();
   data.buildings = [
     {
       ...data.buildings[0],
@@ -853,7 +844,7 @@ test('map lab centers the approved FEMA row-gap address on its building', () => 
   data.houseNumbers = [
     { number: '31308', street: 'Amberley Circle', position: [0.000109, 0.00005] },
   ];
-  const map = buildOpenLabStyle(
+  const map = buildWorkspaceMapStyle(
     {
       version: 8,
       sources: { openmaptiles: { type: 'vector' } },

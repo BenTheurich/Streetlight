@@ -40,7 +40,7 @@ test('coverage makes the current outreach continuation explicit without hiding o
 
 test('heatmap ranges are edited from the shared map legend instead of the coverage sidebar', () => {
   const workspace = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
-  const map = readFileSync(new URL('./CoverageMap.tsx', import.meta.url), 'utf8');
+  const map = readFileSync(new URL('./OpenCoverageMap.tsx', import.meta.url), 'utf8');
   const dashboard = readFileSync(new URL('./CoverageDashboard.tsx', import.meta.url), 'utf8');
   const settings = readFileSync(new URL('./HeatmapSettingsOverlay.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');

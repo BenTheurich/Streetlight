@@ -433,7 +433,7 @@ white center
 ```
 
 Draw only the packet's stored starting house number directly below the pin tip. Reuse the same
-safe building-centered position computed by the Map Lab address matcher for both the marker and the
+safe building-centered position computed by the shared open-map address matcher for both the marker and the
 number. If no safe building match exists, retain the immutable packet starting coordinate.
 
 Do not restore general address labels. They add clutter and may make an address appear attached to

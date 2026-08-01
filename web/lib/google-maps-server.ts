@@ -31,9 +31,7 @@ export function getGoogleMapsBrowserKey(): string {
 }
 
 export function getGoogleMapsServerKey(): string {
-  return (
-    configuredValue('GOOGLE_MAPS_SERVER_API_KEY') || configuredValue('GOOGLE_MAPS_STATIC_API_KEY')
-  );
+  return configuredValue('GOOGLE_MAPS_SERVER_API_KEY');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

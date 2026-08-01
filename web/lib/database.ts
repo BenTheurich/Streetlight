@@ -232,7 +232,7 @@ export type CoverageWorkspace = {
   totals: { eligibleHomes: number };
 };
 
-export type MapLabData = {
+export type OpenMapData = {
   churchId: string;
   territoryId: string;
   territoryName: string;
@@ -262,11 +262,6 @@ export type MapLabData = {
   };
 };
 
-export type MapLabBuildingCounts = {
-  overture: number;
-  fema: number;
-};
-
 const femaAudit = femaAuditJson as unknown as {
   churchId: string;
   territoryId: string;
@@ -282,14 +277,14 @@ const femaAudit = femaAuditJson as unknown as {
 };
 
 function withAcceptedFemaGaps(
-  buildings: MapLabData['buildings'],
+  buildings: OpenMapData['buildings'],
   scope: {
     churchId: string;
     territoryId: string;
     importGeneration: number;
     overtureRelease: string;
   },
-): MapLabData['buildings'] {
+): OpenMapData['buildings'] {
   if (
     femaAudit.churchId !== scope.churchId ||
     femaAudit.territoryId !== scope.territoryId ||
@@ -667,7 +662,7 @@ export function getCoverageWorkspace(
   }
 }
 
-export function getMapLabData(filename?: string): MapLabData {
+export function getOpenMapData(filename?: string): OpenMapData {
   const territory = getTerritoryWorkspace(filename);
   const coverage = getCoverageWorkspace(filename);
   const boundary = territoryBoundary(
@@ -787,33 +782,6 @@ export function getMapLabData(filename?: string): MapLabData {
         buildings: 'Overture Maps',
         fema: mapBuildings.some(({ source }) => source === 'fema') ? 'FEMA USA Structures' : null,
       },
-    };
-  } finally {
-    database.close();
-  }
-}
-
-export function getMapLabBuildingCounts(filename?: string): MapLabBuildingCounts {
-  const database = openWorkspaceDatabase(filename);
-  try {
-    const rows = database
-      .prepare(
-        `SELECT mb.source, COUNT(*) AS count
-        FROM map_buildings mb
-        JOIN territories t
-          ON t.church_id = mb.church_id
-          AND t.id = mb.territory_id
-          AND t.import_generation = mb.import_generation
-        WHERE mb.church_id = ? AND mb.territory_id = ?
-        GROUP BY mb.source`,
-      )
-      .all(workspaceChurchId(), workspaceTerritoryId()) as Array<{
-      source: 'overture' | 'fema';
-      count: number;
-    }>;
-    return {
-      overture: rows.find(({ source }) => source === 'overture')?.count ?? 0,
-      fema: rows.find(({ source }) => source === 'fema')?.count ?? 0,
     };
   } finally {
     database.close();
