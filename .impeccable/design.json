@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-01T18:02:52.6024330+02:00",
+  "title": "Design System: Streetlight",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Church Paper",
+        "canonical": "#f6f1e5",
+        "tonalRamp": ["#28261f", "#4d493d", "#746e5e", "#9e9682", "#c7beaa", "#e4dccb", "#f6f1e5", "#fffdf7"]
+      },
+      "paper-bright": {
+        "role": "neutral",
+        "displayName": "Bright Paper",
+        "canonical": "#fffdf7",
+        "tonalRamp": ["#292821", "#504e43", "#777568", "#a19e90", "#cbc7b9", "#e8e4d8", "#f6f1e5", "#fffdf7"]
+      },
+      "ink": {
+        "role": "primary",
+        "displayName": "Lamp Navy",
+        "canonical": "#101a29",
+        "tonalRamp": ["#030914", "#101a29", "#263650", "#45546a", "#6d798a", "#9ca5b1", "#cfd4da", "#f4f6f8"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "#596675",
+        "tonalRamp": ["#18212c", "#303c49", "#596675", "#7a8795", "#a0aab4", "#c7cdd3", "#e5e8ea", "#f7f8f9"]
+      },
+      "amber": {
+        "role": "secondary",
+        "displayName": "Lamplight Amber",
+        "canonical": "#e7ad50",
+        "tonalRamp": ["#2f210d", "#5b3f18", "#865f25", "#b68135", "#e7ad50", "#efc47a", "#f6dca8", "#fcf2dc"]
+      },
+      "packet-blue": {
+        "role": "tertiary",
+        "displayName": "Packet Blue",
+        "canonical": "#2767e9",
+        "tonalRamp": ["#071938", "#0d3475", "#1750b1", "#2767e9", "#4d82ed", "#7aa3f3", "#b4cdf9", "#e8efff"]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Warm Line",
+        "canonical": "#d8cfbf",
+        "tonalRamp": ["#2d2a25", "#565047", "#7f776a", "#aaa08f", "#d8cfbf", "#e5ded2", "#f1ece3", "#fbf8f2"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Editorial Display",
+        "purpose": "Mission-led public statements and rare ceremonial moments."
+      },
+      "title": {
+        "displayName": "Operational Title",
+        "purpose": "Workspace panels and task headings."
+      },
+      "body": {
+        "displayName": "Operational Body",
+        "purpose": "Instructions, descriptions, and data labels."
+      },
+      "label": {
+        "displayName": "Tracked Label",
+        "purpose": "Wordmarks, eyebrows, and compact categories."
+      }
+    },
+    "shadows": [
+      {
+        "name": "workspace-lift",
+        "value": "0 8px 28px rgb(16 26 41 / 5%)",
+        "purpose": "Separate the persistent workspace header."
+      },
+      {
+        "name": "floating-control",
+        "value": "0 14px 30px rgba(48, 45, 40, 0.16)",
+        "purpose": "Legends and controls floating above the map."
+      },
+      {
+        "name": "recovery-layer",
+        "value": "0 12px 30px rgb(16 26 41 / 18%)",
+        "purpose": "Prompts that require an explicit choice."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-change",
+        "value": "160ms ease",
+        "purpose": "Button, border, and color state changes."
+      },
+      {
+        "name": "editorial-slide",
+        "value": "380ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Landing drawers and larger storytelling transitions."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "tablet",
+        "value": "1024px"
+      },
+      {
+        "name": "mobile",
+        "value": "600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Operational Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single strongest action in an operational group; Packet Blue is reserved for keyboard focus, not decoration.",
+      "html": "<button class=\"ds-btn-primary\">Save changes</button>",
+      "css": ".ds-btn-primary{min-height:44px;padding:10px 14px;border:1px solid #101a29;border-radius:8px;background:#101a29;color:#fffdf7;font:800 13px 'Trebuchet MS',Arial,sans-serif;cursor:pointer;transition:background 160ms ease,border-color 160ms ease,transform 160ms ease}.ds-btn-primary:hover{background:#263650;border-color:#263650}.ds-btn-primary:active{transform:translateY(1px)}.ds-btn-primary:focus-visible{outline:3px solid #2767e9;outline-offset:2px}"
+    },
+    {
+      "name": "Operational Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A visible alternative with a warm neutral hover that does not compete with the primary action.",
+      "html": "<button class=\"ds-btn-secondary\">Stay here</button>",
+      "css": ".ds-btn-secondary{min-height:44px;padding:10px 14px;border:1px solid #d8cfbf;border-radius:8px;background:#fffdf7;color:#101a29;font:800 13px 'Trebuchet MS',Arial,sans-serif;cursor:pointer;transition:background 160ms ease,border-color 160ms ease,transform 160ms ease}.ds-btn-secondary:hover{background:#f0eadf;border-color:#9fa9b4}.ds-btn-secondary:active{transform:translateY(1px)}.ds-btn-secondary:focus-visible{outline:3px solid #2767e9;outline-offset:2px}"
+    },
+    {
+      "name": "Native Segment Search",
+      "kind": "input",
+      "refersTo": "coverage-search",
+      "description": "A native street-name search with a live count and factual, context-rich result rows.",
+      "html": "<section class=\"ds-search\"><label for=\"ds-street\">Search streets</label><input id=\"ds-street\" value=\"Winchester\"><p role=\"status\">15 matching streets.</p><button><strong>Winchester Road</strong><span>3 estimated tracts · Excluded</span><small>180–364 days · Last outreach Dec 2, 2025</small></button></section>",
+      "css": ".ds-search{display:grid;gap:7px;color:#101a29;font-family:'Trebuchet MS',Arial,sans-serif}.ds-search label{font-size:13px;font-weight:800}.ds-search input,.ds-search button{min-height:44px;border:1px solid #d8cfbf;border-radius:8px;background:#fffdf7;color:#101a29}.ds-search input{padding:8px 10px;font:400 16px 'Trebuchet MS',Arial,sans-serif}.ds-search p{margin:0;color:#596675;font-size:12px}.ds-search button{display:grid;gap:3px;padding:11px 12px;text-align:left;cursor:pointer}.ds-search button:hover{border-color:#9fa9b4;background:#f0eadf}.ds-search button:active{background:#ebe3d6}.ds-search input:focus-visible,.ds-search button:focus-visible{outline:3px solid #2767e9;outline-offset:2px}.ds-search span,.ds-search small{color:#596675}"
+    },
+    {
+      "name": "Administrator Navigation",
+      "kind": "nav",
+      "description": "Four persistent tools with a moving navy indicator; transparent button hovers keep the slide visually continuous.",
+      "html": "<nav class=\"ds-nav\"><span aria-hidden=\"true\"></span><button class=\"is-active\">Coverage</button><button>Generate packets</button><button>Reconcile packets</button><button>Territory setup</button></nav>",
+      "css": ".ds-nav{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:5px;border:1px solid #d8cfbf;border-radius:12px;background:#fffdf7}.ds-nav>span{position:absolute;inset:5px auto 5px 5px;width:calc((100% - 13px)/4);border-radius:8px;background:#101a29;transition:transform 380ms cubic-bezier(.16,1,.3,1)}.ds-nav button{position:relative;z-index:1;min-height:44px;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:#596675;font:800 13px 'Trebuchet MS',Arial,sans-serif;cursor:pointer}.ds-nav button:hover{background:transparent;color:#101a29}.ds-nav button:active{background:transparent}.ds-nav button.is-active{color:#fffdf7}.ds-nav button:focus-visible{outline:3px solid #2767e9;outline-offset:1px}"
+    },
+    {
+      "name": "Current Work Card",
+      "kind": "card",
+      "refersTo": "current-work",
+      "description": "The factual next continuation in the recurring outreach workflow, stated without decorative map-state color.",
+      "html": "<article class=\"ds-current\"><span>CURRENT WORK</span><strong>Coverage is ready for another batch.</strong><p>Generate connected packets from the streets that have waited longest.</p><button>Generate packets</button></article>",
+      "css": ".ds-current{display:grid;gap:10px;padding:20px;border:1px solid #d8cfbf;border-radius:12px;background:#fffdf7;color:#101a29;font-family:'Trebuchet MS',Arial,sans-serif}.ds-current>span{color:#596675;font-size:12px;font-weight:900;letter-spacing:.14em}.ds-current strong{font-size:20px;line-height:1.15}.ds-current p{margin:0;color:#596675;line-height:1.5}.ds-current button{justify-self:start;min-height:44px;padding:10px 14px;border:1px solid #101a29;border-radius:8px;background:#101a29;color:#fffdf7;font-weight:800;cursor:pointer}.ds-current button:hover{background:#263650}.ds-current button:active{transform:translateY(1px)}.ds-current button:focus-visible{outline:3px solid #2767e9;outline-offset:2px}"
+    },
+    {
+      "name": "Busy Operation Status",
+      "kind": "status",
+      "refersTo": "operation-status busy",
+      "description": "An atomic live busy state that preserves the user's current surface and says what the operation is doing.",
+      "html": "<div class=\"ds-operation ds-operation-busy\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\" aria-busy=\"true\"><span aria-hidden=\"true\"></span><div><strong>Generating packet proposals</strong><p>Finding connected streets that have waited longest.</p></div></div>",
+      "css": ".ds-operation{display:flex;gap:12px;padding:14px;border:1px solid #d8cfbf;border-radius:12px;background:#fffdf7;color:#101a29;font-family:'Trebuchet MS',Arial,sans-serif}.ds-operation>span{width:18px;height:18px;border:2px solid #d8cfbf;border-top-color:#101a29;border-radius:50%;animation:ds-spin 800ms linear infinite}.ds-operation strong{display:block}.ds-operation p{margin:4px 0 0;color:#596675;line-height:1.45}@keyframes ds-spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.ds-operation>span{animation:none;border-color:#101a29}}"
+    },
+    {
+      "name": "Recoverable Error Status",
+      "kind": "alert",
+      "refersTo": "operation-status error",
+      "description": "An explicit failure state with a non-color cue, preserved work, and a nearby retry action.",
+      "html": "<div class=\"ds-operation ds-operation-error\" role=\"alert\" aria-atomic=\"true\"><span aria-hidden=\"true\">!</span><div><strong>Packet PDF could not be prepared</strong><p>The finalized batch is still saved.</p><button>Try newest batch again</button></div></div>",
+      "css": ".ds-operation{display:flex;gap:12px;padding:14px;border:1px solid #d8cfbf;border-radius:12px;background:#fffdf7;color:#101a29;font-family:'Trebuchet MS',Arial,sans-serif}.ds-operation-error{border-color:#ad5547;background:#fff4f1}.ds-operation-error>span{display:grid;place-items:center;width:24px;height:24px;border:2px solid #ad5547;border-radius:50%;color:#ad5547;font-weight:900}.ds-operation p{margin:4px 0 10px;color:#596675}.ds-operation button{min-height:44px;padding:10px 14px;border:1px solid #101a29;border-radius:8px;background:#fffdf7;color:#101a29;font-weight:800;cursor:pointer}.ds-operation button:hover{background:#f0eadf}.ds-operation button:active{transform:translateY(1px)}.ds-operation button:focus-visible{outline:3px solid #2767e9;outline-offset:2px}"
+    },
+    {
+      "name": "Public Pilot Action",
+      "kind": "link",
+      "refersTo": "landing-primary-action",
+      "description": "A sharper public-page action that may carry cinematic lamplight while operational buttons remain navy and factual.",
+      "html": "<a class=\"ds-public-action\" href=\"/api/auth/login\">Bring Streetlight to your church</a>",
+      "css": ".ds-public-action{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:11px 18px;border:1px solid #e7ad50;border-radius:2px;background:#e7ad50;color:#030914;font:900 13px 'Trebuchet MS',Arial,sans-serif;text-decoration:none;transition:background 160ms ease,border-color 160ms ease,transform 160ms ease}.ds-public-action:hover{background:#efc47a;border-color:#efc47a}.ds-public-action:active{transform:translateY(1px)}.ds-public-action:focus-visible{outline:3px solid #2767e9;outline-offset:3px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Carry the Light",
+    "overview": "Streetlight moves from cinematic darkness into warm daylight: a literal expression of the church bringing light to streets that may otherwise be forgotten. The public experience may be atmospheric and editorial, while the administrator workspace remains calm, map-first, and operational. Both surfaces share the same navy, cream, amber, logo, and deliberate restraint.",
+    "keyCharacteristics": [
+      "Warm cream paper against deep navy ink.",
+      "Restrained amber light, with map colors reserved for real coverage meaning.",
+      "Editorial Georgia display type paired with sturdy Trebuchet interface type.",
+      "Map-first layouts, compact controls, and clear recovery states.",
+      "Gentle depth and motion that clarify layers without making the tool feel glossy."
+    ],
+    "rules": [
+      {
+        "name": "The Factual Color Rule",
+        "body": "On maps, blue, green, amber, orange, red, and gray retain their established data meanings. Decorative styling must not borrow those colors in ways that confuse coverage state.",
+        "section": "colors"
+      },
+      {
+        "name": "The Rare Light Rule",
+        "body": "Amber is most effective when scarce. Use it for atmosphere and emphasis, not every button or heading.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two-Voice Rule",
+        "body": "Georgia speaks the mission; Trebuchet runs the work. Do not introduce a third font or use display type for dense controls.",
+        "section": "typography"
+      },
+      {
+        "name": "The Map Owns the Room Rule",
+        "body": "Tool chrome explains and edits the map; it never visually outweighs it.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-by-Default Rule",
+        "body": "A shadow signals a real layer or state. Static cards use borders and surface color instead.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep the map visible while administrators move through Coverage, Generate, Reconcile, and Territory.",
+      "Do use church-specific language such as tracts and outreach.",
+      "Do keep all interactive targets at least 44px and preserve visible keyboard focus.",
+      "Do make failures recoverable and keep the last valid territory or batch visible.",
+      "Do let the public page carry more atmosphere than the workspace so the two surfaces feel related without importing its cinematic density."
+    ],
+    "donts": [
+      "Don't add generic SaaS gradients, glass cards, oversized metric dashboards, or decorative charts.",
+      "Don't use map-state colors as decoration.",
+      "Don't hide the normal workflow behind a wizard, hamburger menu, or AI-style recommendation.",
+      "Don't fill empty space with explanatory copy the administrator does not need.",
+      "Don't add religious ornament merely for atmosphere; the lamp, language, and purpose carry the church identity."
+    ]
+  }
+}

@@ -186,7 +186,9 @@ export function CoverageDashboard({
             </p>
           )}
           {!selected && query.trim() && search.total === 0 && (
-            <p className="coverage-search-status">No streets match “{query.trim()}”.</p>
+            <p className="coverage-search-status" role="status">
+              No streets match “{query.trim()}”.
+            </p>
           )}
           {!selected && search.total > 0 && (
             <>

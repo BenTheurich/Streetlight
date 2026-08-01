@@ -65,6 +65,15 @@ test('proposal rows expand and collapse inline without a separate show-all contr
   assert.match(source, /!finalized && result\.proposals\.length > 0/);
 });
 
+test('packet finalization confirmation moves focus in and returns it on cancel', () => {
+  const source = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /if \(confirming\) confirmFinalizationRef\.current\?\.focus\(\)/);
+  assert.match(source, /finalizationTriggerRef\.current\?\.focus\(\)/);
+  assert.match(source, /ref={confirmFinalizationRef}/);
+  assert.match(source, /ref={finalizationTriggerRef}/);
+});
+
 test('one packet operation lock owns every mutation and PDF entry point', () => {
   const source = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
 

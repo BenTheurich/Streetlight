@@ -1,6 +1,6 @@
 'use client';
 
-import { type FormEvent, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { CoverageWorkspace } from '@/lib/database';
 import type { FinalizedBatch, ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 import { OperationStatus } from './OperationStatus';
@@ -61,6 +61,17 @@ export function PacketGenerator({
   const [downloading, setDownloading] = useState<'newest' | 'active' | null>(null);
   const [finalized, setFinalized] = useState<FinalizedBatch | null>(null);
   const nextRowId = useRef(1);
+  const finalizationTriggerRef = useRef<HTMLButtonElement>(null);
+  const confirmFinalizationRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (confirming) confirmFinalizationRef.current?.focus();
+  }, [confirming]);
+
+  function cancelFinalization(): void {
+    setConfirming(false);
+    requestAnimationFrame(() => finalizationTriggerRef.current?.focus());
+  }
 
   function discardResult(): void {
     onResultChange(null);
@@ -427,6 +438,7 @@ export function PacketGenerator({
                   <button
                     disabled={packetOperationBusy}
                     onClick={() => setConfirming(true)}
+                    ref={finalizationTriggerRef}
                     type="button"
                   >
                     Finalize &amp; download
@@ -443,7 +455,7 @@ export function PacketGenerator({
                       <button
                         className="secondary"
                         disabled={packetOperationBusy}
-                        onClick={() => setConfirming(false)}
+                        onClick={cancelFinalization}
                         type="button"
                       >
                         Cancel
@@ -452,6 +464,7 @@ export function PacketGenerator({
                         disabled={packetOperationBusy}
                         form={feedback?.requiresRegeneration ? 'packet-request-form' : undefined}
                         onClick={feedback?.requiresRegeneration ? undefined : () => void finalize()}
+                        ref={confirmFinalizationRef}
                         type={feedback?.requiresRegeneration ? 'submit' : 'button'}
                       >
                         {finalizing
