@@ -96,6 +96,86 @@ test('coverage distribution counts eligible estimated homes in each heatmap clas
   );
 });
 
+test('street search trims case, keeps human name order, and preserves duplicate source order', () => {
+  const search = coverageModule.searchCoverageSegments;
+  assert.equal(typeof search, 'function');
+  const segments = [
+    { id: 'internal-z', streetName: 'Zinnia Road' },
+    { id: 'internal-oak-1', streetName: ' Oak Street ' },
+    { id: 'internal-oak-2', streetName: 'oak street' },
+    { id: 'internal-a', streetName: 'Acacia Road' },
+  ];
+
+  assert.deepEqual(
+    search?.(segments, '  OAK  ').matches.map(({ id }) => id),
+    ['internal-oak-1', 'internal-oak-2'],
+  );
+  assert.deepEqual(
+    search?.(segments, 'road').matches.map(({ id }) => id),
+    ['internal-a', 'internal-z'],
+  );
+});
+
+test('street search keeps unnamed roads reachable and caps visible results at twenty', () => {
+  const search = coverageModule.searchCoverageSegments;
+  assert.equal(typeof search, 'function');
+  const unnamed = { id: 'internal-unnamed', streetName: '  ' };
+
+  assert.deepEqual(search?.([unnamed], 'unnamed'), {
+    matches: [unnamed],
+    total: 1,
+    hasMore: false,
+  });
+  assert.deepEqual(search?.([unnamed], '   '), { matches: [], total: 0, hasMore: false });
+
+  const matches = Array.from({ length: 22 }, (_, index) => ({
+    id: `internal-${index}`,
+    streetName: 'Main Street',
+  }));
+  const result = search?.(matches, 'main');
+  assert.equal(result?.matches.length, 20);
+  assert.equal(result?.total, 22);
+  assert.equal(result?.hasMore, true);
+  assert.equal(result?.matches.at(-1)?.id, 'internal-19');
+});
+
+test('coverage result copy exposes human context without an internal segment ID', () => {
+  const content = coverageModule.coverageSegmentResultContent;
+  assert.equal(typeof content, 'function');
+  const result = content?.({
+    id: 'segment-secret-hash',
+    streetName: '',
+    estimatedHomes: 17,
+    lastCoveredOn: null,
+    eligible: false,
+  });
+
+  assert.deepEqual(result, {
+    streetName: 'Unnamed road',
+    estimatedTracts: 17,
+    lastOutreach: 'Never',
+    eligibility: 'Excluded',
+  });
+  assert.doesNotMatch(JSON.stringify(result), /segment-secret-hash/);
+});
+
+test('current work state follows whether packets await reconciliation', () => {
+  const state = coverageModule.currentWorkState;
+  assert.equal(typeof state, 'function');
+  assert.equal(state?.(3), 'active');
+  assert.equal(state?.(0), 'ready');
+});
+
+test('coverage selection starts empty and clears when a selected street disappears', () => {
+  const retain = coverageModule.retainCoverageSelection;
+  assert.equal(typeof retain, 'function');
+  const segments = [{ id: 'segment-a' }, { id: 'segment-b' }];
+
+  assert.equal(retain?.(null, segments), null);
+  assert.equal(retain?.('segment-b', segments), 'segment-b');
+  assert.equal(retain?.('segment-old', segments), null);
+});
+
 test('coverage labels move to the next free row when their anchors would overlap', () => {
   assert.deepEqual(
     coverageModule.stackCoverageLabelRows?.([

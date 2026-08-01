@@ -1,7 +1,14 @@
 'use client';
 
-import { type CSSProperties, useState } from 'react';
-import { countEligibleHomesByCoverageClass, stackCoverageLabelRows } from '@/lib/coverage';
+import { type CSSProperties, useEffect, useState } from 'react';
+import {
+  countEligibleHomesByCoverageClass,
+  coverageSegmentResultContent,
+  coverageStreetName,
+  currentWorkState,
+  searchCoverageSegments,
+  stackCoverageLabelRows,
+} from '@/lib/coverage';
 import type { CoverageWorkspace, CoverageWorkspaceSegment } from '@/lib/database';
 
 type CoverageDashboardProps = {
@@ -15,10 +22,21 @@ type CoverageDashboardProps = {
 };
 
 const coverageClasses = ['green', 'yellow', 'orange', 'red'] as const;
+
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(
     new Date(`${value}T00:00:00Z`),
   );
+}
+
+function exclusionLabel(segment: CoverageWorkspaceSegment): string {
+  if (segment.eligible) return 'Eligible for packet generation';
+  return {
+    hidden: 'Excluded because this road is hidden',
+    boundary: 'Excluded because it is outside the coverage area',
+    exclusion: 'Excluded by an enabled excluded area',
+    segment: 'This exact street segment is excluded',
+  }[segment.excludedReason ?? 'segment'];
 }
 
 export function CoverageDashboard({
@@ -33,7 +51,13 @@ export function CoverageDashboard({
   const [dates, setDates] = useState<Record<string, string>>({});
   const [activeMutation, setActiveMutation] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  const [query, setQuery] = useState('');
   const selected = workspace.segments.find((segment) => segment.id === selectedSegmentId) ?? null;
+  const search = searchCoverageSegments(workspace.segments, query);
+  const selectedRange = selected
+    ? workspace.legend.find((item) => item.coverageClass === selected.coverageClass)?.label
+    : null;
+  const workState = currentWorkState(workspace.activePackets);
   const distribution = countEligibleHomesByCoverageClass(workspace.segments);
   const distributionItems = coverageClasses.map((coverageClass) => ({
     coverageClass,
@@ -60,6 +84,10 @@ export function CoverageDashboard({
   }));
   const totalLabelRow = labelRows.at(-1) ?? 0;
   const maxLabelRow = Math.max(...labelRows, 0);
+
+  useEffect(() => {
+    if (selected) setQuery(coverageStreetName(selected.streetName));
+  }, [selected]);
 
   async function mutate(eventId: string, coveredOn: string | null) {
     setActiveMutation(eventId);
@@ -138,28 +166,94 @@ export function CoverageDashboard({
           </div>
         </section>
         <section className="coverage-segment-picker">
-          <label className="coverage-field">
-            Street segment
-            <select
-              onChange={(event) => onSelectSegment(event.target.value || null)}
-              value={selectedSegmentId ?? ''}
-            >
-              <option value="">Select a street segment</option>
-              {workspace.segments.map((segment) => (
-                <option key={segment.id} value={segment.id}>
-                  {segment.streetName} — {segment.estimatedHomes} tracts · {segment.id.slice(-6)}
-                </option>
-              ))}
-            </select>
+          <label className="coverage-field" htmlFor="coverage-street-search">
+            Find a street
           </label>
+          <input
+            autoComplete="off"
+            id="coverage-street-search"
+            onChange={(event) => {
+              setQuery(event.target.value);
+              if (selectedSegmentId) onSelectSegment(null);
+            }}
+            placeholder="Search street names"
+            type="search"
+            value={query}
+          />
+          {!selected && !query.trim() && (
+            <p className="coverage-search-status">
+              Search by street name, or select a street directly on the map.
+            </p>
+          )}
+          {!selected && query.trim() && search.total === 0 && (
+            <p className="coverage-search-status">No streets match “{query.trim()}”.</p>
+          )}
+          {!selected && search.total > 0 && (
+            <>
+              <p className="coverage-search-status" role="status">
+                {search.hasMore
+                  ? `Showing 20 of ${search.total} streets. Refine your search to narrow the list.`
+                  : `${search.total} matching ${search.total === 1 ? 'street' : 'streets'}.`}
+              </p>
+              <ul className="coverage-search-results">
+                {search.matches.map((segment) => {
+                  const content = coverageSegmentResultContent(segment);
+                  return (
+                    <li key={segment.id}>
+                      <button
+                        onClick={() => {
+                          setQuery(content.streetName);
+                          onSelectSegment(segment.id);
+                        }}
+                        type="button"
+                      >
+                        <strong>{content.streetName}</strong>
+                        <span>
+                          {content.estimatedTracts} estimated tracts · Last outreach:{' '}
+                          {segment.lastCoveredOn ? formatDate(segment.lastCoveredOn) : 'Never'}
+                        </span>
+                        <small>{content.eligibility}</small>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
         </section>
         {selected && (
           <section className="coverage-detail">
-            <h2>{selected.streetName}</h2>
-            <p>
-              {selected.estimatedHomes} estimated tracts · Last outreach:{' '}
-              {selected.lastCoveredOn ? formatDate(selected.lastCoveredOn) : 'Never'}
-            </p>
+            <div className="coverage-detail-heading">
+              <h2>{coverageStreetName(selected.streetName)}</h2>
+              <button
+                className="secondary"
+                onClick={() => {
+                  setQuery('');
+                  onSelectSegment(null);
+                }}
+                type="button"
+              >
+                Search another street
+              </button>
+            </div>
+            <dl className="coverage-detail-facts">
+              <div>
+                <dt>Estimated tracts</dt>
+                <dd>{selected.estimatedHomes}</dd>
+              </div>
+              <div>
+                <dt>Coverage range</dt>
+                <dd>{selectedRange ?? selected.coverageClass}</dd>
+              </div>
+              <div>
+                <dt>Last outreach</dt>
+                <dd>{selected.lastCoveredOn ? formatDate(selected.lastCoveredOn) : 'Never'}</dd>
+              </div>
+              <div>
+                <dt>Availability</dt>
+                <dd>{exclusionLabel(selected)}</dd>
+              </div>
+            </dl>
             {selected.roots.length === 0 ? (
               <p className="empty-state">No completed outreach recorded.</p>
             ) : (
@@ -235,45 +329,45 @@ export function CoverageDashboard({
             )}
           </section>
         )}
-        <section className="current-work">
-          <h2>Current work</h2>
-          {workspace.activePackets > 0 ? (
-            <div className="current-work-layout">
-              <span aria-hidden="true" className="current-work-count">
-                {workspace.activePackets}
-              </span>
-              <div className="current-work-copy">
-                <strong>
-                  <span className="sr-only">{workspace.activePackets} </span>
-                  active packet
-                  {workspace.activePackets === 1 ? '' : 's'} awaiting reconciliation
-                </strong>
-                <p>
-                  {workspace.latestBatch
-                    ? `${workspace.latestBatch.name} is the newest finalized batch.`
-                    : 'Check which printed sheets are still on the table.'}
-                </p>
-                <button onClick={onOpenReconciliation} type="button">
-                  Reconcile packets
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="current-work-layout current-work-layout-ready">
-              <div className="current-work-copy">
-                <strong>Coverage is ready for another batch.</strong>
-                <p>Generate connected packets from the streets that have waited longest.</p>
-                <button onClick={onOpenPackets} type="button">
-                  Generate packets
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
+        <p className="coverage-notice" aria-live="polite">
+          {notice}
+        </p>
       </div>
-      <div className="sidebar-actions">
-        <p aria-live="polite">{notice}</p>
-      </div>
+      <section aria-labelledby="current-work-heading" className="current-work">
+        <h2 id="current-work-heading">Current work</h2>
+        {workState === 'active' ? (
+          <div className="current-work-layout">
+            <span aria-hidden="true" className="current-work-count">
+              {workspace.activePackets}
+            </span>
+            <div className="current-work-copy">
+              <strong>
+                <span className="sr-only">{workspace.activePackets} </span>
+                active packet
+                {workspace.activePackets === 1 ? '' : 's'} awaiting reconciliation
+              </strong>
+              <p>
+                {workspace.latestBatch
+                  ? `${workspace.latestBatch.name} is the newest finalized batch.`
+                  : 'Check which printed sheets are still on the table.'}
+              </p>
+              <button onClick={onOpenReconciliation} type="button">
+                Reconcile packets
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="current-work-layout current-work-layout-ready">
+            <div className="current-work-copy">
+              <strong>Coverage is ready for another batch.</strong>
+              <p>Generate connected packets from the streets that have waited longest.</p>
+              <button onClick={onOpenPackets} type="button">
+                Generate packets
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
     </aside>
   );
 }

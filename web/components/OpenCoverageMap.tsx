@@ -1,10 +1,19 @@
 'use client';
 
-import type { GeoJSONSource, MapLayerMouseEvent, Map as MapLibreMap } from 'maplibre-gl';
+import type {
+  ExpressionSpecification,
+  GeoJSONSource,
+  MapLayerMouseEvent,
+  Map as MapLibreMap,
+} from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import type { CoverageLegendItem } from '@/lib/coverage';
 import type { CoverageWorkspaceApartment, CoverageWorkspaceSegment } from '@/lib/database';
-import { positionBounds } from '@/lib/map-camera';
+import {
+  type CoverageSelectionSource,
+  coverageSelectionCameraOptions,
+  positionBounds,
+} from '@/lib/map-camera';
 import { apartmentMarkerColor, coverageColors } from '@/lib/territory-map-style';
 
 type OpenCoverageMapProps = {
@@ -15,12 +24,13 @@ type OpenCoverageMapProps = {
   segments: CoverageWorkspaceSegment[];
   apartmentComplexes: CoverageWorkspaceApartment[];
   selectedSegmentId: string | null;
+  selectionSource: CoverageSelectionSource | null;
   onEditHeatmapRanges: () => void;
   onSelectSegment: (id: string) => void;
   fitOnMount?: boolean;
 };
 
-const coverageWidth = ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5];
+const coverageWidth: ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5];
 
 export function OpenCoverageMap({
   active,
@@ -30,6 +40,7 @@ export function OpenCoverageMap({
   segments,
   apartmentComplexes,
   selectedSegmentId,
+  selectionSource,
   onEditHeatmapRanges,
   onSelectSegment,
   fitOnMount = true,
@@ -41,6 +52,7 @@ export function OpenCoverageMap({
     const visibility = active ? 'visible' : 'none';
     for (const id of [
       'streetlight-boundary',
+      'streetlight-coverage-selection',
       'streetlight-coverage',
       'streetlight-apartments',
       'streetlight-apartment-labels',
@@ -58,11 +70,29 @@ export function OpenCoverageMap({
         geometry: segment.geometry,
         properties: {
           id: segment.id,
+          selected: interactive && segment.id === selectedSegmentId,
           color: segment.eligible ? coverageColors[segment.coverageClass] : coverageColors.gray,
           opacity: segment.eligible ? 0.68 : 0.42,
         },
       })),
     });
+    if (!map.getLayer('streetlight-coverage-selection') && map.getLayer('streetlight-coverage')) {
+      map.addLayer(
+        {
+          id: 'streetlight-coverage-selection',
+          type: 'line',
+          source: 'streetlightCoverage',
+          filter: ['==', ['get', 'selected'], true],
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#2767e9',
+            'line-opacity': 0.95,
+            'line-width': ['+', coverageWidth, 5],
+          },
+        },
+        'streetlight-coverage',
+      );
+    }
     (map.getSource('streetlightApartments') as GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection',
       features: apartmentComplexes.map((apartment) => ({
@@ -93,6 +123,17 @@ export function OpenCoverageMap({
       }
     }
   }, [active, apartmentComplexes, fitOnMount, interactive, map, segments, selectedSegmentId]);
+
+  useEffect(() => {
+    if (!active || !map || !selectedSegmentId || !selectionSource) return;
+    const options = coverageSelectionCameraOptions(
+      selectionSource,
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    );
+    const selected = segments.find((segment) => segment.id === selectedSegmentId);
+    const bounds = selected ? positionBounds(selected.geometry.coordinates) : null;
+    if (options && bounds) map.fitBounds(bounds, options);
+  }, [active, map, segments, selectedSegmentId, selectionSource]);
 
   useEffect(() => {
     if (!active || !interactive || !map) return;

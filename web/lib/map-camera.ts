@@ -5,6 +5,25 @@ export type MapCamera = {
   zoom: number;
 };
 
+export type CoverageSelectionSource = 'map' | 'search';
+
+export function coverageSelectionCameraOptions(
+  source: CoverageSelectionSource,
+  reducedMotion: boolean,
+): {
+  padding: { top: number; right: number; bottom: number; left: number };
+  maxZoom: number;
+  duration: number;
+} | null {
+  return source === 'search'
+    ? {
+        padding: { top: 64, right: 96, bottom: 64, left: 64 },
+        maxZoom: 16,
+        duration: reducedMotion ? 0 : 220,
+      }
+    : null;
+}
+
 export function googleZoomToMapLibre(zoom: number): number {
   return zoom - 1;
 }

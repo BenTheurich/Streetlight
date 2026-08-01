@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as cameraModule from './map-camera.ts';
 import { forwardMapCameraChange, isReflectedMapCamera, mergeMapCamera } from './map-camera.ts';
 
 test('camera synchronization ignores reflected updates but accepts real movement', () => {
@@ -72,6 +73,18 @@ test('map fitting derives one bound from every visible position', async () => {
     ],
   );
   assert.equal(camera.positionBounds?.([]), null);
+});
+
+test('coverage camera fitting occurs only for search selections and respects reduced motion', () => {
+  const options = cameraModule.coverageSelectionCameraOptions;
+  assert.equal(typeof options, 'function');
+  assert.equal(options?.('map', false), null);
+  assert.deepEqual(options?.('search', true), {
+    padding: { top: 64, right: 96, bottom: 64, left: 64 },
+    maxZoom: 16,
+    duration: 0,
+  });
+  assert.equal(options?.('search', false)?.duration, 220);
 });
 
 test('a recoverable MapLibre error after load does not replace the ready map', async () => {

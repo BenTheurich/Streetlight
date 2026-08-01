@@ -44,6 +44,67 @@ export type CoverageSegmentInput = {
   eligible: boolean;
 };
 
+type CoverageSearchableSegment = {
+  streetName: string;
+};
+
+export function coverageStreetName(streetName: string): string {
+  return streetName.trim() || 'Unnamed road';
+}
+
+export function searchCoverageSegments<T extends CoverageSearchableSegment>(
+  segments: T[],
+  query: string,
+): { matches: T[]; total: number; hasMore: boolean } {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return { matches: [], total: 0, hasMore: false };
+  const matches = segments
+    .map((segment, sourceIndex) => ({
+      segment,
+      sourceIndex,
+      streetName: coverageStreetName(segment.streetName),
+    }))
+    .filter(({ streetName }) => streetName.toLocaleLowerCase().includes(normalizedQuery))
+    .sort(
+      (first, second) =>
+        first.streetName.localeCompare(second.streetName, undefined, { sensitivity: 'base' }) ||
+        first.sourceIndex - second.sourceIndex,
+    );
+  return {
+    matches: matches.slice(0, 20).map(({ segment }) => segment),
+    total: matches.length,
+    hasMore: matches.length > 20,
+  };
+}
+
+export function coverageSegmentResultContent(segment: {
+  id: string;
+  streetName: string;
+  estimatedHomes: number;
+  lastCoveredOn: string | null;
+  eligible: boolean;
+}) {
+  return {
+    streetName: coverageStreetName(segment.streetName),
+    estimatedTracts: segment.estimatedHomes,
+    lastOutreach: segment.lastCoveredOn ?? 'Never',
+    eligibility: segment.eligible ? 'Eligible' : 'Excluded',
+  } as const;
+}
+
+export function currentWorkState(activePackets: number): 'active' | 'ready' {
+  return activePackets > 0 ? 'active' : 'ready';
+}
+
+export function retainCoverageSelection(
+  selectedSegmentId: string | null,
+  segments: Array<{ id: string }>,
+): string | null {
+  return selectedSegmentId && segments.some((segment) => segment.id === selectedSegmentId)
+    ? selectedSegmentId
+    : null;
+}
+
 export type CoverageSegment = CoverageSegmentInput & {
   lastCoveredOn: string | null;
   roots: CoverageRoot[];

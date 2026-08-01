@@ -3,9 +3,10 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
+import { retainCoverageSelection } from '@/lib/coverage';
 import type { CoverageWorkspace, OpenMapData, TerritoryWorkspace } from '@/lib/database';
 import type { StreetlightMapType } from '@/lib/google-maps-browser';
-import type { MapCamera } from '@/lib/map-camera';
+import type { CoverageSelectionSource, MapCamera } from '@/lib/map-camera';
 import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 import { AdministratorAccount } from './AdministratorAccount';
 import { CoverageDashboard } from './CoverageDashboard';
@@ -43,11 +44,11 @@ export function StreetlightWorkspace({
   const [setupRequired, setSetupOnly] = useState(setupOnly);
   const [tool, setTool] = useState<WorkspaceTool>(setupOnly ? 'territory' : 'coverage');
   const [coverage, setCoverage] = useState(initialData);
-  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(
-    initialData.segments.find((segment) => segment.eligible)?.id ??
-      initialData.segments[0]?.id ??
-      null,
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(() =>
+    retainCoverageSelection(null, initialData.segments),
   );
+  const [coverageSelectionSource, setCoverageSelectionSource] =
+    useState<CoverageSelectionSource | null>(null);
   const [packetResult, setPacketResult] = useState<ReviewedPacketGenerationResult | null>(null);
   const [selectedPacketIndex, setSelectedPacketIndex] = useState<number | null>(null);
   const [territory, setTerritory] = useState<TerritoryWorkspace | null>(null);
@@ -108,6 +109,12 @@ export function StreetlightWorkspace({
 
   const selectCoverageSegment = useCallback((id: string) => {
     setSelectedSegmentId(id);
+    setCoverageSelectionSource('map');
+  }, []);
+
+  const selectCoverageSearchResult = useCallback((id: string | null) => {
+    setSelectedSegmentId(id);
+    setCoverageSelectionSource(id ? 'search' : null);
   }, []);
 
   const refreshCoverage = useCallback(async () => {
@@ -117,13 +124,7 @@ export function StreetlightWorkspace({
       throw new Error('error' in result ? result.error : 'Could not refresh coverage');
     }
     setCoverage(result);
-    setSelectedSegmentId((current) =>
-      result.segments.some((segment) => segment.id === current)
-        ? current
-        : (result.segments.find((segment) => segment.eligible)?.id ??
-          result.segments[0]?.id ??
-          null),
-    );
+    setSelectedSegmentId((current) => retainCoverageSelection(current, result.segments));
   }, []);
 
   const refreshAfterTerritorySave = useCallback(
@@ -214,6 +215,7 @@ export function StreetlightWorkspace({
             onSelectSegment={selectCoverageSegment}
             segments={coverage.segments}
             selectedSegmentId={tool === 'coverage' ? selectedSegmentId : null}
+            selectionSource={coverageSelectionSource}
           />
           <PacketProposalMap
             active={tool === 'packets'}
@@ -233,7 +235,7 @@ export function StreetlightWorkspace({
           active={tool === 'coverage'}
           onOpenPackets={() => openTool('packets')}
           onOpenReconciliation={() => setTool('reconciliation')}
-          onSelectSegment={setSelectedSegmentId}
+          onSelectSegment={selectCoverageSearchResult}
           onWorkspaceChange={setCoverage}
           selectedSegmentId={selectedSegmentId}
           workspace={coverage}
