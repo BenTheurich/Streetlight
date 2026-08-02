@@ -1,8 +1,14 @@
 # Streetlight product ground truth
 
+<!-- impeccable:product-schema 1 -->
+
 Status: approved founder direction  
 Approved: 2026-07-27
-Updated: 2026-07-31
+Updated: 2026-08-02
+
+## Platform
+
+web
 
 ## Authority
 
@@ -10,7 +16,18 @@ This document defines what Streetlight is supposed to become. It records the fou
 
 If existing code, old chat transcripts, mockups, or earlier technical suggestions conflict with this document, this document wins. Pricing is the only provisional section. A founder decision is required to change the product rules recorded here.
 
-## Product definition
+## Users
+
+Streetlight's primary user is a church administrator organizing house-to-house tract distribution
+from a church office. The administrator defines and reviews territory, prepares printed packet
+batches, and reconciles returned paper after outreach. Volunteers remain outside the application:
+they take a printed packet and matching tracts without needing an account, phone, or reporting
+process.
+
+The founder reviews pilot-access requests. Approved churches share one administrator role inside
+one church workspace and one outreach territory.
+
+## Product Purpose
 
 Streetlight is a hosted web application for churches that organize house-to-house tract distribution.
 
@@ -26,6 +43,79 @@ account. The founder reviews requests and manually invites approved church admin
 When signed out, `/` shows the approved public landing page. When signed in to a configured
 church, `/` shows the persistent administrator map workspace. The final
 `spread-the-light-v2` prototype is the visual source for the public page.
+
+## Positioning
+
+Streetlight is a deterministic, paper-native coverage memory for church outreach. Its distinctive
+mechanism connects a reviewable territory map to printable volunteer assignments and then closes
+the loop through physical-sheet reconciliation. It prevents recently reached streets from being
+repeated while older streets are forgotten, without requiring volunteers to install an app,
+identify themselves, or report household-level activity.
+
+## Operating Context
+
+An administrator works from one persistent map workspace with four tools: Coverage, Packets,
+Outreach Progress, and Setup. The recurring operational cycle is Coverage, Generate, Print, and
+Reconcile. Generate and Reconcile are views inside Packets; territory configuration and
+church-wide printout settings are views inside Setup.
+
+Paper is a first-class part of the system. Packet sheets are printed and placed with matching
+tracts, volunteers take them, and the administrator later compares Streetlight with the sheets
+still physically present. Outreach Progress is a separate reflective view that can be printed or
+left running unattended on a church display.
+
+## Capabilities and Constraints
+
+- Streetlight deterministically imports and normalizes territory geography, records append-only
+  coverage history, generates connected packet proposals, reserves finalized assignments, renders
+  printable PDFs, and reconciles complete paper packets.
+- Version one has one administrator role, one workspace and territory per church, and no volunteer
+  accounts, household records, partial packet completion, advanced reporting, or public signup.
+- Product behavior is AI-free, geographically reviewable, privacy-minimizing, and inexpensive
+  enough that the founder-church pilot does not operate at an ongoing loss.
+- The approved pilot architecture and provider boundaries are binding until measured needs cross
+  the migration thresholds recorded below. Pricing remains provisional.
+
+## Brand Commitments
+
+- The product name is Streetlight, represented by the founder-supplied lamp mark and church marker.
+- Product language is direct and church-specific: `tracts`, `outreach`, `church`, `packets`, and
+  `completed` are preferred over generic marketing terminology.
+- The public experience follows the approved `spread-the-light-v2` source, while the authenticated
+  product remains calm, map-first, and operational.
+- New churches default to the printout message `Ye are the light of the world.` with the reference
+  `Matthew 5:14`; an administrator may change or remove both for future packet PDFs.
+
+## Evidence on Hand
+
+- The founder church is the first pilot workspace and supplies the real operating ritual this
+  product models: printed packet sheets, matching tracts, physical distribution, and later
+  reconciliation.
+- The implemented application, deterministic demo data, migrations, and automated checks live in
+  `web/`; the production importer and its measured geographic benchmark evidence live in
+  `web/importer/` and `docs/benchmarks/`.
+- `DESIGN.md` records the approved incumbent visual system. Founder-supplied marks and public-page
+  assets live under `web/public/`.
+- Streetlight has no approved public testimonials, outcome claims, volunteer-performance evidence,
+  or claims about people or spiritual results. Future work must not fabricate them.
+
+## Product Principles
+
+1. Preserve the paper workflow instead of transferring work to volunteers.
+2. Make geographic choices, packet selection, and coverage history deterministic and reviewable.
+3. Record only the minimum church and territory data required; never create resident or volunteer
+   profiles.
+4. Prefer truthful operational clarity and recoverable errors over automation, prediction, or
+   decorative analytics.
+5. Keep the pilot architecture small and inexpensive until measured use requires more.
+
+## Accessibility & Inclusion
+
+The administrator workspace must remain keyboard-operable with visible focus, explicit labels,
+readable contrast, recoverable status messages, and touch targets suitable for supported tablet
+widths. Motion-heavy presentation behavior honors reduced-motion preferences. Volunteers are not
+required to own a compatible phone, create an account, or disclose an identity because every
+assignment remains usable as printed paper.
 
 ## Product rules
 
