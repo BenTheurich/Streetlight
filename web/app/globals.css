@@ -2043,18 +2043,17 @@ button.administrator-account-trigger:not(:disabled):hover {
   padding: 0.15rem 0.3rem 0.15rem 0.1rem;
 }
 
-.packet-proposal-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
-  align-items: start;
-  gap: 0.45rem;
-}
-
 .packet-proposal-delete {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
   display: grid;
   width: 44px;
   height: 44px;
   padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--red);
   place-items: center;
 }
 
@@ -2068,12 +2067,17 @@ button.administrator-account-trigger:not(:disabled):hover {
 }
 
 .packet-proposal-delete:not(:disabled):hover {
-  border-color: var(--red);
+  border-color: transparent;
   background: var(--error-surface);
   color: var(--error-ink);
 }
 
+.packet-proposal-delete:focus-visible {
+  outline-offset: -3px;
+}
+
 .packet-card {
+  position: relative;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -2093,6 +2097,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   border-radius: 0;
   background: white;
   color: var(--ink);
+  padding-right: 3.5rem;
   text-align: left;
 }
 
