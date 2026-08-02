@@ -7,7 +7,7 @@ import type {
   Map as MapLibreMap,
 } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
-import type { CoverageLegendItem } from '@/lib/coverage';
+import { coverageRoadForSegment, type CoverageLegendItem } from '@/lib/coverage';
 import type { CoverageWorkspaceApartment, CoverageWorkspaceSegment } from '@/lib/database';
 import {
   type CoverageSelectionSource,
@@ -37,6 +37,15 @@ type OpenCoverageMapProps = {
 };
 
 const coverageWidth: ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5];
+const selectionWidth: ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  11,
+  10,
+  14,
+  13,
+];
 
 export function OpenCoverageMap({
   active,
@@ -68,6 +77,8 @@ export function OpenCoverageMap({
 
   useEffect(() => {
     if (!active || !map) return;
+    const selectedRoad = coverageRoadForSegment(segments, selectedSegmentId);
+    const selectedIds = new Set(selectedRoad?.segments.map(({ id }) => id));
     (map.getSource('streetlightCoverage') as GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection',
       features: segments.map((segment) => ({
@@ -75,28 +86,35 @@ export function OpenCoverageMap({
         geometry: segment.geometry,
         properties: {
           id: segment.id,
-          selected: interactive && segment.id === selectedSegmentId,
+          selected: interactive && selectedIds.has(segment.id),
           color: segment.eligible ? coverageColors[segment.coverageClass] : coverageColors.gray,
           opacity: segment.eligible ? 0.68 : 0.42,
         },
       })),
     });
-    if (!map.getLayer('streetlight-coverage-selection') && map.getLayer('streetlight-coverage')) {
+    const selectionSourceId = 'streetlightCoverageSelection';
+    const selectionLayerId = 'streetlight-coverage-selection';
+    if (map.getSource(selectionSourceId)) map.removeSource(selectionSourceId);
+    if (!map.getLayer(selectionLayerId) && map.getSource('streetlightCoverage')) {
       map.addLayer(
         {
-          id: 'streetlight-coverage-selection',
+          id: selectionLayerId,
           type: 'line',
           source: 'streetlightCoverage',
           filter: ['==', ['get', 'selected'], true],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
-            'line-color': '#2767e9',
-            'line-opacity': 0.95,
-            'line-width': ['+', coverageWidth, 5],
+            'line-color': '#78a9ff',
+            'line-opacity': 1,
+            'line-width': selectionWidth,
           },
         },
         'streetlight-coverage',
       );
+    }
+    if (map.getLayer(selectionLayerId)) {
+      map.setPaintProperty(selectionLayerId, 'line-opacity', 1);
+      map.setPaintProperty(selectionLayerId, 'line-width', selectionWidth);
     }
     (map.getSource('streetlightApartments') as GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection',
@@ -106,19 +124,19 @@ export function OpenCoverageMap({
         properties: {
           id: apartment.id,
           label: 'A',
-          color:
-            apartment.reviewStatus === 'ready'
-              ? coverageColors[apartment.coverageClass]
-              : apartmentMarkerColor(apartment.reviewStatus),
+          color: apartmentMarkerColor(apartment.reviewStatus),
         },
       })),
     });
     if (map.getLayer('streetlight-coverage')) {
-      map.setPaintProperty('streetlight-coverage', 'line-width', [
-        '+',
-        coverageWidth,
-        ['case', ['all', interactive, ['==', ['get', 'id'], selectedSegmentId ?? '']], 2, 0],
+      map.setPaintProperty('streetlight-coverage', 'line-color', ['get', 'color']);
+      map.setPaintProperty('streetlight-coverage', 'line-opacity', [
+        'case',
+        ['==', ['get', 'selected'], true],
+        1,
+        ['get', 'opacity'],
       ]);
+      map.setPaintProperty('streetlight-coverage', 'line-width', coverageWidth);
     }
     if (fitOnMount && !fittedRef.current) {
       const bounds = positionBounds(segments.flatMap(({ geometry }) => geometry.coordinates));
@@ -135,8 +153,10 @@ export function OpenCoverageMap({
       selectionSource,
       window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     );
-    const selected = segments.find((segment) => segment.id === selectedSegmentId);
-    const bounds = selected ? positionBounds(selected.geometry.coordinates) : null;
+    const selectedRoad = coverageRoadForSegment(segments, selectedSegmentId);
+    const bounds = positionBounds(
+      selectedRoad?.segments.flatMap(({ geometry }) => geometry.coordinates) ?? [],
+    );
     if (options && bounds) map.fitBounds(bounds, options);
   }, [active, map, segments, selectedSegmentId, selectionSource]);
 

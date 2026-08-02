@@ -75,10 +75,10 @@ test('map fitting derives one bound from every visible position', async () => {
   assert.equal(camera.positionBounds?.([]), null);
 });
 
-test('coverage camera fitting occurs only for search selections and respects reduced motion', () => {
+test('coverage camera fitting follows both map and search selections and respects reduced motion', () => {
   const options = cameraModule.coverageSelectionCameraOptions;
   assert.equal(typeof options, 'function');
-  assert.equal(options?.('map', false), null);
+  assert.equal(options?.('map', false)?.duration, 220);
   assert.deepEqual(options?.('search', true), {
     padding: { top: 64, right: 96, bottom: 64, left: 64 },
     maxZoom: 16,

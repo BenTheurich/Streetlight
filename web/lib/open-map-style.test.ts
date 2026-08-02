@@ -307,6 +307,7 @@ function openMapData(): OpenMapData {
     segments: [
       {
         id: 'one',
+        roadGroupId: 'road-one',
         streetName: 'Main Street',
         roadClass: 'residential',
         geometry: {
@@ -421,8 +422,17 @@ test('workspace map clusters apartments identically over map and satellite style
     assert.equal(cluster?.paint?.['circle-color'], '#34445a');
     assert.deepEqual(count?.filter, ['has', 'point_count']);
     assert.deepEqual(count?.layout?.['text-field'], ['get', 'point_count_abbreviated']);
+    assert.equal(count?.layout?.['text-allow-overlap'], true);
     assert.deepEqual(marker?.filter, ['!', ['has', 'point_count']]);
+    assert.equal(Array.isArray(marker?.paint?.['circle-color']), true);
+    assert.equal(marker?.paint?.['circle-radius'], 12);
     assert.deepEqual(label?.filter, ['!', ['has', 'point_count']]);
+    assert.deepEqual(label?.layout?.['text-field'], ['get', 'label']);
+    assert.equal(label?.layout?.['text-allow-overlap'], true);
+    assert.ok(
+      style.layers.findIndex(({ id }) => id === 'streetlight-apartment-labels') >
+        style.layers.findIndex(({ id }) => id === 'highway-name-minor'),
+    );
   }
 });
 

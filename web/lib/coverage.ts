@@ -45,50 +45,159 @@ export type CoverageSegmentInput = {
 };
 
 type CoverageSearchableSegment = {
+  id: string;
+  roadGroupId: string;
   streetName: string;
+  geometry?: { coordinates: Array<[number, number]> };
+  estimatedHomes: number;
+  lastCoveredOn: string | null;
+  eligible: boolean;
+  coverageClass: CoverageClass;
+};
+
+export type CoverageRoad<T extends CoverageSearchableSegment = CoverageSearchableSegment> = {
+  roadGroupId: string;
+  streetName: string;
+  segments: T[];
 };
 
 export function coverageStreetName(streetName: string): string {
   return streetName.trim() || 'Unnamed road';
 }
 
-export function searchCoverageSegments<T extends CoverageSearchableSegment>(
+const ROAD_CARRIAGEWAY_JOIN_METERS = 35;
+
+function pointToLineDistanceSquared(
+  point: [number, number],
+  start: [number, number],
+  end: [number, number],
+): number {
+  const latitudeScale = 111_320;
+  const longitudeScale = latitudeScale * Math.cos((point[1] * Math.PI) / 180);
+  const startX = (start[0] - point[0]) * longitudeScale;
+  const startY = (start[1] - point[1]) * latitudeScale;
+  const endX = (end[0] - point[0]) * longitudeScale;
+  const endY = (end[1] - point[1]) * latitudeScale;
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+  const position = lengthSquared
+    ? Math.max(0, Math.min(1, -(startX * deltaX + startY * deltaY) / lengthSquared))
+    : 0;
+  const nearestX = startX + position * deltaX;
+  const nearestY = startY + position * deltaY;
+  return nearestX * nearestX + nearestY * nearestY;
+}
+
+function linesAreNearby(
+  first: Array<[number, number]>,
+  second: Array<[number, number]>,
+): boolean {
+  const limit = ROAD_CARRIAGEWAY_JOIN_METERS ** 2;
+  const near = (points: Array<[number, number]>, line: Array<[number, number]>) =>
+    points.some((point) =>
+      line.slice(1).some((end, index) => pointToLineDistanceSquared(point, line[index], end) <= limit),
+    );
+  return near(first, second) || near(second, first);
+}
+
+export function coverageRoads<T extends CoverageSearchableSegment>(segments: T[]): CoverageRoad<T>[] {
+  const sourceRoads = new Map<string, CoverageRoad<T> & { sourceIndex: number }>();
+  for (const [sourceIndex, segment] of segments.entries()) {
+    const road = sourceRoads.get(segment.roadGroupId);
+    if (road) road.segments.push(segment);
+    else {
+      sourceRoads.set(segment.roadGroupId, {
+        roadGroupId: segment.roadGroupId,
+        streetName: coverageStreetName(segment.streetName),
+        segments: [segment],
+        sourceIndex,
+      });
+    }
+  }
+  const roads = [...sourceRoads.values()];
+  const parents = roads.map((_, index) => index);
+  const find = (index: number): number => {
+    while (parents[index] !== index) index = parents[index];
+    return index;
+  };
+  const join = (first: number, second: number) => {
+    const firstRoot = find(first);
+    const secondRoot = find(second);
+    if (firstRoot !== secondRoot) parents[secondRoot] = firstRoot;
+  };
+  for (let first = 0; first < roads.length; first += 1) {
+    const name = roads[first].streetName.trim().toLocaleLowerCase();
+    if (name === 'unnamed road') continue;
+    for (let second = first + 1; second < roads.length; second += 1) {
+      if (roads[second].streetName.trim().toLocaleLowerCase() !== name) continue;
+      if (
+        roads[first].segments.some((a) =>
+          roads[second].segments.some(
+            (b) => a.geometry && b.geometry && linesAreNearby(a.geometry.coordinates, b.geometry.coordinates),
+          ),
+        )
+      ) {
+        join(first, second);
+      }
+    }
+  }
+  const merged = new Map<number, CoverageRoad<T> & { sourceIndex: number }>();
+  for (const [index, road] of roads.entries()) {
+    const root = find(index);
+    const existing = merged.get(root);
+    if (existing) {
+      existing.segments.push(...road.segments);
+      existing.roadGroupId = [existing.roadGroupId, road.roadGroupId].sort()[0];
+      existing.sourceIndex = Math.min(existing.sourceIndex, road.sourceIndex);
+    } else merged.set(root, { ...road, segments: [...road.segments] });
+  }
+  return [...merged.values()];
+}
+
+export function coverageRoadForSegment<T extends CoverageSearchableSegment>(
+  segments: T[],
+  segmentId: string | null,
+): CoverageRoad<T> | null {
+  return segmentId
+    ? coverageRoads(segments).find((road) => road.segments.some(({ id }) => id === segmentId)) ?? null
+    : null;
+}
+
+export function searchCoverageRoads<T extends CoverageSearchableSegment>(
   segments: T[],
   query: string,
-): { matches: T[]; total: number; hasMore: boolean } {
+): { matches: CoverageRoad<T>[]; total: number; hasMore: boolean } {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) return { matches: [], total: 0, hasMore: false };
-  const matches = segments
-    .map((segment, sourceIndex) => ({
-      segment,
-      sourceIndex,
-      streetName: coverageStreetName(segment.streetName),
-    }))
+  const matches = coverageRoads(segments)
     .filter(({ streetName }) => streetName.toLocaleLowerCase().includes(normalizedQuery))
-    .sort(
-      (first, second) =>
-        first.streetName.localeCompare(second.streetName, undefined, { sensitivity: 'base' }) ||
-        first.sourceIndex - second.sourceIndex,
+    .sort((first, second) =>
+      first.streetName.localeCompare(second.streetName, undefined, { sensitivity: 'base' }),
     );
   return {
-    matches: matches.slice(0, 20).map(({ segment }) => segment),
+    matches: matches.slice(0, 20),
     total: matches.length,
     hasMore: matches.length > 20,
   };
 }
 
-export function coverageSegmentResultContent(segment: {
-  id: string;
-  streetName: string;
-  estimatedHomes: number;
-  lastCoveredOn: string | null;
-  eligible: boolean;
-}) {
+export function coverageRoadResultContent<T extends CoverageSearchableSegment>(
+  road: CoverageRoad<T>,
+) {
+  const dates = new Set(road.segments.map(({ lastCoveredOn }) => lastCoveredOn));
+  const eligibleSections = road.segments.filter(({ eligible }) => eligible).length;
   return {
-    streetName: coverageStreetName(segment.streetName),
-    estimatedTracts: segment.estimatedHomes,
-    lastOutreach: segment.lastCoveredOn ?? 'Never',
-    eligibility: segment.eligible ? 'Eligible' : 'Excluded',
+    streetName: road.streetName,
+    sections: road.segments.length,
+    estimatedTracts: road.segments.reduce((total, segment) => total + segment.estimatedHomes, 0),
+    lastOutreach: dates.size === 1 ? [...dates][0] : ('mixed' as const),
+    eligibility:
+      eligibleSections === road.segments.length
+        ? 'Eligible'
+        : eligibleSections === 0
+          ? 'Excluded'
+          : `${eligibleSections} of ${road.segments.length} sections eligible`,
   } as const;
 }
 

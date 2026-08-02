@@ -2,7 +2,7 @@ import type { OpenMapData } from './database.ts';
 import type { DownloadPacket, PacketMapGeneration } from './packet-finalization.ts';
 import { endpointMeetsInterior } from './packet-selection.ts';
 import type { LineString, Position } from './territory-geometry.ts';
-import { coverageColors } from './territory-map-style.ts';
+import { apartmentLayerIds, apartmentMarkerColor, coverageColors } from './territory-map-style.ts';
 
 const ZOOM_STOPS = [14, 18, 20] as const;
 const WIDTHS = {
@@ -764,12 +764,7 @@ export function buildWorkspaceMapStyle(
         geometry: { type: 'Point', coordinates: apartment.position },
         properties: {
           label: 'A',
-          color:
-            apartment.reviewStatus === 'ready'
-              ? coverageColors[apartment.coverageClass]
-              : apartment.reviewStatus === 'needs_review'
-                ? '#b97916'
-                : coverageColors.gray,
+          color: apartmentMarkerColor(apartment.reviewStatus),
         },
       })),
     },
@@ -808,6 +803,18 @@ export function buildWorkspaceMapStyle(
       },
     },
     {
+      id: 'streetlight-coverage-selection',
+      type: 'line',
+      source: 'streetlightCoverage',
+      filter: ['==', ['get', 'selected'], true],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': '#78a9ff',
+        'line-opacity': 1,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 13],
+      },
+    },
+    {
       id: 'streetlight-coverage',
       type: 'line',
       source: 'streetlightCoverage',
@@ -825,7 +832,15 @@ export function buildWorkspaceMapStyle(
       filter: ['has', 'point_count'],
       paint: {
         'circle-color': '#34445a',
-        'circle-radius': ['step', ['get', 'point_count'], 15, 10, 18, 50, 21],
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          8,
+          ['step', ['get', 'point_count'], 9, 10, 10, 50, 11],
+          15,
+          ['step', ['get', 'point_count'], 12, 10, 13, 50, 14],
+        ],
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 2,
       },
@@ -839,6 +854,8 @@ export function buildWorkspaceMapStyle(
         'text-field': ['get', 'point_count_abbreviated'],
         'text-size': 11,
         'text-font': ['Noto Sans Bold'],
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
       },
       paint: { 'text-color': '#ffffff' },
     },
@@ -849,7 +866,7 @@ export function buildWorkspaceMapStyle(
       filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-color': ['get', 'color'],
-        'circle-radius': 10,
+        'circle-radius': 12,
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 2,
       },
@@ -863,9 +880,15 @@ export function buildWorkspaceMapStyle(
         'text-field': ['get', 'label'],
         'text-size': 11,
         'text-font': ['Noto Sans Bold'],
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
       },
       paint: { 'text-color': '#ffffff' },
     },
   ]);
+  for (const apartmentLayerId of apartmentLayerIds) {
+    const layerIndex = style.layers.findIndex(({ id }) => id === apartmentLayerId);
+    if (layerIndex >= 0) style.layers.push(...style.layers.splice(layerIndex, 1));
+  }
   return style;
 }

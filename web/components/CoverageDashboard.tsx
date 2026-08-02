@@ -3,10 +3,10 @@
 import { type CSSProperties, useEffect, useState } from 'react';
 import {
   countEligibleHomesByCoverageClass,
-  coverageSegmentResultContent,
-  coverageStreetName,
+  coverageRoadForSegment,
+  coverageRoadResultContent,
   currentWorkState,
-  searchCoverageSegments,
+  searchCoverageRoads,
   stackCoverageLabelRows,
 } from '@/lib/coverage';
 import type { CoverageWorkspace, CoverageWorkspaceSegment } from '@/lib/database';
@@ -16,7 +16,6 @@ type CoverageDashboardProps = {
   workspace: CoverageWorkspace;
   selectedSegmentId: string | null;
   onSelectSegment: (id: string | null) => void;
-  onWorkspaceChange: (workspace: CoverageWorkspace) => void;
   onOpenPackets: () => void;
   onOpenReconciliation: () => void;
 };
@@ -29,14 +28,43 @@ function formatDate(value: string): string {
   );
 }
 
-function exclusionLabel(segment: CoverageWorkspaceSegment): string {
-  if (segment.eligible) return 'Eligible for packet generation';
-  return {
-    hidden: 'Excluded because this road is hidden',
-    boundary: 'Excluded because it is outside the coverage area',
-    exclusion: 'Excluded by an enabled excluded area',
-    segment: 'This exact street segment is excluded',
-  }[segment.excludedReason ?? 'segment'];
+function outreachDateSummary(values: Array<string | null>): string {
+  const dates = new Set(values);
+  if (dates.size > 1) return 'Mixed dates';
+  const [date] = dates;
+  return date ? formatDate(date) : 'Never';
+}
+
+function roadDateGroups(segments: CoverageWorkspaceSegment[]) {
+  const groups = new Map<
+    string,
+    {
+      lastCoveredOn: string | null;
+      coverageClass: CoverageWorkspaceSegment['coverageClass'];
+      sections: number;
+      estimatedTracts: number;
+    }
+  >();
+  for (const segment of segments) {
+    const key = segment.lastCoveredOn ?? 'never';
+    const group = groups.get(key);
+    if (group) {
+      group.sections += 1;
+      group.estimatedTracts += segment.estimatedHomes;
+    } else {
+      groups.set(key, {
+        lastCoveredOn: segment.lastCoveredOn,
+        coverageClass: segment.coverageClass,
+        sections: 1,
+        estimatedTracts: segment.estimatedHomes,
+      });
+    }
+  }
+  return [...groups.values()].sort((first, second) => {
+    if (first.lastCoveredOn === null) return -1;
+    if (second.lastCoveredOn === null) return 1;
+    return first.lastCoveredOn.localeCompare(second.lastCoveredOn);
+  });
 }
 
 export function CoverageDashboard({
@@ -44,19 +72,14 @@ export function CoverageDashboard({
   workspace,
   selectedSegmentId,
   onSelectSegment,
-  onWorkspaceChange,
   onOpenPackets,
   onOpenReconciliation,
 }: CoverageDashboardProps) {
-  const [dates, setDates] = useState<Record<string, string>>({});
-  const [activeMutation, setActiveMutation] = useState<string | null>(null);
-  const [notice, setNotice] = useState('');
   const [query, setQuery] = useState('');
-  const selected = workspace.segments.find((segment) => segment.id === selectedSegmentId) ?? null;
-  const search = searchCoverageSegments(workspace.segments, query);
-  const selectedRange = selected
-    ? workspace.legend.find((item) => item.coverageClass === selected.coverageClass)?.label
-    : null;
+  const selected = coverageRoadForSegment(workspace.segments, selectedSegmentId);
+  const search = searchCoverageRoads(workspace.segments, query);
+  const selectedContent = selected ? coverageRoadResultContent(selected) : null;
+  const selectedDates = selected ? roadDateGroups(selected.segments) : [];
   const workState = currentWorkState(workspace.activePackets);
   const distribution = countEligibleHomesByCoverageClass(workspace.segments);
   const distributionItems = coverageClasses.map((coverageClass) => ({
@@ -86,39 +109,8 @@ export function CoverageDashboard({
   const maxLabelRow = Math.max(...labelRows, 0);
 
   useEffect(() => {
-    if (selected) setQuery(coverageStreetName(selected.streetName));
+    if (selected) setQuery(selected.streetName);
   }, [selected]);
-
-  async function mutate(eventId: string, coveredOn: string | null) {
-    setActiveMutation(eventId);
-    setNotice('');
-    try {
-      const response = await fetch('/api/coverage', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ eventId, coveredOn }),
-      });
-      const result = (await response.json()) as CoverageWorkspace | { error: string };
-      if (!response.ok || 'error' in result) {
-        throw new Error('error' in result ? result.error : 'Could not change outreach');
-      }
-      onWorkspaceChange(result);
-      setNotice(coveredOn === null ? 'Outreach completion undone.' : 'Outreach date saved.');
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not change outreach');
-    } finally {
-      setActiveMutation(null);
-    }
-  }
-
-  function rootDate(root: CoverageWorkspaceSegment['roots'][number]): string {
-    return (
-      dates[root.eventId] ??
-      root.effectiveCoveredOn ??
-      root.corrections.at(-1)?.coveredOn ??
-      root.originalCoveredOn
-    );
-  }
 
   return (
     <aside className="territory-sidebar coverage-sidebar" hidden={!active}>
@@ -194,25 +186,31 @@ export function CoverageDashboard({
             <>
               <p className="coverage-search-status" role="status">
                 {search.hasMore
-                  ? `Showing 20 of ${search.total} streets. Refine your search to narrow the list.`
-                  : `${search.total} matching ${search.total === 1 ? 'street' : 'streets'}.`}
+                  ? `Showing 20 of ${search.total} roads. Refine your search to narrow the list.`
+                  : `${search.total} matching ${search.total === 1 ? 'road' : 'roads'}.`}
               </p>
               <ul className="coverage-search-results">
-                {search.matches.map((segment) => {
-                  const content = coverageSegmentResultContent(segment);
+                {search.matches.map((road) => {
+                  const content = coverageRoadResultContent(road);
+                  const anchor = road.segments[0];
                   return (
-                    <li key={segment.id}>
+                    <li key={road.roadGroupId}>
                       <button
                         onClick={() => {
                           setQuery(content.streetName);
-                          onSelectSegment(segment.id);
+                          onSelectSegment(anchor.id);
                         }}
                         type="button"
                       >
                         <strong>{content.streetName}</strong>
                         <span>
+                          {content.sections} {content.sections === 1 ? 'section' : 'sections'} ·{' '}
                           {content.estimatedTracts} estimated tracts · Last outreach:{' '}
-                          {segment.lastCoveredOn ? formatDate(segment.lastCoveredOn) : 'Never'}
+                          {content.lastOutreach === 'mixed'
+                            ? 'Mixed dates'
+                            : content.lastOutreach
+                              ? formatDate(content.lastOutreach)
+                              : 'Never'}
                         </span>
                         <small>{content.eligibility}</small>
                       </button>
@@ -225,148 +223,79 @@ export function CoverageDashboard({
         </section>
         {selected && (
           <section className="coverage-detail">
-            <div className="coverage-detail-heading">
-              <h2>{coverageStreetName(selected.streetName)}</h2>
-              <button
-                className="secondary"
-                onClick={() => {
-                  setQuery('');
-                  onSelectSegment(null);
-                }}
-                type="button"
-              >
-                Search another street
-              </button>
-            </div>
+            <h2>{selected.streetName}</h2>
             <dl className="coverage-detail-facts">
               <div>
                 <dt>Estimated tracts</dt>
-                <dd>{selected.estimatedHomes}</dd>
+                <dd>{selectedContent?.estimatedTracts}</dd>
               </div>
               <div>
-                <dt>Coverage range</dt>
-                <dd>{selectedRange ?? selected.coverageClass}</dd>
+                <dt>Road sections</dt>
+                <dd>{selected.segments.length}</dd>
               </div>
               <div>
                 <dt>Last outreach</dt>
-                <dd>{selected.lastCoveredOn ? formatDate(selected.lastCoveredOn) : 'Never'}</dd>
+                <dd>
+                  {outreachDateSummary(selected.segments.map(({ lastCoveredOn }) => lastCoveredOn))}
+                </dd>
               </div>
               <div>
                 <dt>Availability</dt>
-                <dd>{exclusionLabel(selected)}</dd>
+                <dd>{selectedContent?.eligibility}</dd>
               </div>
             </dl>
-            {selected.roots.length === 0 ? (
-              <p className="empty-state">No completed outreach recorded.</p>
-            ) : (
-              selected.roots.map((root) => {
-                const currentDate = rootDate(root);
-                const busy = activeMutation === root.eventId;
-                return (
-                  <div className="coverage-root" key={root.eventId}>
-                    <strong>Completed {formatDate(root.originalCoveredOn)}</strong>
-                    <code className="coverage-event-id">Event ID: {root.eventId}</code>
+            <section aria-labelledby="road-coverage-heading" className="coverage-road-breakdown">
+              <h3 id="road-coverage-heading">Coverage along this road</h3>
+              <ul>
+                {selectedDates.map((group) => (
+                  <li key={group.lastCoveredOn ?? 'never'}>
+                    <span
+                      aria-hidden="true"
+                      className={`coverage-road-swatch ${group.coverageClass}`}
+                    />
                     <span>
-                      {root.effectiveCoveredOn
-                        ? `Effective ${formatDate(root.effectiveCoveredOn)}`
-                        : 'Undone'}
-                    </span>
-                    {root.corrections.map((correction) => (
-                      <small key={correction.id}>
-                        {correction.isVoid
-                          ? `Undone ${formatDate(correction.coveredOn)}`
-                          : `Changed to ${formatDate(correction.coveredOn)}`}
+                      <strong>
+                        {group.lastCoveredOn ? formatDate(group.lastCoveredOn) : 'Never reached'}
+                      </strong>
+                      <small>
+                        {group.sections} {group.sections === 1 ? 'section' : 'sections'}
                       </small>
-                    ))}
-                    {root.packetId ? (
-                      <div className="packet-managed-coverage">
-                        <p>This completion belongs to a whole packet.</p>
-                        <button className="secondary" onClick={onOpenReconciliation} type="button">
-                          Open Reconcile packets
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <label>
-                          Outreach date
-                          <input
-                            disabled={busy}
-                            max={workspace.asOf}
-                            onChange={(event) =>
-                              setDates((current) => ({
-                                ...current,
-                                [root.eventId]: event.target.value,
-                              }))
-                            }
-                            type="date"
-                            value={currentDate}
-                          />
-                        </label>
-                        <div className="coverage-actions">
-                          <button
-                            disabled={busy || !currentDate}
-                            onClick={() => void mutate(root.eventId, currentDate)}
-                            type="button"
-                          >
-                            {root.effectiveCoveredOn ? 'Change outreach date' : 'Restore outreach'}
-                          </button>
-                          <button
-                            className="danger"
-                            disabled={busy || !root.effectiveCoveredOn}
-                            onClick={() => {
-                              if (window.confirm('Undo this outreach completion?')) {
-                                void mutate(root.eventId, null);
-                              }
-                            }}
-                            type="button"
-                          >
-                            Undo completion
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })
-            )}
+                    </span>
+                    <span>
+                      {group.estimatedTracts} {group.estimatedTracts === 1 ? 'tract' : 'tracts'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
           </section>
         )}
-        <p className="coverage-notice" aria-live="polite">
-          {notice}
-        </p>
       </div>
       <section aria-labelledby="current-work-heading" className="current-work">
         <h2 id="current-work-heading">Current work</h2>
         {workState === 'active' ? (
-          <div className="current-work-layout">
-            <span aria-hidden="true" className="current-work-count">
-              {workspace.activePackets}
-            </span>
-            <div className="current-work-copy">
-              <strong>
-                <span className="sr-only">{workspace.activePackets} </span>
-                active packet
-                {workspace.activePackets === 1 ? '' : 's'} awaiting reconciliation
-              </strong>
-              <p>
-                {workspace.latestBatch
-                  ? `${workspace.latestBatch.name} is the newest finalized batch.`
-                  : 'Check which printed sheets are still on the table.'}
-              </p>
-              <button onClick={onOpenReconciliation} type="button">
-                Reconcile packets
-              </button>
-            </div>
+          <div className="current-work-copy">
+            <strong>
+              <span className="current-work-count">{workspace.activePackets}</span>
+              active packet
+              {workspace.activePackets === 1 ? '' : 's'} awaiting reconciliation
+            </strong>
+            <p>
+              {workspace.latestBatch
+                ? `${workspace.latestBatch.name} is the newest finalized batch.`
+                : 'Check which printed sheets are still on the table.'}
+            </p>
+            <button onClick={onOpenReconciliation} type="button">
+              Reconcile packets
+            </button>
           </div>
         ) : (
-          <div className="current-work-layout current-work-layout-ready">
-            <div className="current-work-copy">
-              <strong>Coverage is ready for another batch.</strong>
-              <p>Generate connected packets from the streets that have waited longest.</p>
-              <button onClick={onOpenPackets} type="button">
-                Generate packets
-              </button>
-            </div>
+          <div className="current-work-copy">
+            <strong>Coverage is ready for another batch.</strong>
+            <p>Generate connected packets from the streets that have waited longest.</p>
+            <button onClick={onOpenPackets} type="button">
+              Generate packets
+            </button>
           </div>
         )}
       </section>

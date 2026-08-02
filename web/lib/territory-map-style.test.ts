@@ -8,10 +8,10 @@ import {
   segmentVisibleOnMap,
 } from './territory-map-style.ts';
 
-test('apartment markers distinguish review states', () => {
-  assert.equal(apartmentMarkerColor('needs_review'), '#b97916');
-  assert.equal(apartmentMarkerColor('ready'), '#1769ff');
-  assert.equal(apartmentMarkerColor('deferred'), '#77736c');
+test('apartment markers stay blue across review states', () => {
+  assert.equal(apartmentMarkerColor('needs_review'), '#34445a');
+  assert.equal(apartmentMarkerColor('ready'), '#34445a');
+  assert.equal(apartmentMarkerColor('deferred'), '#34445a');
 });
 
 test('apartment interaction keeps selection origin, camera threshold, and drawing isolation explicit', async () => {

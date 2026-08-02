@@ -236,7 +236,6 @@ export function StreetlightWorkspace({
           onOpenPackets={() => openTool('packets')}
           onOpenReconciliation={() => openTool('reconciliation')}
           onSelectSegment={selectCoverageSearchResult}
-          onWorkspaceChange={setCoverage}
           selectedSegmentId={selectedSegmentId}
           workspace={coverage}
         />

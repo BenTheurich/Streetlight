@@ -16,6 +16,18 @@ import {
 
 const asOf = '2026-07-28';
 
+function searchableSegment(id: string, roadGroupId: string, streetName: string) {
+  return {
+    id,
+    roadGroupId,
+    streetName,
+    estimatedHomes: 1,
+    lastCoveredOn: null,
+    eligible: true,
+    coverageClass: 'red' as const,
+  };
+}
+
 test('calendar dates follow the church time zone around UTC midnight', () => {
   assert.equal(
     calendarDateInTimeZone(new Date('2026-07-29T00:30:00Z'), 'America/Los_Angeles'),
@@ -96,65 +108,109 @@ test('coverage distribution counts eligible estimated homes in each heatmap clas
   );
 });
 
-test('street search trims case, keeps human name order, and preserves duplicate source order', () => {
-  const search = coverageModule.searchCoverageSegments;
+test('street search trims case, keeps human name order, and returns one connected road group', () => {
+  const search = coverageModule.searchCoverageRoads;
   assert.equal(typeof search, 'function');
   const segments = [
-    { id: 'internal-z', streetName: 'Zinnia Road' },
-    { id: 'internal-oak-1', streetName: ' Oak Street ' },
-    { id: 'internal-oak-2', streetName: 'oak street' },
-    { id: 'internal-a', streetName: 'Acacia Road' },
+    searchableSegment('internal-z', 'road-z', 'Zinnia Road'),
+    searchableSegment('internal-oak-1', 'road-oak', ' Oak Street '),
+    searchableSegment('internal-oak-2', 'road-oak', 'oak street'),
+    searchableSegment('internal-a', 'road-a', 'Acacia Road'),
   ];
 
   assert.deepEqual(
-    search?.(segments, '  OAK  ').matches.map(({ id }) => id),
-    ['internal-oak-1', 'internal-oak-2'],
+    search?.(segments, '  OAK  ').matches.map(({ roadGroupId }) => roadGroupId),
+    ['road-oak'],
   );
   assert.deepEqual(
-    search?.(segments, 'road').matches.map(({ id }) => id),
-    ['internal-a', 'internal-z'],
+    search?.(segments, 'road').matches.map(({ roadGroupId }) => roadGroupId),
+    ['road-a', 'road-z'],
   );
 });
 
-test('street search keeps unnamed roads reachable and caps visible results at twenty', () => {
-  const search = coverageModule.searchCoverageSegments;
+test('street search keeps unnamed roads reachable and caps visible road groups at twenty', () => {
+  const search = coverageModule.searchCoverageRoads;
   assert.equal(typeof search, 'function');
-  const unnamed = { id: 'internal-unnamed', streetName: '  ' };
+  const unnamed = searchableSegment('internal-unnamed', 'road-unnamed', '  ');
 
-  assert.deepEqual(search?.([unnamed], 'unnamed'), {
-    matches: [unnamed],
-    total: 1,
-    hasMore: false,
-  });
+  assert.equal(search?.([unnamed], 'unnamed').matches[0]?.segments[0], unnamed);
   assert.deepEqual(search?.([unnamed], '   '), { matches: [], total: 0, hasMore: false });
 
-  const matches = Array.from({ length: 22 }, (_, index) => ({
-    id: `internal-${index}`,
-    streetName: 'Main Street',
-  }));
+  const matches = Array.from({ length: 22 }, (_, index) =>
+    searchableSegment(`internal-${index}`, `road-${index}`, 'Main Street'),
+  );
   const result = search?.(matches, 'main');
   assert.equal(result?.matches.length, 20);
   assert.equal(result?.total, 22);
   assert.equal(result?.hasMore, true);
-  assert.equal(result?.matches.at(-1)?.id, 'internal-19');
+  assert.equal(result?.matches.at(-1)?.roadGroupId, 'road-19');
 });
 
-test('coverage result copy exposes human context without an internal segment ID', () => {
-  const content = coverageModule.coverageSegmentResultContent;
+test('street search merges nearby same-name carriageways but keeps distant namesakes separate', () => {
+  const segment = (
+    id: string,
+    roadGroupId: string,
+    coordinates: Array<[number, number]>,
+  ) => ({
+    ...searchableSegment(id, roadGroupId, 'Winchester Road'),
+    geometry: { coordinates },
+  });
+  const roads = coverageModule.searchCoverageRoads(
+    [
+      segment('northbound', 'road-northbound', [
+        [-117.1437, 33.5427],
+        [-117.1405, 33.5526],
+      ]),
+      segment('southbound', 'road-southbound', [
+        [-117.1435, 33.5427],
+        [-117.1403, 33.5526],
+      ]),
+      segment('distant', 'road-distant', [
+        [-117.13, 33.54],
+        [-117.129, 33.55],
+      ]),
+    ],
+    'winchester',
+  ).matches;
+
+  assert.deepEqual(
+    roads.map(({ segments }) => segments.map(({ id }) => id)),
+    [['northbound', 'southbound'], ['distant']],
+  );
+  assert.deepEqual(
+    coverageModule
+      .coverageRoadForSegment(roads.flatMap(({ segments }) => segments), 'southbound')
+      ?.segments.map(({ id }) => id),
+    ['northbound', 'southbound'],
+  );
+});
+
+test('coverage road result aggregates sections without exposing internal IDs', () => {
+  const content = coverageModule.coverageRoadResultContent;
   assert.equal(typeof content, 'function');
   const result = content?.({
-    id: 'segment-secret-hash',
-    streetName: '',
-    estimatedHomes: 17,
-    lastCoveredOn: null,
-    eligible: false,
+    roadGroupId: 'road-secret-hash',
+    streetName: 'Oak Street',
+    segments: [
+      {
+        ...searchableSegment('segment-secret-hash', 'road-secret-hash', 'Oak Street'),
+        estimatedHomes: 17,
+        eligible: false,
+      },
+      {
+        ...searchableSegment('segment-second-hash', 'road-secret-hash', 'Oak Street'),
+        estimatedHomes: 5,
+        lastCoveredOn: '2026-07-01',
+      },
+    ],
   });
 
   assert.deepEqual(result, {
-    streetName: 'Unnamed road',
-    estimatedTracts: 17,
-    lastOutreach: 'Never',
-    eligibility: 'Excluded',
+    streetName: 'Oak Street',
+    sections: 2,
+    estimatedTracts: 22,
+    lastOutreach: 'mixed',
+    eligibility: '1 of 2 sections eligible',
   });
   assert.doesNotMatch(JSON.stringify(result), /segment-secret-hash/);
 });

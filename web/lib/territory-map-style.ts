@@ -22,11 +22,8 @@ export const coverageColors = {
 };
 
 export function apartmentMarkerColor(status: 'needs_review' | 'ready' | 'deferred'): string {
-  return {
-    needs_review: '#b97916',
-    ready: '#1769ff',
-    deferred: '#77736c',
-  }[status];
+  void status;
+  return '#34445a';
 }
 
 export function apartmentOptionLabel(apartment: {

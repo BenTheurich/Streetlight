@@ -196,7 +196,13 @@ export type TerritoryWorkspace = {
 
 export type CoverageWorkspaceSegment = Pick<
   TerritorySegment,
-  'id' | 'streetName' | 'geometry' | 'estimatedHomes' | 'eligible' | 'excludedReason'
+  | 'id'
+  | 'roadGroupId'
+  | 'streetName'
+  | 'geometry'
+  | 'estimatedHomes'
+  | 'eligible'
+  | 'excludedReason'
 > & {
   lastCoveredOn: string | null;
   coverageClass: CoverageClass;
@@ -591,6 +597,7 @@ export function getCoverageWorkspace(
           if (!coverage) throw new Error('Coverage segment missing');
           return {
             id: segment.id,
+            roadGroupId: segment.roadGroupId,
             streetName: segment.streetName,
             geometry: segment.geometry,
             estimatedHomes: segment.estimatedHomes,

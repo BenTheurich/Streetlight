@@ -344,7 +344,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   min-height: 48px;
   padding: 0.55rem 1rem;
   border: 0;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--muted);
   font-size: 0.72rem;
@@ -356,17 +356,8 @@ button.administrator-account-trigger:not(:disabled):hover {
   color: white;
 }
 
-.workspace-tools button:first-child {
-  border-radius: 8px 0 0 8px;
-}
-
-.workspace-tools button:last-child {
-  border-radius: 0 8px 8px 0;
-}
-
 .workspace-tools button:not(.active):not(:disabled):hover {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--line);
+  background: #fbf8f2;
   color: var(--ink);
 }
 
@@ -1612,8 +1603,6 @@ button.administrator-account-trigger:not(:disabled):hover {
 
 .coverage-distribution h2,
 .coverage-field,
-.coverage-root label,
-.coverage-root small,
 .coverage-detail > p {
   color: var(--muted);
   font-size: 0.72rem;
@@ -1767,13 +1756,12 @@ button.administrator-account-trigger:not(:disabled):hover {
   min-height: 46px;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--panel);
   color: var(--ink);
 }
 
-.coverage-search-status,
-.coverage-notice {
+.coverage-search-status {
   margin: 0;
   color: var(--muted);
   font-size: 0.72rem;
@@ -1804,6 +1792,10 @@ button.administrator-account-trigger:not(:disabled):hover {
   background: var(--quiet-hover);
 }
 
+.coverage-segment-picker input[type="search"]::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
 .coverage-search-results strong {
   font-size: 0.82rem;
 }
@@ -1815,48 +1807,28 @@ button.administrator-account-trigger:not(:disabled):hover {
   line-height: 1.4;
 }
 
-.coverage-notice {
-  min-height: 1rem;
-  margin-top: 1rem;
-}
-
 .coverage-detail {
   padding-inline: 0.15rem;
 }
 
-.coverage-detail-heading {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.coverage-detail-heading button {
-  justify-self: start;
-}
-
 .coverage-detail h2 {
   color: var(--ink);
-  font-family: Georgia, serif;
+  font-family: "Trebuchet MS", Arial, sans-serif;
   font-size: 1.4rem;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-}
-
-.coverage-root {
-  margin-top: 0.9rem;
-  padding: 0.9rem;
-  border: 0;
-  border-radius: 12px;
-  background: var(--paper);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-transform: none;
 }
 
 .current-work {
-  padding: 1.25rem 1.5rem;
+  padding: 1rem 1.5rem;
   border-top: 1px solid var(--line);
   background: var(--paper);
 }
 
 .current-work h2 {
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.65rem;
   color: var(--muted);
   font-size: 0.7rem;
   font-weight: 900;
@@ -1864,32 +1836,29 @@ button.administrator-account-trigger:not(:disabled):hover {
   text-transform: uppercase;
 }
 
-.current-work-layout {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: 1.15rem;
-}
-
-.current-work-layout-ready {
-  grid-template-columns: 1fr;
-}
-
 .current-work-count {
-  color: var(--ink);
-  font-family: Georgia, serif;
-  font-size: 4.4rem;
-  font-weight: 400;
-  line-height: 0.82;
-  letter-spacing: -0.04em;
+  display: inline-grid;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding-inline: 0.4rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--panel);
+  font-size: 0.8rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .current-work-copy {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.5rem;
 }
 
 .current-work-copy strong {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   color: var(--ink);
   font-size: 0.95rem;
   line-height: 1.35;
@@ -1907,8 +1876,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   margin-top: 0.1rem;
 }
 
-.coverage-field,
-.coverage-root label {
+.coverage-field {
   display: grid;
   gap: 0.35rem;
   font-weight: 800;
@@ -1954,30 +1922,72 @@ button.administrator-account-trigger:not(:disabled):hover {
   line-height: 1.4;
 }
 
-.coverage-root {
-  display: grid;
-  gap: 0.45rem;
+.coverage-road-breakdown {
+  margin-top: 1.1rem;
 }
 
-.coverage-root > strong {
+.coverage-road-breakdown h3 {
+  margin: 0 0 0.55rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.coverage-road-breakdown ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.coverage-road-breakdown li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 44px;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.coverage-road-breakdown li > span:nth-child(2) {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.coverage-road-breakdown strong {
+  color: var(--ink);
   font-size: 0.72rem;
 }
 
-.coverage-event-id {
+.coverage-road-breakdown small {
   color: var(--muted);
-  font-size: 0.62rem;
-  overflow-wrap: anywhere;
+  font-size: 0.64rem;
 }
 
-.coverage-root > span {
-  color: var(--muted);
-  font-size: 0.65rem;
+.coverage-road-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #b4473d;
 }
 
-.coverage-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.45rem;
+.coverage-road-swatch.green {
+  background: #3e8b65;
+}
+
+.coverage-road-swatch.yellow {
+  background: #d2a128;
+}
+
+.coverage-road-swatch.orange {
+  background: #d66b2d;
 }
 
 .packet-form {
@@ -2229,8 +2239,7 @@ button.administrator-account-trigger:not(:disabled):hover {
 .reconciliation-disposition,
 .reconciliation-action,
 .reconciliation-correction label,
-.reconciliation-review span,
-.packet-managed-coverage p {
+.reconciliation-review span {
   color: var(--muted);
   font-size: 0.72rem;
   line-height: 1.45;
@@ -2310,15 +2319,6 @@ button.administrator-account-trigger:not(:disabled):hover {
   box-shadow: 0 1px 5px #0007;
   color: white;
   font: 800 12px / 1 sans-serif;
-}
-
-.packet-managed-coverage {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.packet-managed-coverage p {
-  margin: 0;
 }
 
 .administrator-account-badge {
