@@ -177,6 +177,18 @@ test('reconciliation leads with the physical paper question', () => {
   assert.match(source, /Which packet sheets are still here\?/);
 });
 
+test('reconciliation keeps pending outcomes visible and history compact', () => {
+  const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+
+  assert.match(source, /Mark none present/);
+  assert.match(source, /Will be recorded as completed/);
+  assert.match(source, /className="reconciliation-outcome-summary"/);
+  assert.match(source, /editingPacketId === packet\.id/);
+  assert.match(source, /aria-expanded=\{historyOpen\}/);
+  assert.match(styles, /\.reconciliation-bulk-actions button \{[^}]*min-height: 44px;/s);
+});
+
 test('reconciliation correction status and retry stay with the affected packet', () => {
   const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
 

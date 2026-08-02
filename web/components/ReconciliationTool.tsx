@@ -57,6 +57,8 @@ export function ReconciliationTool({
   const [presentIds, setPresentIds] = useState<Set<string>>(new Set());
   const [cancelIds, setCancelIds] = useState<Set<string>>(new Set());
   const [selectedPacketId, setSelectedPacketId] = useState<string | null>(null);
+  const [editingPacketId, setEditingPacketId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [operation, setOperation] = useState<ReconciliationOperation | null>(null);
@@ -117,6 +119,7 @@ export function ReconciliationTool({
     setPresentIds(new Set());
     setCancelIds(new Set());
     setSelectedPacketId(null);
+    setEditingPacketId(null);
     setReviewing(false);
   }
 
@@ -347,6 +350,7 @@ export function ReconciliationTool({
                     onChange={(event) => {
                       setBatchId(event.target.value);
                       resetChoices();
+                      setHistoryOpen(false);
                     }}
                     value={batchId ?? ''}
                   >
@@ -396,7 +400,7 @@ export function ReconciliationTool({
                         }}
                         type="button"
                       >
-                        Clear
+                        Mark none present
                       </button>
                     </div>
                   </div>
@@ -442,17 +446,17 @@ export function ReconciliationTool({
                             }
                             type="button"
                           >
-                            <strong>{packet.code}</strong>
+                            <strong>{packet.start.address}</strong>
                             <span>
                               {packet.estimatedTracts} estimated tract
                               {packet.estimatedTracts === 1 ? '' : 's'} ·{' '}
                               {packet.kind === 'apartment' ? 'Apartment' : 'Street'}
                             </span>
-                            <span>{packet.start.address}</span>
+                            <span className="reconciliation-packet-code">{packet.code}</span>
                           </button>
                           {!present ? (
-                            <span className="reconciliation-disposition complete">
-                              Missing — complete
+                            <span className="reconciliation-disposition pending">
+                              Will be recorded as completed
                             </span>
                           ) : (
                             <label className="reconciliation-action">
@@ -485,89 +489,133 @@ export function ReconciliationTool({
                 <p className="empty-state">This batch has no active sheets.</p>
               )}
               {batch && historyPackets.length > 0 && (
-                <section>
-                  <h2>Batch history</h2>
-                  <div className="reconciliation-list">
-                    {historyPackets.map((packet) => {
-                      return (
-                        <article
-                          className={`reconciliation-card history${selectedPacketId === packet.id ? ' selected' : ''}`}
-                          key={packet.id}
-                        >
-                          <button
-                            className="reconciliation-focus"
-                            onClick={() =>
-                              setSelectedPacketId((current) =>
-                                current === packet.id ? null : packet.id,
-                              )
-                            }
-                            type="button"
+                <section className="reconciliation-history-section">
+                  {activePackets.length > 0 ? (
+                    <h2 className="reconciliation-history-heading">
+                      <button
+                        aria-controls="reconciliation-history-list"
+                        aria-expanded={historyOpen}
+                        className="reconciliation-history-toggle"
+                        onClick={() => setHistoryOpen((current) => !current)}
+                        type="button"
+                      >
+                        <span>Batch history</span>
+                        <span className="reconciliation-history-count">
+                          {historyPackets.length}
+                        </span>
+                        <svg aria-hidden="true" viewBox="0 0 12 8">
+                          <path d="m1 1 5 5 5-5" />
+                        </svg>
+                      </button>
+                    </h2>
+                  ) : (
+                    <h2>Batch history</h2>
+                  )}
+                  {(activePackets.length === 0 || historyOpen) && (
+                    <div className="reconciliation-list" id="reconciliation-history-list">
+                      {historyPackets.map((packet) => {
+                        const editing = editingPacketId === packet.id;
+                        return (
+                          <article
+                            className={`reconciliation-card history${selectedPacketId === packet.id ? ' selected' : ''}`}
+                            key={packet.id}
                           >
-                            <strong>{packet.code}</strong>
-                            <span>
-                              {packet.status === 'completed'
-                                ? `Completed ${packet.completedOn ? formatDate(packet.completedOn) : ''}`
-                                : 'Cancelled'}
-                            </span>
-                          </button>
-                          {packet.status === 'completed' && (
-                            <form
-                              className="reconciliation-correction"
-                              key={`${packet.id}:${packet.completedOn}`}
-                              onSubmit={(event) => {
-                                event.preventDefault();
-                                const coveredOn = new FormData(event.currentTarget).get(
-                                  'coveredOn',
-                                );
-                                if (typeof coveredOn === 'string' && coveredOn) {
-                                  void correct(packet, coveredOn);
+                            <div className="reconciliation-history-summary">
+                              <button
+                                className="reconciliation-focus"
+                                onClick={() =>
+                                  setSelectedPacketId((current) =>
+                                    current === packet.id ? null : packet.id,
+                                  )
                                 }
-                              }}
-                            >
-                              <label>
-                                Outreach date
-                                <input
-                                  defaultValue={packet.completedOn ?? workspace.asOf}
-                                  disabled={mutationControlsDisabled}
-                                  max={workspace.asOf}
-                                  name="coveredOn"
-                                  required
-                                  type="date"
-                                />
-                              </label>
-                              <div>
-                                <button disabled={mutationControlsDisabled} type="submit">
-                                  Change date
-                                </button>
+                                type="button"
+                              >
+                                <strong>{packet.start.address}</strong>
+                                <span>
+                                  {packet.status === 'completed'
+                                    ? `Completed ${packet.completedOn ? formatDate(packet.completedOn) : ''}`
+                                    : 'Cancelled'}
+                                </span>
+                                <span className="reconciliation-packet-code">{packet.code}</span>
+                              </button>
+                              {packet.status === 'completed' && (
                                 <button
-                                  className="danger"
-                                  disabled={mutationControlsDisabled}
-                                  onClick={() => {
-                                    if (
-                                      window.confirm(
-                                        'Undo this whole packet completion and restore its reservation?',
-                                      )
-                                    ) {
-                                      void correct(packet, null);
-                                    }
-                                  }}
+                                  aria-expanded={editing}
+                                  className="secondary reconciliation-history-edit"
+                                  onClick={() =>
+                                    setEditingPacketId((current) =>
+                                      current === packet.id ? null : packet.id,
+                                    )
+                                  }
                                   type="button"
                                 >
-                                  Undo completion
+                                  {editing ? 'Close' : 'Edit date'}
                                 </button>
-                              </div>
-                            </form>
-                          )}
-                          {correctionStatus(packet)}
-                        </article>
-                      );
-                    })}
-                  </div>
+                              )}
+                            </div>
+                            {packet.status === 'completed' && editing && (
+                              <form
+                                className="reconciliation-correction"
+                                key={`${packet.id}:${packet.completedOn}`}
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  const coveredOn = new FormData(event.currentTarget).get(
+                                    'coveredOn',
+                                  );
+                                  if (typeof coveredOn === 'string' && coveredOn) {
+                                    void correct(packet, coveredOn);
+                                  }
+                                }}
+                              >
+                                <label>
+                                  Outreach date
+                                  <input
+                                    defaultValue={packet.completedOn ?? workspace.asOf}
+                                    disabled={mutationControlsDisabled}
+                                    max={workspace.asOf}
+                                    name="coveredOn"
+                                    required
+                                    type="date"
+                                  />
+                                </label>
+                                <div>
+                                  <button disabled={mutationControlsDisabled} type="submit">
+                                    Change date
+                                  </button>
+                                  <button
+                                    className="danger"
+                                    disabled={mutationControlsDisabled}
+                                    onClick={() => {
+                                      if (
+                                        window.confirm(
+                                          'Undo this whole packet completion and restore its reservation?',
+                                        )
+                                      ) {
+                                        void correct(packet, null);
+                                      }
+                                    }}
+                                    type="button"
+                                  >
+                                    Undo completion
+                                  </button>
+                                </div>
+                              </form>
+                            )}
+                            {correctionStatus(packet)}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
                 </section>
               )}
               {reviewing && batch && (
                 <section className="reconciliation-review">
                   <h2>Review reconciliation</h2>
+                  <strong className="reconciliation-review-summary">
+                    {preview.complete.length} packet
+                    {preview.complete.length === 1 ? '' : 's'} will be recorded as completed
+                  </strong>
                   <p>Coverage date: {formatDate(workspace.asOf)}</p>
                   {(
                     [
@@ -581,7 +629,7 @@ export function ReconciliationTool({
                       {ids.length === 0 ? (
                         <span>None</span>
                       ) : (
-                        ids.map((id) => <span key={id}>{packetById.get(id)?.code}</span>)
+                        ids.map((id) => <span key={id}>{packetById.get(id)?.start.address}</span>)
                       )}
                     </div>
                   ))}
@@ -591,6 +639,13 @@ export function ReconciliationTool({
           )}
         </div>
         <div className="sidebar-actions">
+          {batch && activePackets.length > 0 && (
+            <p aria-live="polite" className="reconciliation-outcome-summary">
+              <strong>{presentIds.size} still here</strong> · {preview.complete.length} will be
+              completed
+              {preview.cancel.length > 0 ? ` · ${preview.cancel.length} will be cancelled` : ''}
+            </p>
+          )}
           {operation?.kind === 'confirm' ? (
             <OperationStatus
               detail="Your packet choices are locked while Streetlight records the whole batch."
