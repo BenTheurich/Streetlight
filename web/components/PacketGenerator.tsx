@@ -350,7 +350,7 @@ export function PacketGenerator({
             </div>
             {generating ? (
               <OperationStatus
-                detail="Streetlight is finding connected, overdue areas. Your packet sizes will stay here."
+                detail="Streetlight is finding connected, overdue areas."
                 headline="Generating packet proposals"
                 tone="busy"
               />

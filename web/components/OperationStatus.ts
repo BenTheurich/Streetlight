@@ -17,6 +17,24 @@ export function OperationStatus({
   tone: OperationStatusTone;
 }) {
   const failed = tone === 'error';
+  const cue =
+    tone === 'success'
+      ? createElement(
+          'svg',
+          {
+            'aria-hidden': true,
+            className: 'operation-status-cue operation-status-success-icon',
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            strokeWidth: 2,
+            viewBox: '0 0 24 24',
+          },
+          createElement('circle', { cx: 12, cy: 12, r: 9 }),
+          createElement('path', { d: 'm8 12 2.5 2.5L16 9' }),
+        )
+      : createElement('span', { 'aria-hidden': true, className: 'operation-status-cue' });
 
   return createElement(
     'div',
@@ -27,7 +45,7 @@ export function OperationStatus({
       className: `operation-status ${placement} ${tone}`,
       role: failed ? 'alert' : 'status',
     },
-    createElement('span', { 'aria-hidden': true, className: 'operation-status-cue' }),
+    cue,
     createElement(
       'div',
       { className: 'operation-status-copy' },

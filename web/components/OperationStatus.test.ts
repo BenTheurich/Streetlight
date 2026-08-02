@@ -40,7 +40,7 @@ test('failed operation status becomes an alert and keeps its recovery action', (
   assert.match(markup, />Try again</);
 });
 
-test('completed operation status uses the same polite status contract', () => {
+test('completed operation status uses a real icon and the same polite status contract', () => {
   const markup = renderToStaticMarkup(
     createElement(OperationStatus, {
       detail: 'Five packet sheets are ready.',
@@ -53,4 +53,5 @@ test('completed operation status uses the same polite status contract', () => {
   assert.match(markup, /role="status"/);
   assert.match(markup, /aria-live="polite"/);
   assert.doesNotMatch(markup, /aria-busy/);
+  assert.match(markup, /<svg[^>]+class="operation-status-cue operation-status-success-icon"/);
 });
