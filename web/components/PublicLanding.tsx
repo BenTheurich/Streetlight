@@ -145,9 +145,21 @@ export function PublicLanding() {
               The streets waiting longest rise first—before familiar neighborhoods are covered
               again.
             </StoryStep>
+            <section
+              className="anchor-step anchor-verse"
+              data-step="3"
+              aria-label="Streetlight theme verse"
+            >
+              <div>
+                <blockquote className="theme-verse-copy">
+                  <p>Ye are the light of the world.</p>
+                  <cite>Matthew 5:14</cite>
+                </blockquote>
+              </div>
+            </section>
             <StoryStep
               className="anchor-left anchor-light-copy"
-              step={3}
+              step={4}
               eyebrow="THE NEXT OUTREACH"
               title={
                 <>
@@ -162,7 +174,7 @@ export function PublicLanding() {
             </StoryStep>
             <StoryStep
               className="anchor-right anchor-light-copy"
-              step={4}
+              step={5}
               eyebrow="INTO THEIR HANDS"
               title={
                 <>
@@ -205,6 +217,12 @@ export function PublicLanding() {
               The streets waiting longest rise first—before familiar neighborhoods are covered
               again.
             </CompactBeat>
+            <section className="theme-verse" aria-label="Streetlight theme verse">
+              <blockquote className="theme-verse-copy">
+                <p>Ye are the light of the world.</p>
+                <cite>Matthew 5:14</cite>
+              </blockquote>
+            </section>
             <CompactBeat title="Turn need into clear assignments.">
               Streetlight groups connected streets into practical packets, sized for the tracts your
               church is ready to send.
@@ -229,13 +247,6 @@ export function PublicLanding() {
               </div>
             </article>
           </div>
-        </section>
-
-        <section className="theme-verse" aria-label="Streetlight theme verse">
-          <blockquote>
-            <p>Ye are the light of the world.</p>
-            <cite>Matthew 5:14</cite>
-          </blockquote>
         </section>
 
         <section className="product-overview" id="product-overview">

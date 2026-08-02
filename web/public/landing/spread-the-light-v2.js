@@ -36,7 +36,7 @@ function dynamicStoryEnabled() {
 }
 
 function updateStep(progress) {
-  const stepIndex = Math.min(4, Math.floor(clamp(progress) * 5));
+  const stepIndex = Math.min(5, Math.floor(clamp(progress) * 6));
   story.dataset.active = String(stepIndex);
   story.querySelectorAll('.anchor-step').forEach((step) => {
     step.classList.toggle('is-current', Number(step.dataset.step) === stepIndex);

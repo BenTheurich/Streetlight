@@ -238,7 +238,7 @@ body.is-daylight .site-header .button-solid:hover,
 
 .anchor-story {
   position: relative;
-  height: 535vh;
+  height: 635vh;
   color: #f8f3e8;
   background: var(--night);
 }
@@ -419,6 +419,9 @@ body.is-daylight .site-header .button-solid:hover,
   margin-top: -100vh;
   pointer-events: none;
 }
+.anchor-story[data-active="3"] .anchor-steps {
+  z-index: 7;
+}
 .anchor-step {
   min-height: 100vh;
   display: flex;
@@ -544,7 +547,7 @@ body.is-daylight .site-header .button-solid:hover,
 .anchor-story.has-light-copy .anchor-ignition p {
   color: #53606a;
 }
-.anchor-story[data-active="4"] .anchor-lamp {
+.anchor-story[data-active="5"] .anchor-lamp {
   z-index: 5;
 }
 
@@ -552,6 +555,36 @@ body.is-daylight .site-header .button-solid:hover,
   display: none;
 }
 
+.anchor-verse {
+  position: relative;
+  justify-content: center;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--ink);
+  background: var(--paper);
+  text-align: center;
+}
+.anchor-verse::before,
+.theme-verse::before {
+  position: absolute;
+  z-index: 0;
+  width: min(78vw, 900px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(231, 173, 80, 0.28),
+    rgba(231, 173, 80, 0.1) 38%,
+    transparent 70%
+  );
+  content: "";
+}
+.anchor-verse > div {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: none;
+}
 .theme-verse {
   position: relative;
   min-height: min(68vh, 720px);
@@ -564,24 +597,12 @@ body.is-daylight .site-header .button-solid:hover,
   background: var(--paper);
   text-align: center;
 }
-.theme-verse::before {
-  position: absolute;
-  z-index: -1;
-  width: min(78vw, 900px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(231, 173, 80, 0.28),
-    rgba(231, 173, 80, 0.1) 38%,
-    transparent 70%
-  );
-  content: "";
-}
-.theme-verse blockquote {
+.theme-verse-copy {
+  position: relative;
+  z-index: 1;
   margin: 0;
 }
-.theme-verse p {
+.theme-verse-copy p {
   max-width: 16ch;
   margin: 0 auto;
   font-family: Georgia, serif;
@@ -591,7 +612,7 @@ body.is-daylight .site-header .button-solid:hover,
   line-height: 0.94;
   text-wrap: balance;
 }
-.theme-verse cite {
+.theme-verse-copy cite {
   display: block;
   margin-top: 32px;
   color: #925311;
@@ -1179,11 +1200,11 @@ body.is-daylight .site-header .button-solid:hover,
     min-height: 70svh;
     padding: 100px 20px;
   }
-  .theme-verse p {
+  .theme-verse-copy p {
     max-width: 10ch;
     font-size: clamp(52px, 14.5vw, 72px);
   }
-  .theme-verse cite {
+  .theme-verse-copy cite {
     margin-top: 26px;
   }
   .product-overview {
