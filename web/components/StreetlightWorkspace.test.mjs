@@ -82,6 +82,8 @@ test('proposal rows expand and collapse inline without a separate show-all contr
 
   assert.match(source, /onSelectedIndexChange\(selected \? null : index\)/);
   assert.match(source, /aria-label={`Delete Packet \$\{index \+ 1\} proposal`}/);
+  assert.match(source, /aria-label={`Remove packet size \$\{index \+ 1\}`}/);
+  assert.doesNotMatch(source, />\s*Remove\s*</);
   assert.match(source, /proposalIndexes: result\.proposalIndexes/);
   assert.doesNotMatch(source, />\s*Show all\s*</);
   assert.match(source, /!finalized && result\.proposals\.length > 0/);

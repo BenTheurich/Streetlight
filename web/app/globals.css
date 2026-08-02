@@ -2006,8 +2006,12 @@ button.administrator-account-trigger:not(:disabled):hover {
 }
 
 .packet-remove {
+  display: grid;
+  width: 44px;
+  height: 44px;
   min-height: 44px;
-  padding-inline: 0.55rem;
+  padding: 0;
+  place-items: center;
 }
 
 .packet-form-actions {
@@ -2044,10 +2048,12 @@ button.administrator-account-trigger:not(:disabled):hover {
 }
 
 .packet-proposal-delete {
-  position: absolute;
-  top: 0.35rem;
-  right: 0.35rem;
   display: grid;
+  z-index: 1;
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: center;
   width: 44px;
   height: 44px;
   padding: 0;
@@ -2057,6 +2063,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   place-items: center;
 }
 
+.packet-remove svg,
 .packet-proposal-delete svg {
   width: 19px;
   fill: none;
@@ -2077,7 +2084,8 @@ button.administrator-account-trigger:not(:disabled):hover {
 }
 
 .packet-card {
-  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -2091,6 +2099,8 @@ button.administrator-account-trigger:not(:disabled):hover {
 
 .packet-card-button {
   display: grid;
+  grid-column: 1 / -1;
+  grid-row: 1;
   width: 100%;
   gap: 0.2rem;
   border: 0;
@@ -2119,6 +2129,7 @@ button.administrator-account-trigger:not(:disabled):hover {
 }
 
 .packet-card-detail {
+  grid-column: 1 / -1;
   padding: 0.65rem 0.8rem 0.75rem;
   border-top: 1px solid #e1dbd0;
   background: #faf7f0;
