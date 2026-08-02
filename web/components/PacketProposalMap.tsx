@@ -4,6 +4,7 @@ import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import { useEffect } from 'react';
 import { positionBounds } from '@/lib/map-camera';
 import { type PacketProposal, proposalsForMap } from '@/lib/packet-selection';
+import { mapPinDataUrl } from '@/lib/territory-map-style';
 
 type PacketProposalMapProps = {
   active: boolean;
@@ -69,8 +70,8 @@ export function PacketProposalMap({
       for (const proposal of markerProposals) {
         const markerElement = document.createElement('img');
         markerElement.alt = '';
-        markerElement.src = '/PacketPin.svg';
-        markerElement.className = 'workspace-packet-marker';
+        markerElement.src = mapPinDataUrl('start');
+        markerElement.className = 'workspace-map-pin';
         const marker = new Marker({ anchor: 'bottom', element: markerElement })
           .setLngLat(proposal.start.position)
           .addTo(map);

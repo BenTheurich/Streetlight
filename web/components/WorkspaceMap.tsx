@@ -14,6 +14,7 @@ import {
 } from '@/lib/map-camera';
 import baseStyleJson from '@/lib/open-map-base-style.json';
 import { buildWorkspaceMapStyle, type OpenMapStyle } from '@/lib/open-map-style';
+import { mapPinDataUrl } from '@/lib/territory-map-style';
 
 type WorkspaceMapProps = {
   apiKey: string;
@@ -74,8 +75,8 @@ export function WorkspaceMap({
         appliedMapTypeRef.current = mapTypeRef.current;
         const markerElement = document.createElement('img');
         markerElement.alt = '';
-        markerElement.src = '/ChurchPin.png';
-        markerElement.className = 'workspace-church-marker';
+        markerElement.src = mapPinDataUrl('church');
+        markerElement.className = 'workspace-map-pin';
         markerRef.current = new Marker({ anchor: 'bottom', element: markerElement })
           .setLngLat(data.center)
           .addTo(map);

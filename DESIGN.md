@@ -11,6 +11,7 @@ colors:
   outreach-orange: "#c96b3b"
   overdue-red: "#ad5547"
   packet-blue: "#2767e9"
+  map-marker-blue: "#123464"
   success-green: "#43785c"
   line: "#d8cfbf"
 typography:
@@ -78,6 +79,12 @@ components:
     textColor: "{colors.ink}"
     rounded: "{rounded.panel}"
     padding: "20px"
+  map-marker:
+    backgroundColor: "{colors.map-marker-blue}"
+    outlineColor: "#ffffff"
+    outlineWidth: "2px"
+    pinCanvas: "44px"
+    apartmentRadius: "12px"
 ---
 
 # Design System: Streetlight
@@ -229,6 +236,14 @@ into a deliberate second row rather than becoming a hidden menu.
 
 Map controls float in Bright Paper with soft depth. The coverage legend stays factual and vertical.
 The church pin is anchored by its tip. Map and satellite views use a familiar layer preview.
+
+### Map Markers
+
+Church, packet-start, and apartment markers form one family: Map Marker Blue with a two-pixel white
+outline, fixed screen sizing, and no shadow. Church and packet pins share the same 44-pixel canvas,
+outer silhouette, and white center; the church adds a blue cross while a packet start remains a
+plain white dot. Apartment markers and clusters use a 12-pixel radius and the same outline, growing
+only to show selection. Their inner `A` or count distinguishes meaning without changing the shell.
 
 ## Do's and Don'ts
 

@@ -419,7 +419,10 @@ test('workspace map clusters apartments identically over map and satellite style
     const marker = style.layers.find(({ id }) => id === 'streetlight-apartments');
     const label = style.layers.find(({ id }) => id === 'streetlight-apartment-labels');
     assert.deepEqual(cluster?.filter, ['has', 'point_count']);
-    assert.equal(cluster?.paint?.['circle-color'], '#34445a');
+    assert.equal(cluster?.paint?.['circle-color'], '#123464');
+    assert.equal(cluster?.paint?.['circle-radius'], 12);
+    assert.equal(cluster?.paint?.['circle-stroke-color'], '#ffffff');
+    assert.equal(cluster?.paint?.['circle-stroke-width'], 2);
     assert.deepEqual(count?.filter, ['has', 'point_count']);
     assert.deepEqual(count?.layout?.['text-field'], ['get', 'point_count_abbreviated']);
     assert.equal(count?.layout?.['text-allow-overlap'], true);

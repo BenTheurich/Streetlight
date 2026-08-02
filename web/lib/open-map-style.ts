@@ -2,7 +2,12 @@ import type { OpenMapData } from './database.ts';
 import type { DownloadPacket, PacketMapGeneration } from './packet-finalization.ts';
 import { endpointMeetsInterior } from './packet-selection.ts';
 import type { LineString, Position } from './territory-geometry.ts';
-import { apartmentLayerIds, apartmentMarkerColor, coverageColors } from './territory-map-style.ts';
+import {
+  apartmentLayerIds,
+  apartmentMarkerColor,
+  coverageColors,
+  mapMarkerStyle,
+} from './territory-map-style.ts';
 
 const ZOOM_STOPS = [14, 18, 20] as const;
 const WIDTHS = {
@@ -831,18 +836,10 @@ export function buildWorkspaceMapStyle(
       source: 'streetlightApartments',
       filter: ['has', 'point_count'],
       paint: {
-        'circle-color': '#34445a',
-        'circle-radius': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          8,
-          ['step', ['get', 'point_count'], 9, 10, 10, 50, 11],
-          15,
-          ['step', ['get', 'point_count'], 12, 10, 13, 50, 14],
-        ],
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 2,
+        'circle-color': mapMarkerStyle.fill,
+        'circle-radius': mapMarkerStyle.radius,
+        'circle-stroke-color': mapMarkerStyle.outline,
+        'circle-stroke-width': mapMarkerStyle.outlineWidth,
       },
     },
     {
@@ -866,9 +863,14 @@ export function buildWorkspaceMapStyle(
       filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-color': ['get', 'color'],
-        'circle-radius': ['case', ['==', ['get', 'selected'], true], 15, 12],
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 2,
+        'circle-radius': [
+          'case',
+          ['==', ['get', 'selected'], true],
+          mapMarkerStyle.selectedRadius,
+          mapMarkerStyle.radius,
+        ],
+        'circle-stroke-color': mapMarkerStyle.outline,
+        'circle-stroke-width': mapMarkerStyle.outlineWidth,
       },
     },
     {

@@ -21,9 +21,26 @@ export const coverageColors = {
   gray: '#77736C',
 };
 
+export const mapMarkerStyle = {
+  fill: '#123464',
+  outline: '#ffffff',
+  outlineWidth: 2,
+  radius: 12,
+  selectedRadius: 15,
+};
+
+export function mapPinDataUrl(symbol: 'church' | 'start'): string {
+  const symbolMarkup =
+    symbol === 'church'
+      ? `<path d="M22 14v7M18.5 17.5h7" fill="none" stroke="${mapMarkerStyle.fill}" stroke-linecap="round" stroke-width="2.1"/>`
+      : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44"><path d="M22 7.5c-5.8 0-10.5 4.7-10.5 10.5 0 7.5 10.5 17.6 10.5 17.6S32.5 25.5 32.5 18C32.5 12.2 27.8 7.5 22 7.5Z" fill="${mapMarkerStyle.fill}" stroke="${mapMarkerStyle.outline}" stroke-linejoin="round" stroke-width="2.4"/><circle cx="22" cy="17.5" r="4.6" fill="${mapMarkerStyle.outline}"/>${symbolMarkup}</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 export function apartmentMarkerColor(status: 'needs_review' | 'ready' | 'deferred'): string {
   void status;
-  return '#34445a';
+  return mapMarkerStyle.fill;
 }
 
 export function apartmentOptionLabel(apartment: {

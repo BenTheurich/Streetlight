@@ -4,6 +4,7 @@ import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import { positionBounds } from '@/lib/map-camera';
 import type { ReconciliationBatch, ReconciliationPacket } from '@/lib/reconciliation';
+import { mapPinDataUrl } from '@/lib/territory-map-style';
 
 const dispositionColors = {
   complete: '#3e8b65',
@@ -129,8 +130,8 @@ export function OpenReconciliationOverlay({
       if (selected) {
         const markerElement = document.createElement('img');
         markerElement.alt = '';
-        markerElement.src = '/PacketPin.svg';
-        markerElement.className = 'workspace-packet-marker';
+        markerElement.src = mapPinDataUrl('start');
+        markerElement.className = 'workspace-map-pin';
         const marker = new Marker({ anchor: 'bottom', element: markerElement })
           .setLngLat(selected.start.position)
           .addTo(map);

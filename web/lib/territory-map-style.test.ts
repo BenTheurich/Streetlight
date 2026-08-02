@@ -9,9 +9,33 @@ import {
 } from './territory-map-style.ts';
 
 test('apartment markers stay blue across review states', () => {
-  assert.equal(apartmentMarkerColor('needs_review'), '#34445a');
-  assert.equal(apartmentMarkerColor('ready'), '#34445a');
-  assert.equal(apartmentMarkerColor('deferred'), '#34445a');
+  assert.equal(apartmentMarkerColor('needs_review'), '#123464');
+  assert.equal(apartmentMarkerColor('ready'), '#123464');
+  assert.equal(apartmentMarkerColor('deferred'), '#123464');
+});
+
+test('church, packet, and apartment markers share one visual system', async () => {
+  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
+  const markerStyle = module.mapMarkerStyle as Record<string, unknown> | undefined;
+  const pinDataUrl = module.mapPinDataUrl as ((symbol: 'church' | 'start') => string) | undefined;
+
+  assert.deepEqual(markerStyle, {
+    fill: '#123464',
+    outline: '#ffffff',
+    outlineWidth: 2,
+    radius: 12,
+    selectedRadius: 15,
+  });
+  assert.equal(typeof pinDataUrl, 'function');
+  const church = decodeURIComponent(pinDataUrl?.('church') ?? '');
+  const start = decodeURIComponent(pinDataUrl?.('start') ?? '');
+  for (const pin of [church, start]) {
+    assert.match(pin, /fill="#123464"/);
+    assert.match(pin, /stroke="#ffffff"/);
+    assert.match(pin, /<circle cx="22" cy="17\.5" r="4\.6" fill="#ffffff"/);
+  }
+  assert.match(church, /stroke="#123464"/);
+  assert.doesNotMatch(start, /stroke="#123464"/);
 });
 
 test('apartment interaction keeps selection origin, camera threshold, and drawing isolation explicit', async () => {
