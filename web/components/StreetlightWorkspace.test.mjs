@@ -185,7 +185,8 @@ test('reconciliation keeps pending outcomes visible and history compact', () => 
   const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 
   assert.match(source, /All taken/);
-  assert.match(source, /Cancels this packet and returns its streets to future generation/);
+  assert.match(source, /All discarded/);
+  assert.match(source, /Cancels this packet and returns its streets for future generation/);
   assert.match(source, /className="reconciliation-outcome-summary"/);
   assert.match(source, /editingPacketId === packet\.id/);
   assert.match(source, /aria-expanded=\{historyOpen\}/);
@@ -207,10 +208,7 @@ test('reconciliation highlights the selected batch with the shared light-blue ro
 
   assert.match(source, /'line-color': '#78a9ff'/);
   assert.match(source, /const haloBefore = map\.getLayer\('streetlight-coverage'\)/);
-  assert.match(
-    source,
-    /'line-width': \['interpolate', \['linear'\], \['zoom'\], 11, 10, 14, 13\]/,
-  );
+  assert.match(source, /'line-width': \['interpolate', \['linear'\], \['zoom'\], 11, 10, 14, 13\]/);
   assert.match(source, /const focusKey = `\$\{batch\.id\}:/);
 });
 

@@ -404,34 +404,6 @@ export function ReconciliationTool({
                   </p>
                   <div className="packet-results-header">
                     <strong>Active sheets</strong>
-                    <div className="reconciliation-bulk-actions">
-                      <button
-                        className="secondary"
-                        disabled={mutationControlsDisabled}
-                        onClick={() => {
-                          setPacketOutcomes(
-                            new Map(activePackets.map(({ id }) => [id, 'still-here'] as const)),
-                          );
-                          setReviewing(false);
-                        }}
-                        type="button"
-                      >
-                        All still here
-                      </button>
-                      <button
-                        className="secondary"
-                        disabled={mutationControlsDisabled}
-                        onClick={() => {
-                          setPacketOutcomes(
-                            new Map(activePackets.map(({ id }) => [id, 'taken'] as const)),
-                          );
-                          setReviewing(false);
-                        }}
-                        type="button"
-                      >
-                        All taken
-                      </button>
-                    </div>
                   </div>
                   <div className="reconciliation-list">
                     {activePackets.map((packet) => {
@@ -492,13 +464,54 @@ export function ReconciliationTool({
                               : outcome === 'taken'
                                 ? 'Will be marked completed'
                                 : outcome === 'discarded'
-                                  ? 'Cancels this packet and returns its streets to future generation'
+                                  ? 'Cancels this packet and returns its streets for future generation.'
                                   : 'Choose one outcome'}
                           </span>
                           {correctionStatus(packet)}
                         </article>
                       );
                     })}
+                  </div>
+                  <div className="reconciliation-bulk-actions">
+                    <button
+                      className="secondary"
+                      disabled={mutationControlsDisabled}
+                      onClick={() => {
+                        setPacketOutcomes(
+                          new Map(activePackets.map(({ id }) => [id, 'still-here'] as const)),
+                        );
+                        setReviewing(false);
+                      }}
+                      type="button"
+                    >
+                      All still here
+                    </button>
+                    <button
+                      className="secondary"
+                      disabled={mutationControlsDisabled}
+                      onClick={() => {
+                        setPacketOutcomes(
+                          new Map(activePackets.map(({ id }) => [id, 'taken'] as const)),
+                        );
+                        setReviewing(false);
+                      }}
+                      type="button"
+                    >
+                      All taken
+                    </button>
+                    <button
+                      className="danger"
+                      disabled={mutationControlsDisabled}
+                      onClick={() => {
+                        setPacketOutcomes(
+                          new Map(activePackets.map(({ id }) => [id, 'discarded'] as const)),
+                        );
+                        setReviewing(false);
+                      }}
+                      type="button"
+                    >
+                      All discarded
+                    </button>
                   </div>
                 </section>
               )}

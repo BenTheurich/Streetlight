@@ -2224,10 +2224,10 @@ button.administrator-account-trigger:not(:disabled):hover {
 }
 
 .reconciliation-bulk-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.3rem;
+  margin-top: 0.65rem;
 }
 
 .reconciliation-bulk-actions button {
@@ -2316,7 +2316,9 @@ button.administrator-account-trigger:not(:disabled):hover {
 }
 
 .reconciliation-disposition {
+  font-size: 0.66rem;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .reconciliation-disposition.unreviewed,
@@ -2378,8 +2380,8 @@ button.administrator-account-trigger:not(:disabled):hover {
 
 .reconciliation-outcome.discarded[aria-pressed="true"] {
   border-color: var(--error-ink);
-  background: var(--error-surface);
-  color: var(--error-ink);
+  background: var(--error-ink);
+  color: white;
 }
 
 .reconciliation-correction label {
