@@ -31,7 +31,8 @@ type OpenCoverageMapProps = {
   apartmentComplexes: CoverageWorkspaceApartment[];
   selectedSegmentId: string | null;
   selectionSource: CoverageSelectionSource | null;
-  onEditHeatmapRanges: () => void;
+  showApartmentMarkers: boolean;
+  onOpenMapSettings: () => void;
   onSelectSegment: (id: string) => void;
   fitOnMount?: boolean;
 };
@@ -56,7 +57,8 @@ export function OpenCoverageMap({
   apartmentComplexes,
   selectedSegmentId,
   selectionSource,
-  onEditHeatmapRanges,
+  showApartmentMarkers,
+  onOpenMapSettings,
   onSelectSegment,
   fitOnMount = true,
 }: OpenCoverageMapProps) {
@@ -69,11 +71,14 @@ export function OpenCoverageMap({
       'streetlight-boundary',
       'streetlight-coverage-selection',
       'streetlight-coverage',
-      ...apartmentLayerIds,
     ]) {
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visibility);
     }
-  }, [active, map]);
+    const apartmentVisibility = active && showApartmentMarkers ? 'visible' : 'none';
+    for (const id of apartmentLayerIds) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', apartmentVisibility);
+    }
+  }, [active, map, showApartmentMarkers]);
 
   useEffect(() => {
     if (!active || !map) return;
@@ -207,9 +212,9 @@ export function OpenCoverageMap({
     <fieldset className="map-legend coverage-legend">
       <legend className="sr-only">Coverage heatmap legend</legend>
       <button
-        aria-label="Edit heatmap ranges"
+        aria-label="Open map settings"
         className="coverage-legend-settings"
-        onClick={onEditHeatmapRanges}
+        onClick={onOpenMapSettings}
         type="button"
       >
         <svg aria-hidden="true" viewBox="0 0 24 24">

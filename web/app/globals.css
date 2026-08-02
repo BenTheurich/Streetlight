@@ -1533,6 +1533,87 @@ button.administrator-account-trigger:not(:disabled):hover {
   background: #e9e1d3;
 }
 
+.heatmap-settings-dialog h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.map-display-settings {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 1.1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.map-display-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0.35rem 0.45rem 0.35rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.map-display-toggle:hover {
+  border-color: #b7ab98;
+  background: var(--quiet-hover);
+}
+
+.map-display-toggle > span {
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.map-display-toggle input {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  min-height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #7f817f;
+  appearance: none;
+  cursor: pointer;
+  transition: background-color 160ms ease;
+}
+
+.map-display-toggle input::before {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgb(16 26 41 / 28%);
+  content: "";
+  transition: transform 160ms ease;
+}
+
+.map-display-toggle input:checked {
+  background: var(--selected);
+}
+
+.map-display-toggle input:checked::before {
+  transform: translateX(18px);
+}
+
+.map-display-toggle input:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
 .heatmap-settings-form {
   display: grid;
   gap: 0.65rem;

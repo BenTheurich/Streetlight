@@ -39,6 +39,24 @@ const tools: Array<{ id: WorkspaceTool; label: string; shortLabel: string }> = [
   { id: 'setup', label: 'Setup', shortLabel: 'Setup' },
 ];
 
+const apartmentMarkerPreferenceKey = 'streetlight:show-apartment-markers';
+
+function readApartmentMarkerPreference(): boolean {
+  try {
+    return window.localStorage.getItem(apartmentMarkerPreferenceKey) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function saveApartmentMarkerPreference(show: boolean): void {
+  try {
+    window.localStorage.setItem(apartmentMarkerPreferenceKey, String(show));
+  } catch {
+    return;
+  }
+}
+
 export function StreetlightWorkspace({
   administratorEmail,
   pendingPilotRequests,
@@ -90,6 +108,11 @@ export function StreetlightWorkspace({
   });
   const [overlayRoot, setOverlayRoot] = useState<HTMLDivElement | null>(null);
   const [heatmapSettingsOpen, setHeatmapSettingsOpen] = useState(false);
+  const [showApartmentMarkers, setShowApartmentMarkers] = useState(true);
+  useEffect(() => {
+    setShowApartmentMarkers(readApartmentMarkerPreference());
+  }, []);
+
   const progressYears = useMemo(() => outreachProgressYears(coverage), [coverage]);
   const progress = useMemo(
     () => buildOutreachProgress(coverage, progressYear),
@@ -236,6 +259,11 @@ export function StreetlightWorkspace({
     [refreshCoverage, refreshMapData, setupRequired],
   );
 
+  function updateApartmentMarkerPreference(show: boolean): void {
+    setShowApartmentMarkers(show);
+    saveApartmentMarkerPreference(show);
+  }
+
   function openTool(nextTool: WorkspaceTool): void {
     if (nextTool === tool) return;
     if (tool === 'setup' && setupView === 'territory' && territoryDirty && !territorySaving) {
@@ -354,11 +382,12 @@ export function StreetlightWorkspace({
             interactive={tool === 'coverage'}
             legend={coverage.legend}
             map={map}
-            onEditHeatmapRanges={() => setHeatmapSettingsOpen(true)}
+            onOpenMapSettings={() => setHeatmapSettingsOpen(true)}
             onSelectSegment={selectCoverageSegment}
             segments={coverage.segments}
             selectedSegmentId={tool === 'coverage' ? selectedSegmentId : null}
             selectionSource={coverageSelectionSource}
+            showApartmentMarkers={showApartmentMarkers}
           />
           <PacketProposalMap
             active={tool === 'packets' && packetView === 'generate'}
@@ -376,6 +405,8 @@ export function StreetlightWorkspace({
           <HeatmapSettingsOverlay
             onClose={() => setHeatmapSettingsOpen(false)}
             onSaved={setCoverage}
+            onShowApartmentMarkersChange={updateApartmentMarkerPreference}
+            showApartmentMarkers={showApartmentMarkers}
             open={heatmapSettingsOpen}
             thresholds={coverage.thresholds}
           />

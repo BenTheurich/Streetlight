@@ -117,7 +117,7 @@ test('reduced motion removes the indicator slide without weakening selection', a
   }, 'reduce');
 });
 
-test('heatmap settings controls keep 44px hit targets at desktop and tablet widths', async () => {
+test('map settings controls keep 44px hit targets at desktop and tablet widths', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     for (const viewport of [
@@ -129,18 +129,18 @@ test('heatmap settings controls keep 44px hit targets at desktop and tablet widt
         <style>${styles}</style>
         <section class="map-panel">
           <fieldset class="map-legend coverage-legend">
-            <button aria-label="Edit heatmap ranges" class="coverage-legend-settings"></button>
+            <button aria-label="Open map settings" class="coverage-legend-settings"></button>
           </fieldset>
           <section class="heatmap-settings-dialog">
             <header>
-              <h2>Heatmap ranges</h2>
-              <button aria-label="Close heatmap settings" class="icon-button"></button>
+              <h2>Map settings</h2>
+              <button aria-label="Close map settings" class="icon-button"></button>
             </header>
           </section>
         </section>
       `);
 
-      for (const name of ['Edit heatmap ranges', 'Close heatmap settings']) {
+      for (const name of ['Open map settings', 'Close map settings']) {
         const box = await page.getByRole('button', { name }).boundingBox();
         assert.ok(box);
         assert.ok(box.width >= 44, `${name} width was ${box.width}px at ${viewport.width}px`);

@@ -6,9 +6,11 @@ import type { CoverageWorkspace } from '@/lib/database';
 
 type HeatmapSettingsOverlayProps = {
   open: boolean;
+  showApartmentMarkers: boolean;
   thresholds: CoverageThresholds;
   onClose: () => void;
   onSaved: (workspace: CoverageWorkspace) => void;
+  onShowApartmentMarkersChange: (show: boolean) => void;
 };
 
 const fields: Array<{ key: keyof CoverageThresholds; label: string }> = [
@@ -19,12 +21,14 @@ const fields: Array<{ key: keyof CoverageThresholds; label: string }> = [
 
 export function HeatmapSettingsOverlay({
   open,
+  showApartmentMarkers,
   thresholds,
   onClose,
   onSaved,
+  onShowApartmentMarkersChange,
 }: HeatmapSettingsOverlayProps) {
   const dialogRef = useRef<HTMLElement>(null);
-  const firstInputRef = useRef<HTMLInputElement>(null);
+  const firstControlRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState({
     yellowAfterDays: String(thresholds.yellowAfterDays),
     orangeAfterDays: String(thresholds.orangeAfterDays),
@@ -42,7 +46,7 @@ export function HeatmapSettingsOverlay({
       redAfterDays: String(thresholds.redAfterDays),
     });
     setError('');
-    const frame = requestAnimationFrame(() => firstInputRef.current?.focus());
+    const frame = requestAnimationFrame(() => firstControlRef.current?.focus());
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -113,7 +117,7 @@ export function HeatmapSettingsOverlay({
   return (
     <div className="heatmap-settings-overlay">
       <button
-        aria-label="Dismiss heatmap settings"
+        aria-label="Dismiss map settings"
         className="heatmap-settings-backdrop"
         onClick={onClose}
         tabIndex={-1}
@@ -127,9 +131,9 @@ export function HeatmapSettingsOverlay({
         role="dialog"
       >
         <header>
-          <h2 id="heatmap-settings-title">Heatmap ranges</h2>
+          <h2 id="heatmap-settings-title">Map settings</h2>
           <button
-            aria-label="Close heatmap settings"
+            aria-label="Close map settings"
             className="icon-button"
             onClick={onClose}
             type="button"
@@ -139,8 +143,22 @@ export function HeatmapSettingsOverlay({
             </svg>
           </button>
         </header>
+        <section aria-labelledby="map-display-settings-title" className="map-display-settings">
+          <h3 id="map-display-settings-title">Map display</h3>
+          <label className="map-display-toggle">
+            <span>Show apartment markers</span>
+            <input
+              checked={showApartmentMarkers}
+              onChange={(event) => onShowApartmentMarkersChange(event.target.checked)}
+              ref={firstControlRef}
+              role="switch"
+              type="checkbox"
+            />
+          </label>
+        </section>
         <form className="heatmap-settings-form" onSubmit={(event) => void saveRanges(event)}>
-          {fields.map(({ key, label }, index) => (
+          <h3>Heatmap ranges</h3>
+          {fields.map(({ key, label }) => (
             <label key={key}>
               {label}
               <span>
@@ -154,7 +172,6 @@ export function HeatmapSettingsOverlay({
                     setError('');
                     setDraft((current) => ({ ...current, [key]: event.target.value }));
                   }}
-                  ref={index === 0 ? firstInputRef : undefined}
                   required
                   step="1"
                   type="number"
@@ -171,7 +188,7 @@ export function HeatmapSettingsOverlay({
           )}
           <div className="heatmap-settings-actions">
             <button className="secondary" disabled={saving} onClick={onClose} type="button">
-              Cancel
+              Close
             </button>
             <button disabled={saving} type="submit">
               {saving ? 'Saving…' : 'Save ranges'}

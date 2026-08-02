@@ -58,21 +58,25 @@ test('the shared coverage map expands apartment clusters and removes its click h
   assert.match(source, /map\.off\('click', 'streetlight-apartment-clusters', expand\)/);
 });
 
-test('heatmap ranges are edited from the shared map legend instead of the coverage sidebar', () => {
+test('map display and heatmap ranges are edited from the shared legend', () => {
   const workspace = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
   const map = readFileSync(new URL('./OpenCoverageMap.tsx', import.meta.url), 'utf8');
   const dashboard = readFileSync(new URL('./CoverageDashboard.tsx', import.meta.url), 'utf8');
   const settings = readFileSync(new URL('./HeatmapSettingsOverlay.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 
-  assert.match(map, /aria-label="Edit heatmap ranges"/);
+  assert.match(map, /aria-label="Open map settings"/);
   assert.match(map, /<circle cx="12" cy="12" r="3"/);
   assert.match(workspace, /<HeatmapSettingsOverlay/);
   assert.doesNotMatch(dashboard, /Heatmap ranges/);
   assert.match(settings, /days since last outreach/);
   assert.doesNotMatch(settings, /Choose how long a street waits/);
+  assert.match(workspace, /showApartmentMarkers={showApartmentMarkers}/);
+  assert.match(workspace, /localStorage\.setItem\(apartmentMarkerPreferenceKey/);
   assert.match(settings, /className="heatmap-settings-backdrop"/);
-  assert.match(settings, /aria-label="Dismiss heatmap settings"/);
+  assert.match(settings, /Show apartment markers/);
+  assert.match(settings, /role="switch"/);
+  assert.match(settings, /aria-label="Dismiss map settings"/);
   assert.match(styles, /\.heatmap-settings-form input::-webkit-inner-spin-button/);
   assert.match(styles, /width: min\(100%, 390px\)/);
 });
