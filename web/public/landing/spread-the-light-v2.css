@@ -552,6 +552,56 @@ body.is-daylight .site-header .button-solid:hover,
   display: none;
 }
 
+.theme-verse {
+  position: relative;
+  min-height: min(68vh, 720px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  padding: clamp(120px, 14vw, 210px) 24px;
+  color: var(--ink);
+  background: var(--paper);
+  text-align: center;
+}
+.theme-verse::before {
+  position: absolute;
+  z-index: -1;
+  width: min(78vw, 900px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(231, 173, 80, 0.28),
+    rgba(231, 173, 80, 0.1) 38%,
+    transparent 70%
+  );
+  content: "";
+}
+.theme-verse blockquote {
+  margin: 0;
+}
+.theme-verse p {
+  max-width: 16ch;
+  margin: 0 auto;
+  font-family: Georgia, serif;
+  font-size: clamp(64px, 7.8vw, 96px);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 0.94;
+  text-wrap: balance;
+}
+.theme-verse cite {
+  display: block;
+  margin-top: 32px;
+  color: #925311;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
 .product-overview {
   position: relative;
   overflow: hidden;
@@ -1124,6 +1174,17 @@ body.is-daylight .site-header .button-solid:hover,
     justify-self: center;
     border-radius: 0;
     box-shadow: 14px 22px 46px rgba(25, 34, 43, 0.2);
+  }
+  .theme-verse {
+    min-height: 70svh;
+    padding: 100px 20px;
+  }
+  .theme-verse p {
+    max-width: 10ch;
+    font-size: clamp(52px, 14.5vw, 72px);
+  }
+  .theme-verse cite {
+    margin-top: 26px;
   }
   .product-overview {
     padding: 82px 20px;

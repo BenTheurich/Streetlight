@@ -231,6 +231,13 @@ export function PublicLanding() {
           </div>
         </section>
 
+        <section className="theme-verse" aria-label="Streetlight theme verse">
+          <blockquote>
+            <p>Ye are the light of the world.</p>
+            <cite>Matthew 5:14</cite>
+          </blockquote>
+        </section>
+
         <section className="product-overview" id="product-overview">
           <header className="overview-heading">
             <h2>One clear path from the coverage map to the outreach table.</h2>

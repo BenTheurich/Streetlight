@@ -9,6 +9,11 @@ test('the public landing retains the approved pilot drawer and administrator log
   assert.match(source, /strategy="afterInteractive"/);
   assert.doesNotMatch(source, /<script src="\/landing\/spread-the-light-v2\.js"/);
   assert.match(source, /Carry the light/);
+  assert.match(source, /Ye are the light of the world\./);
+  assert.match(source, /Matthew 5:14/);
+  assert.ok(
+    source.indexOf('className="theme-verse"') < source.indexOf('className="product-overview"'),
+  );
   assert.match(source, /href="\/login"/);
   assert.match(source, /data-pilot-open/);
   assert.match(source, /name="churchName"/);
