@@ -756,7 +756,7 @@ export function buildWorkspaceMapStyle(
     type: 'geojson',
     cluster: true,
     clusterRadius: 44,
-    clusterMaxZoom: 15,
+    clusterMaxZoom: 16,
     data: {
       type: 'FeatureCollection',
       features: data.apartmentComplexes.map((apartment) => ({
@@ -866,7 +866,7 @@ export function buildWorkspaceMapStyle(
       filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-color': ['get', 'color'],
-        'circle-radius': 24,
+        'circle-radius': ['case', ['get', 'selected'], 17, 14],
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 2,
       },
@@ -878,7 +878,7 @@ export function buildWorkspaceMapStyle(
       filter: ['!', ['has', 'point_count']],
       layout: {
         'text-field': ['get', 'label'],
-        'text-size': 20,
+        'text-size': 13,
         'text-font': ['Noto Sans Bold'],
         'text-allow-overlap': true,
         'text-ignore-placement': true,

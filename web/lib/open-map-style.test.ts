@@ -412,7 +412,7 @@ test('workspace map clusters apartments identically over map and satellite style
     const source = style.sources.streetlightApartments as Record<string, unknown>;
     assert.equal(source.cluster, true);
     assert.equal(source.clusterRadius, 44);
-    assert.equal(source.clusterMaxZoom, 15);
+    assert.equal(source.clusterMaxZoom, 16);
 
     const cluster = style.layers.find(({ id }) => id === 'streetlight-apartment-clusters');
     const count = style.layers.find(({ id }) => id === 'streetlight-apartment-cluster-count');
@@ -425,10 +425,10 @@ test('workspace map clusters apartments identically over map and satellite style
     assert.equal(count?.layout?.['text-allow-overlap'], true);
     assert.deepEqual(marker?.filter, ['!', ['has', 'point_count']]);
     assert.equal(Array.isArray(marker?.paint?.['circle-color']), true);
-    assert.equal(marker?.paint?.['circle-radius'], 24);
+    assert.deepEqual(marker?.paint?.['circle-radius'], ['case', ['get', 'selected'], 17, 14]);
     assert.deepEqual(label?.filter, ['!', ['has', 'point_count']]);
     assert.deepEqual(label?.layout?.['text-field'], ['get', 'label']);
-    assert.equal(label?.layout?.['text-size'], 20);
+    assert.equal(label?.layout?.['text-size'], 13);
     assert.equal(label?.layout?.['text-allow-overlap'], true);
     assert.ok(
       style.layers.findIndex(({ id }) => id === 'streetlight-apartment-labels') >

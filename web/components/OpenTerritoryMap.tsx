@@ -304,7 +304,6 @@ export function OpenTerritoryMap({
         })),
     });
     for (const id of apartmentLayerIds) map.setLayoutProperty(id, 'visibility', 'visible');
-    map.setPaintProperty(circleId, 'circle-radius', ['case', ['get', 'selected'], 27, 24]);
     map.setPaintProperty(circleId, 'circle-stroke-width', ['case', ['get', 'selected'], 3, 2]);
     const select = (event: MapLayerMouseEvent) => {
       if (mutationLocked) return;
