@@ -2198,7 +2198,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   line-height: 1.4;
 }
 
-.packet-confirmation > div {
+.packet-confirmation > div:not(.operation-status) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.45rem;

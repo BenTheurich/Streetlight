@@ -32,7 +32,7 @@ export const mapMarkerStyle = {
 export function mapPinDataUrl(symbol: 'church' | 'start'): string {
   const symbolMarkup =
     symbol === 'church'
-      ? `<path d="M20.5 11.5h3v4.5H27v3h-3.5v7.5h-3V19H17v-3h3.5Z" fill="${mapMarkerStyle.outline}"/>`
+      ? `<path d="M20.8 11.5h2.4v4.7H27v2.4h-3.8v7.9h-2.4v-7.9H17v-2.4h3.8Z" fill="${mapMarkerStyle.outline}"/>`
       : `<circle cx="22" cy="17.5" r="4.6" fill="${mapMarkerStyle.outline}"/>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44"><path d="M22 7.5c-5.8 0-10.5 4.7-10.5 10.5 0 7.5 10.5 17.6 10.5 17.6S32.5 25.5 32.5 18C32.5 12.2 27.8 7.5 22 7.5Z" fill="${mapMarkerStyle.fill}" stroke="${mapMarkerStyle.outline}" stroke-linejoin="round" stroke-width="2.4"/>${symbolMarkup}</svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;

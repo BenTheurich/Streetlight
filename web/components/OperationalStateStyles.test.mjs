@@ -152,3 +152,33 @@ test('heatmap settings controls keep 44px hit targets at desktop and tablet widt
     await browser.close();
   }
 });
+
+test('packet finalization status keeps its spinner beside one-line left-aligned copy', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 760, height: 500 } });
+    await page.setContent(`
+      <style>${styles}</style>
+      <main class="territory-page">
+        <section class="packet-confirmation" style="width: 640px">
+          <div class="operation-status surface busy">
+            <span class="operation-status-cue"></span>
+            <div class="operation-status-copy">
+              <strong>Finalizing packet batch</strong>
+              <span>Streetlight is reserving this batch before preparing its PDF.</span>
+            </div>
+          </div>
+        </section>
+      </main>
+    `);
+
+    const cue = await page.locator('.operation-status-cue').boundingBox();
+    const copy = await page.locator('.operation-status-copy').boundingBox();
+    const detail = await page.locator('.operation-status-copy span').boundingBox();
+    assert.ok(cue && copy && detail);
+    assert.ok(copy.x - cue.x < 50, `copy started ${copy.x - cue.x}px after the spinner`);
+    assert.ok(detail.height < 20, `detail wrapped to ${detail.height}px`);
+  } finally {
+    await browser.close();
+  }
+});
