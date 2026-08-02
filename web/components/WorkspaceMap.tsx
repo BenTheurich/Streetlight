@@ -131,6 +131,7 @@ export function WorkspaceMap({
     if (!map || appliedMapTypeRef.current === mapType || !data) return;
     appliedMapTypeRef.current = mapType;
     onMapChangeRef.current(null);
+    map.once('style.load', () => onMapChangeRef.current(map));
     map.setStyle(
       buildWorkspaceMapStyle(
         baseStyleJson as unknown as OpenMapStyle,
@@ -138,7 +139,6 @@ export function WorkspaceMap({
         mapType === 'satellite',
       ) as maplibregl.StyleSpecification,
     );
-    map.once('style.load', () => onMapChangeRef.current(map));
   }, [data, mapType]);
 
   useEffect(() => {
