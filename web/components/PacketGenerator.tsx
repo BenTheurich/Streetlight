@@ -10,6 +10,7 @@ import {
   readMutationResult,
 } from './operation-state';
 import { packetDownloadProgress } from './packet-download-progress';
+import { packetToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
 type PacketGeneratorProps = {
   active: boolean;
@@ -21,6 +22,7 @@ type PacketGeneratorProps = {
   onFinalized: (batch: FinalizedBatch) => Promise<void>;
   onResultChange: (result: ReviewedPacketGenerationResult | null) => void;
   onSelectedIndexChange: (index: number | null) => void;
+  onViewChange: (view: 'generate' | 'reconcile') => void;
 };
 
 type RequestRow = {
@@ -51,6 +53,7 @@ export function PacketGenerator({
   onFinalized,
   onResultChange,
   onSelectedIndexChange,
+  onViewChange,
 }: PacketGeneratorProps) {
   const [rows, setRows] = useState<RequestRow[]>([initialRow]);
   const [customName, setCustomName] = useState('');
@@ -263,7 +266,13 @@ export function PacketGenerator({
   });
 
   return (
-    <aside className="territory-sidebar packet-sidebar" hidden={!active}>
+    <aside className="territory-sidebar packet-sidebar tool-sidebar" hidden={!active}>
+      <ToolViewSwitcher
+        label="Packet workflow"
+        onChange={(view) => onViewChange(view as 'generate' | 'reconcile')}
+        options={packetToolViews}
+        value="generate"
+      />
       <div className="sidebar-scroll">
         {qualityWarnings.length > 0 && (
           <div className="import-quality-warning" role="alert">
@@ -397,7 +406,10 @@ export function PacketGenerator({
                         {proposal.kind === 'apartment' ? ' · Apartment complex' : ''}
                       </strong>
                       <span>Target {proposal.targetHomes} tracts</span>
-                      <span>{proposal.estimatedHomes} estimated tracts</span>
+                      <span>
+                        {proposal.estimatedHomes} estimated tract
+                        {proposal.estimatedHomes === 1 ? '' : 's'}
+                      </span>
                     </button>
                     {selected && (
                       <div className="packet-card-detail">
@@ -448,7 +460,8 @@ export function PacketGenerator({
                     <strong>Finalize this batch?</strong>
                     <p>
                       {result.proposals.length} packet
-                      {result.proposals.length === 1 ? '' : 's'} · {proposedHomes} estimated tracts
+                      {result.proposals.length === 1 ? '' : 's'} · {proposedHomes} estimated tract
+                      {proposedHomes === 1 ? '' : 's'}
                     </p>
                     <p>These streets and apartment complexes will be reserved for this outreach.</p>
                     <div>

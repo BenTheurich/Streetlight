@@ -119,7 +119,7 @@ export function OpenReconciliationOverlay({
         content.className = 'reconciliation-apartment-marker';
         content.style.setProperty('--reconciliation-color', dispositionColors[disposition(packet)]);
         content.textContent = 'A';
-        content.title = `${packet.code} · ${packet.estimatedTracts} estimated tracts`;
+        content.title = `${packet.code} · ${packet.estimatedTracts} estimated tract${packet.estimatedTracts === 1 ? '' : 's'}`;
         markers.push(
           new Marker({ element: content })
             .setLngLat(packet.apartment?.position as [number, number])

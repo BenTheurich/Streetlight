@@ -38,11 +38,16 @@ test('coverage makes the current outreach continuation explicit without hiding o
   assert.match(source, /onOpenReconciliation/);
 });
 
-test('Current Work opens reconciliation through the guarded tool transition', () => {
+test('the four top-level tools keep packet and setup workflows together', () => {
   const source = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
 
-  assert.match(source, /onOpenReconciliation=\{\(\) => openTool\('reconciliation'\)\}/);
-  assert.doesNotMatch(source, /onOpenReconciliation=\{\(\) => setTool\('reconciliation'\)\}/);
+  assert.match(source, /label: 'Packets'/);
+  assert.match(source, /label: 'Outreach progress'/);
+  assert.match(source, /label: 'Setup'/);
+  assert.doesNotMatch(source, /id: 'reconciliation'/);
+  assert.match(source, /setPacketView\('reconcile'\);\s*openTool\('packets'\)/);
+  assert.match(source, /<PrintoutSettings/);
+  assert.match(source, /<OutreachProgress/);
 });
 
 test('the shared coverage map expands apartment clusters and removes its click handler', () => {

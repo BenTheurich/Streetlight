@@ -914,6 +914,24 @@ Open Outreach Progress with seeded history, verify the administrator metrics, ru
 playback, leave presentation mode unattended through a complete repeat, inspect the completed
 full-screen state at desktop and TV-sized widths, and print the static view.
 
+### Initial implementation evidence
+
+- The authenticated workspace now has exactly four top-level tools. Generate and Reconcile retain
+  their existing stateful workflows inside Packets; Territory and Printouts sit inside Setup.
+- Outreach Progress derives yearly dates, cumulative map state, completed packets, covered street
+  sections, apartment complexes, and estimated homes from effective append-only coverage records.
+  Its administrator, presentation, and print modes reuse one composition and reduced-motion skips
+  playback animation.
+- Church-wide packet footer text and its optional reference are persisted, removable, previewed in
+  Setup, and rendered directly into future packet PDFs without per-batch overrides.
+- The carried Phase 9 singular `estimated tract` copy is corrected. Focused settings, PDF,
+  progress, and workspace checks pass 26 of 26; TypeScript passes; and a clean localhost browser
+  pass verified all four tools, both internal switchers, cumulative playback, and presentation
+  mode without changing Coverage's approved legend or estimated-progress bar.
+- Phase 10 remains in progress at the founder-review checkpoint for fast visual iteration. The
+  complete repeat, reduced-motion emulation, and print-dialog inspection remain part of final
+  Phase 10 acceptance rather than this initial implementation pass.
+
 ### Human review
 
 The founder confirms that the page feels like celebrating faithful neighborhood outreach rather

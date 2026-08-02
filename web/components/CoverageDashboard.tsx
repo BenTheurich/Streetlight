@@ -205,7 +205,8 @@ export function CoverageDashboard({
                         <strong>{content.streetName}</strong>
                         <span>
                           {content.sections} {content.sections === 1 ? 'section' : 'sections'} ·{' '}
-                          {content.estimatedTracts} estimated tracts · Last outreach:{' '}
+                          {content.estimatedTracts} estimated tract
+                          {content.estimatedTracts === 1 ? '' : 's'} · Last outreach:{' '}
                           {content.lastOutreach === 'mixed'
                             ? 'Mixed dates'
                             : content.lastOutreach

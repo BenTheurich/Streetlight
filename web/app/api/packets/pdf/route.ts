@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
-import { getPacketDownloadSelection } from '../../../../lib/database.ts';
+import { getChurchPrintoutSettings, getPacketDownloadSelection } from '../../../../lib/database.ts';
 import { renderOpenPacketMaps } from '../../../../lib/open-map-renderer.ts';
 import type { PacketDownloadSelection } from '../../../../lib/packet-finalization.ts';
 import { renderPacketPdf } from '../../../../lib/packet-pdf.ts';
@@ -21,13 +21,10 @@ export async function getPacketPdf(
   try {
     const selection = getPacketDownloadSelection(scope);
     const logo = await readFile(path.join(process.cwd(), 'public', 'StreetlightLogo.png'));
-    const footerVerse = await readFile(
-      path.join(process.cwd(), 'public', 'StreetlightFooterVerse.png'),
-    );
     const maps = await (options.renderMaps ?? renderOpenPacketMaps)(selection);
     const bytes = await renderPacketPdf(selection, {
       logo,
-      footerVerse,
+      footer: getChurchPrintoutSettings(),
       renderMap: async (packet) => {
         const map = maps.get(packet.id);
         if (!map) throw new Error('Could not render packet maps');

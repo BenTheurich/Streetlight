@@ -39,6 +39,7 @@ import {
   type ReconciliationPacket,
   type ReconciliationWorkspace,
 } from './reconciliation.ts';
+import { type ChurchPrintoutSettings, parseChurchPrintoutSettings } from './settings.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import {
   type LineString,
@@ -413,6 +414,49 @@ function parseGeometry<T extends LineString | ImportedMapBuilding['geometry']>(j
 
 function todayForWorkspace(): string {
   return calendarDateInTimeZone(new Date(), workspaceTimeZone());
+}
+
+export function getChurchPrintoutSettings(filename?: string): ChurchPrintoutSettings {
+  const database = openWorkspaceDatabase(filename);
+  try {
+    const row = database
+      .prepare(
+        `SELECT packet_footer_message, packet_footer_reference
+        FROM churches
+        WHERE id = ?`,
+      )
+      .get(workspaceChurchId()) as
+      | { packet_footer_message: string; packet_footer_reference: string }
+      | undefined;
+    if (!row) throw new Error('Church workspace not found');
+    return { message: row.packet_footer_message, reference: row.packet_footer_reference };
+  } finally {
+    database.close();
+  }
+}
+
+export function saveChurchPrintoutSettings(
+  value: unknown,
+  filename?: string,
+): ChurchPrintoutSettings {
+  const settings = parseChurchPrintoutSettings(value);
+  const database = openWorkspaceDatabase(filename);
+  try {
+    if (
+      database
+        .prepare(
+          `UPDATE churches
+          SET packet_footer_message = ?, packet_footer_reference = ?
+          WHERE id = ?`,
+        )
+        .run(settings.message, settings.reference, workspaceChurchId()).changes !== 1
+    ) {
+      throw new Error('Church workspace not found');
+    }
+    return settings;
+  } finally {
+    database.close();
+  }
 }
 
 export function getCoverageWorkspace(

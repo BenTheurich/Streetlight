@@ -2321,6 +2321,296 @@ button.administrator-account-trigger:not(:disabled):hover {
   font: 800 12px / 1 sans-serif;
 }
 
+.tool-view-switcher {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 5px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.tool-view-switcher button {
+  min-height: 42px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tool-view-switcher button:not(.active):not(:disabled):hover {
+  background: #fbf8f2;
+  color: var(--ink);
+}
+
+.tool-view-switcher button.active {
+  background: var(--ink);
+  color: white;
+}
+
+.printout-settings-intro h1,
+.progress-intro h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.printout-settings-intro p,
+.progress-intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+#printout-settings-form {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+}
+
+#printout-settings-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+#printout-settings-form label span {
+  font-weight: 500;
+}
+
+.printout-preview {
+  margin-top: 1.35rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbf8f2;
+}
+
+.printout-preview > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+}
+
+.printout-preview blockquote {
+  margin: 1.2rem auto 0.35rem;
+  text-align: center;
+}
+
+.printout-preview blockquote p {
+  margin: 0;
+  color: var(--ink);
+  font-family: Georgia, serif;
+  font-size: 0.94rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.printout-preview cite {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-style: normal;
+}
+
+.printout-preview > p {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.printout-settings-actions > div:not(.operation-status) {
+  grid-template-columns: 1fr 1.35fr;
+}
+
+.outreach-progress-sidebar {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.outreach-progress-sidebar .coverage-field {
+  display: grid;
+  gap: 0.35rem;
+  margin: 1.25rem 0;
+  font-weight: 800;
+}
+
+.progress-metrics {
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+
+.progress-metrics > div {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.progress-metrics dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.progress-metrics dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.progress-playback input {
+  accent-color: var(--ink);
+}
+
+.progress-playback p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.progress-actions > div:not(.operation-status) {
+  grid-template-columns: 1fr 1.35fr;
+  margin-bottom: 0.5rem;
+}
+
+.progress-map-legend {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.progress-map-legend span {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.progress-map-legend .progress-complete {
+  background: #d79b2b;
+  box-shadow: 0 0 0 3px #fff0b8;
+}
+
+.progress-map-legend .progress-context {
+  background: #8f9b94;
+}
+
+.progress-stage {
+  min-height: 100dvh;
+}
+
+.progress-stage .territory-header {
+  display: none;
+}
+
+.progress-stage .territory-workspace {
+  height: 100dvh;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 24vw);
+}
+
+.progress-stage .layers-control {
+  display: none;
+}
+
+.progress-stage-sidebar {
+  border-left-color: rgb(255 253 247 / 18%);
+  background: var(--ink);
+  color: white;
+}
+
+.progress-stage-copy {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(2rem, 5vw, 4.5rem) clamp(1.5rem, 3vw, 3rem);
+}
+
+.progress-stage-copy h1 {
+  margin: 0;
+  color: var(--paper);
+  font-family: Georgia, serif;
+  font-size: clamp(2.5rem, 4.5vw, 5rem);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+}
+
+.progress-stage-copy > p {
+  margin: 0.85rem 0 2rem;
+  color: #d9d3c7;
+  font-size: 0.8rem;
+}
+
+.progress-stage .progress-metrics {
+  border-color: rgb(255 253 247 / 18%);
+}
+
+.progress-stage .progress-metrics > div {
+  border-color: rgb(255 253 247 / 18%);
+}
+
+.progress-stage .progress-metrics dt {
+  color: #d9d3c7;
+}
+
+.progress-stage .progress-metrics dd {
+  color: white;
+  font-size: 1.35rem;
+}
+
+.progress-stage-timeline {
+  margin-top: 2rem;
+}
+
+.progress-stage-timeline > strong,
+.progress-stage-timeline > span {
+  display: block;
+}
+
+.progress-stage-timeline > strong {
+  color: var(--paper);
+  font-size: 0.9rem;
+}
+
+.progress-stage-timeline > span {
+  margin-top: 0.3rem;
+  color: #d9d3c7;
+  font-size: 0.68rem;
+}
+
+.progress-stage-timeline > div {
+  height: 5px;
+  margin-top: 1rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 253 247 / 18%);
+}
+
+.progress-stage-timeline > div span {
+  display: block;
+  width: var(--progress-completion);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--amber);
+  transition: width 650ms ease;
+}
+
+.progress-presentation-exit {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+}
+
 .administrator-account-badge {
   display: inline-grid;
   min-width: 1.25rem;
@@ -2644,8 +2934,10 @@ button.administrator-account-trigger:not(:disabled):hover {
     transition: none;
   }
 
-  .operation-status.busy .operation-status-cue {
+  .operation-status.busy .operation-status-cue,
+  .progress-stage-timeline > div span {
     animation: none;
+    transition: none;
   }
 }
 
@@ -2718,5 +3010,55 @@ button.administrator-account-trigger:not(:disabled):hover {
 
   .operation-status.global .operation-status-action {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1024px) {
+  .progress-stage.territory-page {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .progress-stage .territory-workspace {
+    height: 100dvh;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 34vw);
+    grid-template-rows: 1fr;
+  }
+
+  .progress-stage-sidebar {
+    border-top: 0;
+    border-left: 1px solid rgb(255 253 247 / 18%);
+  }
+}
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 0;
+  }
+
+  .progress-print.territory-page,
+  .progress-print .territory-workspace {
+    width: 100vw;
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .progress-print .territory-workspace {
+    grid-template-columns: minmax(0, 1fr) 28vw;
+    grid-template-rows: 1fr;
+  }
+
+  .progress-print .progress-stage-sidebar {
+    border-top: 0;
+    border-left: 1px solid rgb(255 253 247 / 18%);
+    print-color-adjust: exact;
+  }
+
+  .progress-presentation-exit,
+  .progress-print .maplibregl-control-container {
+    display: none;
   }
 }

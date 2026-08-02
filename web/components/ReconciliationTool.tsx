@@ -10,6 +10,7 @@ import {
 import { OpenReconciliationOverlay } from './OpenReconciliationOverlay';
 import { OperationStatus } from './OperationStatus';
 import { isReconciliationWorkspacePayload, readMutationResult } from './operation-state';
+import { packetToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(
@@ -44,10 +45,12 @@ export function ReconciliationTool({
   active,
   map,
   onChanged,
+  onViewChange,
 }: {
   active: boolean;
   map: MapLibreMap | null;
   onChanged: () => Promise<void>;
+  onViewChange: (view: 'generate' | 'reconcile') => void;
 }) {
   const [workspace, setWorkspace] = useState<ReconciliationWorkspace | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
@@ -305,7 +308,13 @@ export function ReconciliationTool({
         presentIds={presentIds}
         selectedPacketId={selectedPacketId}
       />
-      <aside className="territory-sidebar reconciliation-sidebar" hidden={!active}>
+      <aside className="territory-sidebar reconciliation-sidebar tool-sidebar" hidden={!active}>
+        <ToolViewSwitcher
+          label="Packet workflow"
+          onChange={(view) => onViewChange(view as 'generate' | 'reconcile')}
+          options={packetToolViews}
+          value="reconcile"
+        />
         <div className="sidebar-scroll" inert={operation?.kind === 'confirm'}>
           {loading && (
             <OperationStatus
@@ -435,7 +444,8 @@ export function ReconciliationTool({
                           >
                             <strong>{packet.code}</strong>
                             <span>
-                              {packet.estimatedTracts} estimated tracts ·{' '}
+                              {packet.estimatedTracts} estimated tract
+                              {packet.estimatedTracts === 1 ? '' : 's'} ·{' '}
                               {packet.kind === 'apartment' ? 'Apartment' : 'Street'}
                             </span>
                             <span>{packet.start.address}</span>

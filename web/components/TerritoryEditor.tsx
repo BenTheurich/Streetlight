@@ -33,6 +33,7 @@ import {
   readMutationResult,
   territoryLeaveControlsDisabled,
 } from './operation-state';
+import { setupToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
 type PendingAddress = {
   formattedAddress: string;
@@ -94,6 +95,7 @@ export function TerritoryEditor({
   onSaved,
   onSaveAndLeave,
   onStay,
+  onViewChange,
   pendingLeave,
   setupRequired,
 }: {
@@ -108,6 +110,7 @@ export function TerritoryEditor({
   onSaved: (workspace: TerritoryWorkspace) => Promise<void>;
   onSaveAndLeave: () => void;
   onStay: () => void;
+  onViewChange: (view: 'territory' | 'printouts') => void;
   pendingLeave: boolean;
   setupRequired: boolean;
 }) {
@@ -199,6 +202,10 @@ export function TerritoryEditor({
           segment.roadGroupId === selectedHiddenRoadGroupId,
       )
     : [];
+  const selectedHiddenRoadTracts = selectedHiddenRoadSegments.reduce(
+    (total, segment) => total + segment.estimatedHomes,
+    0,
+  );
   const selectedSegment =
     live.segments.find(
       (segment) =>
@@ -582,7 +589,15 @@ export function TerritoryEditor({
           overlayRoot,
         )}
 
-      <aside aria-busy={saving} className="territory-sidebar" hidden={!active}>
+      <aside aria-busy={saving} className="territory-sidebar tool-sidebar" hidden={!active}>
+        {!setupRequired && (
+          <ToolViewSwitcher
+            label="Setup views"
+            onChange={(view) => onViewChange(view as 'territory' | 'printouts')}
+            options={setupToolViews}
+            value="territory"
+          />
+        )}
         <div className="sidebar-scroll" inert={saving || verificationRequired}>
           {(savedWorkspace.import.quality?.warnings.length ?? 0) > 0 && (
             <div className="import-quality-warning" role="alert">
@@ -865,12 +880,9 @@ export function TerritoryEditor({
                 <strong>{selectedHiddenRoadSegments[0].streetName}</strong>
                 <span>
                   {selectedHiddenRoadSegments.length} segment
-                  {selectedHiddenRoadSegments.length === 1 ? '' : 's'} ·{' '}
-                  {selectedHiddenRoadSegments.reduce(
-                    (total, segment) => total + segment.estimatedHomes,
-                    0,
-                  )}{' '}
-                  estimated tracts
+                  {selectedHiddenRoadSegments.length === 1 ? '' : 's'} · {selectedHiddenRoadTracts}{' '}
+                  estimated tract
+                  {selectedHiddenRoadTracts === 1 ? '' : 's'}
                 </span>
                 <button
                   onClick={() => {
