@@ -2043,6 +2043,36 @@ button.administrator-account-trigger:not(:disabled):hover {
   padding: 0.15rem 0.3rem 0.15rem 0.1rem;
 }
 
+.packet-proposal-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: start;
+  gap: 0.45rem;
+}
+
+.packet-proposal-delete {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
+}
+
+.packet-proposal-delete svg {
+  width: 19px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.packet-proposal-delete:not(:disabled):hover {
+  border-color: var(--red);
+  background: var(--error-surface);
+  color: var(--error-ink);
+}
+
 .packet-card {
   overflow: hidden;
   border: 1px solid var(--line);

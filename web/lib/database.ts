@@ -921,16 +921,25 @@ export function finalizePacketBatch(
   const database = openWorkspaceDatabase(options.filename);
   database.exec('BEGIN IMMEDIATE');
   try {
-    const proposals = generatePacketProposals({
+    const generatedProposals = generatePacketProposals({
       ...getPacketGenerationWorkspace(options.filename, options.asOf ?? todayForWorkspace()),
       requests: input.requests,
     }).proposals;
     if (
-      proposals.length === 0 ||
-      packetProposalFingerprint(proposals) !== input.proposalFingerprint
+      generatedProposals.length === 0 ||
+      packetProposalFingerprint(generatedProposals) !== input.proposalFingerprint ||
+      input.proposalIndexes.length === 0 ||
+      input.proposalIndexes.some(
+        (index, position, indexes) =>
+          !Number.isSafeInteger(index) ||
+          index < 0 ||
+          index >= generatedProposals.length ||
+          (position > 0 && index <= indexes[position - 1]),
+      )
     ) {
       throw new PacketProposalConflictError('Packet proposals changed');
     }
+    const proposals = input.proposalIndexes.map((index) => generatedProposals[index]);
 
     const batchId = randomUUID();
     const name = customName ?? automaticBatchName(now);

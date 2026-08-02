@@ -81,6 +81,8 @@ test('proposal rows expand and collapse inline without a separate show-all contr
   const source = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /onSelectedIndexChange\(selected \? null : index\)/);
+  assert.match(source, /aria-label={`Delete Packet \$\{index \+ 1\} proposal`}/);
+  assert.match(source, /proposalIndexes: result\.proposalIndexes/);
   assert.doesNotMatch(source, />\s*Show all\s*</);
   assert.match(source, /!finalized && result\.proposals\.length > 0/);
 });
@@ -98,7 +100,7 @@ test('one packet operation lock owns every mutation and PDF entry point', () => 
   const source = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /const packetOperationBusy = packetRequestControlsDisabled/);
-  assert.equal(source.match(/disabled={packetOperationBusy}/g)?.length, 10);
+  assert.equal(source.match(/disabled={packetOperationBusy}/g)?.length, 11);
   assert.match(source, /disabled={packetOperationBusy \|\| activePackets === 0}/);
   assert.equal(source.match(/if \(packetOperationBusy\) return;/g)?.length, 3);
 });

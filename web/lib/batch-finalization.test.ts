@@ -195,6 +195,7 @@ function reviewedInput(filename: string, targetHomes = 16): PacketFinalizationIn
   return {
     requests,
     proposalFingerprint: packetProposalFingerprint(result.proposals),
+    proposalIndexes: result.proposals.map((_, index) => index),
     customName: '  Summer Outreach  ',
   };
 }

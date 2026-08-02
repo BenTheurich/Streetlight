@@ -134,6 +134,7 @@ test('POST finalizes the exact reviewed proposals once', async () => {
     const body = {
       requests,
       proposalFingerprint: proposals.proposalFingerprint,
+      proposalIndexes: proposals.proposalIndexes,
       customName: 'Summer Outreach',
     };
     const response = await finalize(
@@ -157,6 +158,33 @@ test('POST finalizes the exact reviewed proposals once', async () => {
   });
 });
 
+test('POST finalizes only the retained reviewed proposals', async () => {
+  await withDatabase(async (filename) => {
+    preparePacketGraph(filename);
+    const requests = [{ quantity: 2, targetHomes: 8 }];
+    const proposalResponse = await propose(
+      jsonRequest('http://streetlight.local/api/packet-proposals', { requests }),
+    );
+    const proposals = await proposalResponse.json();
+    assert.equal(proposals.proposals.length, 2);
+
+    const response = await finalize(
+      jsonRequest('http://streetlight.local/api/batches/finalize', {
+        requests,
+        proposalFingerprint: proposals.proposalFingerprint,
+        proposalIndexes: [1],
+        customName: null,
+      }),
+    );
+
+    assert.equal(response.status, 201);
+    const result = await response.json();
+    assert.equal(result.packetCount, 1);
+    assert.deepEqual(result.packets[0].segments, proposals.proposals[1].segments);
+    assert.deepEqual(counts(filename), [1, 1, 1]);
+  });
+});
+
 test('POST rejects malformed finalization without mutation', async () => {
   await withDatabase(async (filename) => {
     preparePacketGraph(filename);
@@ -166,18 +194,27 @@ test('POST rejects malformed finalization without mutation', async () => {
       {
         requests: [{ quantity: 1, targetHomes: 16 }],
         proposalFingerprint: 'not-a-fingerprint',
+        proposalIndexes: [0],
         customName: null,
       },
       {
         requests: [{ quantity: 1, targetHomes: 16 }],
         proposalFingerprint: 'a'.repeat(64),
+        proposalIndexes: [0],
         customName: 'x'.repeat(81),
       },
       {
         requests: [{ quantity: 1, targetHomes: 16 }],
         proposalFingerprint: 'a'.repeat(64),
+        proposalIndexes: [0],
         customName: null,
         extra: true,
+      },
+      {
+        requests: [{ quantity: 1, targetHomes: 16 }],
+        proposalFingerprint: 'a'.repeat(64),
+        proposalIndexes: [0, 0],
+        customName: null,
       },
     ]) {
       const response = await finalize(

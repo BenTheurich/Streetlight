@@ -95,6 +95,26 @@ export function PacketGenerator({
     }));
   }
 
+  function deleteProposal(index: number): void {
+    if (packetOperationBusy || !result) return;
+    onResultChange({
+      ...result,
+      proposals: result.proposals.filter((_, proposalIndex) => proposalIndex !== index),
+      proposalIndexes: result.proposalIndexes.filter(
+        (_, proposalIndex) => proposalIndex !== index,
+      ),
+    });
+    onSelectedIndexChange(
+      selectedIndex === index
+        ? null
+        : selectedIndex !== null && selectedIndex > index
+          ? selectedIndex - 1
+          : selectedIndex,
+    );
+    setConfirming(false);
+    setFinalized(null);
+  }
+
   async function generate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (packetOperationBusy) return;
@@ -164,6 +184,7 @@ export function PacketGenerator({
           body: JSON.stringify({
             requests: requests(),
             proposalFingerprint: result.proposalFingerprint,
+            proposalIndexes: result.proposalIndexes,
             customName: customName.trim() || null,
           }),
         }),
@@ -375,47 +396,62 @@ export function PacketGenerator({
               {result.proposals.map((proposal, index) => {
                 const selected = index === selectedIndex;
                 return (
-                  <article
-                    className={`packet-card${selected ? ' selected' : ''}`}
+                  <div
+                    className="packet-proposal-row"
                     key={
                       proposal.kind === 'apartment'
                         ? `apartment:${proposal.apartmentId}`
                         : proposal.segments.map(({ id }) => id).join('|')
                     }
                   >
+                    <article className={`packet-card${selected ? ' selected' : ''}`}>
+                      <button
+                        aria-expanded={selected}
+                        className="packet-card-button"
+                        onClick={() => onSelectedIndexChange(selected ? null : index)}
+                        type="button"
+                      >
+                        <strong>
+                          Packet {index + 1}
+                          {proposal.kind === 'apartment' ? ' · Apartment complex' : ''}
+                        </strong>
+                        <span>
+                          Target {proposal.targetHomes} tract
+                          {proposal.targetHomes === 1 ? '' : 's'}
+                        </span>
+                        <span>
+                          {proposal.estimatedHomes} estimated tract
+                          {proposal.estimatedHomes === 1 ? '' : 's'}
+                        </span>
+                      </button>
+                      {selected && (
+                        <div className="packet-card-detail">
+                          <strong>
+                            {proposal.kind === 'apartment' ? 'Complex address' : 'Starting address'}
+                          </strong>
+                          <p>{proposal.start.address}</p>
+                          {proposal.kind !== 'apartment' && (
+                            <>
+                              <strong>Streets</strong>
+                              <p>{proposal.streetNames.join(', ')}</p>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </article>
                     <button
-                      aria-expanded={selected}
-                      className="packet-card-button"
-                      onClick={() => onSelectedIndexChange(selected ? null : index)}
+                      aria-label={`Delete Packet ${index + 1} proposal`}
+                      className="danger packet-proposal-delete"
+                      disabled={packetOperationBusy}
+                      onClick={() => deleteProposal(index)}
+                      title={`Delete Packet ${index + 1} proposal`}
                       type="button"
                     >
-                      <strong>
-                        Packet {index + 1}
-                        {proposal.kind === 'apartment' ? ' · Apartment complex' : ''}
-                      </strong>
-                      <span>
-                        Target {proposal.targetHomes} tract{proposal.targetHomes === 1 ? '' : 's'}
-                      </span>
-                      <span>
-                        {proposal.estimatedHomes} estimated tract
-                        {proposal.estimatedHomes === 1 ? '' : 's'}
-                      </span>
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
+                      </svg>
                     </button>
-                    {selected && (
-                      <div className="packet-card-detail">
-                        <strong>
-                          {proposal.kind === 'apartment' ? 'Complex address' : 'Starting address'}
-                        </strong>
-                        <p>{proposal.start.address}</p>
-                        {proposal.kind !== 'apartment' && (
-                          <>
-                            <strong>Streets</strong>
-                            <p>{proposal.streetNames.join(', ')}</p>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </article>
+                  </div>
                 );
               })}
             </div>
