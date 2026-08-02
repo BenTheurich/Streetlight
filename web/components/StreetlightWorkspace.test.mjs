@@ -203,6 +203,11 @@ test('reconciliation highlights the selected batch with the shared light-blue ro
   const source = readFileSync(new URL('./OpenReconciliationOverlay.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /'line-color': '#78a9ff'/);
+  assert.match(source, /const haloBefore = map\.getLayer\('streetlight-coverage'\)/);
+  assert.match(
+    source,
+    /'line-width': \['interpolate', \['linear'\], \['zoom'\], 11, 10, 14, 13\]/,
+  );
   assert.match(source, /const focusKey = `\$\{batch\.id\}:/);
 });
 

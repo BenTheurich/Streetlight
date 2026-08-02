@@ -64,7 +64,12 @@ export function OpenReconciliationOverlay({
         ),
       },
     });
-    const before = map.getLayer('highway-name-minor') ? 'highway-name-minor' : undefined;
+    const haloBefore = map.getLayer('streetlight-coverage')
+      ? 'streetlight-coverage'
+      : map.getLayer('highway-name-minor')
+        ? 'highway-name-minor'
+        : undefined;
+    const lineBefore = map.getLayer('highway-name-minor') ? 'highway-name-minor' : undefined;
     map.addLayer(
       {
         id: haloId,
@@ -74,14 +79,10 @@ export function OpenReconciliationOverlay({
         paint: {
           'line-color': '#78a9ff',
           'line-opacity': 1,
-          'line-width': [
-            '+',
-            ['interpolate', ['linear'], ['zoom'], 11, 5, 14, 7],
-            ['case', ['get', 'selected'], 6, 4],
-          ],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 13],
         },
       },
-      before,
+      haloBefore,
     );
     map.addLayer(
       {
@@ -94,12 +95,12 @@ export function OpenReconciliationOverlay({
           'line-opacity': 0.9,
           'line-width': [
             '+',
-            ['interpolate', ['linear'], ['zoom'], 11, 5, 14, 7],
+            ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5],
             ['case', ['get', 'selected'], 2, 0],
           ],
         },
       },
-      before,
+      lineBefore,
     );
     const focusPackets = selected ? [selected] : packets;
     const positions = focusPackets.flatMap((packet) => [
