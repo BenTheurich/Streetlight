@@ -2204,12 +2204,16 @@ button.administrator-account-trigger:not(:disabled):hover {
   gap: 0.45rem;
 }
 
-.reconciliation-batch-summary,
 .reconciliation-review > p {
   margin: 0.45rem 0 0;
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.45;
+}
+
+.reconciliation-batch-picker + .reconciliation-active-section {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .reconciliation-instructions {

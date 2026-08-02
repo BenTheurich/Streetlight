@@ -361,7 +361,7 @@ export function ReconciliationTool({
           )}
           {workspace && workspace.batches.length > 0 && (
             <>
-              <section>
+              <section className="reconciliation-batch-picker">
                 <label className="coverage-field">
                   Batch
                   <select
@@ -379,17 +379,9 @@ export function ReconciliationTool({
                     ))}
                   </select>
                 </label>
-                {batch && (
-                  <p className="reconciliation-batch-summary">
-                    {batch.finalizedAt
-                      ? `Finalized ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(batch.finalizedAt))}`
-                      : 'Not finalized'}{' '}
-                    · {batch.counts.completed} completed · {batch.counts.cancelled} cancelled
-                  </p>
-                )}
               </section>
               {batch && activePackets.length > 0 && (
-                <section>
+                <section className="reconciliation-active-section">
                   <h2>Which packet sheets are still here?</h2>
                   <p className="reconciliation-instructions">
                     Check every sheet that is still physically on the table. Unchecked sheets will
