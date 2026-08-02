@@ -866,7 +866,7 @@ export function buildWorkspaceMapStyle(
       filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-color': ['get', 'color'],
-        'circle-radius': ['case', ['get', 'selected'], 17, 14],
+        'circle-radius': ['case', ['==', ['get', 'selected'], true], 17, 14],
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 2,
       },

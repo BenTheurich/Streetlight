@@ -425,7 +425,12 @@ test('workspace map clusters apartments identically over map and satellite style
     assert.equal(count?.layout?.['text-allow-overlap'], true);
     assert.deepEqual(marker?.filter, ['!', ['has', 'point_count']]);
     assert.equal(Array.isArray(marker?.paint?.['circle-color']), true);
-    assert.deepEqual(marker?.paint?.['circle-radius'], ['case', ['get', 'selected'], 17, 14]);
+    assert.deepEqual(marker?.paint?.['circle-radius'], [
+      'case',
+      ['==', ['get', 'selected'], true],
+      17,
+      14,
+    ]);
     assert.deepEqual(label?.filter, ['!', ['has', 'point_count']]);
     assert.deepEqual(label?.layout?.['text-field'], ['get', 'label']);
     assert.equal(label?.layout?.['text-size'], 13);
