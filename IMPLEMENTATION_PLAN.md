@@ -47,8 +47,8 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
-| 9 | Application UX/UI polish | Phase 8 | Awaiting human review | The approved unified-map workflow, truthful operation states, searchable Coverage inspection, docked Current Work, clustered apartment selection, responsive layout, landing-page visual system, and WorkOS hosted branding are implemented; 243 Node checks, 64 Python checks, Biome with no errors, TypeScript, production build, and one combined browser pass succeed |
-| 10 | Outreach progress and presentation | Phase 9 | Pending | None |
+| 9 | Application UX/UI polish | Phase 8 | Complete | Founder approved the coherent Phase 9 baseline on August 2, 2026 and directed remaining iterative polish to continue inside Phase 10; the unified map, truthful operation states, searchable whole-road Coverage inspection, docked Current Work, clustered apartments, responsive layout, landing-page visual system, and WorkOS branding are implemented |
+| 10 | Outreach progress and presentation | Phase 9 | In progress | Initial four-tool implementation and founder-led browser iteration are underway |
 | 11 | Deployment and recovery | Phase 10 | Pending | None |
 | 12 | Founder-church pilot | Phase 11 | Pending | None |
 
@@ -862,6 +862,9 @@ and the non-fatal worktree build warnings are unchanged cleanup candidates, not 
 The founder approves the authenticated interface for pilot use and the existing workflow remains
 unchanged.
 
+Founder approval was given on August 2, 2026. Remaining minor visual polish moves forward with the
+same fast founder-review loop in Phase 10 rather than reopening Phase 9.
+
 ## Phase 10: Outreach progress and presentation
 
 ### Goal
@@ -871,9 +874,13 @@ without turning the operational workspace into an analytics dashboard.
 
 ### Agent work
 
-- Add Outreach Progress as an optional fifth tool in the persistent map workspace.
+- Keep exactly four persistent tools: Coverage, Packets, Outreach Progress, and Setup.
+- Combine Generate Packets and Reconcile Packets inside one Packets tool with a clear internal
+  switcher while preserving both existing workflows and their in-progress state.
+- Rename Territory Setup to Setup and place church-wide printout controls alongside the existing
+  territory configuration without obscuring either task.
 - Keep Coverage operational and Outreach Progress retrospective; do not change the normal
-  Coverage, Generate Packets, and Reconcile Packets cycle.
+  Coverage, Generate, Print, and Reconcile cycle.
 - Build an administrator view with a simplified progress map, period selection, factual historical
   metrics, a static print action, and a presentation-mode action.
 - Derive metrics only from existing coverage events, completed packets, street segments, and
@@ -885,7 +892,9 @@ without turning the operational workspace into an analytics dashboard.
 - Use the same progress composition for full-screen presentation and static printing.
 - Add church-wide packet-footer message and optional reference controls. Preserve Streetlight's
   default `Ye are the light of the world.` / `Matthew 5:14` treatment until an administrator
-  replaces it; do not add per-batch overrides.
+  replaces or removes it; do not add per-batch overrides.
+- Carry forward minor founder-identified Phase 9 UI polish and copy corrections during the same
+  fast browser-review loop without adding unrelated scope.
 
 Do not add a report builder, rankings, volunteer statistics, a public display link, or video export.
 

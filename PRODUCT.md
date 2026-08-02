@@ -63,7 +63,7 @@ Version one has one authenticated role: administrator.
 - An invited administrator confirms the church name, full church address, and time zone at first
   sign-in. A valid Google geocode is required.
 - A new church begins with a one-mile circular territory draft centered on the church. It remains
-  in Territory Setup until the first explicit save succeeds; that save is the first action that
+  in Setup until the first explicit save succeeds; that save is the first action that
   may launch an Overture import.
 - Existing configured church workspaces bypass onboarding unchanged.
 
@@ -187,8 +187,8 @@ severe-outlier percentage uses evaluated segments as its denominator.
 
 The pinned global pipeline is acceptable for the pilot when every fixed holdout is at least usable
 with warnings. High confidence remains the improvement target. A territory that does not meet the
-high-confidence thresholds shows a persistent warning with concrete reasons in Territory Setup and
-Generate Packets, but the administrator may continue without another confirmation modal. The
+  high-confidence thresholds shows a persistent warning with concrete reasons in Setup and
+Packets, but the administrator may continue without another confirmation modal. The
 warning is not printed on volunteer packets. If a holdout falls below the usable floor, evaluate
 the source data or a broadly applicable normalizer defect instead of adding regional production
 imports or unmeasured heuristics.
@@ -280,9 +280,10 @@ The map occupies most of the page. Street names remain readable and every highli
 - Starting address
 - Google Maps QR code for the starting address
 - Estimated home count and number of tracts needed
-- Streetlight's centered brand verse: `Ye are the light of the world.` with `Matthew 5:14`
+- The church's centered printout message and optional reference. New churches default to
+  `Ye are the light of the world.` with `Matthew 5:14`.
 
-Place the QR code beside the printed starting address, visually group them, and indicate that the QR opens directions. Show the estimated homes/tracts prominently at the upper left. The map contains every selected street segment and one proposed starting-point marker. The Streetlight wordmark or logo appears only in the lower-left corner of the page, outside the map, the packet identifier appears opposite it in the lower-right corner, and the brand verse sits between them as a quiet two-line footer treatment. The page does not repeat the both-sides rule because that is part of the church's normal outreach process.
+Place the QR code beside the printed starting address, visually group them, and indicate that the QR opens directions. Show the estimated homes/tracts prominently at the upper left. The map contains every selected street segment and one proposed starting-point marker. The Streetlight wordmark or logo appears only in the lower-left corner of the page, outside the map, the packet identifier appears opposite it in the lower-right corner, and the church-wide message sits between them as a quiet footer treatment when configured. An administrator may change or remove the message and reference in Setup; the setting applies to every later packet and cannot vary by batch. The page does not repeat the both-sides rule because that is part of the church's normal outreach process.
 
 The first release does not include a written street list, address ranges, an individual-address list, a map legend, volunteer details, a proposed walking path, an end point, detailed navigation, or separate packet files.
 
@@ -344,8 +345,9 @@ guide lines anchored to the correct band. Coverage does not add a separate repor
 control.
 
 For a signed-in configured administrator, the website uses one persistent map workspace at `/`.
-Coverage, Generate Packets, Reconcile Packets, and Territory Setup are tools in that workspace
-rather than separate pages.
+Coverage, Packets, Outreach Progress, and Setup are tools in that workspace rather than separate
+pages. Packets contains Generate and Reconcile as two views of the same paper workflow. Setup owns
+both territory configuration and church-wide printout settings.
 
 The workspace's standard **Map** view uses MapLibre with Streetlight's approved pinned
 OpenFreeMap/OpenMapTiles presentation, OpenStreetMap geography, persisted Overture/FEMA buildings,
@@ -358,9 +360,10 @@ The interactive Map view and packet PDFs use the same shared open-data road widt
 street-label presentation. Packet-only framing, route highlights, attribution, and starting-point
 layers remain print-specific.
 Switching tools keeps
-the map camera, Map/Satellite choice, and each tool's in-progress state. Coverage and Generate
-Packets share the complete heatmap; a selected packet adds a distinct review highlight and
-starting pin above it. Territory Setup replaces the heatmap treatment with its editing overlays.
+the map camera, Map/Satellite choice, and each tool's in-progress state. Coverage and Packets share
+the complete heatmap; a selected packet adds a distinct review highlight and starting pin above
+it. Setup replaces the heatmap treatment with its territory-editing overlays when territory
+configuration is active.
 The tool switcher is centered over the map canvas rather than the full page. Because it already
 identifies the active tool, each right sidebar begins with its task content instead of repeating the
 tool name in a second header.
@@ -375,8 +378,7 @@ Advanced charts, leaderboards, volunteer statistics, and a report builder are ou
 ## Outreach progress
 
 Streetlight includes a separate **Outreach Progress** tool for reflection and church presentation.
-It is optional and does not interrupt the recurring Coverage, Generate Packets, and Reconcile
-Packets workflow.
+It is optional and does not interrupt the recurring Coverage and Packets workflow.
 
 The administrator view contains a simplified progress map, a selected time period, factual metrics
 derived from Streetlight's existing records, a static print action, and a control that launches
