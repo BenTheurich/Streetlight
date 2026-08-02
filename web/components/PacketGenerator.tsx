@@ -427,7 +427,9 @@ export function PacketGenerator({
             {!finalized && result.proposals.length > 0 && (
               <div className="packet-finalize">
                 <label>
-                  Batch name <span>(optional)</span>
+                  <span className="packet-finalize-label">
+                    Batch name <small>(optional)</small>
+                  </span>
                   <input
                     disabled={packetOperationBusy}
                     maxLength={80}

@@ -24,7 +24,6 @@ export function PacketProposalMap({
     let disposed = false;
     const sourceId = 'streetlight-packet-proposals';
     const haloId = 'streetlight-packet-proposals-halo';
-    const lineId = 'streetlight-packet-proposals-line';
     const markers: MapLibreMarker[] = [];
     const positions = visibleProposals.flatMap((proposal) =>
       proposal.segments.flatMap(({ geometry }) => geometry.coordinates),
@@ -42,7 +41,11 @@ export function PacketProposalMap({
         ),
       },
     });
-    const before = map.getLayer('highway-name-minor') ? 'highway-name-minor' : undefined;
+    const before = map.getLayer('streetlight-coverage')
+      ? 'streetlight-coverage'
+      : map.getLayer('highway-name-minor')
+        ? 'highway-name-minor'
+        : undefined;
     map.addLayer(
       {
         id: haloId,
@@ -50,23 +53,9 @@ export function PacketProposalMap({
         source: sourceId,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': '#ffffff',
-          'line-opacity': 0.95,
-          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 9, 14, 11],
-        },
-      },
-      before,
-    );
-    map.addLayer(
-      {
-        id: lineId,
-        type: 'line',
-        source: sourceId,
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '#1769ff',
-          'line-opacity': 0.92,
-          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 5, 14, 7],
+          'line-color': '#78a9ff',
+          'line-opacity': 1,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 13],
         },
       },
       before,
@@ -78,7 +67,7 @@ export function PacketProposalMap({
     void import('maplibre-gl').then(({ Marker }) => {
       if (disposed) return;
       for (const proposal of markerProposals) {
-        const marker = new Marker({ color: '#1769ff' })
+        const marker = new Marker({ color: '#101a29' })
           .setLngLat(proposal.start.position)
           .addTo(map);
         marker.getElement().title =
@@ -92,7 +81,6 @@ export function PacketProposalMap({
     return () => {
       disposed = true;
       for (const marker of markers) marker.remove();
-      if (map.getLayer(lineId)) map.removeLayer(lineId);
       if (map.getLayer(haloId)) map.removeLayer(haloId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
     };

@@ -127,7 +127,7 @@ export function OpenReconciliationOverlay({
         );
       }
       if (selected) {
-        const marker = new Marker({ color: '#1769ff' })
+        const marker = new Marker({ color: '#101a29' })
           .setLngLat(selected.start.position)
           .addTo(map);
         marker.getElement().title = `Starting address: ${selected.start.address}`;
