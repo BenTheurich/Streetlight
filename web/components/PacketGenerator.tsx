@@ -405,7 +405,9 @@ export function PacketGenerator({
                         Packet {index + 1}
                         {proposal.kind === 'apartment' ? ' · Apartment complex' : ''}
                       </strong>
-                      <span>Target {proposal.targetHomes} tracts</span>
+                      <span>
+                        Target {proposal.targetHomes} tract{proposal.targetHomes === 1 ? '' : 's'}
+                      </span>
                       <span>
                         {proposal.estimatedHomes} estimated tract
                         {proposal.estimatedHomes === 1 ? '' : 's'}

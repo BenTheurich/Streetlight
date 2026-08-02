@@ -761,7 +761,7 @@ export function generatePacketProposals(input: {
         apartment.estimatedTracts > apartmentSlot.targetHomes * 1.3
       ) {
         warnings.push(
-          `${apartment.address} has ${apartment.estimatedTracts} estimated tracts, outside the requested packet range.`,
+          `${apartment.address} has ${apartment.estimatedTracts} estimated tract${apartment.estimatedTracts === 1 ? '' : 's'}, outside the requested packet range.`,
         );
       }
       availableApartments.delete(apartment.id);

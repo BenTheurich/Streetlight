@@ -866,7 +866,7 @@ export function buildWorkspaceMapStyle(
       filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-color': ['get', 'color'],
-        'circle-radius': 12,
+        'circle-radius': 24,
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 2,
       },
@@ -878,7 +878,7 @@ export function buildWorkspaceMapStyle(
       filter: ['!', ['has', 'point_count']],
       layout: {
         'text-field': ['get', 'label'],
-        'text-size': 11,
+        'text-size': 20,
         'text-font': ['Noto Sans Bold'],
         'text-allow-overlap': true,
         'text-ignore-placement': true,
