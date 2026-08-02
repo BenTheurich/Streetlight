@@ -240,10 +240,11 @@ The church pin is anchored by its tip. Map and satellite views use a familiar la
 ### Map Markers
 
 Church, packet-start, and apartment markers form one family: Map Marker Blue with a two-pixel white
-outline, fixed screen sizing, and no shadow. Church and packet pins share the same 44-pixel canvas,
-outer silhouette, and white center; the church adds a blue cross while a packet start remains a
-plain white dot. Apartment markers and clusters use a 12-pixel radius and the same outline, growing
-only to show selection. Their inner `A` or count distinguishes meaning without changing the shell.
+outline, fixed screen sizing, and no shadow. Church and packet pins share the same 44-pixel canvas
+and outer silhouette. The church uses a clear, vertically proportioned white cross directly on the
+pin; a packet start uses a plain white dot. Apartment markers and clusters use a 12-pixel radius and
+the same outline, growing only to show selection. Their inner `A` or count distinguishes meaning
+without changing the shell.
 
 ## Do's and Don'ts
 

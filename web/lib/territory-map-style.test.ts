@@ -32,10 +32,10 @@ test('church, packet, and apartment markers share one visual system', async () =
   for (const pin of [church, start]) {
     assert.match(pin, /fill="#123464"/);
     assert.match(pin, /stroke="#ffffff"/);
-    assert.match(pin, /<circle cx="22" cy="17\.5" r="4\.6" fill="#ffffff"/);
   }
-  assert.match(church, /stroke="#123464"/);
-  assert.doesNotMatch(start, /stroke="#123464"/);
+  assert.match(church, /M20 11\.5h4v4h3\.5v4H24v7h-4v-7h-3\.5v-4H20Z/);
+  assert.doesNotMatch(church, /<circle/);
+  assert.match(start, /<circle cx="22" cy="17\.5" r="4\.6" fill="#ffffff"/);
 });
 
 test('apartment interaction keeps selection origin, camera threshold, and drawing isolation explicit', async () => {
