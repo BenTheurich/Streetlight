@@ -88,7 +88,10 @@ export function OutreachProgress({
           <Metrics snapshot={snapshot} />
           <div className="progress-stage-timeline">
             <strong aria-live="polite">{formatDate(through, year)}</strong>
-            <span>{snapshot.outreachDays} outreach days recorded</span>
+            <span>
+              {snapshot.outreachDays} outreach {snapshot.outreachDays === 1 ? 'day' : 'days'}{' '}
+              recorded
+            </span>
             <div aria-hidden="true">
               <span style={{ '--progress-completion': completion } as CSSProperties} />
             </div>
@@ -120,7 +123,11 @@ export function OutreachProgress({
           </select>
         </label>
         <section>
-          <h2>Recorded through {formatDate(through, year)}</h2>
+          <h2>
+            {through
+              ? `Recorded through ${formatDate(through, year)}`
+              : `Recorded outreach in ${year}`}
+          </h2>
           <Metrics snapshot={snapshot} />
         </section>
         <section className="progress-playback">

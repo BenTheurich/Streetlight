@@ -289,7 +289,12 @@ export function StreetlightWorkspace({
     setProgressPlaying(false);
     setProgressStep(progress.dates.length);
     setProgressDisplayMode('print');
-    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        window.print();
+        setProgressDisplayMode('admin');
+      }),
+    );
   }
 
   return (
