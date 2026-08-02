@@ -155,6 +155,7 @@ test('render document labels only the starting house number beneath the pin', ()
   assert.match(html, /OpenFreeMap · Overture Maps/);
   assert.match(html, /number\.textContent = "40192"/);
   assert.ok(html.includes(mapPinDataUrl('start')));
+  assert.match(html, /\.start-pin[^}]+width: 56px; height: 56px/s);
   assert.doesNotMatch(html, /#0f7055|box-shadow/);
   assert.doesNotMatch(html, /1 Main Street|unpkg/);
   assert.match(html, /window\.__mapReady/);
