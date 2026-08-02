@@ -145,21 +145,9 @@ export function PublicLanding() {
               The streets waiting longest rise first—before familiar neighborhoods are covered
               again.
             </StoryStep>
-            <section
-              className="anchor-step anchor-verse"
-              data-step="3"
-              aria-label="Streetlight theme verse"
-            >
-              <div>
-                <blockquote className="theme-verse-copy">
-                  <p>Ye are the light of the world.</p>
-                  <cite>Matthew 5:14</cite>
-                </blockquote>
-              </div>
-            </section>
             <StoryStep
               className="anchor-left anchor-light-copy"
-              step={4}
+              step={3}
               eyebrow="THE NEXT OUTREACH"
               title={
                 <>
@@ -174,7 +162,7 @@ export function PublicLanding() {
             </StoryStep>
             <StoryStep
               className="anchor-right anchor-light-copy"
-              step={5}
+              step={4}
               eyebrow="INTO THEIR HANDS"
               title={
                 <>
@@ -217,12 +205,6 @@ export function PublicLanding() {
               The streets waiting longest rise first—before familiar neighborhoods are covered
               again.
             </CompactBeat>
-            <section className="theme-verse" aria-label="Streetlight theme verse">
-              <blockquote className="theme-verse-copy">
-                <p>Ye are the light of the world.</p>
-                <cite>Matthew 5:14</cite>
-              </blockquote>
-            </section>
             <CompactBeat title="Turn need into clear assignments.">
               Streetlight groups connected streets into practical packets, sized for the tracts your
               church is ready to send.
@@ -329,7 +311,9 @@ export function PublicLanding() {
 
       <footer className="site-footer">
         <span>STREETLIGHT</span>
-        <p>Territory planning for faithful neighborhood outreach.</p>
+        <p className="site-footer-verse">
+          Ye are the light of the world. <cite>Matthew 5:14</cite>
+        </p>
       </footer>
 
       <dialog className="pilot-drawer" id="pilot-dialog" aria-labelledby="pilot-dialog-title">

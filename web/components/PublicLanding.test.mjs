@@ -15,9 +15,8 @@ test('the public landing retains the approved pilot drawer and administrator log
   assert.match(source, /Carry the light/);
   assert.match(source, /Ye are the light of the world\./);
   assert.match(source, /Matthew 5:14/);
-  assert.ok(source.indexOf('Bring forgotten streets') < source.indexOf('Ye are the light'));
-  assert.ok(source.indexOf('Ye are the light') < source.indexOf('Turn need into'));
-  assert.match(script, /Math\.min\(5, Math\.floor\(clamp\(progress\) \* 6\)\)/);
+  assert.ok(source.indexOf('Ye are the light') > source.indexOf('<footer'));
+  assert.match(script, /Math\.min\(4, Math\.floor\(clamp\(progress\) \* 5\)\)/);
   assert.match(source, /href="\/login"/);
   assert.match(source, /data-pilot-open/);
   assert.match(source, /name="churchName"/);

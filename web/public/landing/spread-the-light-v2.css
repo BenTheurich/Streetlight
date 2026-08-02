@@ -238,7 +238,7 @@ body.is-daylight .site-header .button-solid:hover,
 
 .anchor-story {
   position: relative;
-  height: 635vh;
+  height: 535vh;
   color: #f8f3e8;
   background: var(--night);
 }
@@ -419,9 +419,6 @@ body.is-daylight .site-header .button-solid:hover,
   margin-top: -100vh;
   pointer-events: none;
 }
-.anchor-story[data-active="3"] .anchor-steps {
-  z-index: 7;
-}
 .anchor-step {
   min-height: 100vh;
   display: flex;
@@ -547,80 +544,12 @@ body.is-daylight .site-header .button-solid:hover,
 .anchor-story.has-light-copy .anchor-ignition p {
   color: #53606a;
 }
-.anchor-story[data-active="5"] .anchor-lamp {
+.anchor-story[data-active="4"] .anchor-lamp {
   z-index: 5;
 }
 
 .compact-story {
   display: none;
-}
-
-.anchor-verse {
-  position: relative;
-  justify-content: center;
-  overflow: hidden;
-  isolation: isolate;
-  color: var(--ink);
-  background: var(--paper);
-  text-align: center;
-}
-.anchor-verse::before,
-.theme-verse::before {
-  position: absolute;
-  z-index: 0;
-  width: min(78vw, 900px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(231, 173, 80, 0.28),
-    rgba(231, 173, 80, 0.1) 38%,
-    transparent 70%
-  );
-  content: "";
-}
-.anchor-verse > div {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: none;
-}
-.theme-verse {
-  position: relative;
-  min-height: min(68vh, 720px);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  isolation: isolate;
-  padding: clamp(120px, 14vw, 210px) 24px;
-  color: var(--ink);
-  background: var(--paper);
-  text-align: center;
-}
-.theme-verse-copy {
-  position: relative;
-  z-index: 1;
-  margin: 0;
-}
-.theme-verse-copy p {
-  max-width: 16ch;
-  margin: 0 auto;
-  font-family: Georgia, serif;
-  font-size: clamp(64px, 7.8vw, 96px);
-  font-weight: 400;
-  letter-spacing: -0.04em;
-  line-height: 0.94;
-  text-wrap: balance;
-}
-.theme-verse-copy cite {
-  display: block;
-  margin-top: 32px;
-  color: #925311;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 900;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
 }
 
 .product-overview {
@@ -816,7 +745,7 @@ body.is-daylight .site-header .button-solid:hover,
   border-top: 1px solid rgba(16, 26, 41, 0.2);
   background: var(--paper);
 }
-.site-footer span {
+.site-footer > span {
   font-size: 13px;
   font-weight: 900;
   letter-spacing: 0.2em;
@@ -825,6 +754,16 @@ body.is-daylight .site-header .button-solid:hover,
   margin: 0;
   color: var(--muted);
   font-size: 12px;
+}
+.site-footer-verse cite {
+  margin-left: 8px;
+  color: #925311;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 .demo-toast {
   position: fixed;
@@ -1195,17 +1134,6 @@ body.is-daylight .site-header .button-solid:hover,
     justify-self: center;
     border-radius: 0;
     box-shadow: 14px 22px 46px rgba(25, 34, 43, 0.2);
-  }
-  .theme-verse {
-    min-height: 70svh;
-    padding: 100px 20px;
-  }
-  .theme-verse-copy p {
-    max-width: 10ch;
-    font-size: clamp(52px, 14.5vw, 72px);
-  }
-  .theme-verse-copy cite {
-    margin-top: 26px;
   }
   .product-overview {
     padding: 82px 20px;
