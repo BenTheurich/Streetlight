@@ -283,7 +283,7 @@ export function CoverageDashboard({
             </strong>
             <p>
               {workspace.latestBatch
-                ? `${workspace.latestBatch.name} is the newest finalized batch.`
+                ? workspace.latestBatch.name.replace(/, \d{1,2}:\d{2} [AP]M$/, '')
                 : 'Check which printed sheets are still on the table.'}
             </p>
             <button onClick={onOpenReconciliation} type="button">
