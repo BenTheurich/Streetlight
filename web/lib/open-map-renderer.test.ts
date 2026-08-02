@@ -8,6 +8,7 @@ import {
   renderOpenPacketMaps,
 } from './open-map-renderer.ts';
 import type { PacketDownloadSelection } from './packet-finalization.ts';
+import { mapPinDataUrl } from './territory-map-style.ts';
 
 const png = new Uint8Array([1, 2, 3]);
 const selection: PacketDownloadSelection = {
@@ -153,6 +154,8 @@ test('render document labels only the starting house number beneath the pin', ()
   assert.match(html, /width: 1280px; height: 1280px/);
   assert.match(html, /OpenFreeMap · Overture Maps/);
   assert.match(html, /number\.textContent = "40192"/);
+  assert.ok(html.includes(mapPinDataUrl('start')));
+  assert.doesNotMatch(html, /#0f7055|box-shadow/);
   assert.doesNotMatch(html, /1 Main Street|unpkg/);
   assert.match(html, /window\.__mapReady/);
 });

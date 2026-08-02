@@ -424,12 +424,15 @@ Fallback labels reuse the same font, size, color, and halo. They use `line-cente
 
 ## Starting marker and house numbers
 
-The approved custom-vector prototype draws a green pin at the stored packet starting coordinate:
+The print renderer uses the same plain-center marker as the interactive Packets map at the stored
+packet starting coordinate:
 
 ```text
-outer green:  #0f7055
-white border: 3 px
-white center
+outer navy:   #123464
+white border: 2 px
+white center: plain circle, no cross
+canvas:       44 px
+shadow:       none
 ```
 
 Draw only the packet's stored starting house number directly below the pin tip. Reuse the same

@@ -10,6 +10,7 @@ import {
 } from './open-map-style.ts';
 import type { PacketDownloadSelection } from './packet-finalization.ts';
 import type { Position } from './territory-geometry.ts';
+import { mapPinDataUrl } from './territory-map-style.ts';
 
 export type OpenMapRenderInput = {
   packetId: string;
@@ -53,20 +54,12 @@ export function packetMapDocument(
       ${maplibreCss}
       html, body, #map { width: 1280px; height: 1280px; margin: 0; overflow: hidden; }
       body { background: #f7f8f9; font-family: "Segoe UI", Arial, sans-serif; }
-      .start-marker { position: relative; width: 72px; height: 38px; }
+      .start-marker { position: relative; width: 72px; height: 44px; }
       .start-pin {
-        position: absolute; left: 23px; top: 2px; width: 27px; height: 27px;
-        box-sizing: border-box; border: 3px solid #fff;
-        border-radius: 50% 50% 50% 0; background: #0f7055;
-        box-shadow: -2px 2px 4px rgba(40, 58, 68, .28);
-        transform: rotate(-45deg);
-      }
-      .start-pin::after {
-        content: ""; position: absolute; left: 7px; top: 7px; width: 7px; height: 7px;
-        border-radius: 50%; background: #fff;
+        position: absolute; left: 14px; top: 0; width: 44px; height: 44px;
       }
       .start-number {
-        position: absolute; left: 50%; top: 39px; transform: translateX(-50%);
+        position: absolute; left: 50%; top: 43px; transform: translateX(-50%);
         color: #26323b; font-size: 16px; font-weight: 700; line-height: 1;
         white-space: nowrap; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff,
           -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 3px #fff;
@@ -97,7 +90,7 @@ export function packetMapDocument(
       });
       const marker = document.createElement("div");
       marker.className = "start-marker";
-      marker.innerHTML = '<div class="start-pin"></div>';
+      marker.innerHTML = '<img class="start-pin" alt="" src="${mapPinDataUrl('start')}">';
       const number = document.createElement("div");
       number.className = "start-number";
       number.textContent = ${JSON.stringify(input.start.number)};
