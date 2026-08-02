@@ -130,9 +130,13 @@ export function WorkspaceMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || appliedMapTypeRef.current === mapType || !data) return;
+    let frame = 0;
+    const republish = () => {
+      frame = requestAnimationFrame(() => onMapChangeRef.current(map));
+    };
     appliedMapTypeRef.current = mapType;
     onMapChangeRef.current(null);
-    map.once('style.load', () => onMapChangeRef.current(map));
+    map.once('style.load', republish);
     map.setStyle(
       buildWorkspaceMapStyle(
         baseStyleJson as unknown as OpenMapStyle,
@@ -140,6 +144,10 @@ export function WorkspaceMap({
         mapType === 'satellite',
       ) as maplibregl.StyleSpecification,
     );
+    return () => {
+      map.off('style.load', republish);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, [data, mapType]);
 
   useEffect(() => {

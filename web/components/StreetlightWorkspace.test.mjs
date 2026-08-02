@@ -160,6 +160,17 @@ test('territory editing keeps shared street overlays visible and redraws while v
   assert.doesNotMatch(source, /dragPan\.disable|scrollZoom\.disable/);
 });
 
+test('basemap changes republish the map after the replacement style has committed', () => {
+  const source = readFileSync(new URL('./WorkspaceMap.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /map\.once\('style\.load', republish\)/);
+  assert.match(
+    source,
+    /republish = \(\) => \{\s*frame = requestAnimationFrame\(\(\) => onMapChangeRef\.current\(map\)\)/,
+  );
+  assert.match(source, /cancelAnimationFrame\(frame\)/);
+});
+
 test('reconciliation leads with the physical paper question', () => {
   const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
 
