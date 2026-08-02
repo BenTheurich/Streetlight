@@ -7,6 +7,7 @@ import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
 import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
 import {
+  buildReconciliationChoices,
   buildReconciliationPreview,
   parsePacketCompletionCorrection,
   parseReconciliationInput,
@@ -259,6 +260,25 @@ test('reconciliation preview derives complete, active, and cancel groups from ph
   assert.throws(
     () => buildReconciliationPreview(['one', 'two'], ['two'], ['one']),
     /Invalid reconciliation choices/,
+  );
+});
+
+test('reconciliation choices leave sheets unresolved until each has an explicit outcome', () => {
+  assert.deepEqual(
+    buildReconciliationChoices(
+      ['one', 'two', 'three', 'four'],
+      new Map([
+        ['one', 'still-here'],
+        ['two', 'taken'],
+        ['three', 'discarded'],
+      ]),
+    ),
+    {
+      unreviewed: ['four'],
+      active: ['one'],
+      complete: ['two'],
+      cancel: ['three'],
+    },
   );
 });
 

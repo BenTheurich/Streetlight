@@ -3,8 +3,9 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  buildReconciliationPreview,
+  buildReconciliationChoices,
   type ReconciliationBatch,
+  type ReconciliationOutcome,
   type ReconciliationPacket,
   type ReconciliationWorkspace,
 } from '@/lib/reconciliation';
@@ -72,8 +73,9 @@ export function ReconciliationTool({
 }) {
   const [workspace, setWorkspace] = useState<ReconciliationWorkspace | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
-  const [presentIds, setPresentIds] = useState<Set<string>>(new Set());
-  const [cancelIds, setCancelIds] = useState<Set<string>>(new Set());
+  const [packetOutcomes, setPacketOutcomes] = useState<Map<string, ReconciliationOutcome>>(
+    new Map(),
+  );
   const [selectedPacketId, setSelectedPacketId] = useState<string | null>(null);
   const [editingPacketId, setEditingPacketId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -126,18 +128,32 @@ export function ReconciliationTool({
     () => batch?.packets.filter(({ status }) => status !== 'active') ?? [],
     [batch],
   );
-  const preview = buildReconciliationPreview(
-    activePackets.map(({ id }) => id),
-    [...presentIds],
-    [...cancelIds],
+  const activePacketIds = useMemo(() => activePackets.map(({ id }) => id), [activePackets]);
+  const preview = useMemo(
+    () => buildReconciliationChoices(activePacketIds, packetOutcomes),
+    [activePacketIds, packetOutcomes],
   );
+  const overlayPresentIds = useMemo(
+    () => new Set([...preview.active, ...preview.cancel, ...preview.unreviewed]),
+    [preview],
+  );
+  const overlayCancelIds = useMemo(() => new Set(preview.cancel), [preview.cancel]);
+  const reviewReady = preview.unreviewed.length === 0;
   const packetById = new Map(batch?.packets.map((packet) => [packet.id, packet]) ?? []);
 
   function resetChoices(): void {
-    setPresentIds(new Set());
-    setCancelIds(new Set());
+    setPacketOutcomes(new Map());
     setSelectedPacketId(null);
     setEditingPacketId(null);
+    setReviewing(false);
+  }
+
+  function setPacketOutcome(packetId: string, outcome: ReconciliationOutcome): void {
+    setPacketOutcomes((current) => {
+      const next = new Map(current);
+      next.set(packetId, outcome);
+      return next;
+    });
     setReviewing(false);
   }
 
@@ -150,7 +166,7 @@ export function ReconciliationTool({
   }
 
   async function confirm(): Promise<void> {
-    if (!batch) return;
+    if (!batch || !reviewReady) return;
     setOperation({ kind: 'confirm' });
     setFeedback(null);
     const outcome = await readMutationResult(
@@ -160,9 +176,9 @@ export function ReconciliationTool({
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             batchId: batch.id,
-            activePacketIds: activePackets.map(({ id }) => id),
-            presentPacketIds: [...presentIds],
-            cancelPacketIds: [...cancelIds],
+            activePacketIds,
+            presentPacketIds: [...preview.active, ...preview.cancel],
+            cancelPacketIds: preview.cancel,
           }),
         }),
       isReconciliationWorkspacePayload,
@@ -324,9 +340,9 @@ export function ReconciliationTool({
       <OpenReconciliationOverlay
         active={active}
         batch={batch}
-        cancelIds={cancelIds}
+        cancelIds={overlayCancelIds}
         map={map}
-        presentIds={presentIds}
+        presentIds={overlayPresentIds}
         selectedPacketId={selectedPacketId}
       />
       <aside className="territory-sidebar reconciliation-sidebar tool-sidebar" hidden={!active}>
@@ -382,112 +398,103 @@ export function ReconciliationTool({
               </section>
               {batch && activePackets.length > 0 && (
                 <section className="reconciliation-active-section">
-                  <h2>Which packet sheets are still here?</h2>
+                  <h2>What happened to each sheet?</h2>
                   <p className="reconciliation-instructions">
-                    Check every sheet that is still physically on the table. Unchecked sheets will
-                    be recorded as completed.
+                    Choose one outcome for every packet sheet.
                   </p>
                   <div className="packet-results-header">
                     <strong>Active sheets</strong>
                     <div className="reconciliation-bulk-actions">
                       <button
                         className="secondary"
+                        disabled={mutationControlsDisabled}
                         onClick={() => {
-                          setPresentIds(new Set(activePackets.map(({ id }) => id)));
-                          setCancelIds(new Set());
+                          setPacketOutcomes(
+                            new Map(activePackets.map(({ id }) => [id, 'still-here'] as const)),
+                          );
                           setReviewing(false);
                         }}
                         type="button"
                       >
-                        Select all present
+                        All still here
                       </button>
                       <button
                         className="secondary"
+                        disabled={mutationControlsDisabled}
                         onClick={() => {
-                          setPresentIds(new Set());
-                          setCancelIds(new Set());
+                          setPacketOutcomes(
+                            new Map(activePackets.map(({ id }) => [id, 'taken'] as const)),
+                          );
                           setReviewing(false);
                         }}
                         type="button"
                       >
-                        Mark none present
+                        All taken
                       </button>
                     </div>
                   </div>
                   <div className="reconciliation-list">
                     {activePackets.map((packet) => {
-                      const present = presentIds.has(packet.id);
-                      const cancelling = cancelIds.has(packet.id);
+                      const outcome = packetOutcomes.get(packet.id) ?? null;
                       return (
                         <article
                           className={`reconciliation-card${selectedPacketId === packet.id ? ' selected' : ''}`}
                           key={packet.id}
                         >
-                          <label className="reconciliation-present">
-                            <input
-                              checked={present}
-                              onChange={(event) => {
-                                const checked = event.target.checked;
-                                setPresentIds((current) => {
-                                  const next = new Set(current);
-                                  if (checked) next.add(packet.id);
-                                  else next.delete(packet.id);
-                                  return next;
-                                });
-                                if (!checked) {
-                                  setCancelIds((current) => {
-                                    const next = new Set(current);
-                                    next.delete(packet.id);
-                                    return next;
-                                  });
-                                }
-                                setReviewing(false);
-                              }}
-                              type="checkbox"
-                            />
-                            Still on table
-                          </label>
-                          <button
-                            className="reconciliation-focus"
-                            onClick={() =>
-                              setSelectedPacketId((current) =>
-                                current === packet.id ? null : packet.id,
-                              )
-                            }
-                            type="button"
+                          <div className="reconciliation-card-heading">
+                            <button
+                              className="reconciliation-focus"
+                              onClick={() =>
+                                setSelectedPacketId((current) =>
+                                  current === packet.id ? null : packet.id,
+                                )
+                              }
+                              type="button"
+                            >
+                              <strong>{packet.start.address}</strong>
+                              <span>
+                                {packet.estimatedTracts} estimated tract
+                                {packet.estimatedTracts === 1 ? '' : 's'} ·{' '}
+                                {packet.kind === 'apartment' ? 'Apartment' : 'Street'}
+                              </span>
+                              <span className="reconciliation-packet-code">{packet.code}</span>
+                            </button>
+                            {!outcome && (
+                              <span className="reconciliation-needs-review">Needs review</span>
+                            )}
+                          </div>
+                          <fieldset
+                            aria-label={`Outcome for ${packet.start.address}`}
+                            className="reconciliation-outcomes"
                           >
-                            <strong>{packet.start.address}</strong>
-                            <span>
-                              {packet.estimatedTracts} estimated tract
-                              {packet.estimatedTracts === 1 ? '' : 's'} ·{' '}
-                              {packet.kind === 'apartment' ? 'Apartment' : 'Street'}
-                            </span>
-                            <span className="reconciliation-packet-code">{packet.code}</span>
-                          </button>
-                          {!present ? (
-                            <span className="reconciliation-disposition pending">
-                              Will be recorded as completed
-                            </span>
-                          ) : (
-                            <label className="reconciliation-action">
-                              Sheet action
-                              <select
-                                onChange={(event) => {
-                                  setCancelIds((current) => {
-                                    const next = new Set(current);
-                                    if (event.target.value === 'cancel') next.add(packet.id);
-                                    else next.delete(packet.id);
-                                    return next;
-                                  });
-                                  setReviewing(false);
-                                }}
-                                value={cancelling ? 'cancel' : 'active'}
+                            {(
+                              [
+                                ['still-here', 'Still here'],
+                                ['taken', 'Taken'],
+                                ['discarded', 'Discarded'],
+                              ] as const
+                            ).map(([value, label]) => (
+                              <button
+                                aria-pressed={outcome === value}
+                                className={`reconciliation-outcome ${value}`}
+                                disabled={mutationControlsDisabled}
+                                key={value}
+                                onClick={() => setPacketOutcome(packet.id, value)}
+                                type="button"
                               >
-                                <option value="active">Keep active</option>
-                                <option value="cancel">Cancel and release</option>
-                              </select>
-                            </label>
-                          )}
+                                {label}
+                              </button>
+                            ))}
+                          </fieldset>
+                          <span className={`reconciliation-disposition ${outcome ?? 'unreviewed'}`}>
+                            {outcome === 'still-here'
+                              ? 'Keeps packet active'
+                              : outcome === 'taken'
+                                ? 'Will be marked completed'
+                                : outcome === 'discarded'
+                                  ? 'Cancels this packet and returns its streets to future generation'
+                                  : 'Choose one outcome'}
+                          </span>
                           {correctionStatus(packet)}
                         </article>
                       );
@@ -629,9 +636,9 @@ export function ReconciliationTool({
                   <p>Coverage date: {formatDate(workspace.asOf)}</p>
                   {(
                     [
-                      ['Complete missing', preview.complete],
+                      ['Mark completed', preview.complete],
                       ['Keep active', preview.active],
-                      ['Cancel', preview.cancel],
+                      ['Discard and release', preview.cancel],
                     ] as const
                   ).map(([label, ids]) => (
                     <div key={label}>
@@ -651,8 +658,16 @@ export function ReconciliationTool({
         <div className="sidebar-actions">
           {batch && activePackets.length > 0 && (
             <p aria-live="polite" className="reconciliation-outcome-summary">
-              <strong>{presentIds.size} still here</strong> · {preview.complete.length} will be
-              completed
+              {preview.unreviewed.length > 0 && (
+                <>
+                  <strong>
+                    {preview.unreviewed.length} {preview.unreviewed.length === 1 ? 'needs' : 'need'}{' '}
+                    review
+                  </strong>{' '}
+                  ·{' '}
+                </>
+              )}
+              {preview.active.length} still here · {preview.complete.length} will be completed
               {preview.cancel.length > 0 ? ` · ${preview.cancel.length} will be cancelled` : ''}
             </p>
           )}
@@ -703,7 +718,11 @@ export function ReconciliationTool({
                   </button>
                 </>
               ) : (
-                <button onClick={() => setReviewing(true)} type="button">
+                <button
+                  disabled={!reviewReady || mutationControlsDisabled}
+                  onClick={() => setReviewing(true)}
+                  type="button"
+                >
                   Review reconciliation
                 </button>
               )}

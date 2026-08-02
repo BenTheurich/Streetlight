@@ -9,6 +9,8 @@ export type ReconciliationInput = {
   cancelPacketIds: string[];
 };
 
+export type ReconciliationOutcome = 'still-here' | 'taken' | 'discarded';
+
 export type PacketCompletionCorrectionInput = {
   packetId: string;
   coveredOn: string | null;
@@ -68,6 +70,18 @@ export function buildReconciliationPreview(
     complete: activePacketIds.filter((id) => !present.has(id)),
     active: activePacketIds.filter((id) => present.has(id) && !cancel.has(id)),
     cancel: activePacketIds.filter((id) => cancel.has(id)),
+  };
+}
+
+export function buildReconciliationChoices(
+  activePacketIds: string[],
+  outcomes: ReadonlyMap<string, ReconciliationOutcome>,
+): { unreviewed: string[]; active: string[]; complete: string[]; cancel: string[] } {
+  return {
+    unreviewed: activePacketIds.filter((id) => !outcomes.has(id)),
+    active: activePacketIds.filter((id) => outcomes.get(id) === 'still-here'),
+    complete: activePacketIds.filter((id) => outcomes.get(id) === 'taken'),
+    cancel: activePacketIds.filter((id) => outcomes.get(id) === 'discarded'),
   };
 }
 

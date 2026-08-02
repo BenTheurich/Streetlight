@@ -171,18 +171,21 @@ test('basemap changes republish the map after the replacement style has committe
   assert.match(source, /cancelAnimationFrame\(frame\)/);
 });
 
-test('reconciliation leads with the physical paper question', () => {
+test('reconciliation requires an explicit outcome for every physical sheet', () => {
   const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
 
-  assert.match(source, /Which packet sheets are still here\?/);
+  assert.match(source, /What happened to each sheet\?/);
+  assert.match(source, /Choose one outcome for every packet sheet/);
+  assert.match(source, /aria-pressed=\{outcome === value\}/);
+  assert.match(source, /disabled=\{!reviewReady \|\| mutationControlsDisabled\}/);
 });
 
 test('reconciliation keeps pending outcomes visible and history compact', () => {
   const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 
-  assert.match(source, /Mark none present/);
-  assert.match(source, /Will be recorded as completed/);
+  assert.match(source, /All taken/);
+  assert.match(source, /Cancels this packet and returns its streets to future generation/);
   assert.match(source, /className="reconciliation-outcome-summary"/);
   assert.match(source, /editingPacketId === packet\.id/);
   assert.match(source, /aria-expanded=\{historyOpen\}/);
