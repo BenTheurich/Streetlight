@@ -104,13 +104,7 @@ export function PacketGenerator({
         (_, proposalIndex) => proposalIndex !== index,
       ),
     });
-    onSelectedIndexChange(
-      selectedIndex === index
-        ? null
-        : selectedIndex !== null && selectedIndex > index
-          ? selectedIndex - 1
-          : selectedIndex,
-    );
+    onSelectedIndexChange(null);
     setConfirming(false);
     setFinalized(null);
   }
