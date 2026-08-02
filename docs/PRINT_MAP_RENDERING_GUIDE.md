@@ -431,7 +431,7 @@ packet starting coordinate:
 outer navy:   #123464
 white border: 2 px
 white center: plain circle, no cross
-source canvas: 44 px; displayed at 64 px for print legibility
+source canvas: 44 px; displayed at 72 px for print legibility
 shadow:       none
 ```
 
