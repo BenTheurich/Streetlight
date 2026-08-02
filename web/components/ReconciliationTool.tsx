@@ -4,6 +4,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildReconciliationPreview,
+  type ReconciliationBatch,
   type ReconciliationPacket,
   type ReconciliationWorkspace,
 } from '@/lib/reconciliation';
@@ -16,6 +17,23 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(
     new Date(`${value}T00:00:00Z`),
   );
+}
+
+function batchOptionLabel(batch: ReconciliationBatch): string {
+  const automaticPrefix = 'Outreach batch - ';
+  const automaticTimestamp = batch.name.startsWith(automaticPrefix)
+    ? batch.name.slice(automaticPrefix.length)
+    : null;
+  const name = automaticTimestamp ? 'Outreach batch' : batch.name;
+  const timestamp =
+    automaticTimestamp ??
+    (batch.finalizedAt
+      ? new Intl.DateTimeFormat(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }).format(new Date(batch.finalizedAt))
+      : 'Not finalized');
+  return `${name} · ${timestamp} · ${batch.counts.active} active`;
 }
 
 type CorrectionAttempt = {
@@ -356,7 +374,7 @@ export function ReconciliationTool({
                   >
                     {workspace.batches.map((candidate) => (
                       <option key={candidate.id} value={candidate.id}>
-                        {candidate.name} · {candidate.counts.active} active
+                        {batchOptionLabel(candidate)}
                       </option>
                     ))}
                   </select>

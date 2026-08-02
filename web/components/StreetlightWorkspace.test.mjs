@@ -189,6 +189,16 @@ test('reconciliation keeps pending outcomes visible and history compact', () => 
   assert.match(styles, /\.reconciliation-bulk-actions button \{[^}]*min-height: 44px;/s);
 });
 
+test('reconciliation identifies every batch with its saved name and finalized time', () => {
+  const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /function batchOptionLabel\(batch: ReconciliationBatch\)/);
+  assert.match(source, /const automaticPrefix = 'Outreach batch - '/);
+  assert.match(source, /dateStyle: 'medium'/);
+  assert.match(source, /timeStyle: 'short'/);
+  assert.match(source, /\{batchOptionLabel\(candidate\)\}/);
+});
+
 test('reconciliation correction status and retry stay with the affected packet', () => {
   const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
 
