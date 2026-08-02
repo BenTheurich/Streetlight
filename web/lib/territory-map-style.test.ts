@@ -33,7 +33,7 @@ test('church, packet, and apartment markers share one visual system', async () =
     assert.match(pin, /fill="#123464"/);
     assert.match(pin, /stroke="#ffffff"/);
   }
-  assert.match(church, /M20 11\.5h4v4h3\.5v4H24v7h-4v-7h-3\.5v-4H20Z/);
+  assert.match(church, /M20\.5 11\.5h3v4\.5H27v3h-3\.5v7\.5h-3V19H17v-3h3\.5Z/);
   assert.doesNotMatch(church, /<circle/);
   assert.match(start, /<circle cx="22" cy="17\.5" r="4\.6" fill="#ffffff"/);
 });
