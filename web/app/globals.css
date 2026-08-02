@@ -2132,6 +2132,10 @@ button.administrator-account-trigger:not(:disabled):hover {
   padding-top: 0.35rem;
 }
 
+.packet-downloads {
+  padding: 0.85rem 1.5rem 1.25rem;
+}
+
 .packet-finalize label {
   display: grid;
   gap: 0.35rem;
@@ -2151,8 +2155,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   background: #faf7f0;
 }
 
-.packet-confirmation p,
-.packet-downloads p {
+.packet-confirmation p {
   margin: 0;
   color: var(--muted);
   font-size: 0.65rem;

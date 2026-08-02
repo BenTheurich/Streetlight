@@ -507,59 +507,53 @@ export function PacketGenerator({
             )}
           </section>
         )}
-        {(latestBatch || finalized) && (
-          <section aria-busy={downloadProgress.busy} className="packet-downloads">
-            <h2>Downloads</h2>
-            <p>
-              Newest: {(finalized ?? latestBatch)?.name} · {(finalized ?? latestBatch)?.packetCount}{' '}
-              packet
-              {(finalized ?? latestBatch)?.packetCount === 1 ? '' : 's'}
-            </p>
-            {downloadProgress.message && downloadProgress.headline ? (
-              <OperationStatus
-                detail={downloadProgress.message}
-                headline={downloadProgress.headline}
-                tone="busy"
-              />
-            ) : (
-              feedback?.operation === 'download' && (
-                <OperationStatus
-                  detail={feedback.detail}
-                  headline={feedback.headline}
-                  tone={feedback.tone}
-                />
-              )
-            )}
-            <button
-              disabled={packetOperationBusy}
-              onClick={() => void downloadPacketPdf('newest')}
-              type="button"
-            >
-              {downloading === 'newest'
-                ? 'Downloading…'
-                : feedback?.operation === 'download' &&
-                    feedback.tone === 'error' &&
-                    feedback.retryScope === 'newest'
-                  ? 'Try newest batch again'
-                  : 'Download newest batch'}
-            </button>
-            <button
-              className="secondary"
-              disabled={packetOperationBusy || activePackets === 0}
-              onClick={() => void downloadPacketPdf('active')}
-              type="button"
-            >
-              {downloading === 'active'
-                ? 'Downloading…'
-                : feedback?.operation === 'download' &&
-                    feedback.tone === 'error' &&
-                    feedback.retryScope === 'active'
-                  ? `Try all active packets again (${activePackets})`
-                  : `Download all active packets (${activePackets})`}
-            </button>
-          </section>
-        )}
       </div>
+      {(latestBatch || finalized) && (
+        <div aria-busy={downloadProgress.busy} className="packet-downloads">
+          {downloadProgress.message && downloadProgress.headline ? (
+            <OperationStatus
+              detail={downloadProgress.message}
+              headline={downloadProgress.headline}
+              tone="busy"
+            />
+          ) : (
+            feedback?.operation === 'download' && (
+              <OperationStatus
+                detail={feedback.detail}
+                headline={feedback.headline}
+                tone={feedback.tone}
+              />
+            )
+          )}
+          <button
+            disabled={packetOperationBusy}
+            onClick={() => void downloadPacketPdf('newest')}
+            type="button"
+          >
+            {downloading === 'newest'
+              ? 'Downloading…'
+              : feedback?.operation === 'download' &&
+                  feedback.tone === 'error' &&
+                  feedback.retryScope === 'newest'
+                ? 'Try newest batch again'
+                : 'Download newest batch'}
+          </button>
+          <button
+            className="secondary"
+            disabled={packetOperationBusy || activePackets === 0}
+            onClick={() => void downloadPacketPdf('active')}
+            type="button"
+          >
+            {downloading === 'active'
+              ? 'Downloading…'
+              : feedback?.operation === 'download' &&
+                  feedback.tone === 'error' &&
+                  feedback.retryScope === 'active'
+                ? `Try all active packets again (${activePackets})`
+                : `Download all active packets (${activePackets})`}
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
