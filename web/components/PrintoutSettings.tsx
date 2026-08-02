@@ -83,7 +83,9 @@ export function PrintoutSettings({
             />
           </label>
           <label>
-            Reference <span>Optional</span>
+            <span className="printout-field-label">
+              Reference <small>Optional</small>
+            </span>
             <input
               disabled={!message}
               maxLength={60}

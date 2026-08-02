@@ -70,7 +70,7 @@ export function OutreachProgress({
   years: number[];
 }) {
   if (displayMode !== 'admin') {
-    const completion = progress.dates.length === 0 ? 0 : (step / progress.dates.length) * 100;
+    const completion = progress.dates.length === 0 ? 0 : step / progress.dates.length;
     return (
       <aside className="territory-sidebar progress-stage-sidebar" hidden={!active}>
         {displayMode === 'presentation' && (
@@ -90,7 +90,7 @@ export function OutreachProgress({
             <strong aria-live="polite">{formatDate(through, year)}</strong>
             <span>{snapshot.outreachDays} outreach days recorded</span>
             <div aria-hidden="true">
-              <span style={{ '--progress-completion': `${completion}%` } as CSSProperties} />
+              <span style={{ '--progress-completion': completion } as CSSProperties} />
             </div>
           </div>
         </div>
