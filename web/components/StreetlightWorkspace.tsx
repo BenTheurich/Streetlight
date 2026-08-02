@@ -399,7 +399,6 @@ export function StreetlightWorkspace({
           active={tool === 'packets' && packetView === 'generate'}
           activePackets={coverage.activePackets}
           latestBatch={coverage.latestBatch}
-          qualityWarnings={coverage.qualityWarnings}
           onFinalized={refreshCoverage}
           onResultChange={setPacketResult}
           onSelectedIndexChange={setSelectedPacketIndex}

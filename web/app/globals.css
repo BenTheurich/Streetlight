@@ -2010,6 +2010,10 @@ button.administrator-account-trigger:not(:disabled):hover {
   font-weight: 800;
 }
 
+.packet-request-row input[type="number"] {
+  padding-block: 0.35rem;
+}
+
 .packet-remove {
   min-height: 38px;
   padding-inline: 0.55rem;
@@ -2327,7 +2331,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   gap: 4px;
   padding: 5px;
   border-bottom: 1px solid var(--line);
-  background: var(--paper);
+  background: var(--panel);
 }
 
 .tool-view-switcher button {
