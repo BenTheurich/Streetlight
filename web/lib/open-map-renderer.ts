@@ -54,12 +54,12 @@ export function packetMapDocument(
       ${maplibreCss}
       html, body, #map { width: 1280px; height: 1280px; margin: 0; overflow: hidden; }
       body { background: #f7f8f9; font-family: "Segoe UI", Arial, sans-serif; }
-      .start-marker { position: relative; width: 72px; height: 56px; }
+      .start-marker { position: relative; width: 72px; height: 64px; }
       .start-pin {
-        position: absolute; left: 8px; top: 0; width: 56px; height: 56px;
+        position: absolute; left: 4px; top: 0; width: 64px; height: 64px;
       }
       .start-number {
-        position: absolute; left: 50%; top: 55px; transform: translateX(-50%);
+        position: absolute; left: 50%; top: 63px; transform: translateX(-50%);
         color: #26323b; font-size: 16px; font-weight: 700; line-height: 1;
         white-space: nowrap; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff,
           -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 3px #fff;
