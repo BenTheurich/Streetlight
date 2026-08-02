@@ -2323,7 +2323,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0;
-  padding: 0 1.5rem;
+  padding: 0;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
@@ -2337,14 +2337,14 @@ button.administrator-account-trigger:not(:disabled):hover {
   color: var(--muted);
 }
 
-.tool-view-switcher button:not(.active):not(:disabled):hover {
+.tool-view-switcher button:not(:disabled):hover {
   background: var(--quiet-hover);
   color: var(--ink);
 }
 
 .tool-view-switcher button.active {
   background: transparent;
-  box-shadow: inset 0 -3px 0 var(--selected);
+  box-shadow: inset 0 -3px 0 var(--ink);
   color: var(--ink);
 }
 
