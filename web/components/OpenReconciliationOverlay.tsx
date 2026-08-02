@@ -72,8 +72,8 @@ export function OpenReconciliationOverlay({
         source: sourceId,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': '#ffffff',
-          'line-opacity': 0.9,
+          'line-color': '#78a9ff',
+          'line-opacity': 1,
           'line-width': [
             '+',
             ['interpolate', ['linear'], ['zoom'], 11, 5, 14, 7],

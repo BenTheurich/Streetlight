@@ -199,6 +199,13 @@ test('reconciliation identifies every batch with its saved name and finalized ti
   assert.match(source, /\{batchOptionLabel\(candidate\)\}/);
 });
 
+test('reconciliation highlights the selected batch with the shared light-blue road halo', () => {
+  const source = readFileSync(new URL('./OpenReconciliationOverlay.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /'line-color': '#78a9ff'/);
+  assert.match(source, /const focusKey = `\$\{batch\.id\}:/);
+});
+
 test('reconciliation correction status and retry stay with the affected packet', () => {
   const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
 
