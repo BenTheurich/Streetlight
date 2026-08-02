@@ -67,7 +67,11 @@ export function PacketProposalMap({
     void import('maplibre-gl').then(({ Marker }) => {
       if (disposed) return;
       for (const proposal of markerProposals) {
-        const marker = new Marker({ color: '#101a29' })
+        const markerElement = document.createElement('img');
+        markerElement.alt = '';
+        markerElement.src = '/PacketPin.svg';
+        markerElement.className = 'workspace-packet-marker';
+        const marker = new Marker({ anchor: 'bottom', element: markerElement })
           .setLngLat(proposal.start.position)
           .addTo(map);
         marker.getElement().title =

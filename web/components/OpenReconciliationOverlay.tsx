@@ -127,7 +127,11 @@ export function OpenReconciliationOverlay({
         );
       }
       if (selected) {
-        const marker = new Marker({ color: '#101a29' })
+        const markerElement = document.createElement('img');
+        markerElement.alt = '';
+        markerElement.src = '/PacketPin.svg';
+        markerElement.className = 'workspace-packet-marker';
+        const marker = new Marker({ anchor: 'bottom', element: markerElement })
           .setLngLat(selected.start.position)
           .addTo(map);
         marker.getElement().title = `Starting address: ${selected.start.address}`;

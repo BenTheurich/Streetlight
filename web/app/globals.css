@@ -413,7 +413,8 @@ button.administrator-account-trigger:not(:disabled):hover {
   background: transparent;
 }
 
-.workspace-church-marker {
+.workspace-church-marker,
+.workspace-packet-marker {
   width: 44px;
   height: 44px;
   object-fit: contain;
@@ -2038,12 +2039,9 @@ button.administrator-account-trigger:not(:disabled):hover {
 
 .packet-proposal-list {
   display: grid;
-  max-height: min(38vh, 25rem);
   grid-auto-rows: max-content;
   gap: 0.55rem;
-  overflow-y: auto;
   padding: 0.15rem 0.3rem 0.15rem 0.1rem;
-  overscroll-behavior: contain;
 }
 
 .packet-card {
@@ -2324,27 +2322,30 @@ button.administrator-account-trigger:not(:disabled):hover {
 .tool-view-switcher {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-  padding: 5px;
+  gap: 0;
+  padding: 0 1.5rem;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
 
 .tool-view-switcher button {
-  min-height: 42px;
+  min-height: 56px;
   border: 0;
+  border-radius: 0;
   background: transparent;
+  box-shadow: inset 0 -3px 0 transparent;
   color: var(--muted);
 }
 
 .tool-view-switcher button:not(.active):not(:disabled):hover {
-  background: #fbf8f2;
+  background: var(--quiet-hover);
   color: var(--ink);
 }
 
 .tool-view-switcher button.active {
-  background: var(--ink);
-  color: white;
+  background: transparent;
+  box-shadow: inset 0 -3px 0 var(--selected);
+  color: var(--ink);
 }
 
 .printout-settings-intro h1,
