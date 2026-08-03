@@ -230,38 +230,33 @@ Apartment complexes are separate tracked outreach units.
 - Imported street geometry and estimated home counts cannot be edited in the first release.
 - A territory import retains every Overture feature classified as a road. High-confidence
   residential roads are active automatically; all other retained roads begin hidden.
-- On the territory editor, an administrator can preview and activate a hidden Overture road.
-  Activation applies to the complete connected named road within the territory. Address evidence
-  may supply a missing name. A genuinely unnamed road follows its connected chain until a named
-  road, intersection, or territory boundary.
-- Administrator-activated roads remain active through later imports. A later source refresh may
-  update matching geometry but cannot silently hide an approved road; if the source road
+- On the territory editor, an administrator can reveal hidden Overture segments and activate exact
+  selected segments. Clicking selects one segment; additive clicks and rectangular selection may
+  select multiple included, excluded, or revealed hidden segments at once.
+- Administrator-activated segments remain active through later imports. A later source refresh may
+  update matching geometry but cannot silently hide an approved segment; if the source segment
   disappears, Streetlight preserves the last approved geometry.
-- Exclusion polygons remain the first-release method for removing unsuitable areas. For an
-  unsuitable individual segment, an administrator can select that exact segment and exclude it
-  without deleting or changing its imported geometry.
+- Exact-segment selection is the first-release method for removing unsuitable streets. An
+  administrator can exclude or restore one or more selected segments without deleting or changing
+  imported geometry. The first release does not store or edit exclusion polygons.
 - A manually excluded segment remains visible in gray and can be selected and restored. It does
   not contribute to territory eligibility, tract totals, or packet generation while excluded.
   Segment exclusion and restoration follow the territory editor's explicit Save and Cancel model.
 - A saved segment exclusion survives later imports while the exact imported segment still exists.
   A materially changed or replacement segment does not inherit the exclusion.
-- Drawing roads, changing road geometry, deactivating a complete named road, and correcting home
+- Drawing roads, changing road geometry, deactivating an active segment, and correcting home
   counts are outside the first release.
-- An administrator can enable, disable, reshape, rename, or delete an exclusion polygon. A
-  disabled polygon remains stored and appears as a faint outline in the territory editor, but it
-  does not affect segment eligibility or tract totals.
 - Completing a street packet records a coverage event for every included segment. Completing an
   apartment packet records one coverage event for the complex.
 - Coverage history must be retained. Correcting a mistake records the correction instead of silently replacing history.
 
 An administrator creates a territory from an address, boundary distance, and either a circle or
-square outer boundary, then adjusts that boundary and draws exclusion polygons. The circle uses
-the selected distance as its radius. The square uses the exact latitude-aware bounding box that
-encloses that circle for the Overture import. The outer boundary is not reshaped as a freeform
-polygon. Segments outside the selected boundary are not displayed. Gray segments are always
-inside the selected boundary but excluded by an enabled exclusion polygon or exact-segment
-override. The administrator can exclude highways, commercial districts, rivers, apartment
-complexes, areas assigned elsewhere, and other unsuitable locations.
+square outer boundary, then reviews and adjusts the imported segments. The circle uses the selected
+distance as its radius. The square uses the exact latitude-aware bounding box that encloses that
+circle for the Overture import. The outer boundary is not reshaped as a freeform polygon. Segments
+outside the selected boundary are not displayed. Gray segments are always inside the selected
+boundary but excluded by exact-segment override. The administrator can exclude highways, commercial
+districts, rivers, apartment complexes, areas assigned elsewhere, and other unsuitable locations.
 
 A territory save reuses imported streets and addresses whenever the proposed territory's enclosing
 square fits inside the saved import footprint. It imports again only when the proposed footprint
