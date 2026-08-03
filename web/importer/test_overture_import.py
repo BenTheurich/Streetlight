@@ -11,6 +11,7 @@ from . import overture_import as importer_module
 from . import run_benchmark as benchmark_module
 from .overture_import import (
     OVERTURE_RELEASE,
+    SpatialIndex,
     canonical_street_name,
     download_fema_features,
     download_features,
@@ -114,6 +115,45 @@ def fema_building(source_id, coordinates):
 
 
 class NormalizeFeaturesTest(TestCase):
+    def test_spatial_index_finds_stable_candidates_across_cell_edges(self):
+        meters = lambda value: value / 111_320
+        features = [
+            {"id": "left", "bbox": [meters(44), -0.001, meters(46), 0.001]},
+            {"id": "right", "bbox": [meters(53), -0.001, meters(55), 0.001]},
+            {"id": "distant", "bbox": [meters(99), -0.001, meters(101), 0.001]},
+        ]
+
+        index = SpatialIndex(
+            list(reversed(features)),
+            lambda item: item["bbox"],
+            cell_meters=50,
+        )
+
+        self.assertEqual(
+            [item["id"] for item in index.nearby([meters(50), 0], 10)],
+            ["left", "right"],
+        )
+
+    def test_spatial_index_queries_bounds_with_padding(self):
+        meters = lambda value: value / 111_320
+        features = [
+            {"id": "inside", "bbox": [meters(40), -0.001, meters(42), 0.001]},
+            {"id": "edge", "bbox": [meters(53), -0.001, meters(55), 0.001]},
+            {"id": "outside", "bbox": [meters(80), -0.001, meters(82), 0.001]},
+        ]
+        index = SpatialIndex(features, lambda item: item["bbox"], cell_meters=50)
+
+        self.assertEqual(
+            [
+                item["id"]
+                for item in index.intersecting(
+                    [meters(43), -0.0001, meters(50), 0.0001],
+                    padding_meters=5,
+                )
+            ],
+            ["edge", "inside"],
+        )
+
     def test_separates_apartment_buildings_and_five_unit_premises_from_street_counts(self):
         roads = [
             road("road-1", "residential", "Sample Road", [[0, 0], [0.001, 0]])
