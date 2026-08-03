@@ -286,6 +286,8 @@ export function ensureTerritoryImportJobRunning(
     return;
   }
   if (job.status === 'running') {
+    const updatedAt = Date.parse(`${job.updatedAt.replace(' ', 'T')}Z`);
+    if (Date.now() - updatedAt <= 60_000) return;
     runInWorkspace(scope, () => interruptTerritoryImportJob(job.id, filename));
     return;
   }

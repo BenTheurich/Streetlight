@@ -5,11 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
-import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
+import { TEMECULA_TEST_WORKSPACE, withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
 import { getTerritoryWorkspace } from './database.ts';
 import { territoryDraftFromWorkspace } from './territory-client.ts';
 import {
   createOrReuseTerritoryImportJob,
+  ensureTerritoryImportJobRunning,
   failTerritoryImportJob,
   finishTerritoryImportJob,
   getTerritoryImportJob,
@@ -17,6 +18,44 @@ import {
   updateTerritoryImportStage,
 } from './territory-import-job.ts';
 
+test('a separate route instance does not interrupt a fresh running import', () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-import-job-'));
+  const filename = path.join(directory, 'streetlight.db');
+  const database = openDatabase(filename);
+  migrateDatabase(database);
+  seedDatabase(database);
+  database.close();
+
+  try {
+    withTemeculaWorkspace(() => {
+      const before = getTerritoryWorkspace(filename);
+      const draft = {
+        ...territoryDraftFromWorkspace(before),
+        radiusMiles: Math.min(before.radiusMiles + 0.25, 5),
+      };
+      const queued = createOrReuseTerritoryImportJob(draft, filename);
+      const running = startTerritoryImportJob(queued.id, filename);
+
+      ensureTerritoryImportJobRunning(running, TEMECULA_TEST_WORKSPACE, filename);
+
+      assert.equal(getTerritoryImportJob(running.id, filename)?.status, 'running');
+
+      const staleDatabase = openDatabase(filename);
+      staleDatabase
+        .prepare(`UPDATE territory_import_jobs SET updated_at = '2000-01-01 00:00:00' WHERE id = ?`)
+        .run(running.id);
+      staleDatabase.close();
+      const stale = getTerritoryImportJob(running.id, filename);
+      assert.ok(stale);
+
+      ensureTerritoryImportJobRunning(stale, TEMECULA_TEST_WORKSPACE, filename);
+
+      assert.equal(getTerritoryImportJob(running.id, filename)?.status, 'interrupted');
+    });
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 test('territory import jobs are deduplicated, staged, and swap territory only on success', () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-import-job-'));
   const filename = path.join(directory, 'streetlight.db');
