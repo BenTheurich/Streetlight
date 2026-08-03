@@ -100,9 +100,7 @@ export function PacketGenerator({
     onResultChange({
       ...result,
       proposals: result.proposals.filter((_, proposalIndex) => proposalIndex !== index),
-      proposalIndexes: result.proposalIndexes.filter(
-        (_, proposalIndex) => proposalIndex !== index,
-      ),
+      proposalIndexes: result.proposalIndexes.filter((_, proposalIndex) => proposalIndex !== index),
     });
     onSelectedIndexChange(null);
     setConfirming(false);

@@ -380,15 +380,14 @@ test('workspace map keeps real buildings and uses the interactive coverage strok
     ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5],
   );
   assert.equal(
-    map.layers.find(({ id }) => id === 'streetlight-territory-hidden')?.paint?.[
-      'line-dasharray'
-    ],
+    map.layers.find(({ id }) => id === 'streetlight-territory-hidden')?.paint?.['line-dasharray'],
     undefined,
   );
-  assert.deepEqual(
-    map.layers.find(({ id }) => id === 'streetlight-territory-hidden')?.filter,
-    ['==', ['get', 'hidden'], true],
-  );
+  assert.deepEqual(map.layers.find(({ id }) => id === 'streetlight-territory-hidden')?.filter, [
+    '==',
+    ['get', 'hidden'],
+    true,
+  ]);
 });
 
 test('workspace map clusters apartments identically over map and satellite styles', () => {

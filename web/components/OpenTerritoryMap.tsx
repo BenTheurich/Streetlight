@@ -112,6 +112,7 @@ export function OpenTerritoryMap({
   }, [active, apartmentSelectionSource, map, selectedApartmentId, selectedApartmentPosition]);
 
   useEffect(() => {
+    void mapStyleRevision;
     if (!active || !map) return;
     const fillSource = 'territory-boundary-fill';
     const lineSource = 'territory-boundary-line';
@@ -161,6 +162,7 @@ export function OpenTerritoryMap({
   }, [active, map, mapStyleRevision]);
 
   useEffect(() => {
+    void mapStyleRevision;
     if (!active || !map) return;
     const boundary = territoryBoundary(center, radiusMiles, boundaryShape);
     (map.getSource('territory-boundary-fill') as GeoJSONSource | undefined)?.setData({
@@ -179,6 +181,7 @@ export function OpenTerritoryMap({
   }, [active, boundaryShape, center, map, mapStyleRevision, radiusMiles]);
 
   useEffect(() => {
+    void mapStyleRevision;
     if (!active || !map) return;
     const layerIds = ['streetlight-coverage', 'streetlight-territory-hidden'] as const;
     const selectedIds = new Set(selectedSegmentIds);
@@ -258,6 +261,7 @@ export function OpenTerritoryMap({
     showHiddenRoads,
   ]);
   useEffect(() => {
+    void mapStyleRevision;
     if (!active || !map) return;
     const clusterId = 'streetlight-apartment-clusters';
     const circleId = 'streetlight-apartments';

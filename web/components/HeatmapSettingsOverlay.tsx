@@ -179,6 +179,7 @@ export function HeatmapSettingsOverlay({
             <label className="map-display-toggle">
               <span>Show apartment markers</span>
               <input
+                aria-checked={showApartmentMarkers}
                 checked={showApartmentMarkers}
                 onChange={(event) => onShowApartmentMarkersChange(event.target.checked)}
                 role="switch"

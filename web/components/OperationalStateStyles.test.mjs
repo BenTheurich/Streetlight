@@ -33,19 +33,16 @@ async function withToolSwitcher(run, reducedMotion = 'no-preference') {
   }
 }
 
-test('inactive tool hover leaves the moving selection indicator uncovered', async () => {
+test('inactive tool hover uses the approved cream treatment without covering selection', async () => {
   await withToolSwitcher(async (page) => {
     const inactive = page.getByRole('button', { name: 'Generate' });
     await inactive.hover();
 
     assert.equal(
       await inactive.evaluate((element) => getComputedStyle(element).backgroundColor),
-      'rgba(0, 0, 0, 0)',
+      'rgba(251, 248, 242, 0.1)',
     );
-    assert.notEqual(
-      await inactive.evaluate((element) => getComputedStyle(element).boxShadow),
-      'none',
-    );
+    assert.equal(await inactive.evaluate((element) => getComputedStyle(element).boxShadow), 'none');
     assert.equal(
       await page
         .locator('.workspace-tools')

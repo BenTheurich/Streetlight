@@ -77,7 +77,7 @@ test('map display and heatmap ranges are edited from the shared legend', () => {
   assert.match(settings, /Show apartment markers/);
   assert.match(settings, /role="switch"/);
   assert.match(settings, /aria-label="Dismiss map settings"/);
-  assert.match(styles, /\.heatmap-settings-form input::-webkit-inner-spin-button/);
+  assert.match(styles, /\.heatmap-settings-form input\[type="number"\]::-webkit-inner-spin-button/);
   assert.match(styles, /width: min\(100%, 390px\)/);
 });
 
@@ -127,7 +127,7 @@ test('territory selection and long imports stay in the approved workflow', () =>
 
   assert.doesNotMatch(source, />\s*Pan\s*</);
   assert.match(source, /placement={operationPlacement}/);
-  assert.match(source, /The previous saved territory is still active/);
+  assert.match(source, /Your saved territory remains active/);
   assert.match(source, /!backgroundImportComplete/);
   assert.doesNotMatch(source, /territory-import-banner/);
 });
@@ -191,8 +191,9 @@ test('basemap changes republish the map after the replacement style has committe
 test('reconciliation requires an explicit outcome for every physical sheet', () => {
   const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
 
-  assert.match(source, /What happened to each sheet\?/);
-  assert.match(source, /Choose one outcome for every packet sheet/);
+  assert.match(source, /className="reconciliation-active-picker-heading"/);
+  assert.doesNotMatch(source, /Choose one outcome for every packet sheet/);
+  assert.match(source, /: 'Choose one outcome'}/);
   assert.match(source, /aria-pressed=\{outcome === value\}/);
   assert.match(source, /disabled=\{!reviewReady \|\| mutationControlsDisabled\}/);
 });
@@ -205,8 +206,8 @@ test('reconciliation keeps pending outcomes visible and history compact', () => 
   assert.match(source, /All discarded/);
   assert.match(source, /Cancels this packet and returns its streets for future generation/);
   assert.match(source, /className="reconciliation-outcome-summary"/);
-  assert.match(source, /editingPacketId === packet\.id/);
-  assert.match(source, /aria-expanded=\{historyOpen\}/);
+  assert.match(source, /const editing = editingPacketId === packet\.id/);
+  assert.match(source, /aria-expanded=\{editing\}/);
   assert.match(styles, /\.reconciliation-bulk-actions button \{[^}]*min-height: 44px;/s);
 });
 
@@ -217,7 +218,8 @@ test('reconciliation identifies every batch with its saved name and finalized ti
   assert.match(source, /const automaticPrefix = 'Outreach batch - '/);
   assert.match(source, /dateStyle: 'medium'/);
   assert.match(source, /timeStyle: 'short'/);
-  assert.match(source, /\{batchOptionLabel\(candidate\)\}/);
+  assert.match(source, /\? batchOptionLabel\(candidate\)/);
+  assert.match(source, /: historyBatchOptionLabel\(candidate\)/);
 });
 
 test('reconciliation highlights the selected batch with the shared light-blue road halo', () => {
