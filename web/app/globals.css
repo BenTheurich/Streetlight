@@ -2341,6 +2341,7 @@ button.administrator-account-trigger:not(:disabled):hover {
 }
 
 .reconciliation-card.selected {
+  border-radius: 11px;
   background: var(--selected-surface);
   box-shadow: inset 0 0 0 2px var(--selected);
 }
