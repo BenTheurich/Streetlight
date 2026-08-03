@@ -515,9 +515,6 @@ export function ReconciliationTool({
                   </div>
                 </section>
               )}
-              {batch && activePackets.length === 0 && (
-                <p className="empty-state">This batch has no active sheets.</p>
-              )}
               {batch && historyPackets.length > 0 && (
                 <section className="reconciliation-history-section">
                   {activePackets.length > 0 ? (
@@ -539,7 +536,9 @@ export function ReconciliationTool({
                       </button>
                     </h2>
                   ) : (
-                    <h2>Batch history</h2>
+                    <div className="packet-results-header">
+                      <strong>Batch history</strong>
+                    </div>
                   )}
                   {(activePackets.length === 0 || historyOpen) && (
                     <div className="reconciliation-list" id="reconciliation-history-list">
