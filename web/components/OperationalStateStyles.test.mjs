@@ -153,6 +153,44 @@ test('map settings controls keep 44px hit targets at desktop and tablet widths',
   }
 });
 
+test('the map display switch keeps its control styling inside the heatmap form', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(
+      '<style>' +
+        styles +
+        '</style>' +
+        '<section class="heatmap-settings-dialog">' +
+        '<form class="heatmap-settings-form">' +
+        '<label>Yellow starts at <span><input type="number" value="90"> days</span></label>' +
+        '<section class="map-display-settings">' +
+        '<label class="map-display-toggle">' +
+        '<span>Show apartment markers</span>' +
+        '<input checked role="switch" type="checkbox">' +
+        '</label></section></form></section>',
+    );
+
+    const toggle = page.getByRole('switch', { name: 'Show apartment markers' });
+    const toggleStyle = await toggle.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        borderRadius: style.borderRadius,
+        height: style.height,
+        width: style.width,
+      };
+    });
+
+    assert.deepEqual(toggleStyle, { borderRadius: '999px', height: '24px', width: '42px' });
+    assert.equal(
+      await toggle.locator('..').evaluate((element) => getComputedStyle(element).display),
+      'flex',
+    );
+  } finally {
+    await browser.close();
+  }
+});
+
 test('packet finalization status keeps its spinner beside one-line left-aligned copy', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
