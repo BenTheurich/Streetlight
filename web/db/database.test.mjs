@@ -136,7 +136,6 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
       'batches',
       'packets',
       'packet_segments',
-      'ignore_zones',
       'segment_addresses',
       'apartment_complexes',
     ];
@@ -146,7 +145,6 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
       'batches',
       'packets',
       'packet_segments',
-      'ignore_zones',
       'segment_addresses',
       'apartment_complexes',
     ]);
@@ -194,10 +192,9 @@ test('apartment imports default to review, preserve decisions, and retire missin
       center: initial.center,
       radiusMiles: 1,
       boundaryShape: 'circle',
-      activatedRoadGroupIds: [],
+      activatedSegmentIds: [],
       excludedSegmentIds: [],
       apartmentStatuses: [],
-      exclusions: [],
     };
     saveTerritoryDraft(draft, {
       filename,
@@ -313,9 +310,8 @@ test('circle and square boundaries control eligibility and coverage-map visibili
       center: initial.center,
       radiusMiles: 1,
       boundaryShape: 'circle',
-      activatedRoadGroupIds: [],
+      activatedSegmentIds: [],
       excludedSegmentIds: [],
-      exclusions: [],
     };
 
     saveTerritoryDraft(baseDraft, {
@@ -653,42 +649,6 @@ test('migration 023 persists the approved legacy FEMA row gaps', () => {
   }
 });
 
-test('exclusion rows default to enabled and reject invalid states', () => {
-  withDatabase((filename) => {
-    const database = openDatabase(filename);
-    try {
-      database
-        .prepare(
-          `INSERT INTO ignore_zones
-            (id, church_id, territory_id, name, geometry_geojson)
-          VALUES (?, ?, ?, ?, ?)`,
-        )
-        .run(
-          'default-enabled',
-          'church-temecula-pilot',
-          'territory-temecula-pilot',
-          'Default enabled',
-          '{"type":"Polygon","coordinates":[[[0,0],[1,0],[0,1],[0,0]]]}',
-        );
-      assert.equal(
-        database.prepare('SELECT enabled FROM ignore_zones WHERE id = ?').get('default-enabled')
-          .enabled,
-        1,
-      );
-      database.prepare('UPDATE ignore_zones SET enabled = 0 WHERE id = ?').run('default-enabled');
-      assert.throws(
-        () =>
-          database
-            .prepare('UPDATE ignore_zones SET enabled = 2 WHERE id = ?')
-            .run('default-enabled'),
-        /CHECK constraint failed/,
-      );
-    } finally {
-      database.close();
-    }
-  });
-});
-
 test('an imported save atomically replaces proof segments and records its footprint', () => {
   withDatabase((filename) => {
     const workspace = getTerritoryWorkspace(filename);
@@ -702,7 +662,6 @@ test('an imported save atomically replaces proof segments and records its footpr
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: workspace.exclusions,
       },
       { filename, imported },
     );
@@ -806,7 +765,6 @@ test('coverage workspace exposes concrete import warnings to packet generation',
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: workspace.exclusions,
       },
       { filename, imported },
     );
@@ -819,7 +777,6 @@ test('coverage workspace exposes concrete import warnings to packet generation',
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: workspace.exclusions,
       },
       {
         filename,
@@ -867,8 +824,7 @@ test('reimport retains assigned addresses for imported and preserved manual segm
       center: workspace.center,
       radiusMiles: workspace.radiusMiles,
       boundaryShape: workspace.boundaryShape,
-      exclusions: [],
-      activatedRoadGroupIds: [approvedGroup],
+      activatedSegmentIds: [approved.id],
     };
 
     saveTerritoryDraft(draft, {
@@ -963,8 +919,7 @@ test('packet generation workspace joins current addresses, eligibility, heatmap,
       center: workspace.center,
       radiusMiles: workspace.radiusMiles,
       boundaryShape: workspace.boundaryShape,
-      exclusions: [],
-      activatedRoadGroupIds: [],
+      activatedSegmentIds: [],
       excludedSegmentIds: ['excluded'],
     };
     const address = {
@@ -1068,7 +1023,7 @@ test('packet generation workspace joins current addresses, eligibility, heatmap,
   });
 });
 
-test('hidden road groups stay out of totals until the saved draft activates them', () => {
+test('hidden road segments stay out of totals until the exact saved segment is activated', () => {
   withDatabase((filename) => {
     const workspace = getTerritoryWorkspace(filename);
     const hiddenGroup = 'road-group:hidden-road';
@@ -1078,8 +1033,7 @@ test('hidden road groups stay out of totals until the saved draft activates them
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
+        activatedSegmentIds: [],
       },
       {
         filename,
@@ -1116,26 +1070,29 @@ test('hidden road groups stay out of totals until the saved draft activates them
         center: hidden.center,
         radiusMiles: hidden.radiusMiles,
         boundaryShape: hidden.boundaryShape,
-        exclusions: hidden.exclusions,
-        activatedRoadGroupIds: [hiddenGroup],
+        activatedSegmentIds: ['hidden-a'],
       },
       { filename },
     );
 
     const activated = getTerritoryWorkspace(filename);
-    assert.equal(
-      activated.segments.every((segment) => segment.activationKind === 'manual'),
-      true,
-    );
-    assert.equal(
-      activated.segments.every((segment) => segment.active && segment.eligible),
-      true,
+    assert.deepEqual(
+      activated.segments.map(({ id, activationKind, active, eligible }) => ({
+        id,
+        activationKind,
+        active,
+        eligible,
+      })),
+      [
+        { id: 'hidden-a', activationKind: 'manual', active: true, eligible: true },
+        { id: 'hidden-b', activationKind: 'hidden', active: false, eligible: false },
+      ],
     );
     assert.deepEqual(activated.totals, {
-      allSegments: 2,
-      eligibleSegments: 2,
-      allHomes: 9,
-      eligibleHomes: 9,
+      allSegments: 1,
+      eligibleSegments: 1,
+      allHomes: 4,
+      eligibleHomes: 4,
     });
   });
 });
@@ -1150,8 +1107,7 @@ test('saving a segment exclusion persists only the exact selected segment', () =
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
+        activatedSegmentIds: [],
         excludedSegmentIds: [],
       },
       {
@@ -1169,8 +1125,7 @@ test('saving a segment exclusion persists only the exact selected segment', () =
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
+        activatedSegmentIds: [],
         excludedSegmentIds: ['one'],
       },
       { filename },
@@ -1208,8 +1163,7 @@ test('reimport preserves an exclusion only while the exact segment geometry rema
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
+        activatedSegmentIds: [],
         excludedSegmentIds: [],
       },
       { filename, imported: importedTerritory([original]) },
@@ -1220,8 +1174,7 @@ test('reimport preserves an exclusion only while the exact segment geometry rema
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
+        activatedSegmentIds: [],
         excludedSegmentIds: ['one'],
       },
       { filename },
@@ -1233,8 +1186,7 @@ test('reimport preserves an exclusion only while the exact segment geometry rema
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
+        activatedSegmentIds: [],
         excludedSegmentIds: ['one'],
       },
       {
@@ -1262,8 +1214,7 @@ test('reimport preserves an exclusion only while the exact segment geometry rema
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
+        activatedSegmentIds: [],
         excludedSegmentIds: ['one'],
       },
       { filename, imported: importedTerritory([changedGeometry]) },
@@ -1290,8 +1241,7 @@ test('reimport keeps an administrator-approved source active when its group iden
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [originalGroup],
+        activatedSegmentIds: ['candidate'],
       },
       { filename, imported: firstImport },
     );
@@ -1303,8 +1253,7 @@ test('reimport keeps an administrator-approved source active when its group iden
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [originalGroup],
+        activatedSegmentIds: ['candidate'],
       },
       {
         filename,
@@ -1344,8 +1293,7 @@ test('reimport preserves the last approved geometry when Overture drops its sour
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [approvedGroup],
+        activatedSegmentIds: [approved.id],
       },
       { filename, imported: importedTerritory([approved]) },
     );
@@ -1356,8 +1304,7 @@ test('reimport preserves the last approved geometry when Overture drops its sour
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [approvedGroup],
+        activatedSegmentIds: [approved.id],
       },
       {
         filename,
@@ -1400,7 +1347,6 @@ test('reimport preserves coverage and finalized packet references to retired seg
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: workspace.exclusions,
       },
       {
         filename,
@@ -1473,7 +1419,6 @@ test('reimport preserves coverage and finalized packet references to retired seg
         center: workspace.center,
         radiusMiles: workspace.radiusMiles,
         boundaryShape: workspace.boundaryShape,
-        exclusions: workspace.exclusions,
       },
       {
         filename,
@@ -1550,7 +1495,6 @@ test('a replacement failure preserves the complete saved workspace', () => {
         center: initial.center,
         radiusMiles: initial.radiusMiles,
         boundaryShape: initial.boundaryShape,
-        exclusions: initial.exclusions,
       },
       {
         filename,
@@ -1567,23 +1511,6 @@ test('a replacement failure preserves the complete saved workspace', () => {
             center: [-117.2, 33.6],
             radiusMiles: 5,
             boundaryShape: 'circle',
-            exclusions: [
-              {
-                id: 'rollback-exclusion',
-                name: 'Rollback exclusion',
-                geometry: {
-                  type: 'Polygon',
-                  coordinates: [
-                    [
-                      [-117.21, 33.59],
-                      [-117.19, 33.59],
-                      [-117.19, 33.61],
-                      [-117.21, 33.59],
-                    ],
-                  ],
-                },
-              },
-            ],
           },
           {
             filename,
@@ -1906,9 +1833,8 @@ test('coverage boundary appends corrections, retains retired logical history, an
         center: before.center,
         radiusMiles: before.radiusMiles,
         boundaryShape: before.boundaryShape,
-        activatedRoadGroupIds: [],
+        activatedSegmentIds: [],
         excludedSegmentIds: [first.id],
-        exclusions: before.exclusions,
       },
       { filename },
     );
@@ -1925,13 +1851,12 @@ test('coverage boundary appends corrections, retains retired logical history, an
         center: before.center,
         radiusMiles: before.radiusMiles,
         boundaryShape: before.boundaryShape,
-        activatedRoadGroupIds: before.segments
+        activatedSegmentIds: before.segments
           .filter((segment) => segment.activationKind === 'manual')
-          .map((segment) => segment.roadGroupId),
+          .map((segment) => segment.id),
         excludedSegmentIds: before.segments
           .filter((segment) => segment.manuallyExcluded)
           .map((segment) => segment.id),
-        exclusions: before.exclusions,
       },
       {
         filename,
@@ -2111,9 +2036,16 @@ test('coverage demo can copy the full empty-history territory into geographic ag
     const demo = openDatabase(demoFilename);
     const copiedName = demo.prepare('SELECT name FROM territories').get().name;
     const eventCount = demo.prepare('SELECT COUNT(*) AS count FROM coverage_events').get().count;
+    const unlinkedDemoEvents = demo
+      .prepare(
+        `SELECT COUNT(*) AS count FROM coverage_events
+        WHERE id LIKE 'coverage-demo-band-%' AND packet_id IS NULL`,
+      )
+      .get().count;
     demo.close();
     assert.equal(copiedName, 'Full territory source');
     assert.equal(eventCount > 20, true);
+    assert.equal(unlinkedDemoEvents, 0);
 
     const workspace = withTemeculaWorkspace(() => getCoverageWorkspace(demoFilename, asOf));
     assert.equal(workspace.dataMode, 'demo');

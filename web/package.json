@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@next/env": "16.2.11",
+    "@radix-ui/react-select": "^2.3.7",
     "@workos-inc/authkit-nextjs": "^4.3.0",
     "@workos-inc/node": "^10.8.0",
     "maplibre-gl": "^5.24.0",

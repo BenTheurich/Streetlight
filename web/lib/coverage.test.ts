@@ -147,11 +147,7 @@ test('street search keeps unnamed roads reachable and caps visible road groups a
 });
 
 test('street search merges nearby same-name carriageways but keeps distant namesakes separate', () => {
-  const segment = (
-    id: string,
-    roadGroupId: string,
-    coordinates: Array<[number, number]>,
-  ) => ({
+  const segment = (id: string, roadGroupId: string, coordinates: Array<[number, number]>) => ({
     ...searchableSegment(id, roadGroupId, 'Winchester Road'),
     geometry: { coordinates },
   });
@@ -179,7 +175,10 @@ test('street search merges nearby same-name carriageways but keeps distant names
   );
   assert.deepEqual(
     coverageModule
-      .coverageRoadForSegment(roads.flatMap(({ segments }) => segments), 'southbound')
+      .coverageRoadForSegment(
+        roads.flatMap(({ segments }) => segments),
+        'southbound',
+      )
       ?.segments.map(({ id }) => id),
     ['northbound', 'southbound'],
   );
@@ -215,6 +214,77 @@ test('coverage road result aggregates sections without exposing internal IDs', (
   assert.doesNotMatch(JSON.stringify(result), /segment-secret-hash/);
 });
 
+test('road coverage rows group current sections by source packet instead of date alone', () => {
+  const groups = (
+    coverageModule as typeof coverageModule & {
+      coverageRoadPacketGroups?: (segments: Array<Record<string, unknown>>) => unknown;
+    }
+  ).coverageRoadPacketGroups;
+  assert.equal(typeof groups, 'function');
+  const root = (packetId: string, coveredOn: string) => ({
+    eventId: `${packetId}-${coveredOn}`,
+    packetId,
+    originalCoveredOn: coveredOn,
+    effectiveCoveredOn: coveredOn,
+    corrections: [],
+  });
+
+  assert.deepEqual(
+    groups?.([
+      {
+        id: 'never',
+        estimatedHomes: 1,
+        lastCoveredOn: null,
+        coverageClass: 'red',
+        roots: [],
+      },
+      {
+        id: 'packet-a-first',
+        estimatedHomes: 2,
+        lastCoveredOn: '2025-12-02',
+        coverageClass: 'orange',
+        roots: [root('packet-a', '2025-12-02')],
+      },
+      {
+        id: 'packet-a-second',
+        estimatedHomes: 3,
+        lastCoveredOn: '2025-12-02',
+        coverageClass: 'orange',
+        roots: [root('packet-a', '2025-12-02')],
+      },
+      {
+        id: 'packet-b',
+        estimatedHomes: 4,
+        lastCoveredOn: '2025-12-02',
+        coverageClass: 'orange',
+        roots: [root('packet-b', '2025-12-02')],
+      },
+    ]),
+    [
+      {
+        packetId: null,
+        lastCoveredOn: null,
+        coverageClass: 'red',
+        sections: 1,
+        estimatedTracts: 1,
+      },
+      {
+        packetId: 'packet-a',
+        lastCoveredOn: '2025-12-02',
+        coverageClass: 'orange',
+        sections: 2,
+        estimatedTracts: 5,
+      },
+      {
+        packetId: 'packet-b',
+        lastCoveredOn: '2025-12-02',
+        coverageClass: 'orange',
+        sections: 1,
+        estimatedTracts: 4,
+      },
+    ],
+  );
+});
 test('current work state follows whether packets await reconciliation', () => {
   const state = coverageModule.currentWorkState;
   assert.equal(typeof state, 'function');

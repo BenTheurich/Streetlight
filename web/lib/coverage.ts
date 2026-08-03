@@ -89,19 +89,20 @@ function pointToLineDistanceSquared(
   return nearestX * nearestX + nearestY * nearestY;
 }
 
-function linesAreNearby(
-  first: Array<[number, number]>,
-  second: Array<[number, number]>,
-): boolean {
+function linesAreNearby(first: Array<[number, number]>, second: Array<[number, number]>): boolean {
   const limit = ROAD_CARRIAGEWAY_JOIN_METERS ** 2;
   const near = (points: Array<[number, number]>, line: Array<[number, number]>) =>
     points.some((point) =>
-      line.slice(1).some((end, index) => pointToLineDistanceSquared(point, line[index], end) <= limit),
+      line
+        .slice(1)
+        .some((end, index) => pointToLineDistanceSquared(point, line[index], end) <= limit),
     );
   return near(first, second) || near(second, first);
 }
 
-export function coverageRoads<T extends CoverageSearchableSegment>(segments: T[]): CoverageRoad<T>[] {
+export function coverageRoads<T extends CoverageSearchableSegment>(
+  segments: T[],
+): CoverageRoad<T>[] {
   const sourceRoads = new Map<string, CoverageRoad<T> & { sourceIndex: number }>();
   for (const [sourceIndex, segment] of segments.entries()) {
     const road = sourceRoads.get(segment.roadGroupId);
@@ -134,7 +135,10 @@ export function coverageRoads<T extends CoverageSearchableSegment>(segments: T[]
       if (
         roads[first].segments.some((a) =>
           roads[second].segments.some(
-            (b) => a.geometry && b.geometry && linesAreNearby(a.geometry.coordinates, b.geometry.coordinates),
+            (b) =>
+              a.geometry &&
+              b.geometry &&
+              linesAreNearby(a.geometry.coordinates, b.geometry.coordinates),
           ),
         )
       ) {
@@ -160,7 +164,8 @@ export function coverageRoadForSegment<T extends CoverageSearchableSegment>(
   segmentId: string | null,
 ): CoverageRoad<T> | null {
   return segmentId
-    ? coverageRoads(segments).find((road) => road.segments.some(({ id }) => id === segmentId)) ?? null
+    ? (coverageRoads(segments).find((road) => road.segments.some(({ id }) => id === segmentId)) ??
+        null)
     : null;
 }
 
@@ -201,6 +206,50 @@ export function coverageRoadResultContent<T extends CoverageSearchableSegment>(
   } as const;
 }
 
+export function coverageRoadPacketGroups(
+  segments: Array<
+    Pick<CoverageSegment, 'estimatedHomes' | 'lastCoveredOn' | 'roots'> & {
+      coverageClass: CoverageClass;
+    }
+  >,
+) {
+  const groups = new Map<
+    string,
+    {
+      packetId: string | null;
+      lastCoveredOn: string | null;
+      coverageClass: CoverageClass;
+      sections: number;
+      estimatedTracts: number;
+    }
+  >();
+  for (const segment of segments) {
+    const packetId = segment.lastCoveredOn
+      ? (segment.roots.findLast(
+          (root) => root.packetId !== null && root.effectiveCoveredOn === segment.lastCoveredOn,
+        )?.packetId ?? null)
+      : null;
+    const key = packetId ? `packet:${packetId}` : `date:${segment.lastCoveredOn ?? 'never'}`;
+    const group = groups.get(key);
+    if (group) {
+      group.sections += 1;
+      group.estimatedTracts += segment.estimatedHomes;
+    } else {
+      groups.set(key, {
+        packetId,
+        lastCoveredOn: segment.lastCoveredOn,
+        coverageClass: segment.coverageClass,
+        sections: 1,
+        estimatedTracts: segment.estimatedHomes,
+      });
+    }
+  }
+  return [...groups.values()].sort((first, second) => {
+    if (first.lastCoveredOn === null) return -1;
+    if (second.lastCoveredOn === null) return 1;
+    return first.lastCoveredOn.localeCompare(second.lastCoveredOn);
+  });
+}
 export function currentWorkState(activePackets: number): 'active' | 'ready' {
   return activePackets > 0 ? 'active' : 'ready';
 }

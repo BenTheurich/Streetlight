@@ -68,14 +68,15 @@ function seedFullTerritoryDemo(target, sourceFilename, asOf) {
     migrateDatabase(database);
     const center = database
       .prepare(
-        `SELECT center_latitude AS latitude, center_longitude AS longitude
+        `SELECT center_latitude AS latitude, center_longitude AS longitude, import_generation
         FROM territories WHERE id = ? AND church_id = ?`,
       )
       .get(territoryId, churchId);
     if (!center) throw new Error('Coverage demo territory is missing');
     const segments = database
       .prepare(
-        `SELECT segment.id, segment.geometry_geojson
+        `SELECT segment.id, segment.geometry_geojson, segment.road_group_id,
+          segment.street_name, segment.estimated_homes
         FROM street_segments AS segment
         WHERE segment.church_id = ? AND segment.territory_id = ? AND segment.is_current = 1
           AND segment.activation_kind <> 'hidden'
@@ -96,31 +97,86 @@ function seedFullTerritoryDemo(target, sourceFilename, asOf) {
       );
     if (segments.length < 4) throw new Error('Coverage demo needs four active segments');
 
+    const coveredSegments = segments.flatMap((segment, index) => {
+      const position = index / segments.length;
+      const age =
+        position < 0.2
+          ? 30
+          : position < 0.4
+            ? 120
+            : position < 0.6
+              ? 240
+              : position < 0.7
+                ? 500
+                : null;
+      return age === null ? [] : [{ ...segment, index, coveredOn: daysBefore(asOf, age) }];
+    });
+    const packetGroups = new Map();
+    for (const segment of coveredSegments) {
+      const key = `${segment.coveredOn}:${segment.road_group_id ?? segment.id}`;
+      const group = packetGroups.get(key);
+      if (group) group.push(segment);
+      else packetGroups.set(key, [segment]);
+    }
+    const insertBatch = database.prepare(
+      `INSERT INTO batches
+        (id, church_id, name, status, finalized_at, import_generation)
+      VALUES (?, ?, ?, 'reconciled', ?, ?)`,
+    );
+    const insertPacket = database.prepare(
+      `INSERT INTO packets
+        (id, church_id, batch_id, packet_code, start_address, estimated_homes, status,
+          sequence_number, packet_kind)
+      VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, 'street')`,
+    );
+    const insertPacketSegment = database.prepare(
+      `INSERT INTO packet_segments
+        (church_id, packet_id, street_segment_id, sequence_number)
+      VALUES (?, ?, ?, ?)`,
+    );
     const insertEvent = database.prepare(
       `INSERT INTO coverage_events
-        (id, church_id, street_segment_id, covered_on, kind, corrects_event_id, is_void)
-      VALUES (?, ?, ?, ?, 'completed', NULL, 0)`,
+        (id, church_id, street_segment_id, packet_id, completion_group_id, covered_on,
+          kind, corrects_event_id, is_void)
+      VALUES (?, ?, ?, ?, ?, ?, 'completed', NULL, 0)`,
     );
+    const batchSequences = new Map();
     database.exec('BEGIN IMMEDIATE');
     try {
-      for (const [index, segment] of segments.entries()) {
-        const position = index / segments.length;
-        const age =
-          position < 0.2
-            ? 30
-            : position < 0.4
-              ? 120
-              : position < 0.6
-                ? 240
-                : position < 0.7
-                  ? 500
-                  : null;
-        if (age !== null) {
+      for (const [groupIndex, group] of [...packetGroups.values()].entries()) {
+        const coveredOn = group[0].coveredOn;
+        const batchId = `coverage-demo-history-${coveredOn}`;
+        if (!batchSequences.has(batchId)) {
+          insertBatch.run(
+            batchId,
+            churchId,
+            `Demo outreach - ${coveredOn}`,
+            `${coveredOn}T12:00:00.000Z`,
+            center.import_generation,
+          );
+          batchSequences.set(batchId, 0);
+        }
+        const packetId = `coverage-demo-history-packet-${String(groupIndex).padStart(5, '0')}`;
+        const batchSequence = batchSequences.get(batchId);
+        insertPacket.run(
+          packetId,
+          churchId,
+          batchId,
+          `COVERAGE-DEMO-${String(groupIndex).padStart(5, '0')}`,
+          group[0].street_name || 'Demo starting address',
+          group.reduce((total, segment) => total + segment.estimated_homes, 0),
+          batchSequence,
+        );
+        batchSequences.set(batchId, batchSequence + 1);
+        for (const [sequence, segment] of group.entries()) {
+          insertPacketSegment.run(churchId, packetId, segment.id, sequence);
           insertEvent.run(
-            `coverage-demo-band-${String(index).padStart(5, '0')}`,
+            `coverage-demo-band-${String(segment.index).padStart(5, '0')}`,
             churchId,
             segment.id,
-            daysBefore(asOf, age),
+            packetId,
+            `${packetId}-completion`,
+            coveredOn,
           );
         }
       }

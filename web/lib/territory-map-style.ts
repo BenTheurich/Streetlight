@@ -7,6 +7,46 @@ export const apartmentLayerIds = [
   'streetlight-apartment-labels',
 ] as const;
 
+export function listenForMapStyleLoad(
+  map: {
+    on: (event: 'style.load', listener: () => void) => unknown;
+    off: (event: 'style.load', listener: () => void) => unknown;
+  },
+  listener: () => void,
+): () => void {
+  map.on('style.load', listener);
+  return () => map.off('style.load', listener);
+}
+
+export function keepMapOverlayPublished(
+  map: {
+    on: (event: 'style.load', listener: () => void) => unknown;
+    off: (event: 'style.load', listener: () => void) => unknown;
+  },
+  publish: () => void,
+): () => void {
+  publish();
+  return listenForMapStyleLoad(map, publish);
+}
+
+export function basemapRoadGeometryLayerIds(
+  layers: ReadonlyArray<{
+    id: string;
+    type: string;
+    source?: string;
+    'source-layer'?: string;
+  }>,
+): string[] {
+  return layers
+    .filter(
+      (layer) =>
+        layer.source === 'openmaptiles' &&
+        layer['source-layer'] === 'transportation' &&
+        (layer.type === 'line' || layer.type === 'fill'),
+    )
+    .map(({ id }) => id);
+}
+
 export type ApartmentSelectionSource = 'map' | 'selector';
 
 export function createApartmentSelection(id: string, source: ApartmentSelectionSource) {
@@ -27,6 +67,21 @@ export const mapMarkerStyle = {
   outlineWidth: 2,
   radius: 12,
   selectedRadius: 15,
+};
+
+export const territoryBoundaryStyle = {
+  color: mapMarkerStyle.fill,
+  opacity: 0.78,
+  width: 2,
+  dashArray: [3, 2] as const,
+  fill: '#eef4ff',
+  fillOpacity: 0.04,
+};
+
+const territorySegmentColors = {
+  included: '#596675',
+  excluded: '#aaa7a0',
+  hidden: '#6f8794',
 };
 
 export function mapPinDataUrl(symbol: 'church' | 'start'): string {
@@ -105,43 +160,34 @@ export function segmentVisibleOnMap(
   return segment.withinBoundary && (segment.active || segment.manuallyExcluded || showHiddenRoads);
 }
 
-export function segmentMapAppearance(
-  segment: SegmentMapInput,
-  selectedSegmentId: string | null,
-  selectedHiddenRoadGroupId: string | null,
-) {
-  const selected =
-    segment.active || segment.manuallyExcluded
-      ? segment.id === selectedSegmentId
-      : segment.roadGroupId === selectedHiddenRoadGroupId;
+export function segmentMapAppearance(segment: SegmentMapInput, selected: boolean) {
   if (segment.manuallyExcluded) {
     return {
-      strokeColor: selected ? '#3f3c37' : '#77736c',
-      strokeOpacity: selected ? 0.95 : 0.5,
-      weightOffset: selected ? 2 : 0,
+      strokeColor: territorySegmentColors.excluded,
+      strokeOpacity: selected ? 0.75 : 0.45,
+      weightOffset: -1,
+      selected,
       selectable: true,
       zIndex: 5,
     };
   }
   if (!segment.active) {
     return {
-      strokeColor: selected ? '#315f72' : '#6f8794',
-      strokeOpacity: selected ? 0.8 : 0.38,
-      weightOffset: selected ? 2 : -1,
+      strokeColor: territorySegmentColors.hidden,
+      strokeOpacity: selected ? 0.75 : 0.48,
+      weightOffset: -1,
+      selected,
       selectable: true,
       zIndex: selected ? 3 : 1,
     };
   }
   return {
-    strokeColor: selected
-      ? segment.eligible
-        ? '#9a421f'
-        : '#3f3c37'
-      : segment.eligible
-        ? '#df6d32'
-        : '#77736c',
-    strokeOpacity: selected ? 0.95 : segment.eligible ? 0.65 : 0.5,
-    weightOffset: selected ? 2 : 0,
+    strokeColor: segment.eligible
+      ? territorySegmentColors.included
+      : territorySegmentColors.excluded,
+    strokeOpacity: selected ? 0.95 : segment.eligible ? 0.8 : 0.45,
+    weightOffset: segment.eligible ? 0 : -1,
+    selected,
     selectable: segment.eligible || segment.manuallyExcluded,
     zIndex: selected ? 4 : segment.eligible ? 3 : 2,
   };

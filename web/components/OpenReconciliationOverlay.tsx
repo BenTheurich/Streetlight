@@ -3,8 +3,12 @@
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import { positionBounds } from '@/lib/map-camera';
-import type { ReconciliationBatch, ReconciliationPacket } from '@/lib/reconciliation';
-import { mapPinDataUrl } from '@/lib/territory-map-style';
+import {
+  type ReconciliationBatch,
+  type ReconciliationPacket,
+  reconciliationMapPackets,
+} from '@/lib/reconciliation';
+import { keepMapOverlayPublished, mapPinDataUrl } from '@/lib/territory-map-style';
 
 const dispositionColors = {
   complete: '#3e8b65',
@@ -16,6 +20,7 @@ export function OpenReconciliationOverlay({
   active,
   batch,
   cancelIds,
+  history,
   map,
   presentIds,
   selectedPacketId,
@@ -23,6 +28,7 @@ export function OpenReconciliationOverlay({
   active: boolean;
   batch: ReconciliationBatch | null;
   cancelIds: Set<string>;
+  history: boolean;
   map: MapLibreMap | null;
   presentIds: Set<string>;
   selectedPacketId: string | null;
@@ -36,72 +42,81 @@ export function OpenReconciliationOverlay({
     const lineId = 'streetlight-reconciliation-line';
     const markers: MapLibreMarker[] = [];
     let disposed = false;
-    const activePackets = batch.packets.filter(({ status }) => status === 'active');
     const selected = batch.packets.find(({ id }) => id === selectedPacketId) ?? null;
-    const packets = [
-      ...activePackets,
-      ...(selected && selected.status !== 'active' ? [selected] : []),
-    ];
+    const packets = reconciliationMapPackets(
+      batch.packets,
+      history ? 'history' : 'active',
+      selectedPacketId,
+    );
     const disposition = (packet: ReconciliationPacket) =>
       packet.status === 'cancelled' || cancelIds.has(packet.id)
         ? 'cancel'
         : packet.status === 'completed' || !presentIds.has(packet.id)
           ? 'complete'
           : 'active';
-    map.addSource(sourceId, {
-      type: 'geojson',
-      data: {
-        type: 'FeatureCollection',
-        features: packets.flatMap((packet) =>
-          packet.segments.map((segment) => ({
-            type: 'Feature' as const,
-            geometry: segment.geometry,
-            properties: {
-              color: dispositionColors[disposition(packet)],
-              selected: packet.id === selectedPacketId,
+    const publish = () => {
+      if (!map.getSource(sourceId)) {
+        map.addSource(sourceId, {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: packets.flatMap((packet) =>
+              packet.segments.map((segment) => ({
+                type: 'Feature' as const,
+                geometry: segment.geometry,
+                properties: {
+                  color: dispositionColors[disposition(packet)],
+                  selected: packet.id === selectedPacketId,
+                },
+              })),
+            ),
+          },
+        });
+      }
+      const haloBefore = map.getLayer('streetlight-coverage')
+        ? 'streetlight-coverage'
+        : map.getLayer('highway-name-minor')
+          ? 'highway-name-minor'
+          : undefined;
+      const lineBefore = map.getLayer('highway-name-minor') ? 'highway-name-minor' : undefined;
+      if (!map.getLayer(haloId)) {
+        map.addLayer(
+          {
+            id: haloId,
+            type: 'line',
+            source: sourceId,
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              'line-color': '#78a9ff',
+              'line-opacity': 1,
+              'line-width': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 13],
             },
-          })),
-        ),
-      },
-    });
-    const haloBefore = map.getLayer('streetlight-coverage')
-      ? 'streetlight-coverage'
-      : map.getLayer('highway-name-minor')
-        ? 'highway-name-minor'
-        : undefined;
-    const lineBefore = map.getLayer('highway-name-minor') ? 'highway-name-minor' : undefined;
-    map.addLayer(
-      {
-        id: haloId,
-        type: 'line',
-        source: sourceId,
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '#78a9ff',
-          'line-opacity': 1,
-          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 13],
-        },
-      },
-      haloBefore,
-    );
-    map.addLayer(
-      {
-        id: lineId,
-        type: 'line',
-        source: sourceId,
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': ['get', 'color'],
-          'line-opacity': 0.9,
-          'line-width': [
-            '+',
-            ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5],
-            ['case', ['get', 'selected'], 2, 0],
-          ],
-        },
-      },
-      lineBefore,
-    );
+          },
+          haloBefore,
+        );
+      }
+      if (!map.getLayer(lineId)) {
+        map.addLayer(
+          {
+            id: lineId,
+            type: 'line',
+            source: sourceId,
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              'line-color': ['get', 'color'],
+              'line-opacity': 0.9,
+              'line-width': [
+                '+',
+                ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5],
+                ['case', ['get', 'selected'], 2, 0],
+              ],
+            },
+          },
+          lineBefore,
+        );
+      }
+    };
+    const stopPublishing = keepMapOverlayPublished(map, publish);
     const focusPackets = selected ? [selected] : packets;
     const positions = focusPackets.flatMap((packet) => [
       ...packet.segments.flatMap(({ geometry }) => geometry.coordinates),
@@ -142,12 +157,13 @@ export function OpenReconciliationOverlay({
     });
     return () => {
       disposed = true;
+      stopPublishing();
       for (const marker of markers) marker.remove();
       if (map.getLayer(lineId)) map.removeLayer(lineId);
       if (map.getLayer(haloId)) map.removeLayer(haloId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
     };
-  }, [active, batch, cancelIds, map, presentIds, selectedPacketId]);
+  }, [active, batch, cancelIds, history, map, presentIds, selectedPacketId]);
 
   return null;
 }

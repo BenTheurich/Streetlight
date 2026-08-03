@@ -7,6 +7,7 @@ import {
   apartmentMarkerColor,
   coverageColors,
   mapMarkerStyle,
+  territoryBoundaryStyle,
 } from './territory-map-style.ts';
 
 const ZOOM_STOPS = [14, 18, 20] as const;
@@ -801,10 +802,10 @@ export function buildWorkspaceMapStyle(
       type: 'line',
       source: 'streetlightBoundary',
       paint: {
-        'line-color': '#0f7055',
-        'line-opacity': 0.72,
-        'line-width': 2,
-        'line-dasharray': [3, 2],
+        'line-color': territoryBoundaryStyle.color,
+        'line-opacity': territoryBoundaryStyle.opacity,
+        'line-width': territoryBoundaryStyle.width,
+        'line-dasharray': [...territoryBoundaryStyle.dashArray],
       },
     },
     {
@@ -823,6 +824,19 @@ export function buildWorkspaceMapStyle(
       id: 'streetlight-coverage',
       type: 'line',
       source: 'streetlightCoverage',
+      filter: ['!=', ['get', 'hidden'], true],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': ['get', 'color'],
+        'line-opacity': ['get', 'opacity'],
+        'line-width': coverageWidthExpression(),
+      },
+    },
+    {
+      id: 'streetlight-territory-hidden',
+      type: 'line',
+      source: 'streetlightCoverage',
+      filter: ['==', ['get', 'hidden'], true],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': ['get', 'color'],

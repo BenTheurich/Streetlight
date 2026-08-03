@@ -7,9 +7,8 @@ const draft = {
   center: [-117.1274, 33.5107] as [number, number],
   radiusMiles: 1,
   boundaryShape: 'circle' as const,
-  activatedRoadGroupIds: [],
+  activatedSegmentIds: [],
   excludedSegmentIds: [],
-  exclusions: [],
 };
 const quality = {
   totalAddresses: 12,
@@ -59,7 +58,7 @@ test('proof data and an expanded footprint require imports', () => {
   );
 });
 
-test('shape changes, exclusions, and radius reductions reuse a current footprint', () => {
+test('shape changes, segment edits, and radius reductions reuse a current footprint', () => {
   assert.equal(
     needsTerritoryImport(
       {
@@ -74,23 +73,7 @@ test('shape changes, exclusions, and radius reductions reuse a current footprint
       {
         ...draft,
         boundaryShape: 'square',
-        exclusions: [
-          {
-            id: 'x',
-            name: '',
-            enabled: true,
-            geometry: {
-              type: 'Polygon',
-              coordinates: [
-                [
-                  [-117.13, 33.51],
-                  [-117.12, 33.51],
-                  [-117.13, 33.51],
-                ],
-              ],
-            },
-          },
-        ],
+        excludedSegmentIds: ['segment:one'],
       },
     ),
     false,

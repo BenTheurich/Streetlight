@@ -11,6 +11,8 @@ import {
   buildReconciliationPreview,
   parsePacketCompletionCorrection,
   parseReconciliationInput,
+  type ReconciliationBatch,
+  type ReconciliationPacket,
 } from './reconciliation.ts';
 
 async function withDatabase(run: (filename: string) => void | Promise<void>): Promise<void> {
@@ -279,6 +281,125 @@ test('reconciliation choices leave sheets unresolved until each has an explicit 
       complete: ['two'],
       cancel: ['three'],
     },
+  );
+});
+
+test('reconciliation separates batches needing action from batches with history', async () => {
+  const reconciliationModule = (await import('./reconciliation.ts')) as Record<string, unknown>;
+  const batchesForView = reconciliationModule.reconciliationBatchesForView;
+  assert.equal(typeof batchesForView, 'function');
+  if (typeof batchesForView !== 'function') return;
+
+  const batch = (id: string, counts: ReconciliationBatch['counts']): ReconciliationBatch => ({
+    id,
+    name: id,
+    status: 'finalized',
+    finalizedAt: '2026-07-29T12:00:00.000Z',
+    packets: [],
+    counts,
+  });
+  const batches = [
+    batch('active-only', { active: 2, completed: 0, cancelled: 0 }),
+    batch('mixed', { active: 1, completed: 1, cancelled: 0 }),
+    batch('history-only', { active: 0, completed: 1, cancelled: 1 }),
+  ];
+  const filter = batchesForView as (
+    batches: ReconciliationBatch[],
+    view: 'active' | 'history',
+  ) => ReconciliationBatch[];
+
+  assert.deepEqual(
+    filter(batches, 'active').map(({ id }) => id),
+    ['active-only', 'mixed'],
+  );
+  assert.deepEqual(
+    filter(batches, 'history').map(({ id }) => id),
+    ['mixed', 'history-only'],
+  );
+});
+
+test('reconciliation history target resolves only an exact historical packet', async () => {
+  const reconciliationModule = (await import('./reconciliation.ts')) as Record<string, unknown>;
+  const resolveTarget = reconciliationModule.reconciliationHistorySelection;
+  assert.equal(typeof resolveTarget, 'function');
+  if (typeof resolveTarget !== 'function') return;
+
+  const packet = (id: string, status: ReconciliationPacket['status']): ReconciliationPacket => ({
+    id,
+    code: id,
+    kind: 'street',
+    status,
+    estimatedTracts: 1,
+    start: { address: id, position: [0, 0] },
+    segments: [],
+    apartment: null,
+    completedOn: status === 'completed' ? '2026-07-29' : null,
+    history: [],
+  });
+  const batch = (id: string, packets: ReconciliationPacket[]): ReconciliationBatch => ({
+    id,
+    name: id,
+    status: 'finalized',
+    finalizedAt: '2026-07-29T12:00:00.000Z',
+    packets,
+    counts: {
+      active: packets.filter(({ status }) => status === 'active').length,
+      completed: packets.filter(({ status }) => status === 'completed').length,
+      cancelled: packets.filter(({ status }) => status === 'cancelled').length,
+    },
+  });
+  const batches = [
+    batch('active-batch', [packet('active-packet', 'active')]),
+    batch('history-batch', [packet('history-packet', 'completed')]),
+  ];
+  const resolve = resolveTarget as (
+    batches: ReconciliationBatch[],
+    packetId: string,
+  ) => { batchId: string; packetId: string } | null;
+
+  assert.deepEqual(resolve(batches, 'history-packet'), {
+    batchId: 'history-batch',
+    packetId: 'history-packet',
+  });
+  assert.equal(resolve(batches, 'active-packet'), null);
+  assert.equal(resolve(batches, 'missing-packet'), null);
+});
+test('reconciliation map isolates the selected packet in active and history views', async () => {
+  const reconciliationModule = (await import('./reconciliation.ts')) as Record<string, unknown>;
+  const mapPackets = reconciliationModule.reconciliationMapPackets;
+  assert.equal(typeof mapPackets, 'function');
+  if (typeof mapPackets !== 'function') return;
+
+  const packet = (id: string, status: ReconciliationPacket['status']): ReconciliationPacket => ({
+    id,
+    code: id,
+    kind: 'street',
+    status,
+    estimatedTracts: 1,
+    start: { address: id, position: [0, 0] },
+    segments: [],
+    apartment: null,
+    completedOn: status === 'completed' ? '2026-07-29' : null,
+    history: [],
+  });
+  const packets = [
+    packet('active-one', 'active'),
+    packet('active-two', 'active'),
+    packet('completed', 'completed'),
+  ];
+  const select = mapPackets as (
+    packets: ReconciliationPacket[],
+    view: 'active' | 'history',
+    selectedPacketId: string | null,
+  ) => ReconciliationPacket[];
+
+  assert.deepEqual(
+    select(packets, 'active', 'active-two').map(({ id }) => id),
+    ['active-two'],
+  );
+  assert.deepEqual(
+    select(packets, 'history', 'completed').map(({ id }) => id),
+    ['completed'],
   );
 });
 

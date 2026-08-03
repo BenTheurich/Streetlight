@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import type { OutreachProgressPeriod, OutreachProgressSnapshot } from '@/lib/outreach-progress';
+import { StreetlightSelect } from './StreetlightSelect';
 
 export type ProgressDisplayMode = 'admin' | 'presentation' | 'print';
 
@@ -110,17 +111,13 @@ export function OutreachProgress({
         </section>
         <label className="coverage-field" htmlFor="progress-period">
           Time period
-          <select
+          <StreetlightSelect
+            ariaLabel="Time period"
             id="progress-period"
-            onChange={(event) => onYearChange(Number(event.target.value))}
-            value={year}
-          >
-            {years.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
+            onValueChange={(value) => onYearChange(Number(value))}
+            options={years.map((value) => ({ label: String(value), value: String(value) }))}
+            value={String(year)}
+          />
         </label>
         <section>
           <h2>

@@ -14,6 +14,104 @@ test('apartment markers stay blue across review states', () => {
   assert.equal(apartmentMarkerColor('deferred'), '#123464');
 });
 
+test('map overlays republish after the basemap style is replaced', async () => {
+  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
+  const keepPublished = module.keepMapOverlayPublished as
+    | ((
+        map: {
+          on: (event: 'style.load', listener: () => void) => void;
+          off: (event: 'style.load', listener: () => void) => void;
+        },
+        publish: () => void,
+      ) => () => void)
+    | undefined;
+  assert.equal(typeof keepPublished, 'function');
+  const listeners = new Set<() => void>();
+  const map = {
+    on(_event: 'style.load', listener: () => void) {
+      listeners.add(listener);
+    },
+    off(_event: 'style.load', listener: () => void) {
+      listeners.delete(listener);
+    },
+  };
+  let publications = 0;
+  const stop = keepPublished?.(map, () => {
+    publications += 1;
+  });
+
+  assert.equal(publications, 1);
+  for (const listener of listeners) listener();
+  assert.equal(publications, 2);
+  stop?.();
+  for (const listener of listeners) listener();
+  assert.equal(publications, 2);
+});
+
+test('map style listeners refresh overlays only after a replacement style loads', async () => {
+  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
+  const listenForStyleLoad = module.listenForMapStyleLoad as
+    | ((
+        map: {
+          on: (event: 'style.load', listener: () => void) => void;
+          off: (event: 'style.load', listener: () => void) => void;
+        },
+        refresh: () => void,
+      ) => () => void)
+    | undefined;
+  assert.equal(typeof listenForStyleLoad, 'function');
+  const listeners = new Set<() => void>();
+  const map = {
+    on(_event: 'style.load', listener: () => void) {
+      listeners.add(listener);
+    },
+    off(_event: 'style.load', listener: () => void) {
+      listeners.delete(listener);
+    },
+  };
+  let refreshes = 0;
+  const stop = listenForStyleLoad?.(map, () => {
+    refreshes += 1;
+  });
+
+  assert.equal(refreshes, 0);
+  for (const listener of listeners) listener();
+  assert.equal(refreshes, 1);
+  stop?.();
+  for (const listener of listeners) listener();
+  assert.equal(refreshes, 1);
+});
+
+test('basemap road suppression keeps street-name symbols and Streetlight overlays', async () => {
+  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
+  const roadGeometryLayerIds = module.basemapRoadGeometryLayerIds as
+    | ((layers: Array<Record<string, unknown>>) => string[])
+    | undefined;
+  const layers = [
+    {
+      id: 'tunnel-road',
+      type: 'line',
+      source: 'openmaptiles',
+      'source-layer': 'transportation',
+    },
+    {
+      id: 'road-area',
+      type: 'fill',
+      source: 'openmaptiles',
+      'source-layer': 'transportation',
+    },
+    {
+      id: 'street-name',
+      type: 'symbol',
+      source: 'openmaptiles',
+      'source-layer': 'transportation_name',
+    },
+    { id: 'streetlight-road', type: 'line', source: 'streetlightCoverage' },
+  ];
+
+  assert.equal(typeof roadGeometryLayerIds, 'function');
+  assert.deepEqual(roadGeometryLayerIds?.(layers), ['tunnel-road', 'road-area']);
+});
 test('church, packet, and apartment markers share one visual system', async () => {
   const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
   const markerStyle = module.mapMarkerStyle as Record<string, unknown> | undefined;
@@ -148,7 +246,7 @@ test('segment strokes scale from two to five pixels', () => {
   assert.equal(segmentStrokeWeight(17), 5);
 });
 
-test('segment map appearance makes only actionable roads selectable and emphasizes selection', () => {
+test('segment map appearance preserves status styling beneath selection', () => {
   const active = {
     id: 'segment:one',
     roadGroupId: 'road:shared',
@@ -156,26 +254,29 @@ test('segment map appearance makes only actionable roads selectable and emphasiz
     eligible: true,
     manuallyExcluded: false,
   };
-  assert.deepEqual(segmentMapAppearance(active, null, null), {
-    strokeColor: '#df6d32',
-    strokeOpacity: 0.65,
+  assert.deepEqual(segmentMapAppearance(active, false), {
+    strokeColor: '#596675',
+    strokeOpacity: 0.8,
     weightOffset: 0,
+    selected: false,
     selectable: true,
     zIndex: 3,
   });
-  assert.deepEqual(segmentMapAppearance(active, active.id, null), {
-    strokeColor: '#9a421f',
+  assert.deepEqual(segmentMapAppearance(active, true), {
+    strokeColor: '#596675',
     strokeOpacity: 0.95,
-    weightOffset: 2,
+    weightOffset: 0,
+    selected: true,
     selectable: true,
     zIndex: 4,
   });
   assert.deepEqual(
-    segmentMapAppearance({ ...active, eligible: false, manuallyExcluded: true }, null, null),
+    segmentMapAppearance({ ...active, eligible: false, manuallyExcluded: true }, false),
     {
-      strokeColor: '#77736c',
-      strokeOpacity: 0.5,
-      weightOffset: 0,
+      strokeColor: '#aaa7a0',
+      strokeOpacity: 0.45,
+      weightOffset: -1,
+      selected: false,
       selectable: true,
       zIndex: 5,
     },
@@ -183,20 +284,27 @@ test('segment map appearance makes only actionable roads selectable and emphasiz
   assert.deepEqual(
     segmentMapAppearance(
       { ...active, active: false, eligible: false, manuallyExcluded: true },
-      active.id,
-      null,
+      true,
     ),
     {
-      strokeColor: '#3f3c37',
-      strokeOpacity: 0.95,
-      weightOffset: 2,
+      strokeColor: '#aaa7a0',
+      strokeOpacity: 0.75,
+      weightOffset: -1,
+      selected: true,
       selectable: true,
       zIndex: 5,
     },
   );
+  assert.deepEqual(segmentMapAppearance({ ...active, active: false, eligible: false }, false), {
+    strokeColor: '#6f8794',
+    strokeOpacity: 0.48,
+    weightOffset: -1,
+    selected: false,
+    selectable: true,
+    zIndex: 1,
+  });
   assert.equal(
-    segmentMapAppearance({ ...active, eligible: false, manuallyExcluded: false }, null, null)
-      .selectable,
+    segmentMapAppearance({ ...active, eligible: false, manuallyExcluded: false }, false).selectable,
     false,
   );
 });

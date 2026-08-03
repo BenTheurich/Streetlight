@@ -4,7 +4,7 @@ import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import { useEffect } from 'react';
 import { positionBounds } from '@/lib/map-camera';
 import { type PacketProposal, proposalsForMap } from '@/lib/packet-selection';
-import { mapPinDataUrl } from '@/lib/territory-map-style';
+import { keepMapOverlayPublished, mapPinDataUrl } from '@/lib/territory-map-style';
 
 type PacketProposalMapProps = {
   active: boolean;
@@ -29,38 +29,44 @@ export function PacketProposalMap({
     const positions = visibleProposals.flatMap((proposal) =>
       proposal.segments.flatMap(({ geometry }) => geometry.coordinates),
     );
-    map.addSource(sourceId, {
-      type: 'geojson',
-      data: {
-        type: 'FeatureCollection',
-        features: visibleProposals.flatMap((proposal) =>
-          proposal.segments.map((segment) => ({
-            type: 'Feature' as const,
-            geometry: segment.geometry,
-            properties: {},
-          })),
-        ),
-      },
-    });
-    const before = map.getLayer('streetlight-coverage')
-      ? 'streetlight-coverage'
-      : map.getLayer('highway-name-minor')
-        ? 'highway-name-minor'
-        : undefined;
-    map.addLayer(
-      {
-        id: haloId,
-        type: 'line',
-        source: sourceId,
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '#78a9ff',
-          'line-opacity': 1,
-          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 13],
+    const publish = () => {
+      if (!map.getSource(sourceId)) {
+        map.addSource(sourceId, {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: visibleProposals.flatMap((proposal) =>
+              proposal.segments.map((segment) => ({
+                type: 'Feature' as const,
+                geometry: segment.geometry,
+                properties: {},
+              })),
+            ),
+          },
+        });
+      }
+      if (map.getLayer(haloId)) return;
+      const before = map.getLayer('streetlight-coverage')
+        ? 'streetlight-coverage'
+        : map.getLayer('highway-name-minor')
+          ? 'highway-name-minor'
+          : undefined;
+      map.addLayer(
+        {
+          id: haloId,
+          type: 'line',
+          source: sourceId,
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#78a9ff',
+            'line-opacity': 1,
+            'line-width': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 13],
+          },
         },
-      },
-      before,
-    );
+        before,
+      );
+    };
+    const stopPublishing = keepMapOverlayPublished(map, publish);
     const selectedProposal = selectedIndex === null ? null : visibleProposals[0];
     const markerProposals = visibleProposals.filter(
       (proposal) => proposal.kind === 'apartment' || proposal === selectedProposal,
@@ -85,6 +91,7 @@ export function PacketProposalMap({
     if (bounds) map.fitBounds(bounds, { padding: 56 });
     return () => {
       disposed = true;
+      stopPublishing();
       for (const marker of markers) marker.remove();
       if (map.getLayer(haloId)) map.removeLayer(haloId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);

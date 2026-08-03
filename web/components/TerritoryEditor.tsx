@@ -4,22 +4,16 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { TerritoryWorkspace } from '@/lib/database';
+import { loadGoogleMaps } from '@/lib/google-maps-browser';
 import {
-  affectedByExclusion,
+  activateSegments,
   deriveTerritory,
   hasUnsavedTerritoryChanges,
-  moveVertexWithArrowKey,
-  nextExclusionName,
-  setSegmentExcluded,
+  setSegmentsExcluded,
   territoryDraftFromWorkspace,
 } from '@/lib/territory-client';
 import type { TerritoryDraftInput } from '@/lib/territory-draft';
-import {
-  closePolygon,
-  type Position,
-  pointInsideTerritoryBoundary,
-  polygonIsSimple,
-} from '@/lib/territory-geometry';
+import { type Position, pointInsideTerritoryBoundary } from '@/lib/territory-geometry';
 import { needsTerritoryImport } from '@/lib/territory-import';
 import {
   type ApartmentSelectionSource,
@@ -33,6 +27,7 @@ import {
   readMutationResult,
   territoryLeaveControlsDisabled,
 } from './operation-state';
+import { StreetlightSelect } from './StreetlightSelect';
 import { setupToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
 type PendingAddress = {
@@ -46,47 +41,11 @@ type TerritorySaveFailure = {
   willImport: boolean;
 };
 
-function VertexControls({
-  points,
-  onChange,
-}: {
-  points: Position[];
-  onChange: (points: Position[]) => void;
-}) {
-  if (points.length === 0) {
-    return null;
-  }
-  return (
-    <fieldset className="vertex-controls">
-      <legend>Vertices</legend>
-      <div>
-        {points.map((_, index) => (
-          // Vertex order is its stable identity while coordinates move.
-          <button
-            aria-label={`Vertex ${index + 1}. Use arrow keys to move.`}
-            // biome-ignore lint/suspicious/noArrayIndexKey: preserve focus while this vertex moves
-            key={index}
-            onKeyDown={(event) => {
-              const next = moveVertexWithArrowKey(points, index, event.key);
-              if (next !== points) {
-                event.preventDefault();
-                onChange(next);
-              }
-            }}
-            type="button"
-          >
-            Vertex {index + 1}
-          </button>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
-
 export function TerritoryEditor({
   active,
   initialData,
   map,
+  mapsApiKey,
   overlayRoot,
   onDirtyChange,
   onDiscardAndLeave,
@@ -102,6 +61,7 @@ export function TerritoryEditor({
   active: boolean;
   initialData: TerritoryWorkspace;
   map: MapLibreMap | null;
+  mapsApiKey: string;
   overlayRoot: HTMLDivElement | null;
   onDirtyChange: (dirty: boolean) => void;
   onDiscardAndLeave: () => void;
@@ -118,69 +78,49 @@ export function TerritoryEditor({
   const [savedWorkspace, setSavedWorkspace] = useState(initialData);
   const [savedDraft, setSavedDraft] = useState(initialDraft);
   const [draft, setDraft] = useState(initialDraft);
-  const [mode, setMode] = useState<'pan' | 'draw'>('pan');
-  const [drawingPoints, setDrawingPoints] = useState<Position[]>([]);
-  const [selectedExclusionId, setSelectedExclusionId] = useState<string | null>(null);
   const [showHiddenRoads, setShowHiddenRoads] = useState(false);
-  const [selectedHiddenRoadGroupId, setSelectedHiddenRoadGroupId] = useState<string | null>(null);
-  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
+  const [selectedSegmentIds, setSelectedSegmentIds] = useState<string[]>([]);
+  const [boxSelectionArmed, setBoxSelectionArmed] = useState(false);
+  const [roadSearch, setRoadSearch] = useState('');
   const [apartmentSelection, setApartmentSelection] = useState<{
     id: string;
     source: ApartmentSelectionSource;
   } | null>(null);
-  const [polygonError, setPolygonError] = useState('');
   const [radiusInput, setRadiusInput] = useState(String(initialDraft.radiusMiles));
   const [addressEditing, setAddressEditing] = useState(false);
   const [addressQuery, setAddressQuery] = useState(initialDraft.originAddress);
   const [pendingAddress, setPendingAddress] = useState<PendingAddress | null>(null);
+  const [placeSearchFailed, setPlaceSearchFailed] = useState(!mapsApiKey);
   const [geocoding, setGeocoding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [saveFailure, setSaveFailure] = useState<TerritorySaveFailure | null>(null);
   const [backgroundImportComplete, setBackgroundImportComplete] = useState(false);
   const [notice, setNotice] = useState('Saved territory loaded.');
-  const addressInputRef = useRef<HTMLTextAreaElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const placeSearchRef = useRef<HTMLDivElement>(null);
 
-  const drawingPolygon = drawingPoints.length >= 3 ? closePolygon(drawingPoints) : null;
-  const drawingIsValid = drawingPolygon ? polygonIsSimple(drawingPolygon) : false;
-  const previewDraft = useMemo<TerritoryDraftInput>(() => {
-    if (!drawingPolygon || !drawingIsValid) {
-      return draft;
-    }
-    return {
-      ...draft,
-      exclusions: [
-        ...draft.exclusions,
-        {
-          id: '__drawing-preview__',
-          name: 'Drawing preview',
-          enabled: true,
-          geometry: drawingPolygon,
-        },
-      ],
-    };
-  }, [draft, drawingIsValid, drawingPolygon]);
   const live = useMemo(
-    () => deriveTerritory(savedWorkspace.segments, previewDraft),
-    [previewDraft, savedWorkspace.segments],
+    () => deriveTerritory(savedWorkspace.segments, draft),
+    [draft, savedWorkspace.segments],
   );
   const liveApartments = useMemo(() => {
     const statuses = new Map(
-      (previewDraft.apartmentStatuses ?? []).map(({ id, reviewStatus }) => [id, reviewStatus]),
+      (draft.apartmentStatuses ?? []).map(({ id, reviewStatus }) => [id, reviewStatus]),
     );
     return savedWorkspace.apartmentComplexes.map((apartment) => ({
       ...apartment,
       reviewStatus: statuses.get(apartment.id) ?? apartment.reviewStatus,
       withinBoundary: pointInsideTerritoryBoundary(
         apartment.position,
-        previewDraft.center,
-        previewDraft.radiusMiles,
-        previewDraft.boundaryShape,
+        draft.center,
+        draft.radiusMiles,
+        draft.boundaryShape,
       ),
     }));
-  }, [previewDraft, savedWorkspace.apartmentComplexes]);
-  const isDirty = hasUnsavedTerritoryChanges(savedDraft, draft, []);
-  const hasUnsavedChanges = hasUnsavedTerritoryChanges(savedDraft, draft, drawingPoints);
+  }, [draft, savedWorkspace.apartmentComplexes]);
+  const hasUnsavedChanges = hasUnsavedTerritoryChanges(savedDraft, draft);
+  const isDirty = hasUnsavedChanges;
   const importRequired = needsTerritoryImport(savedWorkspace.import, draft);
   const canSave = isDirty || importRequired;
   const verificationRequired = saveFailure?.recovery === 'reload';
@@ -192,27 +132,31 @@ export function TerritoryEditor({
     !Number.isFinite(Number(radiusInput)) || Number(radiusInput) < 1 || Number(radiusInput) > 20
       ? 'Enter a boundary distance from 1 to 20 miles.'
       : '';
-  const selectedExclusion =
-    draft.exclusions.find((area) => area.id === selectedExclusionId) ?? null;
-  const selectedHiddenRoadSegments = selectedHiddenRoadGroupId
-    ? live.segments.filter(
-        (segment) =>
-          segment.withinBoundary &&
-          !segment.active &&
-          segment.roadGroupId === selectedHiddenRoadGroupId,
-      )
-    : [];
-  const selectedHiddenRoadTracts = selectedHiddenRoadSegments.reduce(
-    (total, segment) => total + segment.estimatedHomes,
-    0,
+  const selectedIdSet = new Set(selectedSegmentIds);
+  const selectedSegments = live.segments.filter(
+    (segment) => segment.withinBoundary && selectedIdSet.has(segment.id),
   );
-  const selectedSegment =
-    live.segments.find(
-      (segment) =>
-        segment.withinBoundary &&
-        segment.id === selectedSegmentId &&
-        (segment.eligible || segment.manuallyExcluded),
-    ) ?? null;
+  const includedSelected = selectedSegments.filter(
+    (segment) => segment.active && !segment.manuallyExcluded,
+  );
+  const excludedSelected = selectedSegments.filter((segment) => segment.manuallyExcluded);
+  const hiddenSelected = selectedSegments.filter((segment) => !segment.active);
+  const normalizedRoadSearch = roadSearch.trim().toLocaleLowerCase();
+  const roadSearchResults = normalizedRoadSearch
+    ? live.segments
+        .filter(
+          (segment) =>
+            segment.withinBoundary &&
+            (segment.active || segment.manuallyExcluded || showHiddenRoads) &&
+            (segment.streetName || 'Unnamed road')
+              .toLocaleLowerCase()
+              .includes(normalizedRoadSearch),
+        )
+        .sort((left, right) =>
+          (left.streetName || 'Unnamed road').localeCompare(right.streetName || 'Unnamed road'),
+        )
+        .slice(0, 20)
+    : [];
   const selectedApartment =
     liveApartments.find(
       (apartment) => apartment.withinBoundary && apartment.id === apartmentSelection?.id,
@@ -242,116 +186,79 @@ export function TerritoryEditor({
     }
   }, [addressEditing]);
 
-  const addDrawingPoint = useCallback((point: Position) => {
-    setDrawingPoints((current) => [...current, point]);
-    setPolygonError('');
-  }, []);
+  useEffect(() => {
+    const container = placeSearchRef.current;
+    if (!addressEditing || !mapsApiKey || !container) return;
+    let disposed = false;
 
-  const changeDrawingPoints = useCallback((points: Position[]) => {
-    setDrawingPoints(points);
-    setPolygonError(
-      points.length >= 3 && !polygonIsSimple(closePolygon(points))
-        ? 'The polygon crosses itself. Move a corner before finishing.'
-        : '',
-    );
-  }, []);
+    void loadGoogleMaps(mapsApiKey)
+      .then(async (maps) => {
+        const { PlaceAutocompleteElement } = (await maps.importLibrary(
+          'places',
+        )) as google.maps.PlacesLibrary;
+        if (disposed) return;
+        const autocomplete = new PlaceAutocompleteElement();
+        autocomplete.className = 'territory-place-autocomplete';
+        autocomplete.description = 'Search for your church or address';
+        autocomplete.placeholder = 'Search for your church or address';
+        autocomplete.addEventListener('input', () => setPendingAddress(null));
+        autocomplete.addEventListener('gmp-select', async (event) => {
+          try {
+            const place = (
+              event as google.maps.places.PlacePredictionSelectEvent
+            ).placePrediction.toPlace();
+            await place.fetchFields({ fields: ['formattedAddress', 'location'] });
+            if (disposed || !place.formattedAddress || !place.location) {
+              throw new Error('Could not resolve that address');
+            }
+            const nextAddress: PendingAddress = {
+              formattedAddress: place.formattedAddress,
+              center: [place.location.lng(), place.location.lat()],
+            };
+            setAddressQuery(nextAddress.formattedAddress);
+            setPendingAddress(nextAddress);
+            setNotice('Address found. Confirm the new church location.');
+          } catch {
+            setPendingAddress(null);
+            setNotice('Could not resolve that address. Try another search.');
+          }
+        });
+        container.replaceChildren(autocomplete);
+        autocomplete.focus();
+      })
+      .catch(() => setPlaceSearchFailed(true));
 
-  const changeExclusion = useCallback((id: string, points: Position[]) => {
-    const geometry = closePolygon(points);
-    setDraft((current) => ({
-      ...current,
-      exclusions: current.exclusions.map((area) => (area.id === id ? { ...area, geometry } : area)),
-    }));
-    setPolygonError(
-      polygonIsSimple(geometry) ? '' : 'The polygon crosses itself. Move a corner before saving.',
-    );
-  }, []);
+    return () => {
+      disposed = true;
+      container.replaceChildren();
+    };
+  }, [addressEditing, mapsApiKey]);
 
-  const selectHiddenRoadGroup = useCallback((roadGroupId: string) => {
-    setSelectedHiddenRoadGroupId(roadGroupId);
-    setSelectedSegmentId(null);
-    setSelectedExclusionId(null);
+  const selectSegments = useCallback((segmentIds: string[], additive: boolean) => {
+    setSelectedSegmentIds((current) => {
+      if (!additive) return [...new Set(segmentIds)];
+      const next = new Set(current);
+      for (const id of segmentIds) {
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+      }
+      return [...next];
+    });
     setApartmentSelection(null);
-    setMode('pan');
-  }, []);
-
-  const selectSegment = useCallback((segmentId: string) => {
-    setSelectedSegmentId(segmentId);
-    setSelectedHiddenRoadGroupId(null);
-    setSelectedExclusionId(null);
-    setApartmentSelection(null);
-    setMode('pan');
-    setPolygonError('');
-  }, []);
-
-  const selectExclusion = useCallback((exclusionId: string) => {
-    setSelectedExclusionId(exclusionId);
-    setSelectedHiddenRoadGroupId(null);
-    setSelectedSegmentId(null);
-    setApartmentSelection(null);
-    setMode('pan');
-    setPolygonError('');
   }, []);
 
   const selectApartment = useCallback((apartmentId: string, source: ApartmentSelectionSource) => {
     setApartmentSelection(createApartmentSelection(apartmentId, source));
-    setSelectedExclusionId(null);
-    setSelectedHiddenRoadGroupId(null);
-    setSelectedSegmentId(null);
-    setMode('pan');
-    setPolygonError('');
+    setSelectedSegmentIds([]);
+    setBoxSelectionArmed(false);
   }, []);
-
-  function startDrawing() {
-    setMode('draw');
-    setDrawingPoints([]);
-    setSelectedExclusionId(null);
-    setSelectedHiddenRoadGroupId(null);
-    setSelectedSegmentId(null);
-    setApartmentSelection(null);
-    setPolygonError('');
-  }
-
-  function cancelDrawing() {
-    setMode('pan');
-    setDrawingPoints([]);
-    setPolygonError('');
-  }
-
-  function finishDrawing() {
-    if (!drawingPolygon || !drawingIsValid) {
-      setPolygonError('Add at least three points without crossing the polygon.');
-      return;
-    }
-    const id = `exclude-${crypto.randomUUID()}`;
-    setDraft((current) => ({
-      ...current,
-      exclusions: [
-        ...current.exclusions,
-        {
-          id,
-          name: nextExclusionName(current.exclusions),
-          enabled: true,
-          geometry: drawingPolygon,
-        },
-      ],
-    }));
-    setSelectedExclusionId(id);
-    setDrawingPoints([]);
-    setMode('pan');
-    setPolygonError('');
-  }
 
   function cancelChanges() {
     setDraft(structuredClone(savedDraft));
     setRadiusInput(String(savedDraft.radiusMiles));
-    setMode('pan');
-    setDrawingPoints([]);
-    setSelectedExclusionId(null);
-    setSelectedHiddenRoadGroupId(null);
-    setSelectedSegmentId(null);
+    setSelectedSegmentIds([]);
+    setBoxSelectionArmed(false);
     setApartmentSelection(null);
-    setPolygonError('');
     setAddressEditing(false);
     setPendingAddress(null);
     setNotice('Unsaved changes discarded.');
@@ -392,7 +299,7 @@ export function TerritoryEditor({
     setAddressQuery(pendingAddress.formattedAddress);
     setAddressEditing(false);
     setPendingAddress(null);
-    setNotice('Church location changed in this draft. Excluded areas stayed in place.');
+    setNotice('Church location changed in this draft. Road adjustments stayed in place.');
   }
 
   async function saveChanges(leaveAfterSave = false) {
@@ -433,9 +340,8 @@ export function TerritoryEditor({
     setDraft(nextDraft);
     setSavedDraft(structuredClone(nextDraft));
     setRadiusInput(String(nextDraft.radiusMiles));
-    setSelectedExclusionId(null);
-    setSelectedHiddenRoadGroupId(null);
-    setSelectedSegmentId(null);
+    setSelectedSegmentIds([]);
+    setBoxSelectionArmed(false);
     setApartmentSelection(null);
     try {
       await onSaved(result);
@@ -515,28 +421,20 @@ export function TerritoryEditor({
       <OpenTerritoryMap
         active={active}
         apartmentComplexes={liveApartments}
+        apartmentSelectionSource={apartmentSelection?.source ?? null}
         boundaryShape={draft.boundaryShape}
+        boxSelectionArmed={boxSelectionArmed}
         center={draft.center}
-        drawing={mode === 'draw'}
-        drawingPoints={drawingPoints}
-        exclusions={draft.exclusions}
         map={map}
         mutationLocked={leaveControlsDisabled}
-        onAddDrawingPoint={addDrawingPoint}
-        onDrawingPointsChange={changeDrawingPoints}
-        onExclusionChange={changeExclusion}
-        onSelectExclusion={selectExclusion}
-        onSelectHiddenRoadGroup={selectHiddenRoadGroup}
-        onSelectSegment={selectSegment}
-        apartmentSelectionSource={apartmentSelection?.source ?? null}
+        onBoxSelectionComplete={() => setBoxSelectionArmed(false)}
         onSelectApartment={(id) => selectApartment(id, 'map')}
+        onSelectSegments={selectSegments}
         radiusMiles={draft.radiusMiles}
         segments={live.segments}
-        selectedExclusionId={selectedExclusionId}
-        selectedHiddenRoadGroupId={selectedHiddenRoadGroupId}
-        selectedSegmentId={selectedSegment?.id ?? null}
         selectedApartmentId={selectedApartment?.id ?? null}
         selectedApartmentPosition={selectedApartment?.position ?? null}
+        selectedSegmentIds={selectedSegmentIds}
         showHiddenRoads={showHiddenRoads}
       />
       {active &&
@@ -556,35 +454,19 @@ export function TerritoryEditor({
                 </span>
               )}
             </div>
-            {mode === 'draw' && (
-              <div className="drawing-instructions">
-                <div>
-                  <strong>
-                    {drawingPoints.length} {drawingPoints.length === 1 ? 'point' : 'points'} added
-                  </strong>
-                  <span>
-                    {drawingPoints.length < 3
-                      ? 'Click around the unwanted area. Press Enter to add the map center.'
-                      : drawingIsValid
-                        ? 'Affected streets are gray. Drag a corner or finish.'
-                        : 'The polygon crosses itself.'}
-                  </span>
-                </div>
-                <button
-                  disabled={drawingPoints.length === 0}
-                  onClick={() => setDrawingPoints((points) => points.slice(0, -1))}
-                  type="button"
-                >
-                  Undo point
-                </button>
-                <button onClick={cancelDrawing} type="button">
-                  Cancel
-                </button>
-                <button disabled={!drawingIsValid} onClick={finishDrawing} type="button">
-                  Finish polygon
-                </button>
-              </div>
-            )}
+            <div className="map-selection-tools">
+              <button
+                aria-pressed={boxSelectionArmed}
+                className={boxSelectionArmed ? 'active' : undefined}
+                onClick={() => setBoxSelectionArmed((armed) => !armed)}
+                type="button"
+              >
+                {boxSelectionArmed ? 'Drag over roads' : 'Select area'}
+              </button>
+              <span>
+                {boxSelectionArmed ? 'Drag a box on the map' : 'Shift-drag also selects an area'}
+              </span>
+            </div>{' '}
           </>,
           overlayRoot,
         )}
@@ -599,17 +481,7 @@ export function TerritoryEditor({
           />
         )}
         <div className="sidebar-scroll" inert={saving || verificationRequired}>
-          {(savedWorkspace.import.quality?.warnings.length ?? 0) > 0 && (
-            <div className="import-quality-warning" role="alert">
-              <strong>Street data may be incomplete</strong>
-              <ul>
-                {savedWorkspace.import.quality?.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <section>
+          <section className="territory-basics-section">
             <h2>Church location</h2>
             {!addressEditing ? (
               <div className="address-card">
@@ -617,7 +489,8 @@ export function TerritoryEditor({
                 <button
                   onClick={() => {
                     setAddressEditing(true);
-                    setAddressQuery(draft.originAddress);
+                    setAddressQuery('');
+                    setPendingAddress(null);
                   }}
                   type="button"
                 >
@@ -626,35 +499,45 @@ export function TerritoryEditor({
               </div>
             ) : (
               <div className="address-editor">
-                <label htmlFor="church-address">Church address</label>
-                <textarea
-                  id="church-address"
-                  onChange={(event) => {
-                    setAddressQuery(event.target.value);
-                    setPendingAddress(null);
-                  }}
-                  rows={3}
-                  ref={addressInputRef}
-                  value={addressQuery}
-                />
-                <div className="button-row">
+                <label htmlFor={placeSearchFailed ? 'church-address' : undefined}>
+                  Church or address
+                </label>
+                {placeSearchFailed ? (
+                  <input
+                    autoComplete="street-address"
+                    id="church-address"
+                    onChange={(event) => {
+                      setAddressQuery(event.target.value);
+                      setPendingAddress(null);
+                    }}
+                    placeholder="Search for your church or address"
+                    ref={addressInputRef}
+                    value={addressQuery}
+                  />
+                ) : (
+                  <div ref={placeSearchRef} />
+                )}
+                <div className={placeSearchFailed ? 'button-row' : 'address-editor-actions'}>
                   <button
                     className="secondary"
                     onClick={() => {
                       setAddressEditing(false);
+                      setAddressQuery(draft.originAddress);
                       setPendingAddress(null);
                     }}
                     type="button"
                   >
                     Cancel
                   </button>
-                  <button
-                    disabled={geocoding || addressQuery.trim().length === 0}
-                    onClick={lookUpAddress}
-                    type="button"
-                  >
-                    Look up
-                  </button>
+                  {placeSearchFailed && (
+                    <button
+                      disabled={geocoding || addressQuery.trim().length === 0}
+                      onClick={lookUpAddress}
+                      type="button"
+                    >
+                      Look up
+                    </button>
+                  )}
                 </div>
                 {pendingAddress && (
                   <div className="address-confirm">
@@ -751,291 +634,265 @@ export function TerritoryEditor({
             )}
           </section>
 
-          <section className="apartment-section">
-            <div className="section-row">
-              <h2>Apartment complex</h2>
-              <span>{liveApartments.filter(({ withinBoundary }) => withinBoundary).length}</span>
-            </div>
-            <label className="apartment-selector">
-              Apartment complex
-              <select
-                onChange={(event) => {
-                  if (event.target.value) selectApartment(event.target.value, 'selector');
-                  else setApartmentSelection(null);
-                }}
-                value={selectedApartment?.id ?? ''}
-              >
-                <option value="">Choose a complex</option>
-                {liveApartments
-                  .filter(({ withinBoundary }) => withinBoundary)
-                  .map((apartment) => (
-                    <option key={apartment.id} value={apartment.id}>
-                      {apartmentOptionLabel(apartment)}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            {selectedApartment ? (
-              <div className="apartment-card">
-                <strong>{selectedApartment.address ?? 'Address unavailable'}</strong>
-                <span>Estimated tracts: {selectedApartment.estimatedTracts}</span>
-                <small>
-                  {selectedApartment.evidence.apartmentBuilding
-                    ? selectedApartment.evidence.distinctUnits > 0
-                      ? `Overture apartment building · ${selectedApartment.evidence.distinctUnits} distinct unit addresses`
-                      : 'Overture apartment building · footprint estimate'
-                    : `${selectedApartment.evidence.distinctUnits} distinct unit addresses`}
-                </small>
-                <fieldset>
-                  <legend>Outreach status</legend>
-                  {(
-                    [
-                      ['needs_review', 'Needs review'],
-                      ['ready', 'Ready'],
-                      ['deferred', 'Deferred'],
-                    ] as const
-                  ).map(([reviewStatus, label]) => (
-                    <label key={reviewStatus}>
-                      <input
-                        checked={selectedApartment.reviewStatus === reviewStatus}
-                        disabled={reviewStatus === 'ready' && !selectedApartment.address}
-                        name={`apartment-${selectedApartment.id}`}
-                        onChange={() => {
-                          setDraft((current) => ({
-                            ...current,
-                            apartmentStatuses: (current.apartmentStatuses ?? []).map((apartment) =>
-                              apartment.id === selectedApartment.id
-                                ? { ...apartment, reviewStatus }
-                                : apartment,
-                            ),
-                          }));
-                          setNotice(`${label} selected in this draft. Save changes to keep it.`);
-                        }}
-                        type="radio"
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </fieldset>
-                {!selectedApartment.address && (
-                  <small>A starting address is required before this complex can be ready.</small>
-                )}
-              </div>
-            ) : (
-              <p className="empty-state">Choose a complex or select its map marker.</p>
-            )}
+          <section className="territory-review-intro">
+            <h2>Review territory data</h2>
+            <p>
+              Correct apartment status, road eligibility, and excluded areas when the imported map
+              needs adjustment.
+            </p>
           </section>
-
-          <section className="segment-section">
-            <h2>Road segment</h2>
-            {selectedSegment ? (
-              <div className="segment-card">
-                <strong>{selectedSegment.streetName || 'Unnamed road'}</strong>
-                <span>
-                  {selectedSegment.estimatedHomes} estimated tract
-                  {selectedSegment.estimatedHomes === 1 ? '' : 's'} ·{' '}
-                  {selectedSegment.manuallyExcluded ? 'Excluded' : 'Eligible'}
-                </span>
-                <button
-                  onClick={() => {
-                    const exclude = !selectedSegment.manuallyExcluded;
-                    setDraft((current) => setSegmentExcluded(current, selectedSegment.id, exclude));
-                    setNotice(
-                      exclude
-                        ? 'Segment excluded in this draft. Save changes to keep it.'
-                        : 'Segment restored in this draft. Boundary and excluded areas still apply.',
-                    );
-                  }}
-                  type="button"
-                >
-                  {selectedSegment.manuallyExcluded ? 'Restore segment' : 'Exclude segment'}
-                </button>
+          <div className="territory-review-tools">
+            <section className="apartment-section">
+              <div className="section-row">
+                <h2>Apartment complex</h2>
+                <span>{liveApartments.filter(({ withinBoundary }) => withinBoundary).length}</span>
               </div>
-            ) : (
-              <p className="empty-state">
-                Select an orange segment, or a gray segment you excluded.
-              </p>
-            )}
-          </section>
-
-          <section className="hidden-roads-section">
-            <div className="section-row">
-              <h2>Missing roads</h2>
-              <label className="hidden-roads-toggle">
-                <input
-                  checked={showHiddenRoads}
-                  onChange={(event) => {
-                    setShowHiddenRoads(event.target.checked);
-                    if (!event.target.checked) {
-                      setSelectedHiddenRoadGroupId(null);
-                    }
+              <label className="apartment-selector" htmlFor="apartment-complex">
+                Apartment complex
+                <StreetlightSelect
+                  ariaLabel="Apartment complex"
+                  id="apartment-complex"
+                  onValueChange={(value) => {
+                    if (value) selectApartment(value, 'selector');
+                    else setApartmentSelection(null);
                   }}
-                  type="checkbox"
+                  options={[
+                    { label: 'Choose a complex', value: '' },
+                    ...liveApartments
+                      .filter(({ withinBoundary }) => withinBoundary)
+                      .map((apartment) => ({
+                        label: apartmentOptionLabel(apartment),
+                        value: apartment.id,
+                      })),
+                  ]}
+                  value={selectedApartment?.id ?? ''}
                 />
-                Show hidden roads
               </label>
-            </div>
-            {selectedHiddenRoadSegments.length > 0 ? (
-              <div className="hidden-road-card">
-                <strong>{selectedHiddenRoadSegments[0].streetName}</strong>
-                <span>
-                  {selectedHiddenRoadSegments.length} segment
-                  {selectedHiddenRoadSegments.length === 1 ? '' : 's'} · {selectedHiddenRoadTracts}{' '}
-                  estimated tract
-                  {selectedHiddenRoadTracts === 1 ? '' : 's'}
-                </span>
-                <button
-                  onClick={() => {
-                    if (!selectedHiddenRoadGroupId) {
-                      return;
-                    }
-                    setDraft((current) => ({
-                      ...current,
-                      activatedRoadGroupIds: [
-                        ...current.activatedRoadGroupIds,
-                        selectedHiddenRoadGroupId,
-                      ],
-                    }));
-                    setSelectedHiddenRoadGroupId(null);
-                    setNotice('Road activated in this draft. Save changes to keep it.');
-                  }}
-                  type="button"
-                >
-                  Activate road
-                </button>
-              </div>
-            ) : (
-              <p className="empty-state">
-                {showHiddenRoads
-                  ? 'Select a blue-gray road on the map.'
-                  : 'Reveal uncertain Overture roads when one appears to be missing.'}
-              </p>
-            )}
-          </section>
-
-          <section className="exclusions-section">
-            <h2>Excluded areas</h2>
-            <button className="draw-button" onClick={startDrawing} type="button">
-              + Draw exclusion area
-            </button>
-            {mode === 'draw' && (
-              <VertexControls points={drawingPoints} onChange={changeDrawingPoints} />
-            )}
-            {draft.exclusions.length === 0 ? (
-              <p className="empty-state">No areas excluded yet.</p>
-            ) : (
-              <ul className="exclusion-list">
-                {draft.exclusions.map((area) => {
-                  const impact = affectedByExclusion(live.segments, area);
-                  return (
-                    <li className={area.enabled ? undefined : 'disabled'} key={area.id}>
-                      <label className="exclusion-toggle">
+              {selectedApartment ? (
+                <div className="apartment-card">
+                  <strong>{selectedApartment.address ?? 'Address unavailable'}</strong>
+                  <span>Estimated tracts: {selectedApartment.estimatedTracts}</span>
+                  <small>
+                    {selectedApartment.evidence.apartmentBuilding
+                      ? selectedApartment.evidence.distinctUnits > 0
+                        ? `Overture apartment building · ${selectedApartment.evidence.distinctUnits} distinct unit addresses`
+                        : 'Overture apartment building · footprint estimate'
+                      : `${selectedApartment.evidence.distinctUnits} distinct unit addresses`}
+                  </small>
+                  <fieldset>
+                    <legend>Outreach status</legend>
+                    {(
+                      [
+                        ['needs_review', 'Needs review'],
+                        ['ready', 'Ready'],
+                        ['deferred', 'Deferred'],
+                      ] as const
+                    ).map(([reviewStatus, label]) => (
+                      <label key={reviewStatus}>
                         <input
-                          aria-label={`Enable ${area.name || 'unnamed excluded area'}`}
-                          checked={area.enabled}
-                          onChange={(event) =>
+                          checked={selectedApartment.reviewStatus === reviewStatus}
+                          disabled={reviewStatus === 'ready' && !selectedApartment.address}
+                          name={`apartment-${selectedApartment.id}`}
+                          onChange={() => {
                             setDraft((current) => ({
                               ...current,
-                              exclusions: current.exclusions.map((candidate) =>
-                                candidate.id === area.id
-                                  ? { ...candidate, enabled: event.target.checked }
-                                  : candidate,
+                              apartmentStatuses: (current.apartmentStatuses ?? []).map(
+                                (apartment) =>
+                                  apartment.id === selectedApartment.id
+                                    ? { ...apartment, reviewStatus }
+                                    : apartment,
                               ),
-                            }))
-                          }
-                          type="checkbox"
+                            }));
+                            setNotice(`${label} selected in this draft. Save changes to keep it.`);
+                          }}
+                          type="radio"
                         />
+                        {label}
                       </label>
+                    ))}
+                  </fieldset>
+                  {!selectedApartment.address && (
+                    <small>A starting address is required before this complex can be ready.</small>
+                  )}
+                </div>
+              ) : (
+                <p className="empty-state">Choose a complex or select its map marker.</p>
+              )}
+            </section>
+
+            <section className="road-selection-section">
+              <div className="section-row">
+                <h2>Road segments</h2>
+                <label className="hidden-roads-toggle">
+                  <input
+                    checked={showHiddenRoads}
+                    onChange={(event) => {
+                      const show = event.target.checked;
+                      setShowHiddenRoads(show);
+                      if (!show) {
+                        const activeIds = new Set(
+                          live.segments
+                            .filter((segment) => segment.active)
+                            .map((segment) => segment.id),
+                        );
+                        setSelectedSegmentIds((current) =>
+                          current.filter((id) => activeIds.has(id)),
+                        );
+                      }
+                    }}
+                    type="checkbox"
+                  />
+                  Show hidden roads
+                </label>
+              </div>
+              <p className="section-help">
+                Click a road. Shift-click adds or removes one; Shift-drag selects an area.
+              </p>
+              <label className="road-segment-search">
+                Find road segments
+                <input
+                  onChange={(event) => setRoadSearch(event.target.value)}
+                  placeholder="Search street names"
+                  type="search"
+                  value={roadSearch}
+                />
+              </label>
+              {normalizedRoadSearch && (
+                <div className="road-search-results">
+                  {roadSearchResults.length > 0 ? (
+                    roadSearchResults.map((segment) => {
+                      const status = !segment.active
+                        ? 'Hidden'
+                        : segment.manuallyExcluded
+                          ? 'Excluded'
+                          : 'Included';
+                      return (
+                        <button
+                          aria-pressed={selectedIdSet.has(segment.id)}
+                          key={segment.id}
+                          onClick={(event) => selectSegments([segment.id], event.shiftKey)}
+                          type="button"
+                        >
+                          <strong>{segment.streetName || 'Unnamed road'}</strong>
+                          <span>
+                            {status} · {segment.estimatedHomes} estimated tract
+                            {segment.estimatedHomes === 1 ? '' : 's'}
+                          </span>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p className="empty-state">No matching road segments.</p>
+                  )}
+                </div>
+              )}
+              {selectedSegments.length > 0 ? (
+                <div className="road-selection-tray">
+                  <div className="section-row">
+                    <h3>
+                      {selectedSegments.length} segment
+                      {selectedSegments.length === 1 ? '' : 's'} selected
+                    </h3>
+                    <button
+                      className="text-button"
+                      onClick={() => setSelectedSegmentIds([])}
+                      type="button"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="road-selection-summary" aria-label="Selected road statuses">
+                    {includedSelected.length > 0 && (
+                      <span>
+                        <i className="included" /> {includedSelected.length} included
+                      </span>
+                    )}
+                    {excludedSelected.length > 0 && (
+                      <span>
+                        <i className="excluded" /> {excludedSelected.length} excluded
+                      </span>
+                    )}
+                    {hiddenSelected.length > 0 && (
+                      <span>
+                        <i className="hidden-road" /> {hiddenSelected.length} hidden
+                      </span>
+                    )}
+                  </div>
+                  <div className="road-selection-actions">
+                    {includedSelected.length > 0 && (
                       <button
-                        className="exclusion-select"
-                        aria-pressed={area.id === selectedExclusionId}
-                        onClick={() => selectExclusion(area.id)}
-                        type="button"
-                      >
-                        <span>
-                          <strong>{area.name || 'Unnamed excluded area'}</strong>
-                          <small>
-                            {area.enabled
-                              ? `${impact.segments} segments excluded`
-                              : `Off · would exclude ${impact.segments} segments`}
-                          </small>
-                        </span>
-                      </button>
-                      <button
-                        aria-label={`Delete ${area.name || 'unnamed excluded area'}`}
-                        className="exclusion-delete"
                         onClick={() => {
-                          if (
-                            !window.confirm(
-                              `Delete ${area.name || 'this excluded area'}? Its saved shape will be lost.`,
-                            )
-                          ) {
-                            return;
-                          }
-                          setDraft((current) => ({
-                            ...current,
-                            exclusions: current.exclusions.filter(
-                              (candidate) => candidate.id !== area.id,
+                          setDraft((current) =>
+                            setSegmentsExcluded(
+                              current,
+                              includedSelected.map(({ id }) => id),
+                              true,
                             ),
-                          }));
-                          if (selectedExclusionId === area.id) {
-                            setSelectedExclusionId(null);
-                          }
-                          setPolygonError('');
+                          );
+                          setNotice(
+                            'Selected segments excluded in this draft. Save changes to keep it.',
+                          );
                         }}
                         type="button"
                       >
-                        Delete
+                        Exclude included
                       </button>
-                    </li>
-                  );
-                })}
+                    )}
+                    {excludedSelected.length > 0 && (
+                      <button
+                        className="secondary"
+                        onClick={() => {
+                          setDraft((current) =>
+                            setSegmentsExcluded(
+                              current,
+                              excludedSelected.map(({ id }) => id),
+                              false,
+                            ),
+                          );
+                          setNotice(
+                            'Selected segments restored in this draft. Save changes to keep it.',
+                          );
+                        }}
+                        type="button"
+                      >
+                        Restore excluded
+                      </button>
+                    )}
+                    {hiddenSelected.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setDraft((current) =>
+                            activateSegments(
+                              current,
+                              hiddenSelected.map(({ id }) => id),
+                            ),
+                          );
+                          setNotice(
+                            'Selected hidden segments activated in this draft. Save changes to keep it.',
+                          );
+                        }}
+                        type="button"
+                      >
+                        Activate hidden
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="empty-state">Select roads on the map or search by street name.</p>
+              )}
+            </section>
+          </div>
+          {(savedWorkspace.import.quality?.warnings.length ?? 0) > 0 && (
+            <div className="import-quality-warning" role="alert">
+              <strong>Street data may be incomplete</strong>
+              <ul>
+                {savedWorkspace.import.quality?.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
               </ul>
-            )}
-
-            {selectedExclusion && (
-              <div className="exclusion-editor">
-                <label>
-                  Optional name
-                  <input
-                    maxLength={100}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        exclusions: current.exclusions.map((area) =>
-                          area.id === selectedExclusion.id
-                            ? { ...area, name: event.target.value }
-                            : area,
-                        ),
-                      }))
-                    }
-                    value={selectedExclusion.name}
-                  />
-                </label>
-                <div className="impact-row">
-                  <span>
-                    {selectedExclusion.enabled ? 'Segments excluded' : 'Segments if enabled'}
-                  </span>
-                  <strong>{affectedByExclusion(live.segments, selectedExclusion).segments}</strong>
-                </div>
-                <div className="impact-row">
-                  <span>{selectedExclusion.enabled ? 'Tracts removed' : 'Tracts if enabled'}</span>
-                  <strong>{affectedByExclusion(live.segments, selectedExclusion).homes}</strong>
-                </div>
-                <VertexControls
-                  points={selectedExclusion.geometry.coordinates[0].slice(0, -1)}
-                  onChange={(points) => changeExclusion(selectedExclusion.id, points)}
-                />
-                <button
-                  className="secondary"
-                  onClick={() => setSelectedExclusionId(null)}
-                  type="button"
-                >
-                  Done editing
-                </button>
-              </div>
-            )}
-          </section>
+            </div>
+          )}
         </div>
 
         <div className="sidebar-actions">
@@ -1076,7 +933,7 @@ export function TerritoryEditor({
           ) : (
             <>
               {!saving && !saveFailure && !backgroundImportComplete && (
-                <p aria-live="polite">{polygonError || notice}</p>
+                <p aria-live="polite">{notice}</p>
               )}
               {importRequired && !importing && (
                 <p className="import-notice">Street data will refresh when saved.</p>
@@ -1091,13 +948,7 @@ export function TerritoryEditor({
                   Cancel
                 </button>
                 <button
-                  disabled={
-                    !canSave ||
-                    saving ||
-                    verificationRequired ||
-                    mode === 'draw' ||
-                    Boolean(radiusError || polygonError)
-                  }
+                  disabled={!canSave || saving || verificationRequired || Boolean(radiusError)}
                   onClick={() => void saveChanges()}
                   type="button"
                 >

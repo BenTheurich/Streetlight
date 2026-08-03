@@ -5,13 +5,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildReconciliationChoices,
   type ReconciliationBatch,
+  type ReconciliationHistoryTarget,
   type ReconciliationOutcome,
   type ReconciliationPacket,
+  type ReconciliationView,
   type ReconciliationWorkspace,
+  reconciliationBatchesForView,
+  reconciliationHistorySelection,
 } from '@/lib/reconciliation';
 import { OpenReconciliationOverlay } from './OpenReconciliationOverlay';
 import { OperationStatus } from './OperationStatus';
 import { isReconciliationWorkspacePayload, readMutationResult } from './operation-state';
+import { StreetlightSelect } from './StreetlightSelect';
 import { packetToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
 function formatDate(value: string): string {
@@ -22,10 +27,15 @@ function formatDate(value: string): string {
 
 function batchOptionLabel(batch: ReconciliationBatch): string {
   const automaticPrefix = 'Outreach batch - ';
+  const historyPrefix = 'Outreach history - ';
   const automaticTimestamp = batch.name.startsWith(automaticPrefix)
     ? batch.name.slice(automaticPrefix.length)
     : null;
-  const name = automaticTimestamp ? 'Outreach batch' : batch.name;
+  const name = automaticTimestamp
+    ? 'Outreach batch'
+    : batch.name.startsWith(historyPrefix)
+      ? 'Outreach history'
+      : batch.name;
   const timestamp =
     automaticTimestamp ??
     (batch.finalizedAt
@@ -35,6 +45,17 @@ function batchOptionLabel(batch: ReconciliationBatch): string {
         }).format(new Date(batch.finalizedAt))
       : 'Not finalized');
   return `${name} · ${timestamp} · ${batch.counts.active} active`;
+}
+
+function historyBatchOptionLabel(batch: ReconciliationBatch): string {
+  return batchOptionLabel(batch).replace(
+    /\d+ active$/,
+    `${batch.counts.completed + batch.counts.cancelled} records`,
+  );
+}
+
+function preferredBatchId(batches: ReconciliationBatch[], current: string | null): string | null {
+  return current && batches.some(({ id }) => id === current) ? current : (batches[0]?.id ?? null);
 }
 
 type CorrectionAttempt = {
@@ -64,12 +85,16 @@ export function ReconciliationTool({
   active,
   map,
   onChanged,
+  onTargetHandled,
   onViewChange,
+  target,
 }: {
   active: boolean;
   map: MapLibreMap | null;
   onChanged: () => Promise<void>;
+  onTargetHandled: () => void;
   onViewChange: (view: 'generate' | 'reconcile') => void;
+  target: ReconciliationHistoryTarget | null;
 }) {
   const [workspace, setWorkspace] = useState<ReconciliationWorkspace | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
@@ -78,12 +103,13 @@ export function ReconciliationTool({
   );
   const [selectedPacketId, setSelectedPacketId] = useState<string | null>(null);
   const [editingPacketId, setEditingPacketId] = useState<string | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [reconciliationView, setReconciliationView] = useState<ReconciliationView>('active');
   const [reviewing, setReviewing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [operation, setOperation] = useState<ReconciliationOperation | null>(null);
   const [feedback, setFeedback] = useState<ReconciliationFeedback | null>(null);
   const requestedRef = useRef(false);
+  const selectedPacketRef = useRef<HTMLElement | null>(null);
   const busy = operation !== null;
   const verificationRequired = feedback?.recovery === 'reload';
   const mutationControlsDisabled = busy || verificationRequired;
@@ -99,9 +125,8 @@ export function ReconciliationTool({
         throw new Error('error' in result ? result.error : 'Could not load packet reconciliation');
       }
       setWorkspace(result);
-      setBatchId((current) =>
-        result.batches.some(({ id }) => id === current) ? current : result.defaultBatchId,
-      );
+      const activeBatches = reconciliationBatchesForView(result.batches, 'active');
+      setBatchId((current) => preferredBatchId(activeBatches, current ?? result.defaultBatchId));
     } catch (error) {
       requestedRef.current = false;
       setFeedback({
@@ -119,7 +144,37 @@ export function ReconciliationTool({
     if (active && !requestedRef.current) void load();
   }, [active, load]);
 
-  const batch = workspace?.batches.find(({ id }) => id === batchId) ?? null;
+  useEffect(() => {
+    if (!active || !workspace || !target) return;
+    const selection = reconciliationHistorySelection(workspace.batches, target.packetId);
+    if (selection) {
+      setReconciliationView('history');
+      setBatchId(selection.batchId);
+      setPacketOutcomes(new Map());
+      setSelectedPacketId(selection.packetId);
+      setEditingPacketId(null);
+      setReviewing(false);
+    }
+    onTargetHandled();
+  }, [active, onTargetHandled, target, workspace]);
+
+  useEffect(() => {
+    if (!active || reconciliationView !== 'history' || !selectedPacketId) return;
+    const frame = requestAnimationFrame(() =>
+      selectedPacketRef.current?.scrollIntoView({ block: 'nearest' }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [active, reconciliationView, selectedPacketId]);
+  const activeBatches = useMemo(
+    () => reconciliationBatchesForView(workspace?.batches ?? [], 'active'),
+    [workspace],
+  );
+  const historyBatches = useMemo(
+    () => reconciliationBatchesForView(workspace?.batches ?? [], 'history'),
+    [workspace],
+  );
+  const visibleBatches = reconciliationView === 'active' ? activeBatches : historyBatches;
+  const batch = visibleBatches.find(({ id }) => id === batchId) ?? null;
   const activePackets = useMemo(
     () => batch?.packets.filter(({ status }) => status === 'active') ?? [],
     [batch],
@@ -148,6 +203,13 @@ export function ReconciliationTool({
     setReviewing(false);
   }
 
+  function showReconciliationView(view: ReconciliationView): void {
+    const candidates = view === 'active' ? activeBatches : historyBatches;
+    setReconciliationView(view);
+    setBatchId((current) => preferredBatchId(candidates, current));
+    resetChoices();
+  }
+
   function setPacketOutcome(packetId: string, outcome: ReconciliationOutcome): void {
     setPacketOutcomes((current) => {
       const next = new Map(current);
@@ -159,9 +221,8 @@ export function ReconciliationTool({
 
   function replaceWorkspace(next: ReconciliationWorkspace): void {
     setWorkspace(next);
-    setBatchId((current) =>
-      next.batches.some(({ id }) => id === current) ? current : next.defaultBatchId,
-    );
+    const candidates = reconciliationBatchesForView(next.batches, reconciliationView);
+    setBatchId((current) => preferredBatchId(candidates, current));
     resetChoices();
   }
 
@@ -341,6 +402,7 @@ export function ReconciliationTool({
         active={active}
         batch={batch}
         cancelIds={overlayCancelIds}
+        history={reconciliationView === 'history'}
         map={map}
         presentIds={overlayPresentIds}
         selectedPacketId={selectedPacketId}
@@ -377,34 +439,82 @@ export function ReconciliationTool({
           )}
           {workspace && workspace.batches.length > 0 && (
             <>
-              <section className="reconciliation-batch-picker">
-                <label className="coverage-field">
-                  Batch
-                  <select
-                    onChange={(event) => {
-                      setBatchId(event.target.value);
-                      resetChoices();
-                      setHistoryOpen(false);
-                    }}
-                    value={batchId ?? ''}
+              {reconciliationView === 'history' && (
+                <>
+                  <button
+                    className="reconciliation-back-link"
+                    onClick={() => showReconciliationView('active')}
+                    type="button"
                   >
-                    {workspace.batches.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
-                        {batchOptionLabel(candidate)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </section>
-              {batch && activePackets.length > 0 && (
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+                    </svg>
+                    Back to reconciliation
+                  </button>
+                  <h2 className="reconciliation-history-title">History</h2>
+                </>
+              )}
+              {visibleBatches.length > 0 && (
+                <section className="coverage-field reconciliation-batch-picker">
+                  {reconciliationView === 'active' && (
+                    <div className="reconciliation-batch-label-row">
+                      <label
+                        className="reconciliation-active-picker-heading"
+                        htmlFor="reconciliation-batch"
+                      >
+                        Active sheets
+                      </label>
+                      {historyBatches.length > 0 && (
+                        <button
+                          className="reconciliation-history-link"
+                          onClick={() => showReconciliationView('history')}
+                          type="button"
+                        >
+                          View history
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <StreetlightSelect
+                    ariaLabel={
+                      reconciliationView === 'history' ? 'Historical batch' : 'Active batch'
+                    }
+                    id="reconciliation-batch"
+                    onValueChange={(value) => {
+                      setBatchId(value);
+                      resetChoices();
+                    }}
+                    options={visibleBatches.map((candidate) => ({
+                      label:
+                        reconciliationView === 'active'
+                          ? batchOptionLabel(candidate)
+                          : historyBatchOptionLabel(candidate),
+                      value: candidate.id,
+                    }))}
+                    value={batchId ?? ''}
+                  />
+                </section>
+              )}
+              {reconciliationView === 'active' && activeBatches.length === 0 && (
+                <section className="reconciliation-all-caught-up">
+                  <strong>All caught up</strong>
+                  <p>No packet sheets need reconciliation.</p>
+                  {historyBatches.length > 0 && (
+                    <button
+                      className="secondary"
+                      onClick={() => showReconciliationView('history')}
+                      type="button"
+                    >
+                      View history
+                    </button>
+                  )}
+                </section>
+              )}
+              {reconciliationView === 'history' && historyBatches.length === 0 && (
+                <p className="empty-state">No packet history yet.</p>
+              )}
+              {reconciliationView === 'active' && batch && activePackets.length > 0 && (
                 <section className="reconciliation-active-section">
-                  <h2>What happened to each sheet?</h2>
-                  <p className="reconciliation-instructions">
-                    Choose one outcome for every packet sheet.
-                  </p>
-                  <div className="packet-results-header">
-                    <strong>Active sheets</strong>
-                  </div>
                   <div className="reconciliation-list">
                     {activePackets.map((packet) => {
                       const outcome = packetOutcomes.get(packet.id) ?? null;
@@ -515,130 +625,106 @@ export function ReconciliationTool({
                   </div>
                 </section>
               )}
-              {batch && historyPackets.length > 0 && (
+              {reconciliationView === 'history' && batch && historyPackets.length > 0 && (
                 <section className="reconciliation-history-section">
-                  {activePackets.length > 0 ? (
-                    <h2 className="reconciliation-history-heading">
-                      <button
-                        aria-controls="reconciliation-history-list"
-                        aria-expanded={historyOpen}
-                        className="reconciliation-history-toggle"
-                        onClick={() => setHistoryOpen((current) => !current)}
-                        type="button"
-                      >
-                        <span>Batch history</span>
-                        <span className="reconciliation-history-count">
-                          {historyPackets.length}
-                        </span>
-                        <svg aria-hidden="true" viewBox="0 0 12 8">
-                          <path d="m1 1 5 5 5-5" />
-                        </svg>
-                      </button>
-                    </h2>
-                  ) : (
-                    <div className="packet-results-header">
-                      <strong>Batch history</strong>
-                    </div>
-                  )}
-                  {(activePackets.length === 0 || historyOpen) && (
-                    <div className="reconciliation-list" id="reconciliation-history-list">
-                      {historyPackets.map((packet) => {
-                        const editing = editingPacketId === packet.id;
-                        return (
-                          <article
-                            className={`reconciliation-card history${selectedPacketId === packet.id ? ' selected' : ''}`}
-                            key={packet.id}
-                          >
-                            <div className="reconciliation-history-summary">
+                  <div className="reconciliation-list" id="reconciliation-history-list">
+                    {historyPackets.map((packet) => {
+                      const editing = editingPacketId === packet.id;
+                      return (
+                        <article
+                          className={`reconciliation-card history${selectedPacketId === packet.id ? ' selected' : ''}`}
+                          key={packet.id}
+                          ref={selectedPacketId === packet.id ? selectedPacketRef : undefined}
+                        >
+                          <div className="reconciliation-history-summary">
+                            <button
+                              className="reconciliation-focus"
+                              onClick={() =>
+                                setSelectedPacketId((current) =>
+                                  current === packet.id ? null : packet.id,
+                                )
+                              }
+                              type="button"
+                            >
+                              <strong>{packet.start.address}</strong>
+                              <span>
+                                {packet.status === 'completed'
+                                  ? `Completed ${packet.completedOn ? formatDate(packet.completedOn) : ''}`
+                                  : 'Cancelled'}
+                              </span>
+                              <span className="reconciliation-packet-code">{packet.code}</span>
+                            </button>
+                            {packet.status === 'completed' && (
                               <button
-                                className="reconciliation-focus"
+                                aria-expanded={editing}
+                                className="secondary reconciliation-history-edit"
                                 onClick={() =>
-                                  setSelectedPacketId((current) =>
+                                  setEditingPacketId((current) =>
                                     current === packet.id ? null : packet.id,
                                   )
                                 }
                                 type="button"
                               >
-                                <strong>{packet.start.address}</strong>
-                                <span>
-                                  {packet.status === 'completed'
-                                    ? `Completed ${packet.completedOn ? formatDate(packet.completedOn) : ''}`
-                                    : 'Cancelled'}
-                                </span>
-                                <span className="reconciliation-packet-code">{packet.code}</span>
+                                {editing ? 'Close' : 'Edit date'}
                               </button>
-                              {packet.status === 'completed' && (
+                            )}
+                          </div>
+                          {packet.status === 'completed' && editing && (
+                            <form
+                              className="reconciliation-correction"
+                              key={`${packet.id}:${packet.completedOn}`}
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                const coveredOn = new FormData(event.currentTarget).get(
+                                  'coveredOn',
+                                );
+                                if (typeof coveredOn === 'string' && coveredOn) {
+                                  void correct(packet, coveredOn);
+                                }
+                              }}
+                            >
+                              <label>
+                                Outreach date
+                                <input
+                                  defaultValue={packet.completedOn ?? workspace.asOf}
+                                  disabled={mutationControlsDisabled}
+                                  max={workspace.asOf}
+                                  name="coveredOn"
+                                  required
+                                  type="date"
+                                />
+                              </label>
+                              <div>
+                                <button disabled={mutationControlsDisabled} type="submit">
+                                  Change date
+                                </button>
                                 <button
-                                  aria-expanded={editing}
-                                  className="secondary reconciliation-history-edit"
-                                  onClick={() =>
-                                    setEditingPacketId((current) =>
-                                      current === packet.id ? null : packet.id,
-                                    )
-                                  }
+                                  className="danger"
+                                  disabled={mutationControlsDisabled}
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        'Undo this whole packet completion and restore its reservation?',
+                                      )
+                                    ) {
+                                      void correct(packet, null);
+                                    }
+                                  }}
                                   type="button"
                                 >
-                                  {editing ? 'Close' : 'Edit date'}
+                                  Undo completion
                                 </button>
-                              )}
-                            </div>
-                            {packet.status === 'completed' && editing && (
-                              <form
-                                className="reconciliation-correction"
-                                key={`${packet.id}:${packet.completedOn}`}
-                                onSubmit={(event) => {
-                                  event.preventDefault();
-                                  const coveredOn = new FormData(event.currentTarget).get(
-                                    'coveredOn',
-                                  );
-                                  if (typeof coveredOn === 'string' && coveredOn) {
-                                    void correct(packet, coveredOn);
-                                  }
-                                }}
-                              >
-                                <label>
-                                  Outreach date
-                                  <input
-                                    defaultValue={packet.completedOn ?? workspace.asOf}
-                                    disabled={mutationControlsDisabled}
-                                    max={workspace.asOf}
-                                    name="coveredOn"
-                                    required
-                                    type="date"
-                                  />
-                                </label>
-                                <div>
-                                  <button disabled={mutationControlsDisabled} type="submit">
-                                    Change date
-                                  </button>
-                                  <button
-                                    className="danger"
-                                    disabled={mutationControlsDisabled}
-                                    onClick={() => {
-                                      if (
-                                        window.confirm(
-                                          'Undo this whole packet completion and restore its reservation?',
-                                        )
-                                      ) {
-                                        void correct(packet, null);
-                                      }
-                                    }}
-                                    type="button"
-                                  >
-                                    Undo completion
-                                  </button>
-                                </div>
-                              </form>
-                            )}
-                            {correctionStatus(packet)}
-                          </article>
-                        );
-                      })}
-                    </div>
-                  )}
+                              </div>
+                            </form>
+                          )}
+                          {correctionStatus(packet)}
+                        </article>
+                      );
+                    })}
+                  </div>
                 </section>
               )}
-              {reviewing && batch && (
+              {reconciliationView === 'active' && reviewing && batch && (
                 <section className="reconciliation-review">
                   <h2>Review reconciliation</h2>
                   <strong className="reconciliation-review-summary">
@@ -668,7 +754,7 @@ export function ReconciliationTool({
           )}
         </div>
         <div className="sidebar-actions">
-          {batch && activePackets.length > 0 && (
+          {reconciliationView === 'active' && batch && activePackets.length > 0 && (
             <p aria-live="polite" className="reconciliation-outcome-summary">
               {preview.unreviewed.length > 0 && (
                 <>
@@ -705,7 +791,7 @@ export function ReconciliationTool({
               />
             )
           )}
-          {batch && activePackets.length > 0 && (
+          {reconciliationView === 'active' && batch && activePackets.length > 0 && (
             <div className={reviewing ? 'reviewing' : ''}>
               {reviewing ? (
                 <>

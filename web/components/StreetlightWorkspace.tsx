@@ -13,6 +13,7 @@ import {
   outreachProgressYears,
 } from '@/lib/outreach-progress';
 import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
+import type { ReconciliationHistoryTarget } from '@/lib/reconciliation';
 import type { ChurchPrintoutSettings } from '@/lib/settings';
 import { AdministratorAccount } from './AdministratorAccount';
 import { CoverageDashboard } from './CoverageDashboard';
@@ -86,10 +87,13 @@ export function StreetlightWorkspace({
     useState<CoverageSelectionSource | null>(null);
   const [packetResult, setPacketResult] = useState<ReviewedPacketGenerationResult | null>(null);
   const [selectedPacketIndex, setSelectedPacketIndex] = useState<number | null>(null);
+  const [reconciliationTarget, setReconciliationTarget] =
+    useState<ReconciliationHistoryTarget | null>(null);
   const [territory, setTerritory] = useState<TerritoryWorkspace | null>(null);
   const [territoryLoading, setTerritoryLoading] = useState(false);
   const [territoryError, setTerritoryError] = useState('');
   const [territoryDirty, setTerritoryDirty] = useState(false);
+  const [printoutDirty, setPrintoutDirty] = useState(false);
   const [territorySaving, setTerritorySaving] = useState(false);
   const [pendingTool, setPendingTool] = useState<WorkspaceTool | null>(null);
   const [pendingSetupView, setPendingSetupView] = useState<SetupView | null>(null);
@@ -266,7 +270,11 @@ export function StreetlightWorkspace({
 
   function openTool(nextTool: WorkspaceTool): void {
     if (nextTool === tool) return;
-    if (tool === 'setup' && setupView === 'territory' && territoryDirty && !territorySaving) {
+    if (
+      tool === 'setup' &&
+      ((setupView === 'territory' && territoryDirty && !territorySaving) ||
+        (setupView === 'printouts' && printoutDirty))
+    ) {
       setPendingTool(nextTool);
       return;
     }
@@ -278,14 +286,17 @@ export function StreetlightWorkspace({
 
   function openSetupView(nextView: SetupView): void {
     if (nextView === setupView) return;
-    if (setupView === 'territory' && territoryDirty && !territorySaving) {
+    if (
+      (setupView === 'territory' && territoryDirty && !territorySaving) ||
+      (setupView === 'printouts' && printoutDirty)
+    ) {
       setPendingSetupView(nextView);
       return;
     }
     setSetupView(nextView);
   }
 
-  function finishTerritoryLeave(): void {
+  function finishSetupLeave(): void {
     if (pendingTool) setTool(pendingTool);
     if (pendingSetupView) setSetupView(pendingSetupView);
     setPendingTool(null);
@@ -418,6 +429,11 @@ export function StreetlightWorkspace({
             setPacketView('generate');
             openTool('packets');
           }}
+          onOpenHistory={(packetId) => {
+            setReconciliationTarget({ packetId });
+            setPacketView('reconcile');
+            openTool('packets');
+          }}
           onOpenReconciliation={() => {
             setPacketView('reconcile');
             openTool('packets');
@@ -441,7 +457,9 @@ export function StreetlightWorkspace({
           active={tool === 'packets' && packetView === 'reconcile'}
           map={map}
           onChanged={refreshCoverage}
+          onTargetHandled={() => setReconciliationTarget(null)}
           onViewChange={setPacketView}
+          target={reconciliationTarget}
         />
         <OutreachProgress
           active={tool === 'progress'}
@@ -468,15 +486,16 @@ export function StreetlightWorkspace({
             active={tool === 'setup' && setupView === 'territory'}
             initialData={territory}
             map={map}
+            mapsApiKey={mapsApiKey}
             onDirtyChange={setTerritoryDirty}
-            onDiscardAndLeave={finishTerritoryLeave}
+            onDiscardAndLeave={finishSetupLeave}
             onImportingChange={setTerritorySaving}
             onReturnToSetup={() => {
               setTool('setup');
               setSetupView('territory');
             }}
             onSaved={refreshAfterTerritorySave}
-            onSaveAndLeave={finishTerritoryLeave}
+            onSaveAndLeave={finishSetupLeave}
             onStay={() => {
               setPendingTool(null);
               setPendingSetupView(null);
@@ -489,8 +508,16 @@ export function StreetlightWorkspace({
         )}
         <PrintoutSettings
           active={tool === 'setup' && setupView === 'printouts'}
+          onDirtyChange={setPrintoutDirty}
+          onDiscardAndLeave={finishSetupLeave}
           onSaved={setPrintoutSettings}
+          onSaveAndLeave={finishSetupLeave}
+          onStay={() => {
+            setPendingTool(null);
+            setPendingSetupView(null);
+          }}
           onViewChange={(view) => openSetupView(view as SetupView)}
+          pendingLeave={pendingTool !== null || pendingSetupView !== null}
           settings={printoutSettings}
         />
         {tool === 'setup' && setupView === 'territory' && !territory && (

@@ -4,12 +4,13 @@ import { type CSSProperties, useEffect, useState } from 'react';
 import {
   countEligibleHomesByCoverageClass,
   coverageRoadForSegment,
+  coverageRoadPacketGroups,
   coverageRoadResultContent,
   currentWorkState,
   searchCoverageRoads,
   stackCoverageLabelRows,
 } from '@/lib/coverage';
-import type { CoverageWorkspace, CoverageWorkspaceSegment } from '@/lib/database';
+import type { CoverageWorkspace } from '@/lib/database';
 
 type CoverageDashboardProps = {
   active: boolean;
@@ -18,6 +19,7 @@ type CoverageDashboardProps = {
   onSelectSegment: (id: string | null) => void;
   onOpenPackets: () => void;
   onOpenReconciliation: () => void;
+  onOpenHistory: (packetId: string) => void;
 };
 
 const coverageClasses = ['green', 'yellow', 'orange', 'red'] as const;
@@ -35,38 +37,6 @@ function outreachDateSummary(values: Array<string | null>): string {
   return date ? formatDate(date) : 'Never';
 }
 
-function roadDateGroups(segments: CoverageWorkspaceSegment[]) {
-  const groups = new Map<
-    string,
-    {
-      lastCoveredOn: string | null;
-      coverageClass: CoverageWorkspaceSegment['coverageClass'];
-      sections: number;
-      estimatedTracts: number;
-    }
-  >();
-  for (const segment of segments) {
-    const key = segment.lastCoveredOn ?? 'never';
-    const group = groups.get(key);
-    if (group) {
-      group.sections += 1;
-      group.estimatedTracts += segment.estimatedHomes;
-    } else {
-      groups.set(key, {
-        lastCoveredOn: segment.lastCoveredOn,
-        coverageClass: segment.coverageClass,
-        sections: 1,
-        estimatedTracts: segment.estimatedHomes,
-      });
-    }
-  }
-  return [...groups.values()].sort((first, second) => {
-    if (first.lastCoveredOn === null) return -1;
-    if (second.lastCoveredOn === null) return 1;
-    return first.lastCoveredOn.localeCompare(second.lastCoveredOn);
-  });
-}
-
 export function CoverageDashboard({
   active,
   workspace,
@@ -74,12 +44,13 @@ export function CoverageDashboard({
   onSelectSegment,
   onOpenPackets,
   onOpenReconciliation,
+  onOpenHistory,
 }: CoverageDashboardProps) {
   const [query, setQuery] = useState('');
   const selected = coverageRoadForSegment(workspace.segments, selectedSegmentId);
   const search = searchCoverageRoads(workspace.segments, query);
   const selectedContent = selected ? coverageRoadResultContent(selected) : null;
-  const selectedDates = selected ? roadDateGroups(selected.segments) : [];
+  const selectedDates = selected ? coverageRoadPacketGroups(selected.segments) : [];
   const workState = currentWorkState(workspace.activePackets);
   const distribution = countEligibleHomesByCoverageClass(workspace.segments);
   const distributionItems = coverageClasses.map((coverageClass) => ({
@@ -248,25 +219,43 @@ export function CoverageDashboard({
             <section aria-labelledby="road-coverage-heading" className="coverage-road-breakdown">
               <h3 id="road-coverage-heading">Coverage along this road</h3>
               <ul>
-                {selectedDates.map((group) => (
-                  <li key={group.lastCoveredOn ?? 'never'}>
-                    <span
-                      aria-hidden="true"
-                      className={`coverage-road-swatch ${group.coverageClass}`}
-                    />
-                    <span>
-                      <strong>
-                        {group.lastCoveredOn ? formatDate(group.lastCoveredOn) : 'Never reached'}
-                      </strong>
-                      <small>
-                        {group.sections} {group.sections === 1 ? 'section' : 'sections'}
-                      </small>
-                    </span>
-                    <span>
-                      {group.estimatedTracts} {group.estimatedTracts === 1 ? 'tract' : 'tracts'}
-                    </span>
-                  </li>
-                ))}
+                {selectedDates.map((group) => {
+                  const row = (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className={`coverage-road-swatch ${group.coverageClass}`}
+                      />
+                      <span>
+                        <strong>
+                          {group.lastCoveredOn ? formatDate(group.lastCoveredOn) : 'Never reached'}
+                        </strong>
+                        <small>
+                          {group.sections} {group.sections === 1 ? 'section' : 'sections'}
+                        </small>
+                      </span>
+                      <span>
+                        {group.estimatedTracts} {group.estimatedTracts === 1 ? 'tract' : 'tracts'}
+                      </span>
+                    </>
+                  );
+                  return (
+                    <li key={group.packetId ?? group.lastCoveredOn ?? 'never'}>
+                      {group.packetId && group.lastCoveredOn ? (
+                        <button
+                          aria-label={`Open packet history from ${formatDate(group.lastCoveredOn)}`}
+                          className="coverage-road-row"
+                          onClick={() => onOpenHistory(group.packetId as string)}
+                          type="button"
+                        >
+                          {row}
+                        </button>
+                      ) : (
+                        <div className="coverage-road-row">{row}</div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           </section>

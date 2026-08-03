@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { loadGoogleMaps } from '@/lib/google-maps-browser';
+import { StreetlightSelect } from './StreetlightSelect';
 
 export function ChurchOnboarding({
   churchName,
@@ -124,20 +125,20 @@ export function ChurchOnboarding({
             )}
             <input name="address" value={address} type="hidden" readOnly />
           </div>
-          <label>
+          <label htmlFor="church-time-zone">
             Time zone
-            <select
+            <StreetlightSelect
+              ariaLabel="Time zone"
+              id="church-time-zone"
               name="timeZone"
-              value={timeZone}
-              onChange={(event) => setTimeZone(event.target.value)}
+              onValueChange={setTimeZone}
+              options={timeZones.map((zone) => ({
+                label: zone.replaceAll('_', ' '),
+                value: zone,
+              }))}
               required
-            >
-              {timeZones.map((zone) => (
-                <option key={zone} value={zone}>
-                  {zone.replaceAll('_', ' ')}
-                </option>
-              ))}
-            </select>
+              value={timeZone}
+            />
           </label>
           {error && <p className="field-error">{error}</p>}
           <button type="submit" disabled={busy}>

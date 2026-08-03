@@ -50,6 +50,41 @@ export type ReconciliationWorkspace = {
   batches: ReconciliationBatch[];
 };
 
+export type ReconciliationView = 'active' | 'history';
+export type ReconciliationHistoryTarget = { packetId: string };
+
+export function reconciliationBatchesForView(
+  batches: ReconciliationBatch[],
+  view: ReconciliationView,
+): ReconciliationBatch[] {
+  return batches.filter((batch) =>
+    view === 'active'
+      ? batch.counts.active > 0
+      : batch.counts.completed + batch.counts.cancelled > 0,
+  );
+}
+
+export function reconciliationHistorySelection(
+  batches: ReconciliationBatch[],
+  packetId: string,
+): { batchId: string; packetId: string } | null {
+  const batch = batches.find(({ packets }) =>
+    packets.some((packet) => packet.id === packetId && packet.status !== 'active'),
+  );
+  return batch ? { batchId: batch.id, packetId } : null;
+}
+export function reconciliationMapPackets(
+  packets: ReconciliationPacket[],
+  view: ReconciliationView,
+  selectedPacketId: string | null,
+): ReconciliationPacket[] {
+  const selected = packets.find(({ id }) => id === selectedPacketId);
+  if (selected) return [selected];
+  return packets.filter(({ status }) =>
+    view === 'active' ? status === 'active' : status !== 'active',
+  );
+}
+
 export class ReconciliationConflictError extends Error {}
 
 export function buildReconciliationPreview(

@@ -44,7 +44,6 @@ import type { TerritoryDraftInput } from './territory-draft.ts';
 import {
   type LineString,
   lineInsideTerritoryBoundary,
-  lineIntersectsPolygon,
   type Polygon,
   type Position,
   pointInsideTerritoryBoundary,
@@ -114,13 +113,6 @@ type SegmentRow = {
   manually_excluded: number;
 };
 
-type ExclusionRow = {
-  id: string;
-  name: string;
-  enabled: number;
-  geometry_geojson: string;
-};
-
 type ApartmentRow = {
   import_complex_id: string;
   source_id: string;
@@ -141,13 +133,6 @@ export type FoundationSummary = {
   packetCount: number;
 };
 
-export type ExclusionArea = {
-  id: string;
-  name: string;
-  enabled: boolean;
-  geometry: Polygon;
-};
-
 export type TerritorySegment = {
   id: string;
   sourceSegmentId: string;
@@ -161,7 +146,7 @@ export type TerritorySegment = {
   withinBoundary: boolean;
   manuallyExcluded: boolean;
   eligible: boolean;
-  excludedReason: 'hidden' | 'boundary' | 'exclusion' | 'segment' | null;
+  excludedReason: 'hidden' | 'boundary' | 'segment' | null;
 };
 
 export type ApartmentComplex = {
@@ -184,7 +169,6 @@ export type TerritoryWorkspace = {
   radiusMiles: number;
   boundaryShape: 'circle' | 'square';
   import: TerritoryImportMetadata;
-  exclusions: ExclusionArea[];
   apartmentComplexes: ApartmentComplex[];
   segments: TerritorySegment[];
   totals: {
@@ -1855,23 +1839,6 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
       throw new Error('No local workspace found. Run pnpm db:seed.');
     }
 
-    const exclusions = (
-      database
-        .prepare(
-          `SELECT id, name, enabled, geometry_geojson
-          FROM ignore_zones
-          WHERE territory_id = ? AND church_id = ?
-          ORDER BY created_at, id`,
-        )
-        .all(workspaceTerritoryId(), workspaceChurchId()) as ExclusionRow[]
-    ).map(
-      (row): ExclusionArea => ({
-        id: row.id,
-        name: row.name,
-        enabled: row.enabled === 1,
-        geometry: parseGeometry<Polygon>(row.geometry_geojson),
-      }),
-    );
     const center: Position = [territory.center_longitude, territory.center_latitude];
     const radiusMiles = territory.radius_meters / 1609.344;
     const boundaryShape = territory.boundary_shape;
@@ -1946,9 +1913,6 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
         radiusMiles,
         boundaryShape,
       );
-      const excluded = exclusions.some(
-        (area) => area.enabled && lineIntersectsPolygon(geometry, area.geometry),
-      );
       const active = row.activation_kind !== 'hidden';
       const manuallyExcluded = row.manually_excluded === 1;
       return {
@@ -1963,16 +1927,14 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
         active,
         withinBoundary,
         manuallyExcluded,
-        eligible: active && withinBoundary && !excluded && !manuallyExcluded,
+        eligible: active && withinBoundary && !manuallyExcluded,
         excludedReason: !withinBoundary
           ? 'boundary'
           : !active
             ? 'hidden'
-            : excluded
-              ? 'exclusion'
-              : manuallyExcluded
-                ? 'segment'
-                : null,
+            : manuallyExcluded
+              ? 'segment'
+              : null,
       };
     });
     const apartmentComplexes = (
@@ -2015,7 +1977,6 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
       radiusMiles,
       boundaryShape,
       import: imported,
-      exclusions,
       apartmentComplexes,
       segments,
       totals: {
@@ -2044,7 +2005,7 @@ export function saveTerritoryDraft(
   options: SaveTerritoryOptions = {},
 ): void {
   const database = openWorkspaceDatabase(options.filename);
-  const activatedRoadGroupIds = new Set(draft.activatedRoadGroupIds);
+  const activatedSegmentIds = new Set(draft.activatedSegmentIds);
   const excludedSegmentIds = new Set(draft.excludedSegmentIds ?? []);
   database.exec('BEGIN IMMEDIATE');
   try {
@@ -2067,25 +2028,6 @@ export function saveTerritoryDraft(
       );
     if (result.changes !== 1) {
       throw new Error('Territory not found');
-    }
-
-    database
-      .prepare('DELETE FROM ignore_zones WHERE territory_id = ? AND church_id = ?')
-      .run(workspaceTerritoryId(), workspaceChurchId());
-    const insert = database.prepare(
-      `INSERT INTO ignore_zones
-        (id, church_id, territory_id, name, enabled, geometry_geojson)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-    );
-    for (const exclusion of draft.exclusions) {
-      insert.run(
-        exclusion.id,
-        workspaceChurchId(),
-        workspaceTerritoryId(),
-        exclusion.name,
-        exclusion.enabled ? 1 : 0,
-        JSON.stringify(exclusion.geometry),
-      );
     }
 
     if (options.imported) {
@@ -2175,7 +2117,7 @@ export function saveTerritoryDraft(
       );
       for (const segment of options.imported.segments) {
         if (manuallyActivatedSources.has(segment.sourceSegmentId)) {
-          activatedRoadGroupIds.add(segment.roadGroupId);
+          activatedSegmentIds.add(segment.id);
         }
       }
       const generation =
@@ -2330,7 +2272,7 @@ export function saveTerritoryDraft(
             address.latitude,
           );
         }
-        activatedRoadGroupIds.add(segment.road_group_id);
+        activatedSegmentIds.add(segment.import_segment_id);
         if (excludedGeometryById.get(segment.import_segment_id) === segment.geometry_geojson) {
           excludedSegmentIds.add(segment.import_segment_id);
         }
@@ -2378,10 +2320,10 @@ export function saveTerritoryDraft(
     const activate = database.prepare(
       `UPDATE street_segments
       SET activation_kind = 'manual'
-      WHERE territory_id = ? AND church_id = ? AND is_current = 1 AND road_group_id = ?`,
+      WHERE territory_id = ? AND church_id = ? AND is_current = 1 AND import_segment_id = ?`,
     );
-    for (const roadGroupId of activatedRoadGroupIds) {
-      activate.run(workspaceTerritoryId(), workspaceChurchId(), roadGroupId);
+    for (const segmentId of activatedSegmentIds) {
+      activate.run(workspaceTerritoryId(), workspaceChurchId(), segmentId);
     }
     database
       .prepare(

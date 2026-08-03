@@ -113,7 +113,16 @@ test('one packet operation lock owns every mutation and PDF entry point', () => 
   assert.equal(source.match(/if \(packetOperationBusy\) return;/g)?.length, 3);
 });
 
-test('territory drawing and long imports stay in the approved workflow', () => {
+test('territory church location reuses onboarding place search with a manual fallback', () => {
+  const workspace = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
+  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+
+  assert.match(territory, /PlaceAutocompleteElement/);
+  assert.match(territory, /Search for your church or address/);
+  assert.match(territory, /placeSearchFailed/);
+  assert.match(workspace, /mapsApiKey={mapsApiKey}/);
+});
+test('territory selection and long imports stay in the approved workflow', () => {
   const source = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
 
   assert.doesNotMatch(source, />\s*Pan\s*</);
@@ -126,9 +135,12 @@ test('territory drawing and long imports stay in the approved workflow', () => {
 test('territory verification keeps global tool navigation available without unmounting the draft', () => {
   const workspace = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
   const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+  const printouts = readFileSync(new URL('./PrintoutSettings.tsx', import.meta.url), 'utf8');
 
   assert.match(territory, /onImportingChange\(leaveControlsDisabled\)/);
   assert.match(workspace, /territoryDirty && !territorySaving/);
+  assert.match(workspace, /setupView === 'printouts' && printoutDirty/);
+  assert.match(printouts, /Save printout changes before leaving\?/);
   assert.match(workspace, /\{territory && \(\s*<TerritoryEditor/);
 });
 
@@ -148,20 +160,21 @@ test('workflow surfaces use one atomic operation status without duplicate live c
   assert.doesNotMatch(territory, /territory-import-banner/);
 });
 
-test('territory editing keeps shared street overlays visible and redraws while vertices move', () => {
+test('territory editing keeps shared overlays and selects exact segments directly', () => {
   const source = readFileSync(new URL('./OpenTerritoryMap.tsx', import.meta.url), 'utf8');
   const editor = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /getSource\('streetlightCoverage'\)/);
-  assert.match(source, /setLayoutProperty\('streetlight-coverage', 'visibility', 'visible'\)/);
-  assert.match(source, /type: 'LineString' as const, coordinates: drawingPoints/);
+  assert.match(source, /selectedIds\.has\(segment\.id\)/);
+  assert.match(source, /queryRenderedFeatures\(bounds/);
+  assert.match(source, /event\.originalEvent\.shiftKey/);
+  assert.match(source, /boxSelectionArmed/);
   assert.match(editor, /mutationLocked={leaveControlsDisabled}/);
-  assert.match(source, /mutationLocked: boolean/);
-  assert.match(source, /!mutationLockedRef\.current/);
-  assert.match(source, /selected && !drawing && !mutationLocked/);
-  assert.match(source, /if \(!mutationLocked\) \{\s*void import\('maplibre-gl'\)/);
-  assert.equal(source.match(/if \(mutationLockedRef\.current\) return;/g)?.length, 6);
-  assert.doesNotMatch(source, /dragPan\.disable|scrollZoom\.disable/);
+  assert.match(editor, /setSegmentsExcluded/);
+  assert.match(editor, /activateSegments/);
+  assert.match(editor, /Shift-drag selects an area/);
+  assert.doesNotMatch(source, /territory-exclusions|territory-drawing/);
+  assert.doesNotMatch(editor, /Draw exclusion area|finishDrawing|selectedExclusionId/);
 });
 
 test('basemap changes republish the map after the replacement style has committed', () => {

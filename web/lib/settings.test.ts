@@ -22,3 +22,9 @@ test('printout settings allow removal but reject an orphaned reference', () => {
     /reference requires a printout message/,
   );
 });
+test('printout settings reject characters the PDF footer font cannot render', () => {
+  assert.throws(
+    () => parseChurchPrintoutSettings({ message: 'Light in the world 🌎', reference: '' }),
+    /Message can use standard letters, numbers, and punctuation only/,
+  );
+});

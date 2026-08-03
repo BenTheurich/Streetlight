@@ -7,7 +7,7 @@ import type {
   Map as MapLibreMap,
 } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
-import { coverageRoadForSegment, type CoverageLegendItem } from '@/lib/coverage';
+import { type CoverageLegendItem, coverageRoadForSegment } from '@/lib/coverage';
 import type { CoverageWorkspaceApartment, CoverageWorkspaceSegment } from '@/lib/database';
 import {
   type CoverageSelectionSource,
@@ -20,6 +20,7 @@ import {
   apartmentMarkerColor,
   coverageColors,
   expandApartmentCluster,
+  keepMapOverlayPublished,
 } from '@/lib/territory-map-style';
 
 type OpenCoverageMapProps = {
@@ -66,90 +67,96 @@ export function OpenCoverageMap({
 
   useEffect(() => {
     if (!map) return;
-    const visibility = active ? 'visible' : 'none';
-    for (const id of [
-      'streetlight-boundary',
-      'streetlight-coverage-selection',
-      'streetlight-coverage',
-    ]) {
-      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visibility);
-    }
-    const apartmentVisibility = active && showApartmentMarkers ? 'visible' : 'none';
-    for (const id of apartmentLayerIds) {
-      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', apartmentVisibility);
-    }
+    const publish = () => {
+      const visibility = active ? 'visible' : 'none';
+      for (const id of [
+        'streetlight-boundary',
+        'streetlight-coverage-selection',
+        'streetlight-coverage',
+      ]) {
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visibility);
+      }
+      const apartmentVisibility = active && showApartmentMarkers ? 'visible' : 'none';
+      for (const id of apartmentLayerIds) {
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', apartmentVisibility);
+      }
+    };
+    return keepMapOverlayPublished(map, publish);
   }, [active, map, showApartmentMarkers]);
 
   useEffect(() => {
     if (!active || !map) return;
-    const selectedRoad = coverageRoadForSegment(segments, selectedSegmentId);
-    const selectedIds = new Set(selectedRoad?.segments.map(({ id }) => id));
-    (map.getSource('streetlightCoverage') as GeoJSONSource | undefined)?.setData({
-      type: 'FeatureCollection',
-      features: segments.map((segment) => ({
-        type: 'Feature',
-        geometry: segment.geometry,
-        properties: {
-          id: segment.id,
-          selected: interactive && selectedIds.has(segment.id),
-          color: segment.eligible ? coverageColors[segment.coverageClass] : coverageColors.gray,
-          opacity: segment.eligible ? 0.68 : 0.42,
-        },
-      })),
-    });
-    const selectionSourceId = 'streetlightCoverageSelection';
-    const selectionLayerId = 'streetlight-coverage-selection';
-    if (map.getSource(selectionSourceId)) map.removeSource(selectionSourceId);
-    if (!map.getLayer(selectionLayerId) && map.getSource('streetlightCoverage')) {
-      map.addLayer(
-        {
-          id: selectionLayerId,
-          type: 'line',
-          source: 'streetlightCoverage',
-          filter: ['==', ['get', 'selected'], true],
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: {
-            'line-color': '#78a9ff',
-            'line-opacity': 1,
-            'line-width': selectionWidth,
+    const publish = () => {
+      const selectedRoad = coverageRoadForSegment(segments, selectedSegmentId);
+      const selectedIds = new Set(selectedRoad?.segments.map(({ id }) => id));
+      (map.getSource('streetlightCoverage') as GeoJSONSource | undefined)?.setData({
+        type: 'FeatureCollection',
+        features: segments.map((segment) => ({
+          type: 'Feature',
+          geometry: segment.geometry,
+          properties: {
+            id: segment.id,
+            selected: interactive && selectedIds.has(segment.id),
+            color: segment.eligible ? coverageColors[segment.coverageClass] : coverageColors.gray,
+            opacity: segment.eligible ? 0.68 : 0.42,
           },
-        },
-        'streetlight-coverage',
-      );
-    }
-    if (map.getLayer(selectionLayerId)) {
-      map.setPaintProperty(selectionLayerId, 'line-opacity', 1);
-      map.setPaintProperty(selectionLayerId, 'line-width', selectionWidth);
-    }
-    (map.getSource('streetlightApartments') as GeoJSONSource | undefined)?.setData({
-      type: 'FeatureCollection',
-      features: apartmentComplexes.map((apartment) => ({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: apartment.position },
-        properties: {
-          id: apartment.id,
-          label: 'A',
-          color: apartmentMarkerColor(apartment.reviewStatus),
-        },
-      })),
-    });
-    if (map.getLayer('streetlight-coverage')) {
-      map.setPaintProperty('streetlight-coverage', 'line-color', ['get', 'color']);
-      map.setPaintProperty('streetlight-coverage', 'line-opacity', [
-        'case',
-        ['==', ['get', 'selected'], true],
-        1,
-        ['get', 'opacity'],
-      ]);
-      map.setPaintProperty('streetlight-coverage', 'line-width', coverageWidth);
-    }
-    if (fitOnMount && !fittedRef.current) {
-      const bounds = positionBounds(segments.flatMap(({ geometry }) => geometry.coordinates));
-      if (bounds) {
-        map.fitBounds(bounds, { padding: 48 });
-        fittedRef.current = true;
+        })),
+      });
+      const selectionSourceId = 'streetlightCoverageSelection';
+      const selectionLayerId = 'streetlight-coverage-selection';
+      if (map.getSource(selectionSourceId)) map.removeSource(selectionSourceId);
+      if (!map.getLayer(selectionLayerId) && map.getSource('streetlightCoverage')) {
+        map.addLayer(
+          {
+            id: selectionLayerId,
+            type: 'line',
+            source: 'streetlightCoverage',
+            filter: ['==', ['get', 'selected'], true],
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              'line-color': '#78a9ff',
+              'line-opacity': 1,
+              'line-width': selectionWidth,
+            },
+          },
+          'streetlight-coverage',
+        );
       }
-    }
+      if (map.getLayer(selectionLayerId)) {
+        map.setPaintProperty(selectionLayerId, 'line-opacity', 1);
+        map.setPaintProperty(selectionLayerId, 'line-width', selectionWidth);
+      }
+      (map.getSource('streetlightApartments') as GeoJSONSource | undefined)?.setData({
+        type: 'FeatureCollection',
+        features: apartmentComplexes.map((apartment) => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: apartment.position },
+          properties: {
+            id: apartment.id,
+            label: 'A',
+            color: apartmentMarkerColor(apartment.reviewStatus),
+          },
+        })),
+      });
+      if (map.getLayer('streetlight-coverage')) {
+        map.setPaintProperty('streetlight-coverage', 'line-color', ['get', 'color']);
+        map.setPaintProperty('streetlight-coverage', 'line-opacity', [
+          'case',
+          ['==', ['get', 'selected'], true],
+          1,
+          ['get', 'opacity'],
+        ]);
+        map.setPaintProperty('streetlight-coverage', 'line-width', coverageWidth);
+      }
+      if (fitOnMount && !fittedRef.current) {
+        const bounds = positionBounds(segments.flatMap(({ geometry }) => geometry.coordinates));
+        if (bounds) {
+          map.fitBounds(bounds, { padding: 48 });
+          fittedRef.current = true;
+        }
+      }
+    };
+    return keepMapOverlayPublished(map, publish);
   }, [active, apartmentComplexes, fitOnMount, interactive, map, segments, selectedSegmentId]);
 
   useEffect(() => {

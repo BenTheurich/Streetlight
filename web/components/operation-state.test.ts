@@ -80,24 +80,6 @@ const territoryWorkspace = {
     normalizerVersion: null,
     quality: null,
   },
-  exclusions: [
-    {
-      id: 'exclusion-1',
-      name: 'Industrial park',
-      enabled: true,
-      geometry: {
-        type: 'Polygon',
-        coordinates: [
-          [
-            [-117.11, 33.49],
-            [-117.1, 33.49],
-            [-117.1, 33.5],
-            [-117.11, 33.49],
-          ],
-        ],
-      },
-    },
-  ],
   apartmentComplexes: [
     {
       id: 'apartment-1',

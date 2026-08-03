@@ -1,19 +1,26 @@
-import type { ExclusionArea, TerritorySegment, TerritoryWorkspace } from './database.ts';
+import type { TerritorySegment, TerritoryWorkspace } from './database.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
-import {
-  lineInsideTerritoryBoundary,
-  lineIntersectsPolygon,
-  type Position,
-} from './territory-geometry.ts';
-
-const VERTEX_KEY_STEP = 0.00005;
+import { lineInsideTerritoryBoundary, type Position } from './territory-geometry.ts';
 
 export function hasUnsavedTerritoryChanges(
   saved: TerritoryDraftInput,
   draft: TerritoryDraftInput,
-  drawingPoints: Position[],
+  drawingPoints: Position[] = [],
 ): boolean {
   return drawingPoints.length > 0 || JSON.stringify(draft) !== JSON.stringify(saved);
+}
+
+export function setSegmentsExcluded(
+  draft: TerritoryDraftInput,
+  segmentIds: Iterable<string>,
+  excluded: boolean,
+): TerritoryDraftInput {
+  const ids = new Set(draft.excludedSegmentIds);
+  for (const segmentId of segmentIds) {
+    if (excluded) ids.add(segmentId);
+    else ids.delete(segmentId);
+  }
+  return { ...draft, excludedSegmentIds: [...ids].sort() };
 }
 
 export function setSegmentExcluded(
@@ -21,33 +28,16 @@ export function setSegmentExcluded(
   segmentId: string,
   excluded: boolean,
 ): TerritoryDraftInput {
-  const ids = new Set(draft.excludedSegmentIds);
-  if (excluded) {
-    ids.add(segmentId);
-  } else {
-    ids.delete(segmentId);
-  }
-  return { ...draft, excludedSegmentIds: [...ids].sort() };
+  return setSegmentsExcluded(draft, [segmentId], excluded);
 }
 
-export function moveVertexWithArrowKey(points: Position[], index: number, key: string): Position[] {
-  const delta: Position | undefined = {
-    ArrowDown: [0, -VERTEX_KEY_STEP],
-    ArrowLeft: [-VERTEX_KEY_STEP, 0],
-    ArrowRight: [VERTEX_KEY_STEP, 0],
-    ArrowUp: [0, VERTEX_KEY_STEP],
-  }[key] as Position | undefined;
-  if (!delta || !points[index]) {
-    return points;
-  }
-  return points.map((point, pointIndex) =>
-    pointIndex === index
-      ? [
-          Math.min(180, Math.max(-180, point[0] + delta[0])),
-          Math.min(90, Math.max(-90, point[1] + delta[1])),
-        ]
-      : point,
-  );
+export function activateSegments(
+  draft: TerritoryDraftInput,
+  segmentIds: Iterable<string>,
+): TerritoryDraftInput {
+  const ids = new Set(draft.activatedSegmentIds);
+  for (const segmentId of segmentIds) ids.add(segmentId);
+  return { ...draft, activatedSegmentIds: [...ids].sort() };
 }
 
 export function territoryDraftFromWorkspace(workspace: TerritoryWorkspace): TerritoryDraftInput {
@@ -56,13 +46,10 @@ export function territoryDraftFromWorkspace(workspace: TerritoryWorkspace): Terr
     center: [...workspace.center],
     radiusMiles: workspace.radiusMiles,
     boundaryShape: workspace.boundaryShape,
-    activatedRoadGroupIds: [
-      ...new Set(
-        workspace.segments
-          .filter((segment) => segment.activationKind === 'manual')
-          .map((segment) => segment.roadGroupId),
-      ),
-    ].sort(),
+    activatedSegmentIds: workspace.segments
+      .filter((segment) => segment.activationKind === 'manual')
+      .map((segment) => segment.id)
+      .sort(),
     excludedSegmentIds: workspace.segments
       .filter((segment) => segment.manuallyExcluded)
       .map((segment) => segment.id)
@@ -71,7 +58,6 @@ export function territoryDraftFromWorkspace(workspace: TerritoryWorkspace): Terr
       id,
       reviewStatus,
     })),
-    exclusions: structuredClone(workspace.exclusions),
   };
 }
 
@@ -79,8 +65,8 @@ export function deriveTerritory(
   importedSegments: TerritorySegment[],
   draft: TerritoryDraftInput,
 ): Pick<TerritoryWorkspace, 'segments' | 'totals'> {
-  const activatedRoadGroupIds = new Set(draft.activatedRoadGroupIds);
-  const excludedSegmentIds = new Set(draft.excludedSegmentIds ?? []);
+  const activatedSegmentIds = new Set(draft.activatedSegmentIds);
+  const excludedSegmentIds = new Set(draft.excludedSegmentIds);
   const segments = importedSegments.map((segment): TerritorySegment => {
     const withinBoundary = lineInsideTerritoryBoundary(
       segment.geometry,
@@ -88,10 +74,7 @@ export function deriveTerritory(
       draft.radiusMiles,
       draft.boundaryShape,
     );
-    const excluded = draft.exclusions.some(
-      (area) => area.enabled && lineIntersectsPolygon(segment.geometry, area.geometry),
-    );
-    const manuallyActivated = activatedRoadGroupIds.has(segment.roadGroupId);
+    const manuallyActivated = activatedSegmentIds.has(segment.id);
     const active = segment.active || manuallyActivated;
     const manuallyExcluded = excludedSegmentIds.has(segment.id);
     return {
@@ -100,16 +83,14 @@ export function deriveTerritory(
       active,
       withinBoundary,
       manuallyExcluded,
-      eligible: active && withinBoundary && !excluded && !manuallyExcluded,
+      eligible: active && withinBoundary && !manuallyExcluded,
       excludedReason: !withinBoundary
         ? 'boundary'
         : !active
           ? 'hidden'
-          : excluded
-            ? 'exclusion'
-            : manuallyExcluded
-              ? 'segment'
-              : null,
+          : manuallyExcluded
+            ? 'segment'
+            : null,
     };
   });
   return {
@@ -125,29 +106,4 @@ export function deriveTerritory(
         .reduce((total, segment) => total + segment.estimatedHomes, 0),
     },
   };
-}
-
-export function affectedByExclusion(
-  segments: TerritorySegment[],
-  exclusion: ExclusionArea,
-): { segments: number; homes: number } {
-  const affected = segments.filter(
-    (segment) =>
-      segment.active &&
-      segment.withinBoundary &&
-      lineIntersectsPolygon(segment.geometry, exclusion.geometry),
-  );
-  return {
-    segments: affected.length,
-    homes: affected.reduce((total, segment) => total + segment.estimatedHomes, 0),
-  };
-}
-
-export function nextExclusionName(exclusions: ExclusionArea[]): string {
-  const names = new Set(exclusions.map((area) => area.name));
-  let index = 1;
-  while (names.has(`Excluded area ${index}`)) {
-    index += 1;
-  }
-  return `Excluded area ${index}`;
 }

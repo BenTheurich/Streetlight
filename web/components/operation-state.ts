@@ -33,18 +33,6 @@ function isLineString(value: unknown): boolean {
   );
 }
 
-function isPolygon(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    value.type === 'Polygon' &&
-    Array.isArray(value.coordinates) &&
-    value.coordinates.length > 0 &&
-    value.coordinates.every(
-      (ring) => Array.isArray(ring) && ring.length >= 4 && ring.every(isPosition),
-    )
-  );
-}
-
 function isPacketSegment(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -178,16 +166,6 @@ function isTerritoryImport(value: unknown): boolean {
   );
 }
 
-function isExclusion(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.name === 'string' &&
-    typeof value.enabled === 'boolean' &&
-    isPolygon(value.geometry)
-  );
-}
-
 function isApartmentComplex(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -220,7 +198,7 @@ function isTerritorySegment(value: unknown): boolean {
     typeof value.manuallyExcluded === 'boolean' &&
     typeof value.eligible === 'boolean' &&
     (value.excludedReason === null ||
-      ['hidden', 'boundary', 'exclusion', 'segment'].includes(String(value.excludedReason)))
+      ['hidden', 'boundary', 'segment'].includes(String(value.excludedReason)))
   );
 }
 
@@ -235,8 +213,6 @@ export function isTerritoryWorkspacePayload(value: unknown): value is TerritoryW
     isNumber(value.radiusMiles) &&
     (value.boundaryShape === 'circle' || value.boundaryShape === 'square') &&
     isTerritoryImport(value.import) &&
-    Array.isArray(value.exclusions) &&
-    value.exclusions.every(isExclusion) &&
     Array.isArray(value.apartmentComplexes) &&
     value.apartmentComplexes.every(isApartmentComplex) &&
     Array.isArray(value.segments) &&

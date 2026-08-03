@@ -1,30 +1,22 @@
 'use client';
 
-import type {
-  GeoJSONSource,
-  MapLayerMouseEvent,
-  Map as MapLibreMap,
-  Marker as MapLibreMarker,
-  MapMouseEvent,
-} from 'maplibre-gl';
-import { useEffect, useRef } from 'react';
-import type { ApartmentComplex, ExclusionArea, TerritorySegment } from '@/lib/database';
-import {
-  type BoundaryShape,
-  closePolygon,
-  type Position,
-  territoryBoundary,
-} from '@/lib/territory-geometry';
+import type { GeoJSONSource, MapLayerMouseEvent, Map as MapLibreMap } from 'maplibre-gl';
+import { useEffect, useRef, useState } from 'react';
+import type { ApartmentComplex, TerritorySegment } from '@/lib/database';
+import { type BoundaryShape, type Position, territoryBoundary } from '@/lib/territory-geometry';
 import {
   type ApartmentSelectionSource,
-  apartmentAllowsDrawingPoint,
   apartmentFocusZoom,
   apartmentLayerIds,
   apartmentMarkerColor,
+  basemapRoadGeometryLayerIds,
   boundaryStrokePaths,
   expandApartmentCluster,
+  keepMapOverlayPublished,
+  listenForMapStyleLoad,
   segmentMapAppearance,
   segmentVisibleOnMap,
+  territoryBoundaryStyle,
 } from '@/lib/territory-map-style';
 
 type OpenTerritoryMapProps = {
@@ -35,20 +27,12 @@ type OpenTerritoryMapProps = {
   boundaryShape: BoundaryShape;
   segments: TerritorySegment[];
   apartmentComplexes: ApartmentComplex[];
-  exclusions: ExclusionArea[];
   mutationLocked: boolean;
-  selectedExclusionId: string | null;
-  selectedHiddenRoadGroupId: string | null;
-  selectedSegmentId: string | null;
+  selectedSegmentIds: string[];
   showHiddenRoads: boolean;
-  drawing: boolean;
-  drawingPoints: Position[];
-  onAddDrawingPoint: (point: Position) => void;
-  onDrawingPointsChange: (points: Position[]) => void;
-  onExclusionChange: (id: string, points: Position[]) => void;
-  onSelectExclusion: (id: string) => void;
-  onSelectHiddenRoadGroup: (id: string) => void;
-  onSelectSegment: (id: string) => void;
+  boxSelectionArmed: boolean;
+  onBoxSelectionComplete: () => void;
+  onSelectSegments: (ids: string[], additive: boolean) => void;
   onSelectApartment: (id: string) => void;
   selectedApartmentId: string | null;
   selectedApartmentPosition: Position | null;
@@ -59,10 +43,6 @@ function beforeRoadLabels(map: MapLibreMap): string | undefined {
   return map.getLayer('highway-name-minor') ? 'highway-name-minor' : undefined;
 }
 
-function midpoint(first: Position, second: Position): Position {
-  return [(first[0] + second[0]) / 2, (first[1] + second[1]) / 2];
-}
-
 export function OpenTerritoryMap({
   active,
   map,
@@ -71,59 +51,42 @@ export function OpenTerritoryMap({
   boundaryShape,
   segments,
   apartmentComplexes,
-  exclusions,
   mutationLocked,
-  selectedExclusionId,
-  selectedHiddenRoadGroupId,
-  selectedSegmentId,
+  selectedSegmentIds,
   showHiddenRoads,
-  drawing,
-  drawingPoints,
-  onAddDrawingPoint,
-  onDrawingPointsChange,
-  onExclusionChange,
-  onSelectExclusion,
-  onSelectHiddenRoadGroup,
-  onSelectSegment,
+  boxSelectionArmed,
+  onBoxSelectionComplete,
+  onSelectSegments,
   onSelectApartment,
   selectedApartmentId,
   selectedApartmentPosition,
   apartmentSelectionSource,
 }: OpenTerritoryMapProps) {
-  const drawingRef = useRef(drawing);
   const mutationLockedRef = useRef(mutationLocked);
-  const addPointRef = useRef(onAddDrawingPoint);
   const previousCenterRef = useRef(center);
-  drawingRef.current = drawing;
+  const [mapStyleRevision, setMapStyleRevision] = useState(0);
   mutationLockedRef.current = mutationLocked;
-  addPointRef.current = onAddDrawingPoint;
 
   useEffect(() => {
-    if (!active || !map) return;
-    const addPoint = (event: MapMouseEvent) => {
-      const apartmentHit =
-        map.queryRenderedFeatures(event.point, {
-          layers: apartmentLayerIds.filter((id) => map.getLayer(id)),
-        }).length > 0;
-      if (
-        !mutationLockedRef.current &&
-        drawingRef.current &&
-        apartmentAllowsDrawingPoint(apartmentHit)
-      ) {
-        addPointRef.current([event.lngLat.lng, event.lngLat.lat]);
+    if (!map) return;
+    return listenForMapStyleLoad(map, () => {
+      setMapStyleRevision((revision) => revision + 1);
+    });
+  }, [map]);
+
+  useEffect(() => {
+    if (!map) return;
+    const setRoadGeometryVisibility = (visibility: 'none' | 'visible') => {
+      for (const id of basemapRoadGeometryLayerIds(map.getStyle().layers ?? [])) {
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visibility);
       }
     };
-    const addCenterPoint = (event: KeyboardEvent) => {
-      if (!drawingRef.current || mutationLockedRef.current || event.key !== 'Enter') return;
-      const point = map.getCenter();
-      event.preventDefault();
-      addPointRef.current([point.lng, point.lat]);
-    };
-    map.on('click', addPoint);
-    map.getCanvasContainer().addEventListener('keydown', addCenterPoint);
+    const stop = keepMapOverlayPublished(map, () => {
+      setRoadGeometryVisibility(active ? 'none' : 'visible');
+    });
     return () => {
-      map.off('click', addPoint);
-      map.getCanvasContainer().removeEventListener('keydown', addCenterPoint);
+      stop();
+      if (active) setRoadGeometryVisibility('visible');
     };
   }, [active, map]);
 
@@ -168,7 +131,10 @@ export function OpenTerritoryMap({
         id: fillLayer,
         type: 'fill',
         source: fillSource,
-        paint: { 'fill-color': '#df6d32', 'fill-opacity': 0.025 },
+        paint: {
+          'fill-color': territoryBoundaryStyle.fill,
+          'fill-opacity': territoryBoundaryStyle.fillOpacity,
+        },
       },
       before,
     );
@@ -178,10 +144,10 @@ export function OpenTerritoryMap({
         type: 'line',
         source: lineSource,
         paint: {
-          'line-color': '#df6d32',
-          'line-opacity': 1,
-          'line-width': 3,
-          'line-dasharray': [2, 2],
+          'line-color': territoryBoundaryStyle.color,
+          'line-opacity': territoryBoundaryStyle.opacity,
+          'line-width': territoryBoundaryStyle.width,
+          'line-dasharray': [...territoryBoundaryStyle.dashArray],
         },
       },
       before,
@@ -192,7 +158,7 @@ export function OpenTerritoryMap({
       if (map.getSource(lineSource)) map.removeSource(lineSource);
       if (map.getSource(fillSource)) map.removeSource(fillSource);
     };
-  }, [active, map]);
+  }, [active, map, mapStyleRevision]);
 
   useEffect(() => {
     if (!active || !map) return;
@@ -210,31 +176,29 @@ export function OpenTerritoryMap({
         coordinates: boundaryStrokePaths(boundary.coordinates[0], boundaryShape),
       },
     });
-  }, [active, boundaryShape, center, map, radiusMiles]);
+  }, [active, boundaryShape, center, map, mapStyleRevision, radiusMiles]);
 
   useEffect(() => {
     if (!active || !map) return;
-    const layerId = 'streetlight-coverage';
+    const layerIds = ['streetlight-coverage', 'streetlight-territory-hidden'] as const;
+    const selectedIds = new Set(selectedSegmentIds);
     const visibleSegments = segments.filter((segment) =>
       segmentVisibleOnMap(segment, showHiddenRoads),
     );
     (map.getSource('streetlightCoverage') as GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection',
       features: visibleSegments.map((segment) => {
-        const appearance = segmentMapAppearance(
-          segment,
-          selectedSegmentId,
-          selectedHiddenRoadGroupId,
-        );
+        const appearance = segmentMapAppearance(segment, selectedIds.has(segment.id));
         return {
           type: 'Feature' as const,
           geometry: segment.geometry,
           properties: {
             id: segment.id,
-            roadGroupId: segment.roadGroupId,
             active: segment.active,
             manuallyExcluded: segment.manuallyExcluded,
-            selectable: !drawing && !mutationLocked && appearance.selectable,
+            hidden: !segment.active && !segment.manuallyExcluded,
+            selected: appearance.selected,
+            selectable: !mutationLocked && appearance.selectable,
             color: appearance.strokeColor,
             opacity: appearance.strokeOpacity,
             weightOffset: appearance.weightOffset,
@@ -242,18 +206,25 @@ export function OpenTerritoryMap({
         };
       }),
     });
-    map.setLayoutProperty('streetlight-coverage', 'visibility', 'visible');
-    map.setPaintProperty('streetlight-coverage', 'line-width', [
-      'max',
-      1,
-      ['+', ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5], ['get', 'weightOffset']],
-    ]);
+    if (map.getLayer('streetlight-coverage-selection')) {
+      map.setLayoutProperty('streetlight-coverage-selection', 'visibility', 'visible');
+    }
+    for (const layerId of layerIds) {
+      if (!map.getLayer(layerId)) continue;
+      map.setLayoutProperty(layerId, 'visibility', 'visible');
+      map.setPaintProperty(layerId, 'line-width', [
+        'max',
+        1,
+        ['+', ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5], ['get', 'weightOffset']],
+      ]);
+    }
     const select = (event: MapLayerMouseEvent) => {
       if (mutationLocked) return;
-      const properties = event.features?.[0]?.properties;
-      if (!properties?.selectable) return;
-      if (properties.active || properties.manuallyExcluded) onSelectSegment(properties.id);
-      else onSelectHiddenRoadGroup(properties.roadGroupId);
+      const properties = event.features?.find(
+        ({ properties }) => properties?.selectable,
+      )?.properties;
+      if (typeof properties?.id !== 'string') return;
+      onSelectSegments([properties.id], event.originalEvent.shiftKey);
     };
     const point = (event: MapLayerMouseEvent) => {
       if (event.features?.some(({ properties }) => properties?.selectable)) {
@@ -261,29 +232,31 @@ export function OpenTerritoryMap({
       }
     };
     const clear = () => {
-      map.getCanvas().style.cursor = drawing ? 'crosshair' : '';
+      map.getCanvas().style.cursor = '';
     };
-    map.on('click', layerId, select);
-    map.on('mouseenter', layerId, point);
-    map.on('mouseleave', layerId, clear);
+    for (const layerId of layerIds) {
+      if (!map.getLayer(layerId)) continue;
+      map.on('click', layerId, select);
+      map.on('mouseenter', layerId, point);
+      map.on('mouseleave', layerId, clear);
+    }
     return () => {
-      map.off('click', layerId, select);
-      map.off('mouseenter', layerId, point);
-      map.off('mouseleave', layerId, clear);
+      for (const layerId of layerIds) {
+        map.off('click', layerId, select);
+        map.off('mouseenter', layerId, point);
+        map.off('mouseleave', layerId, clear);
+      }
     };
   }, [
     active,
-    drawing,
     map,
+    mapStyleRevision,
     mutationLocked,
-    onSelectHiddenRoadGroup,
-    onSelectSegment,
+    onSelectSegments,
     segments,
-    selectedHiddenRoadGroupId,
-    selectedSegmentId,
+    selectedSegmentIds,
     showHiddenRoads,
   ]);
-
   useEffect(() => {
     if (!active || !map) return;
     const clusterId = 'streetlight-apartment-clusters';
@@ -324,7 +297,7 @@ export function OpenTerritoryMap({
       map.getCanvas().style.cursor = 'pointer';
     };
     const clear = () => {
-      map.getCanvas().style.cursor = drawing ? 'crosshair' : '';
+      map.getCanvas().style.cursor = '';
     };
     map.on('click', clusterId, expand);
     map.on('click', circleId, select);
@@ -343,223 +316,95 @@ export function OpenTerritoryMap({
   }, [
     active,
     apartmentComplexes,
-    drawing,
     map,
+    mapStyleRevision,
     mutationLocked,
     onSelectApartment,
     selectedApartmentId,
   ]);
 
   useEffect(() => {
-    if (!active || !map) return;
-    const sourceId = 'territory-exclusions';
-    const fillId = 'territory-exclusions-fill';
-    const lineId = 'territory-exclusions-line';
-    const markers: MapLibreMarker[] = [];
-    let disposed = false;
-    map.addSource(sourceId, {
-      type: 'geojson',
-      data: {
-        type: 'FeatureCollection',
-        features: exclusions.map((exclusion) => ({
-          type: 'Feature' as const,
-          geometry: exclusion.geometry,
-          properties: {
-            id: exclusion.id,
-            enabled: exclusion.enabled,
-            selected: exclusion.id === selectedExclusionId,
-          },
-        })),
-      },
-    });
-    const before = beforeRoadLabels(map);
-    map.addLayer(
-      {
-        id: fillId,
-        type: 'fill',
-        source: sourceId,
-        paint: {
-          'fill-color': ['case', ['get', 'enabled'], '#a9403a', '#77736c'],
-          'fill-opacity': ['case', ['get', 'enabled'], ['case', ['get', 'selected'], 0.3, 0.2], 0],
-        },
-      },
-      before,
-    );
-    map.addLayer(
-      {
-        id: lineId,
-        type: 'line',
-        source: sourceId,
-        paint: {
-          'line-color': ['case', ['get', 'enabled'], '#a9403a', '#77736c'],
-          'line-opacity': ['case', ['any', ['get', 'enabled'], ['get', 'selected']], 0.95, 0.5],
-          'line-width': ['case', ['get', 'selected'], 3, 2],
-        },
-      },
-      before,
-    );
-    const select = (event: MapLayerMouseEvent) => {
-      if (mutationLocked) return;
-      const id = event.features?.[0]?.properties?.id;
-      if (typeof id === 'string') onSelectExclusion(id);
-    };
-    map.on('click', fillId, select);
-    map.on('click', lineId, select);
-    const selected = exclusions.find(({ id }) => id === selectedExclusionId);
-    if (selected && !drawing && !mutationLocked) {
-      const points = selected.geometry.coordinates[0].slice(0, -1);
-      const preview = (nextPoints: Position[]) => {
-        (map.getSource(sourceId) as GeoJSONSource | undefined)?.setData({
-          type: 'FeatureCollection',
-          features: exclusions.map((exclusion) => ({
-            type: 'Feature' as const,
-            geometry: exclusion.id === selected.id ? closePolygon(nextPoints) : exclusion.geometry,
-            properties: {
-              id: exclusion.id,
-              enabled: exclusion.enabled,
-              selected: exclusion.id === selectedExclusionId,
-            },
-          })),
-        });
-      };
-      void import('maplibre-gl').then(({ Marker }) => {
-        if (disposed) return;
-        points.forEach((point, index) => {
-          const element = document.createElement('button');
-          element.className = 'map-edit-vertex';
-          element.type = 'button';
-          element.ariaLabel = `Move vertex ${index + 1}`;
-          const marker = new Marker({ draggable: true, element }).setLngLat(point).addTo(map);
-          const updateVertex = () => {
-            const next = [...points];
-            const moved = marker.getLngLat();
-            next[index] = [moved.lng, moved.lat];
-            preview(next);
-            return next;
-          };
-          marker.on('drag', () => {
-            if (mutationLockedRef.current) return;
-            updateVertex();
-          });
-          marker.on('dragend', () => {
-            if (mutationLockedRef.current) return;
-            onExclusionChange(selected.id, updateVertex());
-          });
-          markers.push(marker);
+    if (!active || !map || mutationLocked) return;
+    const container = map.getCanvasContainer();
+    const boxZoomWasEnabled = map.boxZoom.isEnabled();
+    map.boxZoom.disable();
+    let start: { x: number; y: number } | null = null;
+    let box: HTMLDivElement | null = null;
+    let dragPanWasEnabled = false;
 
-          const nextIndex = (index + 1) % points.length;
-          const midpointElement = document.createElement('button');
-          midpointElement.className = 'map-edit-midpoint';
-          midpointElement.type = 'button';
-          midpointElement.ariaLabel = `Add vertex after ${index + 1}`;
-          const midpointMarker = new Marker({ draggable: true, element: midpointElement })
-            .setLngLat(midpoint(point, points[nextIndex]))
-            .addTo(map);
-          const updateMidpoint = () => {
-            const inserted = midpointMarker.getLngLat();
-            const next = [...points];
-            next.splice(index + 1, 0, [inserted.lng, inserted.lat]);
-            preview(next);
-            return next;
-          };
-          midpointMarker.on('drag', () => {
-            if (mutationLockedRef.current) return;
-            updateMidpoint();
-          });
-          midpointMarker.on('dragend', () => {
-            if (mutationLockedRef.current) return;
-            onExclusionChange(selected.id, updateMidpoint());
-          });
-          markers.push(midpointMarker);
-        });
-      });
-    }
-    return () => {
-      disposed = true;
-      map.off('click', fillId, select);
-      map.off('click', lineId, select);
-      for (const marker of markers) marker.remove();
-      if (map.getLayer(lineId)) map.removeLayer(lineId);
-      if (map.getLayer(fillId)) map.removeLayer(fillId);
-      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    const point = (event: MouseEvent) => {
+      const bounds = container.getBoundingClientRect();
+      return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
     };
-  }, [
-    active,
-    drawing,
-    exclusions,
-    map,
-    mutationLocked,
-    onExclusionChange,
-    onSelectExclusion,
-    selectedExclusionId,
-  ]);
+    const visibleRoadLayers = () =>
+      ['streetlight-coverage', 'streetlight-territory-hidden'].filter((id) => map.getLayer(id));
+    const selectableIds = (bounds: [[number, number], [number, number]]) => [
+      ...new Set(
+        map
+          .queryRenderedFeatures(bounds, { layers: visibleRoadLayers() })
+          .filter(({ properties }) => properties?.selectable && typeof properties.id === 'string')
+          .map(({ properties }) => properties?.id as string),
+      ),
+    ];
+    const reset = () => {
+      box?.remove();
+      box = null;
+      start = null;
+      container.style.cursor = '';
+      if (dragPanWasEnabled) map.dragPan.enable();
+      dragPanWasEnabled = false;
+    };
+    const move = (event: MouseEvent) => {
+      if (!start || !box) return;
+      const current = point(event);
+      box.style.left = Math.min(start.x, current.x) + 'px';
+      box.style.top = Math.min(start.y, current.y) + 'px';
+      box.style.width = Math.abs(current.x - start.x) + 'px';
+      box.style.height = Math.abs(current.y - start.y) + 'px';
+    };
+    const finish = (event: MouseEvent) => {
+      if (!start) return;
+      const current = point(event);
+      const dragged = Math.abs(current.x - start.x) >= 4 || Math.abs(current.y - start.y) >= 4;
+      const ids = selectableIds([
+        [Math.min(start.x, current.x), Math.min(start.y, current.y)],
+        [Math.max(start.x, current.x), Math.max(start.y, current.y)],
+      ]);
+      if (ids.length > 0) onSelectSegments(ids, !dragged && event.shiftKey);
+      reset();
+      onBoxSelectionComplete();
+    };
+    const begin = (event: MouseEvent) => {
+      if (
+        event.button !== 0 ||
+        mutationLockedRef.current ||
+        (!event.shiftKey && !boxSelectionArmed)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      start = point(event);
+      dragPanWasEnabled = map.dragPan.isEnabled();
+      map.dragPan.disable();
+      box = document.createElement('div');
+      box.className = 'territory-selection-box';
+      container.append(box);
+      container.style.cursor = 'crosshair';
+    };
 
-  useEffect(() => {
-    if (!active || !map) return;
-    map.getCanvas().style.cursor = drawing ? 'crosshair' : '';
-    if (drawingPoints.length === 0)
-      return () => {
-        map.getCanvas().style.cursor = '';
-      };
-    const sourceId = 'territory-drawing';
-    const lineId = 'territory-drawing-line';
-    const markers: MapLibreMarker[] = [];
-    let disposed = false;
-    const geometry = { type: 'LineString' as const, coordinates: drawingPoints };
-    map.addSource(sourceId, {
-      type: 'geojson',
-      data: { type: 'Feature', properties: {}, geometry },
-    });
-    const before = beforeRoadLabels(map);
-    map.addLayer(
-      {
-        id: lineId,
-        type: 'line',
-        source: sourceId,
-        paint: { 'line-color': '#a9403a', 'line-opacity': 1, 'line-width': 3 },
-      },
-      before,
-    );
-    if (!mutationLocked) {
-      void import('maplibre-gl').then(({ Marker }) => {
-        if (disposed) return;
-        drawingPoints.forEach((point, index) => {
-          const element = document.createElement('button');
-          element.className = 'map-edit-vertex';
-          element.type = 'button';
-          element.ariaLabel = `Move drawing vertex ${index + 1}`;
-          const marker = new Marker({ draggable: true, element }).setLngLat(point).addTo(map);
-          const update = () => {
-            const moved = marker.getLngLat();
-            const next = [...drawingPoints];
-            next[index] = [moved.lng, moved.lat];
-            (map.getSource(sourceId) as GeoJSONSource | undefined)?.setData({
-              type: 'Feature',
-              properties: {},
-              geometry: { type: 'LineString', coordinates: next },
-            });
-            return next;
-          };
-          marker.on('drag', () => {
-            if (mutationLockedRef.current) return;
-            update();
-          });
-          marker.on('dragend', () => {
-            if (mutationLockedRef.current) return;
-            onDrawingPointsChange(update());
-          });
-          markers.push(marker);
-        });
-      });
-    }
+    if (boxSelectionArmed) container.style.cursor = 'crosshair';
+    container.addEventListener('mousedown', begin, true);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', finish);
     return () => {
-      disposed = true;
-      map.getCanvas().style.cursor = '';
-      for (const marker of markers) marker.remove();
-      if (map.getLayer(lineId)) map.removeLayer(lineId);
-      if (map.getSource(sourceId)) map.removeSource(sourceId);
+      container.removeEventListener('mousedown', begin, true);
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', finish);
+      reset();
+      if (boxZoomWasEnabled) map.boxZoom.enable();
     };
-  }, [active, drawing, drawingPoints, map, mutationLocked, onDrawingPointsChange]);
+  }, [active, boxSelectionArmed, map, mutationLocked, onBoxSelectionComplete, onSelectSegments]);
 
   return null;
 }

@@ -7,29 +7,8 @@ import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
 import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
 import { getTerritoryWorkspace, saveTerritoryDraft } from './database.ts';
+import { territoryDraftFromWorkspace } from './territory-client.ts';
 import { parseTerritoryDraft } from './territory-draft.ts';
-import type { LineString, Polygon } from './territory-geometry.ts';
-
-function polygonAround(line: LineString, padding = 0.00001): Polygon {
-  const longitudes = line.coordinates.map(([longitude]) => longitude);
-  const latitudes = line.coordinates.map(([, latitude]) => latitude);
-  const west = Math.min(...longitudes) - padding;
-  const east = Math.max(...longitudes) + padding;
-  const south = Math.min(...latitudes) - padding;
-  const north = Math.max(...latitudes) + padding;
-  return {
-    type: 'Polygon',
-    coordinates: [
-      [
-        [west, south],
-        [east, south],
-        [east, north],
-        [west, north],
-        [west, south],
-      ],
-    ],
-  };
-}
 
 function withDatabase(run: (filename: string) => void) {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-territory-'));
@@ -45,277 +24,68 @@ function withDatabase(run: (filename: string) => void) {
   }
 }
 
-test('a persisted exclusion enabled state controls derived totals', () => {
+test('exact segment activation persists without activating other hidden segments', () => {
   withDatabase((filename) => {
-    const initial = getTerritoryWorkspace(filename);
-    assert.equal(initial.segments.length, 55);
-    assert.equal(initial.totals.allHomes, 427);
-    const selected = initial.segments.find((segment) => segment.estimatedHomes > 0);
+    const seeded = getTerritoryWorkspace(filename);
+    const [selected, other] = seeded.segments;
     assert.ok(selected);
-    const geometry = polygonAround(selected.geometry);
-
-    saveTerritoryDraft(
-      {
-        originAddress: initial.originAddress,
-        center: initial.center,
-        radiusMiles: 20,
-        boundaryShape: initial.boundaryShape,
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: [],
-        exclusions: [{ id: 'exclude-school', name: 'School', enabled: false, geometry }],
-      },
-      { filename },
+    assert.ok(other);
+    const database = openDatabase(filename);
+    const hide = database.prepare(
+      'UPDATE street_segments SET activation_kind = ? WHERE import_segment_id = ?',
     );
-
-    const disabled = getTerritoryWorkspace(filename);
-    assert.equal(disabled.radiusMiles, 20);
-    assert.deepEqual(disabled.exclusions, [
-      { id: 'exclude-school', name: 'School', enabled: false, geometry },
-    ]);
-    assert.equal(
-      disabled.segments.find((segment) => segment.id === selected.id)?.excludedReason,
-      null,
-    );
-
-    saveTerritoryDraft(
-      {
-        originAddress: disabled.originAddress,
-        center: disabled.center,
-        radiusMiles: disabled.radiusMiles,
-        boundaryShape: disabled.boundaryShape,
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: [],
-        exclusions: [{ ...disabled.exclusions[0], enabled: true }],
-      },
-      { filename },
-    );
-
-    const enabled = getTerritoryWorkspace(filename);
-    assert.equal(
-      enabled.segments.find((segment) => segment.id === selected.id)?.excludedReason,
-      'exclusion',
-    );
-    assert.equal(
-      enabled.totals.eligibleHomes,
-      enabled.segments
-        .filter((segment) => segment.eligible)
-        .reduce((total, segment) => total + segment.estimatedHomes, 0),
-    );
-  });
-});
-
-test('saving a deletion removes only the omitted exclusion', () => {
-  withDatabase((filename) => {
+    hide.run('hidden', selected.id);
+    hide.run('hidden', other.id);
+    database.close();
     const initial = getTerritoryWorkspace(filename);
-    const geometry = polygonAround(initial.segments[0].geometry);
-    const keep = { id: 'keep', name: 'Keep', enabled: true, geometry };
-    const remove = { id: 'remove', name: 'Remove', enabled: true, geometry };
+    const draft = territoryDraftFromWorkspace(initial);
 
-    saveTerritoryDraft(
-      {
-        originAddress: initial.originAddress,
-        center: initial.center,
-        radiusMiles: initial.radiusMiles,
-        boundaryShape: initial.boundaryShape,
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: [],
-        exclusions: [keep, remove],
-      },
-      { filename },
-    );
-    saveTerritoryDraft(
-      {
-        originAddress: initial.originAddress,
-        center: initial.center,
-        radiusMiles: initial.radiusMiles,
-        boundaryShape: initial.boundaryShape,
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: [],
-        exclusions: [keep],
-      },
-      { filename },
-    );
-
-    assert.deepEqual(getTerritoryWorkspace(filename).exclusions, [keep]);
-  });
-});
-
-test('changing the church point keeps saved exclusion coordinates unchanged', () => {
-  withDatabase((filename) => {
-    const initial = getTerritoryWorkspace(filename);
-    const geometry = polygonAround(initial.segments[0].geometry);
-
-    saveTerritoryDraft(
-      {
-        originAddress: '1 New Address, Temecula, CA',
-        center: [-117.2, 33.6],
-        radiusMiles: 5,
-        boundaryShape: initial.boundaryShape,
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: [],
-        exclusions: [{ id: 'exclude-existing', name: 'Existing', enabled: true, geometry }],
-      },
-      { filename },
-    );
+    saveTerritoryDraft({ ...draft, activatedSegmentIds: [selected.id] }, { filename });
 
     const saved = getTerritoryWorkspace(filename);
-    assert.equal(saved.originAddress, '1 New Address, Temecula, CA');
-    assert.deepEqual(saved.center, [-117.2, 33.6]);
-    assert.deepEqual(saved.exclusions[0].geometry, geometry);
+    assert.equal(saved.segments.find(({ id }) => id === selected.id)?.activationKind, 'manual');
+    assert.equal(saved.segments.find(({ id }) => id === selected.id)?.active, true);
+    assert.equal(saved.segments.find(({ id }) => id === other.id)?.active, false);
   });
 });
 
-test('a failed complete-draft save rolls back territory and exclusions together', () => {
+test('exact segment exclusion persists without excluding adjacent segments', () => {
   withDatabase((filename) => {
     const initial = getTerritoryWorkspace(filename);
-    const geometry = polygonAround(initial.segments[0].geometry);
+    const selected = initial.segments.find((segment) => segment.eligible);
+    assert.ok(selected);
+    const draft = territoryDraftFromWorkspace(initial);
 
-    assert.throws(() =>
-      saveTerritoryDraft(
-        {
-          originAddress: 'Rollback Address',
-          center: [-117.2, 33.6],
-          radiusMiles: 1,
-          boundaryShape: initial.boundaryShape,
-          activatedRoadGroupIds: [],
-          excludedSegmentIds: [],
-          exclusions: [
-            { id: 'duplicate', name: 'First', enabled: true, geometry },
-            { id: 'duplicate', name: 'Second', enabled: true, geometry },
-          ],
-        },
-        { filename },
-      ),
-    );
+    saveTerritoryDraft({ ...draft, excludedSegmentIds: [selected.id] }, { filename });
 
-    const after = getTerritoryWorkspace(filename);
-    assert.equal(after.originAddress, initial.originAddress);
-    assert.deepEqual(after.center, initial.center);
-    assert.equal(after.radiusMiles, initial.radiusMiles);
-    assert.deepEqual(after.exclusions, initial.exclusions);
+    const saved = getTerritoryWorkspace(filename);
+    const result = saved.segments.find(({ id }) => id === selected.id);
+    assert.equal(result?.manuallyExcluded, true);
+    assert.equal(result?.excludedReason, 'segment');
+    assert.ok(saved.segments.some((segment) => segment.id !== selected.id && segment.eligible));
   });
 });
 
-test('draft validation accepts the complete saved-draft contract', () => {
-  const parsed = parseTerritoryDraft({
+test('draft validation accepts unique exact segment IDs and rejects duplicates', () => {
+  const valid = {
     originAddress: ' 31087 Nicolas Rd ',
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     boundaryShape: 'square',
-    activatedRoadGroupIds: [' road-group:approved '],
-    excludedSegmentIds: [' segment:exact '],
-    exclusions: [
-      {
-        id: 'exclude-1',
-        name: '',
-        enabled: false,
-        geometry: {
-          type: 'Polygon',
-          coordinates: [
-            [
-              [-117.12, 33.54],
-              [-117.11, 33.54],
-              [-117.11, 33.55],
-              [-117.12, 33.54],
-            ],
-          ],
-        },
-      },
-    ],
-  });
+    activatedSegmentIds: [' hidden:one '],
+    excludedSegmentIds: [' visible:one '],
+  };
+  const parsed = parseTerritoryDraft(valid);
 
   assert.equal(parsed.originAddress, '31087 Nicolas Rd');
-  assert.equal(parsed.boundaryShape, 'square');
-  assert.deepEqual(parsed.activatedRoadGroupIds, ['road-group:approved']);
-  assert.deepEqual(parsed.excludedSegmentIds, ['segment:exact']);
-  assert.equal(parsed.exclusions[0].name, '');
-  assert.equal(parsed.exclusions[0].enabled, false);
-});
-
-test('draft validation rejects invalid radius, duplicate IDs, and self-intersections', () => {
-  const valid = {
-    originAddress: '31087 Nicolas Rd',
-    center: [-117.116885, 33.54293],
-    radiusMiles: 10,
-    boundaryShape: 'circle',
-    activatedRoadGroupIds: [],
-    excludedSegmentIds: [],
-    exclusions: [
-      {
-        id: 'exclude-1',
-        name: 'Area',
-        enabled: true,
-        geometry: {
-          type: 'Polygon',
-          coordinates: [
-            [
-              [-1, -1],
-              [1, -1],
-              [1, 1],
-              [-1, -1],
-            ],
-          ],
-        },
-      },
-    ],
-  };
-
-  assert.throws(() => parseTerritoryDraft({ ...valid, radiusMiles: 0 }), /distance/i);
-  assert.throws(() => parseTerritoryDraft({ ...valid, boundaryShape: 'triangle' }), /shape/i);
+  assert.deepEqual(parsed.activatedSegmentIds, ['hidden:one']);
+  assert.deepEqual(parsed.excludedSegmentIds, ['visible:one']);
   assert.throws(
-    () =>
-      parseTerritoryDraft({
-        ...valid,
-        activatedRoadGroupIds: ['road-group:duplicate', 'road-group:duplicate'],
-      }),
+    () => parseTerritoryDraft({ ...valid, activatedSegmentIds: ['same', 'same'] }),
     /duplicate/i,
   );
   assert.throws(
-    () =>
-      parseTerritoryDraft({
-        ...valid,
-        excludedSegmentIds: ['segment:duplicate', 'segment:duplicate'],
-      }),
+    () => parseTerritoryDraft({ ...valid, excludedSegmentIds: ['same', 'same'] }),
     /duplicate/i,
-  );
-  assert.throws(
-    () =>
-      parseTerritoryDraft({
-        ...valid,
-        exclusions: [{ ...valid.exclusions[0], enabled: 'yes' }],
-      }),
-    /enabled/i,
-  );
-  assert.throws(
-    () =>
-      parseTerritoryDraft({
-        ...valid,
-        exclusions: [valid.exclusions[0], valid.exclusions[0]],
-      }),
-    /duplicate/i,
-  );
-  assert.throws(
-    () =>
-      parseTerritoryDraft({
-        ...valid,
-        exclusions: [
-          {
-            ...valid.exclusions[0],
-            geometry: {
-              type: 'Polygon',
-              coordinates: [
-                [
-                  [-1, -1],
-                  [1, 1],
-                  [-1, 1],
-                  [1, -1],
-                  [-1, -1],
-                ],
-              ],
-            },
-          },
-        ],
-      }),
-    /intersect/i,
   );
 });
