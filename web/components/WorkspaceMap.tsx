@@ -11,6 +11,7 @@ import {
   type MapCamera,
   mapLibreZoomToGoogle,
   mapLoadErrorIsFatal,
+  workspaceMapTransition,
 } from '@/lib/map-camera';
 import baseStyleJson from '@/lib/open-map-base-style.json';
 import { buildWorkspaceMapStyle, type OpenMapStyle } from '@/lib/open-map-style';
@@ -36,6 +37,8 @@ export function WorkspaceMap({
   const openElementRef = useRef<HTMLDivElement>(null);
   const satelliteElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const dataRef = useRef(data);
+  const appliedDataRef = useRef<OpenMapData | null>(null);
   const markerRef = useRef<MapLibreMarker | null>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
   const cameraRef = useRef(camera);
@@ -47,13 +50,17 @@ export function WorkspaceMap({
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [googleRequested, setGoogleRequested] = useState(mapType === 'satellite');
   const [satelliteError, setSatelliteError] = useState('');
+  const mapDataAvailable = data !== null;
 
+  dataRef.current = data;
   mapTypeRef.current = mapType;
   onCameraChangeRef.current = onCameraChange;
   onMapChangeRef.current = onMapChange;
 
   useEffect(() => {
-    if (!data || !openElementRef.current) return;
+    if (!mapDataAvailable) return;
+    const initialData = dataRef.current;
+    if (!initialData || !openElementRef.current) return;
     let disposed = false;
     setMapStatus('loading');
     void import('maplibre-gl')
@@ -66,19 +73,20 @@ export function WorkspaceMap({
           container: openElementRef.current,
           style: buildWorkspaceMapStyle(
             baseStyleJson as unknown as OpenMapStyle,
-            data,
+            initialData,
             mapTypeRef.current === 'satellite',
           ) as maplibregl.StyleSpecification,
           zoom: googleZoomToMapLibre(cameraRef.current.zoom),
         });
         mapRef.current = map;
+        appliedDataRef.current = initialData;
         appliedMapTypeRef.current = mapTypeRef.current;
         const markerElement = document.createElement('img');
         markerElement.alt = '';
         markerElement.src = mapPinDataUrl('church');
         markerElement.className = 'workspace-map-pin';
         markerRef.current = new Marker({ anchor: 'bottom', element: markerElement })
-          .setLngLat(data.center)
+          .setLngLat(initialData.center)
           .addTo(map);
         map.on('load', () => {
           if (disposed) return;
@@ -125,16 +133,25 @@ export function WorkspaceMap({
       mapRef.current = null;
       onMapChangeRef.current(null);
     };
-  }, [data]);
+  }, [mapDataAvailable]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || appliedMapTypeRef.current === mapType || !data) return;
+    if (!data) return;
+    const transition = workspaceMapTransition(
+      Boolean(map),
+      true,
+      appliedDataRef.current !== data,
+      appliedMapTypeRef.current !== mapType,
+    );
+    if (!map || transition !== 'restyle') return;
     let frame = 0;
     const republish = () => {
       frame = requestAnimationFrame(() => onMapChangeRef.current(map));
     };
     appliedMapTypeRef.current = mapType;
+    appliedDataRef.current = data;
+    markerRef.current?.setLngLat(data.center);
     onMapChangeRef.current(null);
     map.once('style.load', republish);
     map.setStyle(

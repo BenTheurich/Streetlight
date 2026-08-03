@@ -7,6 +7,19 @@ export type MapCamera = {
 
 export type CoverageSelectionSource = 'map' | 'search';
 
+export type WorkspaceMapTransition = 'none' | 'create' | 'remove' | 'restyle';
+
+export function workspaceMapTransition(
+  hasMap: boolean,
+  hasData: boolean,
+  dataChanged: boolean,
+  mapTypeChanged: boolean,
+): WorkspaceMapTransition {
+  if (!hasMap) return hasData ? 'create' : 'none';
+  if (!hasData) return 'remove';
+  return dataChanged || mapTypeChanged ? 'restyle' : 'none';
+}
+
 export function coverageSelectionCameraOptions(
   _source: CoverageSelectionSource,
   reducedMotion: boolean,
