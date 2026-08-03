@@ -1,8 +1,13 @@
-import { authenticatedRoute } from '@/lib/authenticated-route';
-import { getTerritoryWorkspace, saveTerritoryDraft } from '@/lib/database';
-import { type ImportedTerritoryInput, runOvertureImport } from '@/lib/overture-import';
-import { parseTerritoryDraft, type TerritoryDraftInput } from '@/lib/territory-draft';
-import { needsTerritoryImport } from '@/lib/territory-import';
+import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
+import { getTerritoryWorkspace, saveTerritoryDraft } from '../../../lib/database.ts';
+import { parseTerritoryDraft, type TerritoryDraftInput } from '../../../lib/territory-draft.ts';
+import { needsTerritoryImport } from '../../../lib/territory-import.ts';
+import {
+  createOrReuseTerritoryImportJob,
+  ensureTerritoryImportJobRunning,
+  TerritoryImportConflictError,
+} from '../../../lib/territory-import-job.ts';
+import { requireWorkspaceScope } from '../../../lib/workspace-scope.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,22 +27,24 @@ export async function updateTerritory(request: Request) {
   }
 
   const workspace = getTerritoryWorkspace();
-  let imported: ImportedTerritoryInput | undefined;
   if (needsTerritoryImport(workspace.import, draft)) {
     try {
-      imported = await runOvertureImport(draft.center, draft.radiusMiles);
-    } catch {
+      const job = createOrReuseTerritoryImportJob(draft);
+      ensureTerritoryImportJobRunning(job, requireWorkspaceScope());
+      return Response.json({ job }, { status: 202 });
+    } catch (error) {
+      if (error instanceof TerritoryImportConflictError) {
+        return Response.json({ error: error.message }, { status: 409 });
+      }
       return Response.json(
-        {
-          error: 'Street data import failed. No saved changes were replaced.',
-        },
+        { error: 'Could not start street data preparation. No saved changes were replaced.' },
         { status: 500 },
       );
     }
   }
 
   try {
-    saveTerritoryDraft(draft, { imported });
+    saveTerritoryDraft(draft);
     return Response.json(getTerritoryWorkspace());
   } catch {
     return Response.json({ error: 'Could not save territory changes' }, { status: 500 });

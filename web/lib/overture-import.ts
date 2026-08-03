@@ -5,6 +5,13 @@ import { OVERTURE_RELEASE } from './territory-import.ts';
 
 const IMPORT_REQUEST_TOLERANCE = 1e-9;
 const IMPORT_TIMEOUT_MS = 15 * 60_000;
+const IMPORT_STAGE_PREFIX = 'STREETLIGHT_STAGE:';
+
+export type OvertureImportStage =
+  | 'downloading_streets'
+  | 'downloading_buildings'
+  | 'matching'
+  | 'preparing';
 
 export type ImportedSegmentAddress = {
   number: string | null;
@@ -452,10 +459,15 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
   };
 }
 
-function readProcess(child: ChildProcessWithoutNullStreams, timeoutMs: number): Promise<string> {
+function readProcess(
+  child: ChildProcessWithoutNullStreams,
+  timeoutMs: number,
+  onStage?: (stage: OvertureImportStage) => void,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     let stdout = '';
     let stderr = '';
+    let stderrLines = '';
     let settled = false;
     const finish = (action: () => void) => {
       if (settled) {
@@ -478,6 +490,22 @@ function readProcess(child: ChildProcessWithoutNullStreams, timeoutMs: number): 
     });
     child.stderr.on('data', (chunk: string) => {
       stderr += chunk;
+      stderrLines += chunk;
+      const lines = stderrLines.split(/\r?\n/);
+      stderrLines = lines.pop() ?? '';
+      for (const line of lines) {
+        const stage = line.startsWith(IMPORT_STAGE_PREFIX)
+          ? line.slice(IMPORT_STAGE_PREFIX.length)
+          : '';
+        if (
+          stage === 'downloading_streets' ||
+          stage === 'downloading_buildings' ||
+          stage === 'matching' ||
+          stage === 'preparing'
+        ) {
+          onStage?.(stage);
+        }
+      }
     });
     child.on('error', (error) => {
       finish(() => reject(error));
@@ -499,8 +527,9 @@ export async function readImporterProcess(
   center: Position,
   radiusMiles: number,
   timeoutMs = IMPORT_TIMEOUT_MS,
+  onStage?: (stage: OvertureImportStage) => void,
 ): Promise<ImportedTerritoryInput> {
-  const imported = parseOvertureImportOutput(await readProcess(child, timeoutMs));
+  const imported = parseOvertureImportOutput(await readProcess(child, timeoutMs, onStage));
   if (
     Math.abs(imported.center[0] - center[0]) > IMPORT_REQUEST_TOLERANCE ||
     Math.abs(imported.center[1] - center[1]) > IMPORT_REQUEST_TOLERANCE ||
@@ -514,9 +543,10 @@ export async function readImporterProcess(
 export function runOvertureImport(
   center: Position,
   radiusMiles: number,
+  onStage?: (stage: OvertureImportStage) => void,
 ): Promise<ImportedTerritoryInput> {
   const executable = process.env.STREETLIGHT_PYTHON ?? 'python';
   const script = path.join(process.cwd(), 'importer', 'overture_import.py');
   const child = spawn(executable, [script, ...buildImporterArguments(center, radiusMiles)]);
-  return readImporterProcess(child, center, radiusMiles);
+  return readImporterProcess(child, center, radiusMiles, IMPORT_TIMEOUT_MS, onStage);
 }

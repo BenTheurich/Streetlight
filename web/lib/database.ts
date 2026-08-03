@@ -272,7 +272,7 @@ function workspaceDatabaseFilename(filename?: string): string {
   );
 }
 
-function openWorkspaceDatabase(filename?: string): DatabaseSync {
+export function openWorkspaceDatabase(filename?: string): DatabaseSync {
   const database = new DatabaseSync(workspaceDatabaseFilename(filename));
   database.exec('PRAGMA foreign_keys = ON');
   return database;
@@ -1998,6 +1998,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
 type SaveTerritoryOptions = {
   filename?: string;
   imported?: ImportedTerritoryInput;
+  importJobId?: string;
 };
 
 export function saveTerritoryDraft(
@@ -2371,6 +2372,18 @@ export function saveTerritoryDraft(
         WHERE id = ?`,
       )
       .run(workspaceChurchId());
+    if (options.importJobId) {
+      const completed = database
+        .prepare(
+          `UPDATE territory_import_jobs
+          SET status = 'succeeded', stage = 'saving', error = NULL,
+            completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
+            heartbeat_at = CURRENT_TIMESTAMP
+          WHERE id = ? AND church_id = ? AND territory_id = ? AND status = 'running'`,
+        )
+        .run(options.importJobId, workspaceChurchId(), workspaceTerritoryId());
+      if (completed.changes !== 1) throw new Error('Territory import job is not running');
+    }
     database.exec('COMMIT');
   } catch (error) {
     database.exec('ROLLBACK');

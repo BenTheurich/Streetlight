@@ -368,6 +368,19 @@ test('reports a real importer process failure with stderr', async () => {
   await assert.rejects(readImporterProcess(child, requestedCenter, 1), /download failed/);
 });
 
+test('reports coarse importer stages without mixing them into the final payload', async () => {
+  const stages: string[] = [];
+  const child = spawn(process.execPath, [
+    '-e',
+    `process.stderr.write('STREETLIGHT_STAGE:downloading_buildings\\nSTREETLIGHT_STAGE:matching\\n'); process.stdout.write(${JSON.stringify(
+      JSON.stringify(validOutput),
+    )})`,
+  ]);
+
+  await readImporterProcess(child, requestedCenter, 1, 1_000, (stage) => stages.push(stage));
+
+  assert.deepEqual(stages, ['downloading_buildings', 'matching']);
+});
 test('rejects invalid JSON from a successful real importer process', async () => {
   const child = spawn(process.execPath, ['-e', "process.stdout.write('not json')"]);
 

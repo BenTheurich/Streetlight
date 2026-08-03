@@ -53,6 +53,11 @@ SUFFIXES = {
     "parkway": "pkwy",
 }
 DISPLAY_SUFFIXES = {value: key.title() for key, value in SUFFIXES.items()}
+STAGE_PREFIX = "STREETLIGHT_STAGE:"
+
+
+def _report_stage(stage):
+    print(f"{STAGE_PREFIX}{stage}", file=sys.stderr, flush=True)
 
 
 class SpatialIndex:
@@ -2048,6 +2053,7 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
             east,
             north,
         )
+        _report_stage("downloading_buildings")
         buildings = query_bbox(
             connection,
             f"s3://overturemaps-us-west-2/release/{OVERTURE_RELEASE}/"
@@ -2142,6 +2148,7 @@ def main(
         parser.error("coordinates are out of range")
 
     with redirect_stdout(sys.stderr):
+        _report_stage("downloading_streets")
         roads, addresses, buildings = download(
             args.longitude,
             args.latitude,
@@ -2156,12 +2163,15 @@ def main(
         except (OSError, TimeoutError, ValueError, RuntimeError) as error:
             print(f"FEMA USA Structures unavailable: {error}", file=sys.stderr)
             fema_buildings = []
+        _report_stage("matching")
         map_buildings = select_map_buildings(
             addresses,
             buildings,
             fema_buildings,
             roads,
         )
+        normalized = normalize_features(roads, addresses, buildings)
+        _report_stage("preparing")
     print(
         json.dumps(
             {
@@ -2174,7 +2184,7 @@ def main(
                     "overture_fema" if fema_buildings else "overture_only"
                 ),
                 "mapBuildings": map_buildings,
-                **normalize_features(roads, addresses, buildings),
+                **normalized,
             },
             separators=(",", ":"),
         )

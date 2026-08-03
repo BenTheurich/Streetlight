@@ -1,4 +1,4 @@
-import { type BoundaryShape, type Position } from './territory-geometry.ts';
+import type { BoundaryShape, Position } from './territory-geometry.ts';
 
 export type TerritoryDraftInput = {
   originAddress: string;
@@ -71,9 +71,9 @@ export function parseTerritoryDraft(value: unknown): TerritoryDraftInput {
     typeof value.radiusMiles !== 'number' ||
     !Number.isFinite(value.radiusMiles) ||
     value.radiusMiles < 1 ||
-    value.radiusMiles > 20
+    value.radiusMiles > 5
   ) {
-    throw new Error('Boundary distance must be between 1 and 20 miles');
+    throw new Error('Boundary distance must be between 1 and 5 miles');
   }
   if (value.boundaryShape !== 'circle' && value.boundaryShape !== 'square') {
     throw new Error('Boundary shape is invalid');

@@ -2263,6 +2263,7 @@ class ImportBoundaryTest(TestCase):
 
     def test_cli_parses_arguments_and_prints_one_json_object(self):
         output = StringIO()
+        diagnostics = StringIO()
 
         def download(longitude, latitude, radius_miles):
             self.assertEqual((longitude, latitude, radius_miles), (-117.1274, 33.5107, 1))
@@ -2290,7 +2291,7 @@ class ImportBoundaryTest(TestCase):
                 ],
             )
 
-        with redirect_stdout(output):
+        with redirect_stdout(output), redirect_stderr(diagnostics):
             main(
                 [
                     "--longitude",
@@ -2330,6 +2331,9 @@ class ImportBoundaryTest(TestCase):
         })
         self.assertEqual(parsed["segments"][0]["id"], "overture:road-1:0")
         self.assertEqual(output.getvalue().count("\n"), 1)
+        self.assertIn("STREETLIGHT_STAGE:downloading_streets", diagnostics.getvalue())
+        self.assertIn("STREETLIGHT_STAGE:matching", diagnostics.getvalue())
+        self.assertIn("STREETLIGHT_STAGE:preparing", diagnostics.getvalue())
 
     def test_cli_uses_overture_only_when_fema_service_is_unavailable(self):
         output = StringIO()
