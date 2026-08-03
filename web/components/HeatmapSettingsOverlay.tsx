@@ -28,7 +28,7 @@ export function HeatmapSettingsOverlay({
   onShowApartmentMarkersChange,
 }: HeatmapSettingsOverlayProps) {
   const dialogRef = useRef<HTMLElement>(null);
-  const firstControlRef = useRef<HTMLInputElement>(null);
+  const firstInputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState({
     yellowAfterDays: String(thresholds.yellowAfterDays),
     orangeAfterDays: String(thresholds.orangeAfterDays),
@@ -46,7 +46,7 @@ export function HeatmapSettingsOverlay({
       redAfterDays: String(thresholds.redAfterDays),
     });
     setError('');
-    const frame = requestAnimationFrame(() => firstControlRef.current?.focus());
+    const frame = requestAnimationFrame(() => firstInputRef.current?.focus());
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -143,22 +143,9 @@ export function HeatmapSettingsOverlay({
             </svg>
           </button>
         </header>
-        <section aria-labelledby="map-display-settings-title" className="map-display-settings">
-          <h3 id="map-display-settings-title">Map display</h3>
-          <label className="map-display-toggle">
-            <span>Show apartment markers</span>
-            <input
-              checked={showApartmentMarkers}
-              onChange={(event) => onShowApartmentMarkersChange(event.target.checked)}
-              ref={firstControlRef}
-              role="switch"
-              type="checkbox"
-            />
-          </label>
-        </section>
         <form className="heatmap-settings-form" onSubmit={(event) => void saveRanges(event)}>
           <h3>Heatmap ranges</h3>
-          {fields.map(({ key, label }) => (
+          {fields.map(({ key, label }, index) => (
             <label key={key}>
               {label}
               <span>
@@ -172,6 +159,7 @@ export function HeatmapSettingsOverlay({
                     setError('');
                     setDraft((current) => ({ ...current, [key]: event.target.value }));
                   }}
+                  ref={index === 0 ? firstInputRef : undefined}
                   required
                   step="1"
                   type="number"
@@ -186,6 +174,18 @@ export function HeatmapSettingsOverlay({
               {error}
             </p>
           )}
+          <section aria-labelledby="map-display-settings-title" className="map-display-settings">
+            <h3 id="map-display-settings-title">Map display</h3>
+            <label className="map-display-toggle">
+              <span>Show apartment markers</span>
+              <input
+                checked={showApartmentMarkers}
+                onChange={(event) => onShowApartmentMarkersChange(event.target.checked)}
+                role="switch"
+                type="checkbox"
+              />
+            </label>
+          </section>
           <div className="heatmap-settings-actions">
             <button className="secondary" disabled={saving} onClick={onClose} type="button">
               Close

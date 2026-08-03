@@ -1545,9 +1545,9 @@ button.administrator-account-trigger:not(:disabled):hover {
 .map-display-settings {
   display: grid;
   gap: 0.55rem;
-  margin-top: 1.1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--line);
+  margin-top: 0.45rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
 }
 
 .map-display-toggle {
