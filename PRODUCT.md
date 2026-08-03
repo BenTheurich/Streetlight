@@ -4,7 +4,7 @@
 
 Status: approved founder direction  
 Approved: 2026-07-27
-Updated: 2026-08-02
+Updated: 2026-08-03
 
 ## Platform
 
@@ -257,11 +257,20 @@ circle for the Overture import. The outer boundary is not reshaped as a freeform
 outside the selected boundary are not displayed. Gray segments are always inside the selected
 boundary but excluded by exact-segment override. The administrator can exclude highways, commercial
 districts, rivers, apartment complexes, areas assigned elsewhere, and other unsuitable locations.
+Boundary distance is limited to one through five miles.
 
 A territory save reuses imported streets and addresses whenever the proposed territory's enclosing
 square fits inside the saved import footprint. It imports again only when the proposed footprint
 extends beyond stored geography or the pinned source-data contract requires an upgrade. Ordinary
 exclusion, activation, exact-segment, boundary-shape, and contained boundary changes do not import.
+
+An import-required save creates one persisted background job for the church and returns control to
+the administrator immediately. An established church may keep using its prior saved territory in
+the other tools while the replacement is prepared; initial setup remains locked until its first
+territory is ready. Refresh reconnects to the job and shows truthful coarse stages. Success swaps in
+the imported territory atomically. Failure or interruption leaves the prior territory and history
+unchanged and allows a retry. Typical one-to-two-mile imports target about two minutes under ordinary
+network conditions; Streetlight does not promise that time for every territory or provider response.
 
 Streetlight benchmarks its pinned Overture release and deterministic normalizer against varied
 fixed US test territories. A holdout is high confidence at 95% address assignment, 99% road

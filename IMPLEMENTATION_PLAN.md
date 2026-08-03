@@ -48,7 +48,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
 | 9 | Application UX/UI polish | Phase 8 | Complete | Founder approved the coherent Phase 9 baseline on August 2, 2026 and directed remaining iterative polish to continue inside Phase 10; the unified map, truthful operation states, searchable whole-road Coverage inspection, docked Current Work, clustered apartments, responsive layout, landing-page visual system, and WorkOS branding are implemented |
-| 10 | Outreach progress and presentation | Phase 9 | In progress | Initial four-tool implementation and founder-led browser iteration are underway |
+| 10 | Outreach progress and presentation | Phase 9 | In progress | Initial four-tool implementation and founder-led browser iteration are underway; Setup now has recoverable background imports and a five-mile territory cap |
 | 11 | Deployment and recovery | Phase 10 | Pending | None |
 | 12 | Founder-church pilot | Phase 11 | Pending | None |
 
@@ -928,6 +928,12 @@ full-screen state at desktop and TV-sized widths, and print the static view.
   progress, and workspace checks pass 26 of 26; TypeScript passes; and a clean localhost browser
   pass verified all four tools, both internal switchers, cumulative playback, and presentation
   mode without changing Coverage's approved legend or estimated-progress bar.
+- Territory Setup now accepts import-required saves as persisted background jobs with reconnectable
+  coarse stages, one active job per church, atomic replacement, and safe retry after failure or
+  interruption. The radius is constrained to one through five miles. Deterministic spatial indexes
+  reduced the founder-approved saved 1.9-mile pilot import to 114.5 seconds with the existing pinned
+  Overture/FEMA sources and normalizer v11. The complete Node and 66-check Python importer suites,
+  Biome, TypeScript, production build, and whitespace check pass.
 - Phase 10 remains in progress at the founder-review checkpoint for fast visual iteration. The
   complete repeat, reduced-motion emulation, and print-dialog inspection remain part of final
   Phase 10 acceptance rather than this initial implementation pass.
