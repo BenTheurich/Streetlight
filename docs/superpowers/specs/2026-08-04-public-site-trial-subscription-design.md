@@ -18,20 +18,25 @@ it on the church's behalf. It is not a consumer app and does not need public sel
 This document records future direction; it does not add work to Phase 9.
 
 1. Finish Phase 9 without adding public pages, trials, subscriptions, or billing.
-2. Deploy and prove recovery in Phase 11 without payments, as the implementation plan requires.
-3. Complete the founder-church pilot in Phase 12 and record actual hosting, map, printing, and
+2. In Phase 10, publish the trust pages, reference pricing, and founding/sponsored account labels
+   before the founder-church handoff.
+3. Complete Outreach Progress in Phase 11.
+4. Deploy and prove recovery in Phase 12 without payment collection.
+5. Complete the founder-church pilot in Phase 13 and record actual hosting, map, printing, and
    support costs.
-4. After Phase 12, implement the public trust pages first, then trial and subscription access.
-5. Add sponsored-access reporting only after real sponsored and paying churches exist.
+6. After Phase 13, implement trial timing, payment collection, and paid access enforcement only
+   after an explicit founder decision.
+7. Add sponsored-access reporting only after real sponsored and paying churches exist.
 
-The exact monthly and annual prices remain a founder decision after Phase 12 evidence. The product
-will have one paid plan, annual billing presented first, and a monthly alternative. No production
-pricing page launches with placeholder amounts.
+The reference price is **$149 per year** or **$15 per month**, with annual billing presented first.
+The founder may revise those amounts after Phase 13 evidence, but the published price remains in
+effect until an explicit decision changes it.
 
 ## Public site
 
 The existing landing page remains focused on Streetlight's mission, the paper-based workflow, and
-requesting access. It does not contain a pricing section.
+requesting access. It does not contain a pricing section. Public copy uses **free trial** and
+**request access**; `pilot` remains an internal implementation and rollout term.
 
 Once the supporting pages are ready, the public navigation contains:
 
@@ -77,7 +82,7 @@ Do not split this material into padded About and Why pages.
 The pricing page follows the human pattern of the Amy Food Journal reference without copying its
 visual design or wording. It contains:
 
-- one plan with annual billing first and monthly billing second;
+- one plan with `$149 per year` first and `$15 per month` second;
 - the 90-day free-trial terms and a clear `No credit card required` statement;
 - one feature summary because every paying, founding, and sponsored church receives the same
   product;
@@ -143,8 +148,9 @@ an effective end date.
 
 ## Account language and page
 
-The existing administrator menu gains one **Account** link. One account page shows the church's
-access state and the appropriate next action. It does not become a general settings area.
+The existing administrator menu gains one **Account** link in Phase 10. One account page shows the
+church's access state and standard pricing. It does not become a general settings area. Payment
+actions appear only when payment collection is implemented after the founder-church pilot.
 
 User-facing states are:
 
@@ -152,7 +158,7 @@ User-facing states are:
 - **Active subscription**: monthly or annual, with the next renewal date and a manage-subscription
   action.
 - **Founding church access**: the founder's church uses Streetlight at no cost and no payment is
-  required.
+  required; the account also shows the standard annual and monthly prices.
 - **Sponsored access**: the church has full access at no cost.
 - **Payment issue**: payment management is needed, without claiming access has ended prematurely.
 - **Subscription ended**: operational access is paused and the church can subscribe again.
@@ -261,13 +267,13 @@ The later implementation leaves focused checks proving:
 - Per-subscriber sponsorship percentages
 - Membership-count collection
 - Automated CRM, sales sequences, or a support-ticket platform
-- Implementation during Phase 9, Phase 11, or before the Phase 12 pricing review
+- Payment collection, automatic trial timing, or access enforcement during Phases 9 through 13
 
 ## Completion condition
 
-After the founder-church pilot, the founder selects exact prices and a payment provider from real
-evidence. The three workstreams are then implemented and reviewed in order:
+The workstreams are implemented and reviewed in order:
 
-1. How it works, Why Streetlight, and Pricing public pages
-2. Trial, account, hosted checkout, and church-wide access enforcement
-3. Aggregate sponsored-access messaging after real data exists
+1. Phase 10: How it works, Why Streetlight, Pricing, Account, and founding/sponsored access labels
+2. After Phase 13 and an explicit founder decision: trial timing, hosted checkout, and church-wide
+   access enforcement
+3. After real sponsored and paying churches exist: aggregate sponsored-access messaging

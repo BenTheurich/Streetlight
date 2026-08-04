@@ -48,9 +48,10 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
 | 9 | Application UX/UI polish | Phase 8 | Pending | None |
-| 10 | Outreach progress and presentation | Phase 9 | Pending | None |
-| 11 | Deployment and recovery | Phase 10 | Pending | None |
-| 12 | Founder-church pilot | Phase 11 | Pending | None |
+| 10 | Public trust and access presentation | Phase 9 | Pending | None |
+| 11 | Outreach progress and presentation | Phase 10 | Pending | None |
+| 12 | Deployment and recovery | Phase 11 | Pending | None |
+| 13 | Founder-church pilot | Phase 12 | Pending | None |
 
 ## Phase 0: Geographic and print proof
 
@@ -726,8 +727,8 @@ changes.
 
 ### Goal
 
-Make the authenticated tool feel coherent with the approved landing page and ready to show a pilot
-church without changing its workflow.
+Make the authenticated tool feel coherent with the approved landing page and ready for the public
+trust and access presentation without changing its workflow.
 
 ### Agent work
 
@@ -769,15 +770,79 @@ desktop and tablet widths with no clipped or unreachable controls.
 
 ### Human review
 
-The founder reviews the complete authenticated workflow for clarity, consistency, and readiness to
-show another church.
+The founder reviews the complete authenticated workflow for clarity and consistency before public
+trust and access presentation begins.
 
 ### Completion condition
 
-The founder approves the authenticated interface for pilot use and the existing workflow remains
-unchanged.
+The founder approves the authenticated interface and the existing workflow remains unchanged.
 
-## Phase 10: Outreach progress and presentation
+## Phase 10: Public trust and access presentation
+
+### Goal
+
+Make Streetlight's purpose, operation, price, and special access for the founder church explicit
+before anyone at that church receives the hosted application.
+
+### Agent work
+
+- Follow the approved
+  [`Public site, trial, and subscription experience`](docs/superpowers/specs/2026-08-04-public-site-trial-subscription-design.md).
+- Add public How it works, Why Streetlight, and Pricing pages without placing pricing content in
+  the landing-page body.
+- Replace customer-facing `Request pilot access` language with `Request access` and describe the
+  90-day free trial; retain existing internal pilot-request names and records.
+- Add all three public-page links to the shared navigation only when the complete set is ready.
+- Explain the real Territory, Coverage, Generate, Print, and Reconcile workflow with approved
+  product screenshots and no new product claims.
+- Present one plan with **$149 per year** first and **$15 per month** second, a 90-day full-product
+  free trial, and no credit-card requirement.
+- Include the founder story and photograph, the email-support boundary, sponsored-access language,
+  and the approved pricing FAQs.
+- Add one Account destination to the authenticated administrator menu and persist the minimum
+  church access label needed to render it.
+- Mark the founder church as **Founding church access** and show: `Streetlight is provided to your
+  church at no cost. No payment is required.`
+- Show the standard annual and monthly prices beneath the founding status so administrators can
+  accurately explain that their access is special and Streetlight is not generally free.
+- Support **Sponsored access** as a separate founder-controlled label for later recipient churches.
+
+Do not add checkout, card collection, subscription webhooks, automatic trial dates, expiration
+enforcement, feature gates, usage limits, or a billing-provider dependency in this phase.
+
+### Automated checks
+
+- The landing-page body contains no pricing section.
+- Public copy uses `free trial` and `request access`, not the internal `pilot access` term.
+- How it works, Why Streetlight, and Pricing render publicly with shared navigation.
+- The Pricing page presents `$149 per year` before `$15 per month` and states `90-day free trial`
+  and `No credit card required`.
+- Public content makes no claims outside `PRODUCT.md` and has accessible headings and links.
+- Account access is derived server-side from the authenticated church.
+- The founder church sees the exact approved Founding church access wording and the standard price.
+- A sponsored test church sees Sponsored access without gaining cross-church access.
+- Existing administrator workflow and isolation checks continue to pass.
+- No payment provider or operational access gate is introduced.
+
+### Browser check
+
+Navigate from the landing page through How it works, Why Streetlight, and Pricing at supported
+desktop and mobile widths. Sign in as the founder church and a sponsored test church, inspect each
+Account state and its pricing context, and run the unchanged core workflow.
+
+### Human review
+
+The founder approves the public content, photograph, pricing explanation, support boundary, and the
+founder church's Account presentation. A founder-church administrator confirms that the interface
+makes both facts clear: their church pays nothing, and Streetlight is normally a paid product.
+
+### Completion condition
+
+The founder approves every public page and the founder-church administrator understands the access
+and pricing distinction without an explanatory conversation. The agent then stops before Outreach
+Progress work.
+
+## Phase 11: Outreach progress and presentation
 
 ### Goal
 
@@ -831,7 +896,7 @@ someone operating it.
 The founder approves the administrator, presentation, and print views and every displayed claim is
 traceable to Streetlight's recorded data.
 
-## Phase 11: Deployment and recovery
+## Phase 12: Deployment and recovery
 
 ### Goal
 
@@ -869,7 +934,7 @@ The founder signs in to the deployed application, creates a test batch, download
 
 The production workflow and restore demonstration pass, and the founder approves the pilot URL.
 
-## Phase 12: Founder-church pilot
+## Phase 13: Founder-church pilot
 
 ### Goal
 
@@ -883,7 +948,8 @@ Use Streetlight for a real outreach batch and fix only problems that block the a
 - Record discrepancies in geographic data, tract counts, segment grouping, map clarity, paper layout, and reconciliation.
 - Fix workflow-blocking defects with regression checks.
 - Record real hosting and provider costs.
-- Revisit provisional pricing only after the pilot evidence is available.
+- Review the published reference price against pilot evidence; change it only through an explicit
+  founder decision.
 
 ### Automated checks
 

@@ -2,7 +2,7 @@
 
 Status: approved founder direction  
 Approved: 2026-07-27
-Updated: 2026-07-31
+Updated: 2026-08-04
 
 ## Authority
 
@@ -20,8 +20,9 @@ The application is for administrators. Volunteers continue using paper. They do 
 
 The first church is the founder's church. The product should support other churches without changing the core data model, but public signup is not part of the first release.
 
-Visitors may request pilot access from the public landing page. A request does not create an
-account. The founder reviews requests and manually invites approved church administrators.
+Visitors may request access from the public landing page. A request does not create an account.
+The founder reviews requests and manually invites approved church administrators. Public copy
+describes the 90-day free trial; `pilot` remains an internal implementation and rollout term.
 
 When signed out, `/` shows the approved public landing page. When signed in to a configured
 church, `/` shows the persistent administrator map workspace. The final
@@ -48,7 +49,7 @@ Version one has one authenticated role: administrator.
 - Volunteers have no application access.
 - Multiple campuses, multiple territories, custom roles, and volunteer accounts are outside the first release.
 
-## Pilot access and onboarding
+## Access requests and onboarding
 
 - The public request form collects church name, contact name, email, city/state, and an optional
   description of the church's current outreach process.
@@ -386,7 +387,9 @@ underlying progress composition.
 Included:
 
 - Administrator authentication
-- Invite-only pilot access requests and founder-managed approval
+- Invite-only access requests and founder-managed approval
+- Public How it works, Why Streetlight, and Pricing pages
+- Plain-language church access status in the administrator account
 - Church workspace setup
 - Territory creation and correction
 - Editable territory boundary shape and distance
@@ -422,24 +425,38 @@ Excluded:
 - Partial packet completion
 - AI of any kind
 
-## Pricing hypothesis
+## Pricing direction
 
-Pricing is provisional until the first church has used the product and real hosting, map, support, and printing behavior are known.
+Before the founder church receives the hosted application, Streetlight publicly presents one paid
+plan at **$149 per year** or **$15 per month**. Annual billing appears first. The amounts remain
+subject to an explicit founder revision after real pilot cost and support evidence, but Streetlight
+does not imply that the product is generally free while that evidence is collected.
 
-| Plan | Price | Proposed limits and features |
-|---|---:|---|
-| Free Pilot | Invite only | Up to 500 homes, 10 packets per month, watermark, community email support |
-| Basic | $5 per month or $59 per year | Up to 10,000 homes, 200 packets per month, priority and ignore zones, one administrator, email support |
-| Pro | $9 per month or $99 per year | Unlimited homes and packets, outstanding-packet and reprint tools, two administrators, custom logo on PDFs |
+Every ordinary approved church receives a 90-day full-product free trial with no credit card. There
+is no permanent public free plan, feature tier, packet quota, home-count limit, or administrator
+limit. Data-integrity and correction behavior never depends on access type.
 
-Rules for later billing work:
+The founder church receives **Founding church access**. Its account states exactly:
 
-- Show annual billing first and allow monthly billing.
-- Do not implement payments until the product works for the founder's church.
-- The Free plan is invite-only during the pilot. A permanent public free plan requires a later decision.
-- There is no active lifetime or first-25-church pricing promise.
-- Core workflow and data integrity take precedence over provisional plan gating. A plan cannot omit behavior required to reserve, reconcile, or correct its packets.
-- Exact limits and feature divisions can change after pilot evidence. The single-church no-loss constraint remains firm.
+> **Founding church access**
+>
+> Streetlight is provided to your church at no cost. No payment is required.
+
+The founder may grant **Sponsored access** to another church at personal discretion. Founding and
+sponsored churches receive the same product as paying churches. Streetlight may later publish a
+truthful aggregate sponsored-church count, but it does not identify a recipient, collect its
+membership for this purpose, or claim that one subscriber funds a precise share of another
+church's access.
+
+The public landing page contains no pricing section. Once How it works and Why Streetlight are
+available, navigation links to a separate Pricing page containing the annual and monthly prices,
+trial terms, email-support boundary, sponsored-access explanation, FAQs, and a signed founder note
+with a photograph. Follow the approved
+[`Public site, trial, and subscription experience`](docs/superpowers/specs/2026-08-04-public-site-trial-subscription-design.md).
+
+Pricing and access presentation precede the founder-church handoff. Payment collection,
+subscription automation, trial expiration, and paid access enforcement remain excluded until the
+product works for the founder church and the founder explicitly starts that later work.
 
 ## Approved pilot architecture
 
