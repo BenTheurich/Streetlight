@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { TerritorySegment } from './database.ts';
-import { activateSegments, deriveTerritory, setSegmentsExcluded } from './territory-client.ts';
+import {
+  activateSegments,
+  deriveTerritory,
+  refreshTerritoryViews,
+  setSegmentsExcluded,
+} from './territory-client.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 
 const visible: TerritorySegment = {
@@ -125,4 +130,36 @@ test('batch exclusion helpers preserve unrelated selections', () => {
     setSegmentsExcluded(excluded, ['visible', 'adjacent'], false).excludedSegmentIds,
     ['existing'],
   );
+});
+
+test('ordinary territory saves refresh overlays without rebuilding the base map', async () => {
+  const refreshed: string[] = [];
+
+  await refreshTerritoryViews(
+    false,
+    async () => {
+      refreshed.push('coverage');
+    },
+    async () => {
+      refreshed.push('map');
+    },
+  );
+
+  assert.deepEqual(refreshed, ['coverage']);
+});
+
+test('completed territory imports refresh overlays and base map data', async () => {
+  const refreshed: string[] = [];
+
+  await refreshTerritoryViews(
+    true,
+    async () => {
+      refreshed.push('coverage');
+    },
+    async () => {
+      refreshed.push('map');
+    },
+  );
+
+  assert.deepEqual(refreshed, ['coverage', 'map']);
 });

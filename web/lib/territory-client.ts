@@ -2,6 +2,16 @@ import type { TerritorySegment, TerritoryWorkspace } from './database.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import { lineInsideTerritoryBoundary, type Position } from './territory-geometry.ts';
 
+export async function refreshTerritoryViews(
+  imported: boolean,
+  refreshCoverage: () => Promise<void>,
+  refreshMapData: () => Promise<void>,
+): Promise<void> {
+  const refreshes = [refreshCoverage()];
+  if (imported) refreshes.push(refreshMapData());
+  await Promise.all(refreshes);
+}
+
 export function hasUnsavedTerritoryChanges(
   saved: TerritoryDraftInput,
   draft: TerritoryDraftInput,

@@ -15,6 +15,7 @@ import {
 import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 import type { ReconciliationHistoryTarget } from '@/lib/reconciliation';
 import type { ChurchPrintoutSettings } from '@/lib/settings';
+import { refreshTerritoryViews } from '@/lib/territory-client';
 import { AdministratorAccount } from './AdministratorAccount';
 import { CoverageDashboard } from './CoverageDashboard';
 import { HeatmapSettingsOverlay } from './HeatmapSettingsOverlay';
@@ -251,12 +252,12 @@ export function StreetlightWorkspace({
   }, []);
 
   const refreshAfterTerritorySave = useCallback(
-    async (saved: TerritoryWorkspace) => {
+    async (saved: TerritoryWorkspace, imported: boolean) => {
       const completingSetup = setupRequired;
       setTerritory(saved);
       setPacketResult(null);
       setSelectedPacketIndex(null);
-      await Promise.all([refreshCoverage(), refreshMapData()]);
+      await refreshTerritoryViews(imported, refreshCoverage, refreshMapData);
       setSetupOnly(false);
       if (completingSetup) setTool('coverage');
     },

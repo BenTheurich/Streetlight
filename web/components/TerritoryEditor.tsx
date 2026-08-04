@@ -101,7 +101,7 @@ export function TerritoryEditor({
   onDiscardAndLeave: () => void;
   onImportingChange: (importing: boolean) => void;
   onReturnToSetup: () => void;
-  onSaved: (workspace: TerritoryWorkspace) => Promise<void>;
+  onSaved: (workspace: TerritoryWorkspace, imported: boolean) => Promise<void>;
   onSaveAndLeave: () => void;
   onStay: () => void;
   onViewChange: (view: 'territory' | 'printouts') => void;
@@ -211,7 +211,7 @@ export function TerritoryEditor({
       setImporting(false);
       setBackgroundImportComplete(imported);
       try {
-        await onSaved(result);
+        await onSaved(result, imported);
         setNotice(imported ? 'Street data refreshed.' : 'Territory changes saved.');
       } catch {
         setNotice('Territory saved, but coverage could not refresh. Reload the page to retry.');
