@@ -84,7 +84,7 @@ export function createOrReuseTerritoryImportJob(
       | undefined;
     if (active) {
       if (active.draft_fingerprint !== fingerprint) {
-        throw new TerritoryImportConflictError('Another territory import is already running');
+        throw new TerritoryImportConflictError('Another street data refresh is already running');
       }
       database.exec('COMMIT');
       return fromRow(active);

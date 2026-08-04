@@ -107,7 +107,7 @@ export function OutreachProgress({
       <div className="sidebar-scroll">
         <section className="progress-intro">
           <h1>{year} outreach progress</h1>
-          <p>Replay the outreach Streetlight has actually recorded across the territory.</p>
+          <p>Replay the outreach Streetlight has actually recorded across the region.</p>
         </section>
         <label className="coverage-field" htmlFor="progress-period">
           Time period

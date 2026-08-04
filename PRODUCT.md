@@ -4,7 +4,7 @@
 
 Status: approved founder direction  
 Approved: 2026-07-27
-Updated: 2026-08-03
+Updated: 2026-08-04
 
 ## Platform
 
@@ -19,26 +19,27 @@ If existing code, old chat transcripts, mockups, or earlier technical suggestion
 ## Users
 
 Streetlight's primary user is a church administrator organizing house-to-house tract distribution
-from a church office. The administrator defines and reviews territory, prepares printed packet
+from a church office. The administrator defines and reviews the outreach region, prepares printed packet
 batches, and reconciles returned paper after outreach. Volunteers remain outside the application:
 they take a printed packet and matching tracts without needing an account, phone, or reporting
 process.
 
-The founder reviews pilot-access requests. Approved churches share one administrator role inside
-one church workspace and one outreach territory.
+The founder reviews access requests. Approved churches share one administrator role inside
+one church workspace and one outreach region.
 
 ## Product Purpose
 
 Streetlight is a hosted web application for churches that organize house-to-house tract distribution.
 
-An administrator defines the church's outreach territory, sees how recently each area was covered, generates printable packets for volunteers, and reconciles the packets after distribution. Streetlight exists to prevent recently covered streets from being repeated while older areas remain untouched.
+An administrator defines the church's outreach region, sees how recently each area was covered, generates printable packets for volunteers, and reconciles the packets after distribution. Streetlight exists to prevent recently covered streets from being repeated while older areas remain untouched.
 
 The application is for administrators. Volunteers continue using paper. They do not need Streetlight accounts, phones, or a reporting process.
 
 The first church is the founder's church. The product should support other churches without changing the core data model, but public signup is not part of the first release.
 
-Visitors may request pilot access from the public landing page. A request does not create an
-account. The founder reviews requests and manually invites approved church administrators.
+Visitors may request access from the public landing page. A request does not create an account.
+The founder reviews requests and manually invites approved church administrators. Public copy
+describes the 90-day free trial; `pilot` remains an internal implementation and rollout term.
 
 When signed out, `/` shows the approved public landing page. When signed in to a configured
 church, `/` shows the persistent administrator map workspace. The final
@@ -47,7 +48,7 @@ church, `/` shows the persistent administrator map workspace. The final
 ## Positioning
 
 Streetlight is a deterministic, paper-native coverage memory for church outreach. Its distinctive
-mechanism connects a reviewable territory map to printable volunteer assignments and then closes
+mechanism connects a reviewable region map to printable volunteer assignments and then closes
 the loop through physical-sheet reconciliation. It prevents recently reached streets from being
 repeated while older streets are forgotten, without requiring volunteers to install an app,
 identify themselves, or report household-level activity.
@@ -56,7 +57,7 @@ identify themselves, or report household-level activity.
 
 An administrator works from one persistent map workspace with four tools: Coverage, Packets,
 Outreach Progress, and Setup. The recurring operational cycle is Coverage, Generate, Print, and
-Reconcile. Generate and Reconcile are views inside Packets; territory configuration and
+Reconcile. Generate and Reconcile are views inside Packets; region configuration and
 church-wide printout settings are views inside Setup.
 
 Paper is a first-class part of the system. Packet sheets are printed and placed with matching
@@ -66,10 +67,10 @@ left running unattended on a church display.
 
 ## Capabilities and Constraints
 
-- Streetlight deterministically imports and normalizes territory geography, records append-only
+- Streetlight deterministically imports and normalizes region geography, records append-only
   coverage history, generates connected packet proposals, reserves finalized assignments, renders
   printable PDFs, and reconciles complete paper packets.
-- Version one has one administrator role, one workspace and territory per church, and no volunteer
+- Version one has one administrator role, one workspace and outreach region per church, and no volunteer
   accounts, household records, partial packet completion, advanced reporting, or public signup.
 - Product behavior is AI-free, geographically reviewable, privacy-minimizing, and inexpensive
   enough that the founder-church pilot does not operate at an ongoing loss.
@@ -103,7 +104,7 @@ left running unattended on a church display.
 
 1. Preserve the paper workflow instead of transferring work to volunteers.
 2. Make geographic choices, packet selection, and coverage history deterministic and reviewable.
-3. Record only the minimum church and territory data required; never create resident or volunteer
+3. Record only the minimum church and region data required; never create resident or volunteer
    profiles.
 4. Prefer truthful operational clarity and recoverable errors over automation, prediction, or
    decorative analytics.
@@ -133,12 +134,18 @@ assignment remains usable as printed paper.
 Version one has one authenticated role: administrator.
 
 - A church has one workspace.
-- A workspace has one outreach territory.
+- A workspace has one outreach region.
 - All administrators have the same permissions.
+- WorkOS organization membership is the administrator roster. Streetlight does not maintain a
+  second user-membership system.
+- The authenticated Church account page lists active administrators and pending invitations for
+  the current church. Any administrator may invite another full administrator, revoke a pending
+  invitation, or remove another administrator from that church. An administrator cannot remove
+  their own membership.
 - Volunteers have no application access.
-- Multiple campuses, multiple territories, custom roles, and volunteer accounts are outside the first release.
+- Multiple campuses, multiple regions, custom roles, and volunteer accounts are outside the first release.
 
-## Pilot access and onboarding
+## Access requests and onboarding
 
 - The public request form collects church name, contact name, email, city/state, and an optional
   description of the church's current outreach process.
@@ -152,8 +159,8 @@ Version one has one authenticated role: administrator.
   them. Declining a request sends no email and does not prevent a later approval.
 - An invited administrator confirms the church name, full church address, and time zone at first
   sign-in. A valid Google geocode is required.
-- A new church begins with a one-mile circular territory draft centered on the church. It remains
-  in Setup until the first explicit save succeeds; that save is the first action that
+- A new church begins with a one-mile circular region draft centered on the church. It remains
+  in Region Setup until the first explicit save succeeds; that save is the first action that
   may launch an Overture import.
 - Existing configured church workspaces bypass onboarding unchanged.
 
@@ -161,7 +168,7 @@ Version one has one authenticated role: administrator.
 
 | Term | Meaning |
 |---|---|
-| Coverage area | The church's outreach territory. |
+| Coverage area | The church's outreach region. |
 | Street segment | A short section of street tracked as one coverage unit. |
 | Home count | The estimated number of residential homes, and therefore tracts, assigned to a packet. |
 | Packet | One connected volunteer assignment map and, once printed, its sheet plus the matching number of tracts. |
@@ -183,7 +190,7 @@ Apartment complexes are separate tracked outreach units.
 - Overture connector points and slight bends do not create segment boundaries by themselves.
   No normalized segment may contain more than 100 estimated homes; a longer road is split as
   needed while retaining every assigned address.
-- Territory boundaries and ignore zones exclude whole segments from packet selection.
+- Region boundaries and exact-segment exclusions remove whole segments from packet selection.
 - Address data supplies estimated home counts and packet starting addresses. Retain the house
   number, street, available locality and postcode, and point coordinate for each address assigned
   to a normalized segment. Do not retain resident names, unit identifiers, or notes.
@@ -230,7 +237,7 @@ Apartment complexes are separate tracked outreach units.
 - Imported street geometry and estimated home counts cannot be edited in the first release.
 - A territory import retains every Overture feature classified as a road. High-confidence
   residential roads are active automatically; all other retained roads begin hidden.
-- On the territory editor, an administrator can reveal hidden Overture segments and activate exact
+- In Region Setup, an administrator can reveal hidden Overture segments and activate exact
   selected segments. Clicking selects one segment; additive clicks and rectangular selection may
   select multiple included, excluded, or revealed hidden segments at once.
 - Administrator-activated segments remain active through later imports. A later source refresh may
@@ -240,8 +247,8 @@ Apartment complexes are separate tracked outreach units.
   administrator can exclude or restore one or more selected segments without deleting or changing
   imported geometry. The first release does not store or edit exclusion polygons.
 - A manually excluded segment remains visible in gray and can be selected and restored. It does
-  not contribute to territory eligibility, tract totals, or packet generation while excluded.
-  Segment exclusion and restoration follow the territory editor's explicit Save and Cancel model.
+  not contribute to region eligibility, tract totals, or packet generation while excluded.
+  Segment exclusion and restoration follow Region Setup's explicit Save and Cancel model.
 - A saved segment exclusion survives later imports while the exact imported segment still exists.
   A materially changed or replacement segment does not inherit the exclusion.
 - Drawing roads, changing road geometry, deactivating an active segment, and correcting home
@@ -250,7 +257,7 @@ Apartment complexes are separate tracked outreach units.
   apartment packet records one coverage event for the complex.
 - Coverage history must be retained. Correcting a mistake records the correction instead of silently replacing history.
 
-An administrator creates a territory from an address, boundary distance, and either a circle or
+An administrator creates a region from an address, boundary distance, and either a circle or
 square outer boundary, then reviews and adjusts the imported segments. The circle uses the selected
 distance as its radius. The square uses the exact latitude-aware bounding box that encloses that
 circle for the Overture import. The outer boundary is not reshaped as a freeform polygon. Segments
@@ -259,18 +266,18 @@ boundary but excluded by exact-segment override. The administrator can exclude h
 districts, rivers, apartment complexes, areas assigned elsewhere, and other unsuitable locations.
 Boundary distance is limited to one through five miles.
 
-A territory save reuses imported streets and addresses whenever the proposed territory's enclosing
+A territory save reuses imported streets and addresses whenever the proposed region's enclosing
 square fits inside the saved import footprint. It imports again only when the proposed footprint
 extends beyond stored geography or the pinned source-data contract requires an upgrade. Ordinary
 exclusion, activation, exact-segment, boundary-shape, and contained boundary changes do not import.
 
 An import-required save creates one persisted background job for the church and returns control to
-the administrator immediately. An established church may keep using its prior saved territory in
+the administrator immediately. An established church may keep using its prior saved region in
 the other tools while the replacement is prepared; initial setup remains locked until its first
-territory is ready. Refresh reconnects to the job and shows truthful coarse stages. Success swaps in
-the imported territory atomically. Failure or interruption leaves the prior territory and history
+region is ready. Refresh reconnects to the job and shows truthful coarse stages. Success swaps in
+the imported region atomically. Failure or interruption leaves the prior region and history
 unchanged and allows a retry. Typical one-to-two-mile imports target about two minutes under ordinary
-network conditions; Streetlight does not promise that time for every territory or provider response.
+network conditions; Streetlight does not promise that time for every region or provider response.
 
 Streetlight benchmarks its pinned Overture release and deterministic normalizer against varied
 fixed US test territories. A holdout is high confidence at 95% address assignment, 99% road
@@ -280,7 +287,7 @@ usable with warnings at 90% address assignment, 99% road representation, 90% cor
 severe-outlier percentage uses evaluated segments as its denominator.
 
 The pinned global pipeline is acceptable for the pilot when every fixed holdout is at least usable
-with warnings. High confidence remains the improvement target. A territory that does not meet the
+with warnings. High confidence remains the improvement target. A region that does not meet the
   high-confidence thresholds shows a persistent warning with concrete reasons in Setup and
 Packets, but the administrator may continue without another confirmation modal. The
 warning is not printed on volunteer packets. If a holdout falls below the usable floor, evaluate
@@ -294,7 +301,7 @@ The main map colors segments by time since last coverage:
 - Yellow: more recent
 - Green: most recent
 
-Each territory stores the day when segments transition to yellow, orange, and red. The defaults are
+Each region stores the day when segments transition to yellow, orange, and red. The defaults are
 90, 180, and 365 days. Administrators may edit those three ascending thresholds. The meaning and
 order of the colors do not change, and never-covered segments are always red. The exact visual
 palette remains a design decision. Heatmap ranges are a shared map setting: every tool that shows
@@ -308,8 +315,8 @@ A request can mix sizes, such as several smaller packets and several larger pack
 automatically matches those requested sizes to suitable connected areas.
 
 Streetlight generates compact, connected groups of street segments. Packets in one generated batch
-may be scattered anywhere in the territory, but each individual packet is one connected area.
-Streetlight respects the territory boundary, ignore zones, active reservations, and requested home
+may be scattered anywhere in the region, but each individual packet is one connected area.
+Streetlight respects the region boundary, ignore zones, active reservations, and requested home
 count.
 
 Selection is oldest-seed-first. Each packet begins with the oldest eligible unassigned segment,
@@ -355,7 +362,7 @@ Packet map behavior:
 
 Phase 4 proposals are deterministic and read-only. Administrators may change quantities or target
 sizes and regenerate, but cannot move individual segments between proposals. Previewing packet
-options does not reserve territory. Reservations begin when the administrator finalizes a batch
+options does not reserve region streets. Reservations begin when the administrator finalizes a batch
 for printing. After generation, the map highlights every proposal without starting pins. Selecting
 a proposal focuses on that proposal alone and shows its starting pin; the administrator can return
 to the all-proposals view.
@@ -441,7 +448,7 @@ control.
 For a signed-in configured administrator, the website uses one persistent map workspace at `/`.
 Coverage, Packets, Outreach Progress, and Setup are tools in that workspace rather than separate
 pages. Packets contains Generate and Reconcile as two views of the same paper workflow. Setup owns
-both territory configuration and church-wide printout settings.
+both region configuration and church-wide printout settings.
 
 The workspace's standard **Map** view uses MapLibre with Streetlight's approved pinned
 OpenFreeMap/OpenMapTiles presentation, OpenStreetMap geography, persisted Overture/FEMA buildings,
@@ -456,12 +463,12 @@ layers remain print-specific.
 Switching tools keeps
 the map camera, Map/Satellite choice, and each tool's in-progress state. Coverage and Packets share
 the complete heatmap; a selected packet adds a distinct review highlight and starting pin above
-it. Setup replaces the heatmap treatment with its territory-editing overlays when territory
+it. Setup replaces the heatmap treatment with its region-editing overlays when region
 configuration is active.
 The tool switcher is centered over the map canvas rather than the full page. Because it already
 identifies the active tool, each right sidebar begins with its task content instead of repeating the
 tool name in a second header.
-Coverage places its territory summary and map controls first. Its current-work continuation sits
+Coverage places its region summary and map controls first. Its current-work continuation sits
 at the bottom of the sidebar so it remains available without outweighing the map inspection tools.
 The saved church location uses the founder-supplied church marker in every tool, and the header
 uses the founder-supplied logo beside the `STREETLIGHT` text. A compact lower-right **Layers** card
@@ -484,8 +491,8 @@ Presentation mode is a calm, unattended full-screen composition suitable for lea
 TV or display. It contains no administrative controls and requires no one to click through a
 dashboard. Its default yearly playback is cumulative: a street lights up when its recorded outreach
 occurs and remains lit for the rest of the playback, allowing the congregation to see outreach
-spread across the territory. It rests on the completed view, then repeats gently. The operational
-heatmap remains separate and continues to show time since last outreach.
+spread across the region and be encouraged by its steady work. It rests on the completed view,
+then repeats gently. The operational heatmap remains separate and continues to show time since last outreach.
 
 The first version does not include a report builder, rankings, volunteer statistics, a public
 sharing link, or video export. Full-screen presentation and the static print view use the same
@@ -496,11 +503,13 @@ underlying progress composition.
 Included:
 
 - Administrator authentication
-- Invite-only pilot access requests and founder-managed approval
+- Invite-only access requests and founder-managed approval
+- Public How it works, Why Streetlight, and Pricing pages
+- Plain-language church access status in the administrator account
+- Church administrator list, invitation, pending-invitation revocation, and removal
 - Church workspace setup
-- Territory creation and correction
-- Editable territory boundary shape and distance
-- Toggleable and deletable exclusion areas
+- Region creation and correction
+- Editable region boundary shape and distance
 - Reversible exact-segment exclusions
 - Coverage heatmap
 - Outreach progress map, cumulative yearly presentation mode, and static print view
@@ -522,7 +531,7 @@ Excluded:
 - Public signup
 - Social login
 - Volunteer accounts
-- Multiple territories or campuses
+- Multiple regions or campuses
 - Custom permission roles
 - Native mobile applications
 - Advanced reporting
@@ -532,24 +541,33 @@ Excluded:
 - Partial packet completion
 - AI of any kind
 
-## Pricing hypothesis
+## Pricing direction
 
-Pricing is provisional until the first church has used the product and real hosting, map, support, and printing behavior are known.
+Before the founder church receives the hosted application, Streetlight publicly presents one paid
+plan at **$149 per year** or **$15 per month**. Annual billing appears first. The amounts remain
+subject to an explicit founder revision after real pilot cost and support evidence, but Streetlight
+does not imply that the product is generally free while that evidence is collected.
 
-| Plan | Price | Proposed limits and features |
-|---|---:|---|
-| Free Pilot | Invite only | Up to 500 homes, 10 packets per month, watermark, community email support |
-| Basic | $5 per month or $59 per year | Up to 10,000 homes, 200 packets per month, priority and ignore zones, one administrator, email support |
-| Pro | $9 per month or $99 per year | Unlimited homes and packets, outstanding-packet and reprint tools, two administrators, custom logo on PDFs |
+Every ordinary approved church receives a 90-day full-product free trial with no credit card
+required. A church may optionally choose a subscription during the trial; its first charge begins
+when the trial ends, and cancelling before then owes nothing. There is no permanent public free
+plan, feature tier, packet quota, home-count limit, or administrator limit. Data-integrity and
+correction behavior never depends on access type.
 
-Rules for later billing work:
+The founder church receives **Founding church access**. Its account states exactly:
 
-- Show annual billing first and allow monthly billing.
-- Do not implement payments until the product works for the founder's church.
-- The Free plan is invite-only during the pilot. A permanent public free plan requires a later decision.
-- There is no active lifetime or first-25-church pricing promise.
-- Core workflow and data integrity take precedence over provisional plan gating. A plan cannot omit behavior required to reserve, reconcile, or correct its packets.
-- Exact limits and feature divisions can change after pilot evidence. The single-church no-loss constraint remains firm.
+> **Founding church access**
+>
+> Streetlight is provided to your church at no cost. No payment is required.
+
+The public landing page contains no pricing section. Once How it works and Why Streetlight are
+available, navigation links to a separate Pricing page containing the annual and monthly prices,
+trial terms, email-support boundary, FAQs, and a signed founder note with a photograph. Follow the
+approved [`Public site, trial, and subscription experience`](docs/superpowers/specs/2026-08-04-public-site-trial-subscription-design.md).
+
+Pricing and access presentation precede the founder-church handoff. Payment collection,
+subscription automation, trial expiration, and paid access enforcement remain excluded until the
+product works for the founder church and the founder explicitly starts that later work.
 
 ## Approved pilot architecture
 

@@ -21,7 +21,7 @@ export async function updateTerritory(request: Request) {
     draft = parseTerritoryDraft(await request.json());
   } catch (error) {
     return Response.json(
-      { error: error instanceof Error ? error.message : 'Invalid territory draft' },
+      { error: error instanceof Error ? error.message : 'Invalid region draft' },
       { status: 400 },
     );
   }
@@ -47,7 +47,7 @@ export async function updateTerritory(request: Request) {
     saveTerritoryDraft(draft);
     return Response.json(getTerritoryWorkspace());
   } catch {
-    return Response.json({ error: 'Could not save territory changes' }, { status: 500 });
+    return Response.json({ error: 'Could not save region changes' }, { status: 500 });
   }
 }
 

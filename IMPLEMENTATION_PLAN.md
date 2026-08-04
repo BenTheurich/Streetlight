@@ -46,11 +46,12 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 5 | Batch finalization and PDF | Phase 4 | Complete | Atomic street and apartment reservations, newest/all-active downloads, and map-first Letter PDFs are implemented; 126 Node checks, 51 Python checks, Biome, TypeScript, production build, isolated-browser finalization/reload, rendered-PDF inspection, and founder review pass |
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
-| 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
-| 9 | Application UX/UI polish | Phase 8 | Complete | Founder approved the coherent Phase 9 baseline on August 2, 2026 and directed remaining iterative polish to continue inside Phase 10; the unified map, truthful operation states, searchable whole-road Coverage inspection, docked Current Work, clustered apartments, responsive layout, landing-page visual system, and WorkOS branding are implemented |
-| 10 | Outreach progress and presentation | Phase 9 | In progress | Initial four-tool implementation and founder-led browser iteration are underway; Setup now has recoverable background imports and a five-mile territory cap |
-| 11 | Deployment and recovery | Phase 10 | Pending | None |
-| 12 | Founder-church pilot | Phase 11 | Pending | None |
+| 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only region, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
+| 9 | Application UX/UI polish | Phase 8 | In progress | Founder-led UI review and polish are still underway; the four-tool workspace, exact-segment Region Setup, recoverable background imports, and shared map behavior are implemented |
+| 10 | Outreach progress and presentation | Phase 9 | Pending | Early implementation exists, but formal review and acceptance remain deferred until Phase 9 is approved |
+| 11 | Public trust and access presentation | Phase 10 | Pending | None |
+| 12 | Deployment and recovery | Phase 11 | Pending | None |
+| 13 | Founder-church pilot | Phase 12 | Pending | None |
 
 ## Phase 0: Geographic and print proof
 
@@ -250,7 +251,7 @@ Verified July 28, 2026 with pinned Overture release `2026-06-17.0`:
 - The July 28 global address-quality amendment adds Overture residential buildings as a
   conservative fallback, spatial-only assignment for unambiguous address/road mismatches, source
   deduplication, normalizer version 7, persisted quality evidence, and concrete warnings in both
-  Territory Setup and Generate Packets. The existing version 6 pilot import is backfilled with its
+  Region Setup and Generate Packets. The existing version 6 pilot import is backfilled with its
   known `10,932 / 15,080` (72.5 percent) address-match warning until it is reimported.
 - The amendment's 42 Python importer checks, 121 Node checks, Biome, TypeScript, production build,
   migration, and `git diff --check` pass. The deterministic benchmark calculation names each failed
@@ -349,7 +350,7 @@ Load seeded events, inspect every heatmap color, change the selected period, cor
 - A real browser loaded the built app and Google map with all four heatmap colors, changed the
   90-day metric from 21 homes to the expected 5 homes at 30 days, selected a gray exact-exclusion
   with retained history, undid and restored its completion, confirmed persistence after reload,
-  opened Territory Setup, and reported no console errors.
+  opened Region Setup, and reported no console errors.
 - The July 28 heatmap-settings amendment adds migration 012 and saves strictly ascending yellow,
   orange, and red transition days per territory. The legend now states the resulting day ranges;
   never-covered remains red and the selected-period metric is unchanged. Focused route tests prove
@@ -364,7 +365,7 @@ Load seeded events, inspect every heatmap color, change the selected period, cor
 - The amendment passes 84 Node checks, Biome, TypeScript, and the Next.js production build. A real
   browser loaded the canonical database with 8,727 eligible tracts across 1,553 visible segments,
   saved custom 91/181/366-day transitions, confirmed the new ranges after reload, rejected invalid
-  ordering without persistence, restored the 90/180/365 defaults, and loaded Territory Setup with
+  ordering without persistence, restored the 90/180/365 defaults, and loaded Region Setup with
   the 10,663-of-14,833 address-match summary and hidden-road controls intact.
 - The isolated demo now copies the complete canonical import and applies deterministic geographic
   30-, 120-, 240-, and 500-day bands while leaving the far edge never covered. Browser review
@@ -375,7 +376,7 @@ Load seeded events, inspect every heatmap color, change the selected period, cor
 
 Start the canonical application with `pnpm --dir web dev` and open `http://localhost:3000`. Confirm
 the recovered territory streets appear, save valid heatmap ranges, reload, verify invalid ordering
-is rejected, and open Territory Setup to inspect hidden-road and exclusion controls.
+is rejected, and open Region Setup to inspect hidden-road and exclusion controls.
 
 Optionally run `pnpm --dir web coverage:demo` at `http://localhost:3001` to inspect every heatmap
 color and history state. The page must be visibly labeled `Demo data`; changing demo dates or
@@ -452,7 +453,7 @@ Generate mixed packet sizes, inspect each proposal on the map, regenerate the sa
   write.
 - The founder-approved shared-map amendment is recorded in
   `docs/superpowers/specs/2026-07-28-shared-map-workspace-design.md`. `/` now owns one persistent
-  Google map for Coverage, Generate Packets, and Territory Setup; `/packets` and `/territory`
+  Google map for Coverage, Generate Packets, and Region Setup; `/packets` and `/territory`
   return 404. The complete heatmap remains beneath a selected electric-blue packet overlay.
 - The supplied Streetlight logo and 44-pixel church marker are present. Packet proposals, unsaved
   territory changes, and the selected Map / Satellite basemap survive temporary tool switches.
@@ -669,7 +670,7 @@ Turn an approved landing-page request into a correctly configured, invited churc
 - Let the founder mark a request approved or declined.
 - For an approved request, create or associate one church workspace and one WorkOS organization,
   then send the first administrator invitation.
-- Add a short first-sign-in flow for the church name, church address, and territory setup entry
+- Add a short first-sign-in flow for the church name, church address, and region setup entry
   point.
 - Keep approval manual. Do not add a CRM, automated sales email, public signup, or billing.
 
@@ -684,7 +685,7 @@ Turn an approved landing-page request into a correctly configured, invited churc
 ### Browser check
 
 Submit a pilot request from the landing page, approve it as the founder, accept the invitation in a
-second browser session, and reach the new church's territory setup.
+second browser session, and reach the new church's region setup.
 
 ### Evidence
 
@@ -698,7 +699,7 @@ second browser session, and reach the new church's territory setup.
 - An invited church without a territory completes church name, Google-assisted address, and a
   constrained IANA time-zone choice. Streetlight geocodes the selected address and creates an empty
   one-mile circular territory.
-- New churches see only Territory Setup. The initial import waits for the administrator's explicit
+- New churches see only Region Setup. The initial import waits for the administrator's explicit
   save, which records onboarding completion and unlocks Coverage, Generate packets, and Reconcile.
 - Existing configured churches retain their current workspace and bypass onboarding.
 - Independent review found and resolved neutral-response, stable-identity, and concurrent-invitation
@@ -726,8 +727,8 @@ changes.
 
 ### Goal
 
-Make the authenticated tool feel coherent with the approved landing page and ready to show a pilot
-church without changing its workflow.
+Make the authenticated tool feel coherent with the approved landing page and ready for the public
+trust and access presentation without changing its workflow.
 
 ### Agent work
 
@@ -739,8 +740,10 @@ church without changing its workflow.
 - Decide whether the public request should collect first and last names separately and whether
   WorkOS can prefill them without replacing hosted AuthKit.
 - Polish the onboarding presentation and copy without exposing implementation details.
+- Keep customer-facing setup terminology as **Region Setup** and use outreach-region wording.
+  Internal code, routes, and database names may remain `territory`.
 - Remove redundant current-tool labels beside the Streetlight wordmark and in the centered header,
-  especially while a new church can only use Territory Setup.
+  especially while a new church can only use Region Setup.
 - Give long territory imports a prominent progress state and useful failure placement instead of
   dimming the complete workspace and burying a small status message.
 - Clarify the shared map navigation, tool sidebars, empty states, loading states, warnings, and
@@ -764,7 +767,7 @@ church without changing its workflow.
 
 ### Browser check
 
-Run Coverage, Territory Setup, Generate Packets, Finalize/Download, and Reconcile at representative
+Run Coverage, Region Setup, Generate Packets, Finalize/Download, and Reconcile at representative
 desktop and tablet widths with no clipped or unreachable controls.
 
 ### Evidence
@@ -773,14 +776,14 @@ desktop and tablet widths with no clipped or unreachable controls.
 - Packet proposals expand and collapse in place; the map shows all proposals until one packet is
   selected, and download failures remain recoverable.
 - Reconciliation starts from the physical packet sheets still present.
-- Territory changes preserve the last saved workspace during background expansion imports, retain
+- Region changes preserve the last saved workspace during background expansion imports, retain
   actionable failures, and guard unsaved changes with Save, Discard, and Stay choices.
 - Heatmap ranges are edited from the shared map legend across Coverage, Generate Packets, and
   Reconcile Packets rather than from the Coverage sidebar.
 - The approved landing-page color, spacing, logo, focus, and control system now carries through the
   authenticated workspace, onboarding, request confirmation, and WorkOS Staging hosted pages.
 - The authenticated standard map now uses the approved MapLibre/OpenFreeMap composition and keeps
-  Coverage, Territory Setup, packet previews, and reconciliation on one interaction surface. Google
+  Coverage, Region Setup, packet previews, and reconciliation on one interaction surface. Google
   labeled hybrid is created only after Satellite is selected and follows the same camera.
 - One shared style function now controls open-map and packet-PDF road widths, colors, and label
   presentation, with a regression check preventing those renderers from drifting apart.
@@ -788,9 +791,9 @@ desktop and tablet widths with no clipped or unreachable controls.
   three maps concurrently while preserving packet order and all-or-nothing retries. The seeded
   five-packet browser download fell from 14.7 seconds to 5.14 seconds and exposes a packet-aware
   busy message with both download actions disabled during the request.
-- Territory Setup reuses the shared street and apartment map sources, updates boundary geometry
-  without rebuilding layers, redraws exclusion edits throughout a vertex drag, and keeps an
-  unfinished polygon open until the administrator explicitly finishes it.
+- Region Setup reuses the shared street and apartment map sources, supports exact and rectangular
+  segment selection, preserves included, excluded, and hidden status beneath the shared selection
+  halo, and no longer stores or edits exclusion polygons.
 - Desktop, tablet, and mobile browser checks pass without horizontal overflow or unreachable tools.
 - The founder-only side-by-side Map Lab, its Google Map Tiles proxy, and the obsolete Google-only
   map components are removed. Production retains Google only for labeled hybrid Satellite,
@@ -814,10 +817,10 @@ desktop and tablet widths with no clipped or unreachable controls.
   confirmed rejection from an uncertain mutation result. Existing drafts and choices remain
   available while operations are pending or need reload verification.
 - Apartment markers now cluster with counts at overview zoom, expand to individual state-colored
-  markers, and remain keyboard-selectable from the sidebar. Territory drawing continues to own map
-  interaction while an exclusion is being drawn.
+  markers, and remain keyboard-selectable from the sidebar. Region segment selection remains
+  available without a persistent edit mode.
 - One combined browser pass covered signed-out landing behavior and the authenticated Coverage,
-  Generate, Finalize/Download, Reconcile, and Territory workflows at 1440-by-900 desktop and
+  Generate, Finalize/Download, Reconcile, and Region workflows at 1440-by-900 desktop and
   768-by-1024 portrait-tablet widths. It verified search, Current Work, operation recovery,
   Map/Satellite synchronization, apartment selection, and preservation of the landing page,
   legend, estimated-progress bar, and packet workflow.
@@ -842,28 +845,22 @@ Phase 9 is at the founder-review checkpoint. The founder:
 - Generates proposals, finalizes a review batch, downloads its PDF, and confirms that pending,
   success, failure, and reload-verification states remain understandable and recoverable.
 - Reviews apartment clusters at overview zoom, expands one cluster, selects individual complexes
-  from both the map and sidebar, switches Map/Satellite, and confirms exclusion drawing does not
-  accidentally select apartments.
+  from both the map and sidebar, switches Map/Satellite, and confirms exact-segment Region selection
+  remains clear and recoverable.
 - Confirms the landing page, heatmap legend, estimated-progress bar, and existing paper-based
   reconciliation workflow still feel approved and familiar.
 - Starts the production build locally and confirms the Next.js development `N` indicator is absent;
   the automated final-verification environment could build successfully but could not keep a
   background production listener alive long enough for this visual confirmation.
 
-Minor polish intentionally deferred to this checkpoint: the singular copy currently reads
-`1 estimated tracts`. The combined browser environment also could not reliably target a cluster by
-map coordinate, emulate reduced motion, visually reopen the generated PDF, or repeat a fresh
-territory-import recovery. Focused automated checks cover those application contracts, but the
-founder should include any of them that materially affect approval. Biome's 24 retained warnings
-and the non-fatal worktree build warnings are unchanged cleanup candidates, not workflow blockers.
+Phase 9 remains at the active founder-review checkpoint. Remaining work is founder-directed visual
+and copy polish; correctness, data integrity, accessibility, and workflow-blocking regressions stay
+inside Phase 9 until resolved. Early Phase 10 implementation remains present but does not change the
+phase order.
 
 ### Completion condition
 
-The founder approves the authenticated interface for pilot use and the existing workflow remains
-unchanged.
-
-Founder approval was given on August 2, 2026. Remaining minor visual polish moves forward with the
-same fast founder-review loop in Phase 10 rather than reopening Phase 9.
+The founder approves the authenticated interface and the existing workflow remains unchanged.
 
 ## Phase 10: Outreach progress and presentation
 
@@ -877,8 +874,8 @@ without turning the operational workspace into an analytics dashboard.
 - Keep exactly four persistent tools: Coverage, Packets, Outreach Progress, and Setup.
 - Combine Generate Packets and Reconcile Packets inside one Packets tool with a clear internal
   switcher while preserving both existing workflows and their in-progress state.
-- Rename Territory Setup to Setup and place church-wide printout controls alongside the existing
-  territory configuration without obscuring either task.
+- Keep Region and Printouts as the two views inside Setup, with church-wide printout controls
+  alongside the existing region configuration without obscuring either task.
 - Keep Coverage operational and Outreach Progress retrospective; do not change the normal
   Coverage, Generate, Print, and Reconcile cycle.
 - Build an administrator view with a simplified progress map, period selection, factual historical
@@ -893,8 +890,7 @@ without turning the operational workspace into an analytics dashboard.
 - Add church-wide packet-footer message and optional reference controls. Preserve Streetlight's
   default `Ye are the light of the world.` / `Matthew 5:14` treatment until an administrator
   replaces or removes it; do not add per-batch overrides.
-- Carry forward minor founder-identified Phase 9 UI polish and copy corrections during the same
-  fast browser-review loop without adding unrelated scope.
+- Do not absorb unfinished Phase 9 UI polish; Phase 9 must be approved before formal Phase 10 review.
 
 Do not add a report builder, rankings, volunteer statistics, a public display link, or video export.
 
@@ -917,7 +913,7 @@ full-screen state at desktop and TV-sized widths, and print the static view.
 ### Initial implementation evidence
 
 - The authenticated workspace now has exactly four top-level tools. Generate and Reconcile retain
-  their existing stateful workflows inside Packets; Territory and Printouts sit inside Setup.
+  their existing stateful workflows inside Packets; Region and Printouts sit inside Setup.
 - Outreach Progress derives yearly dates, cumulative map state, completed packets, covered street
   sections, apartment complexes, and estimated homes from effective append-only coverage records.
   Its administrator, presentation, and print modes reuse one composition and reduced-motion skips
@@ -928,28 +924,110 @@ full-screen state at desktop and TV-sized widths, and print the static view.
   progress, and workspace checks pass 26 of 26; TypeScript passes; and a clean localhost browser
   pass verified all four tools, both internal switchers, cumulative playback, and presentation
   mode without changing Coverage's approved legend or estimated-progress bar.
-- Territory Setup now accepts import-required saves as persisted background jobs with reconnectable
+- Region Setup now accepts import-required saves as persisted background jobs with reconnectable
   coarse stages, one active job per church, atomic replacement, and safe retry after failure or
   interruption. The radius is constrained to one through five miles. Deterministic spatial indexes
   reduced the founder-approved saved 1.9-mile pilot import to 114.5 seconds with the existing pinned
   Overture/FEMA sources and normalizer v11. The complete Node and 66-check Python importer suites,
   Biome, TypeScript, production build, and whitespace check pass.
-- Phase 10 remains in progress at the founder-review checkpoint for fast visual iteration. The
-  complete repeat, reduced-motion emulation, and print-dialog inspection remain part of final
-  Phase 10 acceptance rather than this initial implementation pass.
+- Phase 10 implementation is present, but formal review remains pending until the founder approves
+  Phase 9. The complete repeat, reduced-motion emulation, and print-dialog inspection remain part of
+  final Phase 10 acceptance.
 
 ### Human review
 
-The founder confirms that the page feels like celebrating faithful neighborhood outreach rather
-than measuring marketing performance, and that it can remain calmly on a church display without
-someone operating it.
+The founder confirms that the page encourages the church through a truthful view of faithful
+neighborhood outreach rather than measuring marketing performance, and that it can remain calmly
+on a church display without someone operating it.
 
 ### Completion condition
 
 The founder approves the administrator, presentation, and print views and every displayed claim is
-traceable to Streetlight's recorded data.
+traceable to Streetlight's recorded data. The agent then stops before public trust and access work.
 
-## Phase 11: Deployment and recovery
+## Phase 11: Public trust and access presentation
+
+### Goal
+
+Make Streetlight's purpose, operation, price, and special access for the founder church explicit
+before anyone at that church receives the hosted application.
+
+### Agent work
+
+- Follow the approved
+  [`Public site, trial, and subscription experience`](docs/superpowers/specs/2026-08-04-public-site-trial-subscription-design.md).
+- Refresh outdated landing-page screenshots and PDF examples with approved captures from the
+  finished Phase 10 application.
+- Add public How it works, Why Streetlight, and Pricing pages without placing pricing content in
+  the landing-page body.
+- Replace customer-facing `Request pilot access` language with `Request access` and describe the
+  90-day free trial; retain existing internal pilot-request names and records.
+- Add all three public-page links to the shared navigation only when the complete set is ready.
+- Frame How it works around keeping the paper workflow while giving it a better memory. Explain the
+  real Region Setup, Coverage, Generate, Print, Reconcile, and Outreach Progress workflow with
+  approved product screenshots and no new product claims.
+- Present Outreach Progress in How it works as **See the progress—and be encouraged.** Show recent
+  months or a full year on a television, screen, or printed report without claiming people reached,
+  volunteer performance, or spiritual outcomes.
+- Present one plan with **$149 per year** first and **$15 per month** second, a 90-day full-product
+  free trial, and no credit-card requirement.
+- Include the founder story and photograph, the email-support boundary, and the approved pricing
+  FAQs.
+- Add one Account destination to the authenticated administrator menu and persist the minimum
+  church access label needed to render it.
+- Add a narrow **Administrators** section to Church account using the current church's WorkOS
+  organization as the source of truth. List active administrators and pending invitations; allow
+  any administrator to invite another full administrator, revoke a pending invitation, or remove
+  another administrator. Do not allow self-removal.
+- Keep one full administrator role. Do not add view-only access, custom permissions, or a duplicate
+  local membership model.
+- Mark the founder church as **Founding church access** and show: `Streetlight is provided to your
+  church at no cost. No payment is required.`
+
+Do not add checkout, card collection, subscription webhooks, automatic trial dates, expiration
+enforcement, feature gates, usage limits, or a billing-provider dependency in this phase.
+
+### Automated checks
+
+- The landing-page body contains no pricing section and its product visuals match the finished
+  application.
+- Public copy uses `free trial` and `request access`, not the internal `pilot access` term.
+- How it works, Why Streetlight, and Pricing render publicly with shared navigation.
+- The Pricing page presents `$149 per year` before `$15 per month` and states `90-day free trial`
+  and `No credit card required`.
+- Public content makes no claims outside `PRODUCT.md` and has accessible headings and links.
+- Account access is derived server-side from the authenticated church.
+- Administrator listing and mutations derive the WorkOS organization server-side, never from a
+  browser-supplied organization identifier.
+- Invitations are idempotent within one church, pending invitations can be revoked, removing an
+  administrator removes only that church membership, and self-removal is rejected.
+- An administrator from one church cannot list, invite, revoke, or remove members of another.
+- The founder church sees the exact approved Founding church access wording.
+- An ordinary test church cannot see the founder church's Founding church access label.
+- Existing administrator workflow and isolation checks continue to pass.
+- No payment provider or operational access gate is introduced.
+
+### Browser check
+
+Navigate from the refreshed landing page through How it works, Why Streetlight, and Pricing at
+supported desktop and mobile widths. Sign in as the founder church and an ordinary test church,
+inspect each Account state, invite and remove a second administrator, and run the unchanged core
+workflow.
+
+### Human review
+
+The founder approves the landing-page visuals, public content, photograph, pricing explanation,
+support boundary, and the founder church's Account presentation. A founder-church administrator
+invites and removes a second administrator, then confirms that the interface makes both facts
+clear: their church pays nothing, and Streetlight is normally a paid product.
+
+### Completion condition
+
+The founder approves every public page, the administrator-management flow, and the founder church's
+access presentation. The founder-church administrator understands the access and pricing
+distinction without an explanatory conversation. The agent then stops before deployment work.
+
+## Phase 12: Deployment and recovery
 
 ### Goal
 
@@ -987,7 +1065,7 @@ The founder signs in to the deployed application, creates a test batch, download
 
 The production workflow and restore demonstration pass, and the founder approves the pilot URL.
 
-## Phase 12: Founder-church pilot
+## Phase 13: Founder-church pilot
 
 ### Goal
 
@@ -1001,7 +1079,8 @@ Use Streetlight for a real outreach batch and fix only problems that block the a
 - Record discrepancies in geographic data, tract counts, segment grouping, map clarity, paper layout, and reconciliation.
 - Fix workflow-blocking defects with regression checks.
 - Record real hosting and provider costs.
-- Revisit provisional pricing only after the pilot evidence is available.
+- Review the published reference price against pilot evidence; change it only through an explicit
+  founder decision.
 
 ### Automated checks
 
@@ -1015,7 +1094,7 @@ The founder runs the complete workflow without editing data manually or asking a
 
 ### Completion condition
 
-The founder completes a real outreach batch from territory review through reconciliation and approves Streetlight for another church pilot.
+The founder completes a real outreach batch from region review through reconciliation and approves Streetlight for another church pilot.
 
 ## Standard agent handoff
 

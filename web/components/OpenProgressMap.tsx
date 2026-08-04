@@ -158,7 +158,7 @@ export function OpenProgressMap({
         <i className="progress-complete" /> Reached this period
       </span>
       <span>
-        <i className="progress-context" /> Territory context
+        <i className="progress-context" /> Region context
       </span>
     </fieldset>
   );

@@ -43,8 +43,8 @@ const importStageLabels: Record<TerritoryImportStage, string> = {
   downloading_streets: 'Downloading streets and addresses',
   downloading_buildings: 'Downloading building footprints',
   matching: 'Matching homes to streets',
-  preparing: 'Preparing territory data',
-  saving: 'Saving territory',
+  preparing: 'Preparing region data',
+  saving: 'Saving region',
 };
 
 function readTerritoryImportJob(value: unknown): TerritoryImportJob | null {
@@ -131,7 +131,7 @@ export function TerritoryEditor({
   const [importJob, setImportJob] = useState<TerritoryImportJob | null>(null);
   const [saveFailure, setSaveFailure] = useState<TerritorySaveFailure | null>(null);
   const [backgroundImportComplete, setBackgroundImportComplete] = useState(false);
-  const [notice, setNotice] = useState('Saved territory loaded.');
+  const [notice, setNotice] = useState('Saved region loaded.');
   const addressInputRef = useRef<HTMLInputElement>(null);
   const placeSearchRef = useRef<HTMLDivElement>(null);
 
@@ -212,9 +212,9 @@ export function TerritoryEditor({
       setBackgroundImportComplete(imported);
       try {
         await onSaved(result, imported);
-        setNotice(imported ? 'Street data refreshed.' : 'Territory changes saved.');
+        setNotice(imported ? 'Street data refreshed.' : 'Region changes saved.');
       } catch {
-        setNotice('Territory saved, but coverage could not refresh. Reload the page to retry.');
+        setNotice('Region saved, but coverage could not refresh. Reload the page to retry.');
       }
     },
     [onSaved],
@@ -383,7 +383,7 @@ export function TerritoryEditor({
         const job = readTerritoryImportJob(
           body && typeof body === 'object' && 'job' in body ? body.job : null,
         );
-        if (!job) throw new Error('Invalid territory import response');
+        if (!job) throw new Error('Invalid region import response');
         setImportJob(job);
         setDraft(job.draft);
         setRadiusInput(String(job.draft.radiusMiles));
@@ -403,7 +403,7 @@ export function TerritoryEditor({
             ? body.error
             : willImport
               ? 'Streetlight could not confirm whether street data preparation started. Reload to verify before trying again.'
-              : 'Streetlight could not confirm whether the territory changes were saved. Reload to verify before trying again.';
+              : 'Streetlight could not confirm whether the region changes were saved. Reload to verify before trying again.';
         const recovery = response.status < 500 ? 'retry' : 'reload';
         setSaveFailure({ message, recovery, willImport });
         setNotice(message);
@@ -412,14 +412,14 @@ export function TerritoryEditor({
         return;
       }
       if (!isTerritoryWorkspacePayload(body)) {
-        throw new Error('Invalid saved territory response');
+        throw new Error('Invalid saved region response');
       }
       await acceptSavedWorkspace(body, false);
       if (leaveAfterSave && !leaveWhileImportRuns) onSaveAndLeave();
     } catch {
       const message = willImport
         ? 'Streetlight could not confirm whether street data preparation started. Reload to verify before trying again.'
-        : 'Streetlight could not confirm whether the territory changes were saved. Reload to verify before trying again.';
+        : 'Streetlight could not confirm whether the region changes were saved. Reload to verify before trying again.';
       setSaveFailure({ message, recovery: 'reload', willImport });
       setNotice(message);
       setSaving(false);
@@ -437,7 +437,7 @@ export function TerritoryEditor({
         const response = await fetch('/api/territory/import');
         const body: unknown = await response.json();
         if (!response.ok || !body || typeof body !== 'object') {
-          throw new Error('Could not load territory import');
+          throw new Error('Could not load region import');
         }
         const job = readTerritoryImportJob('job' in body ? body.job : null);
         if (cancelled) return;
@@ -466,7 +466,7 @@ export function TerritoryEditor({
         if (job.status === 'succeeded') {
           const workspace = 'workspace' in body ? body.workspace : null;
           if (!isTerritoryWorkspacePayload(workspace)) {
-            throw new Error('Saved territory is unavailable');
+            throw new Error('Saved region is unavailable');
           }
           await acceptSavedWorkspace(workspace, true);
           return;
@@ -475,8 +475,8 @@ export function TerritoryEditor({
         const message =
           job.error ??
           (job.status === 'interrupted'
-            ? 'Street data preparation was interrupted. Your previous saved territory is still active.'
-            : 'Street data preparation failed. Your previous saved territory is still active.');
+            ? 'Street data preparation was interrupted. Your previous saved region is still active.'
+            : 'Street data preparation failed. Your previous saved region is still active.');
         setDraft(job.draft);
         setAddressQuery(job.draft.originAddress);
         setRadiusInput(String(job.draft.radiusMiles));
@@ -513,7 +513,7 @@ export function TerritoryEditor({
               </button>
             ) : !active && !setupRequired ? (
               <button onClick={onReturnToSetup} type="button">
-                Return to Territory Setup
+                Return to Region Setup
               </button>
             ) : undefined
           ) : backgroundImportComplete ? (
@@ -529,28 +529,28 @@ export function TerritoryEditor({
               : saveFailure.willImport
                 ? setupRequired
                   ? `${saveFailure.message} Your setup choices are still here.`
-                  : `${saveFailure.message} Your previous saved territory is still active.`
+                  : `${saveFailure.message} Your previous saved region is still active.`
                 : `${saveFailure.message} Your draft is still here.`
             : backgroundImportComplete
-              ? 'The street import finished and the territory was saved. Reload if map totals have not refreshed.'
+              ? 'The street import finished and the region was saved. Reload if map totals have not refreshed.'
               : importing
                 ? setupRequired
                   ? 'This usually takes around two minutes. You can safely refresh this page.'
-                  : 'This usually takes around two minutes. Your saved territory remains active, and you can keep working.'
+                  : 'This usually takes around two minutes. Your saved region remains active, and you can keep working.'
                 : 'Your draft stays here until Streetlight confirms the save.'
         }
         headline={
           saveFailure
             ? saveFailure.recovery === 'reload'
-              ? 'Could not confirm territory save'
+              ? 'Could not confirm region save'
               : saveFailure.willImport
                 ? 'Street import did not finish'
-                : 'Territory changes were not saved'
+                : 'Region changes were not saved'
             : backgroundImportComplete
               ? 'Street data refreshed'
               : importing
                 ? importStageLabels[importJob?.stage ?? 'queued']
-                : 'Saving territory changes'
+                : 'Saving region changes'
         }
         placement={operationPlacement}
         tone={saveFailure ? 'error' : backgroundImportComplete ? 'success' : 'busy'}
@@ -737,7 +737,7 @@ export function TerritoryEditor({
                 </label>
               </div>
               <input
-                aria-label="Territory boundary distance"
+                aria-label="Region boundary distance"
                 max="5"
                 min="1"
                 onChange={(event) => {
@@ -780,7 +780,7 @@ export function TerritoryEditor({
           </section>
 
           <section className="territory-review-intro">
-            <h2>Review territory data</h2>
+            <h2>Review region data</h2>
             <p>
               Correct apartment status, road eligibility, and excluded areas when the imported map
               needs adjustment.
@@ -1044,7 +1044,7 @@ export function TerritoryEditor({
           {operationPlacement === 'surface' && saveStatus}
           {pendingLeave ? (
             <div className="territory-leave-prompt" role="alert">
-              <strong>Save territory changes before leaving?</strong>
+              <strong>Save region changes before leaving?</strong>
               <p>Your draft will stay here until you choose what to do.</p>
               <div>
                 <button

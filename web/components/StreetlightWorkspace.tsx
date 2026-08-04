@@ -150,11 +150,11 @@ export function StreetlightWorkspace({
       const response = await fetch('/api/territory');
       const result = (await response.json()) as TerritoryWorkspace | { error: string };
       if (!response.ok || 'error' in result) {
-        throw new Error('error' in result ? result.error : 'Could not load territory');
+        throw new Error('error' in result ? result.error : 'Could not load region');
       }
       setTerritory(result);
     } catch (error) {
-      setTerritoryError(error instanceof Error ? error.message : 'Could not load territory');
+      setTerritoryError(error instanceof Error ? error.message : 'Could not load region');
     } finally {
       setTerritoryLoading(false);
     }
@@ -529,7 +529,7 @@ export function StreetlightWorkspace({
                 role={territoryError ? 'alert' : undefined}
               >
                 {territoryError ||
-                  (territoryLoading ? 'Loading saved territory…' : 'Saved territory unavailable.')}
+                  (territoryLoading ? 'Loading saved region…' : 'Saved region unavailable.')}
               </p>
               {territoryError && (
                 <button

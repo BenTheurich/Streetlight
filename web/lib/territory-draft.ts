@@ -65,7 +65,7 @@ function parseUniqueSegmentIds(value: unknown, label: string): string[] {
 
 export function parseTerritoryDraft(value: unknown): TerritoryDraftInput {
   if (!isRecord(value)) {
-    throw new Error('Invalid territory draft');
+    throw new Error('Invalid region draft');
   }
   if (
     typeof value.radiusMiles !== 'number' ||

@@ -142,7 +142,7 @@ export function ChurchOnboarding({
           </label>
           {error && <p className="field-error">{error}</p>}
           <button type="submit" disabled={busy}>
-            {busy ? 'Finding your church…' : 'Continue to territory setup'}
+            {busy ? 'Finding your church…' : 'Continue to Region Setup'}
           </button>
         </form>
       </section>

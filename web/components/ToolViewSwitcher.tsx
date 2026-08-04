@@ -6,7 +6,7 @@ export const packetToolViews = [
 ];
 
 export const setupToolViews = [
-  { value: 'territory', label: 'Territory' },
+  { value: 'territory', label: 'Region' },
   { value: 'printouts', label: 'Printouts' },
 ];
 

@@ -127,7 +127,7 @@ test('territory selection and long imports stay in the approved workflow', () =>
 
   assert.doesNotMatch(source, />\s*Pan\s*</);
   assert.match(source, /placement={operationPlacement}/);
-  assert.match(source, /Your saved territory remains active/);
+  assert.match(source, /Your saved region remains active/);
   assert.match(source, /!backgroundImportComplete/);
   assert.doesNotMatch(source, /territory-import-banner/);
 });
