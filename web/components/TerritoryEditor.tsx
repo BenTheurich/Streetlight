@@ -1302,31 +1302,6 @@ export function TerritoryEditor({
                     )}
                   </>
                 )}
-                {apartmentSaveFailure && (
-                  <OperationStatus
-                    action={
-                      apartmentSaveFailure.recovery === 'reload' ? (
-                        <button onClick={() => window.location.reload()} type="button">
-                          Reload to verify
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => void retryApartmentMutation(apartmentSaveFailure)}
-                          type="button"
-                        >
-                          Try again
-                        </button>
-                      )
-                    }
-                    detail={apartmentSaveFailure.message}
-                    headline={
-                      apartmentSaveFailure.recovery === 'reload'
-                        ? 'Could not confirm apartment save'
-                        : 'Apartment changes were not saved'
-                    }
-                    tone="error"
-                  />
-                )}
               </div>
             </details>
 
@@ -1603,6 +1578,31 @@ export function TerritoryEditor({
         </div>
 
         <div className="sidebar-actions">
+          {apartmentSaveFailure && (
+            <OperationStatus
+              action={
+                apartmentSaveFailure.recovery === 'reload' ? (
+                  <button onClick={() => window.location.reload()} type="button">
+                    Reload to verify
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => void retryApartmentMutation(apartmentSaveFailure)}
+                    type="button"
+                  >
+                    Try again
+                  </button>
+                )
+              }
+              detail={apartmentSaveFailure.message}
+              headline={
+                apartmentSaveFailure.recovery === 'reload'
+                  ? 'Could not confirm apartment save'
+                  : 'Apartment changes were not saved'
+              }
+              tone="error"
+            />
+          )}
           {operationPlacement === 'surface' && saveStatus}
           {pendingLeave ? (
             <div className="territory-leave-prompt" role="alert">

@@ -480,6 +480,24 @@ test('region footer waits for apartment mutations while preserving its draft gat
   );
 });
 
+test('apartment recovery stays reachable outside the inert region editor', () => {
+  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+  const scrollStart = territory.indexOf('<div className="sidebar-scroll" inert=');
+  const actionsStart = territory.indexOf('<div className="sidebar-actions">');
+  const recoveryStart = territory.indexOf('{apartmentSaveFailure && (');
+  const regionStatusStart = territory.indexOf("{operationPlacement === 'surface' && saveStatus}");
+
+  assert.ok(scrollStart >= 0 && scrollStart < actionsStart);
+  assert.ok(recoveryStart > actionsStart && recoveryStart < regionStatusStart);
+  assert.equal(territory.match(/\{apartmentSaveFailure && \(/g)?.length, 1);
+  assert.doesNotMatch(territory.slice(scrollStart, actionsStart), /apartmentSaveFailure &&/);
+  const recovery = territory.slice(recoveryStart, regionStatusStart);
+  assert.match(recovery, /window\.location\.reload\(\)/);
+  assert.match(recovery, /Reload to verify/);
+  assert.match(recovery, /retryApartmentMutation\(apartmentSaveFailure\)/);
+  assert.match(recovery, /Try again/);
+});
+
 test('workflow surfaces use one atomic operation status without duplicate live copy', () => {
   const packets = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
   const reconciliation = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
