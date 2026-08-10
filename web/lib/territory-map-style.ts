@@ -102,8 +102,6 @@ type ApartmentReviewInput = {
   name: string | null;
   address: string | null;
   position: Position;
-  groupingConfirmed: boolean;
-  packetReady: boolean;
   includedInPackets: boolean;
   members: Array<{ apartmentBuilding: boolean }>;
 };
@@ -153,18 +151,12 @@ export function apartmentOptionLabel(
   apartment: {
     name: string | null;
     address: string | null;
-    groupingConfirmed: boolean;
-    packetReady: boolean;
     includedInPackets: boolean;
     members: Array<{ apartmentBuilding: boolean }>;
   },
   nearbyStreet?: string | null,
 ): string {
-  const status = apartment.includedInPackets
-    ? 'Included'
-    : apartment.packetReady
-      ? 'Packet ready'
-      : 'Needs setup';
+  const status = apartment.includedInPackets ? 'Included' : 'Not included';
   const location =
     apartment.name ??
     apartment.address ??

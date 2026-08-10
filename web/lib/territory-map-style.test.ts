@@ -22,8 +22,6 @@ test('apartment options use packet inclusion and disambiguate anonymous complexe
           address: string | null;
           position: [number, number];
           name: string | null;
-          groupingConfirmed: boolean;
-          packetReady: boolean;
           includedInPackets: boolean;
           members: Array<{ apartmentBuilding: boolean }>;
         }>,
@@ -78,8 +76,6 @@ test('apartment options use packet inclusion and disambiguate anonymous complexe
       name: 'Oak Apartments',
       address: '12 Oak Road',
       position: [2, 0.5] as [number, number],
-      groupingConfirmed: true,
-      packetReady: true,
       includedInPackets: true,
       members: [{ apartmentBuilding: true }],
     },
@@ -88,8 +84,6 @@ test('apartment options use packet inclusion and disambiguate anonymous complexe
       name: null,
       address: null,
       position: [0.0002, 0.6] as [number, number],
-      groupingConfirmed: false,
-      packetReady: false,
       includedInPackets: false,
       members: [{ apartmentBuilding: true }],
     },
@@ -98,8 +92,6 @@ test('apartment options use packet inclusion and disambiguate anonymous complexe
       name: null,
       address: null,
       position: [0.0001, 0.4] as [number, number],
-      groupingConfirmed: false,
-      packetReady: false,
       includedInPackets: false,
       members: [{ apartmentBuilding: true }],
     },
@@ -116,11 +108,11 @@ test('apartment options use packet inclusion and disambiguate anonymous complexe
   assert.equal(options[1]?.disambiguator, 'Building 2');
   assert.equal(
     options[0]?.label,
-    'Address unavailable near Main Street · Needs setup · Building 1',
+    'Address unavailable near Main Street · Not included · Building 1',
   );
   assert.equal(
     options[1]?.label,
-    'Address unavailable near Main Street · Needs setup · Building 2',
+    'Address unavailable near Main Street · Not included · Building 2',
   );
   assert.deepEqual(
     reviewOptions?.(apartments, segments, 'oak').map(({ apartment }) => apartment.id),
@@ -256,8 +248,6 @@ test('apartment interaction keeps selection origin, camera threshold, and drawin
     | ((apartment: {
         name: string | null;
         address: string | null;
-        groupingConfirmed: boolean;
-        packetReady: boolean;
         includedInPackets: boolean;
         members: Array<{ apartmentBuilding: boolean }>;
       }) => string)
@@ -285,19 +275,15 @@ test('apartment interaction keeps selection origin, camera threshold, and drawin
     optionLabel?.({
       address: null,
       name: null,
-      groupingConfirmed: false,
-      packetReady: false,
       includedInPackets: false,
       members: [{ apartmentBuilding: true }],
     }),
-    'Address unavailable · Needs setup',
+    'Address unavailable · Not included',
   );
   assert.equal(
     optionLabel?.({
       address: '1 Main Street',
       name: null,
-      groupingConfirmed: true,
-      packetReady: true,
       includedInPackets: true,
       members: [{ apartmentBuilding: true }],
     }),

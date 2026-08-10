@@ -1081,11 +1081,10 @@ export function TerritoryEditor({
                 <span className="review-disclosure-summary-copy">
                   <strong className="review-disclosure-title">Apartments</strong>
                   <small className="review-disclosure-meta">
-                    {apartmentSummary.confirmedComplexes}{' '}
-                    {apartmentSummary.confirmedComplexes === 1 ? 'complex' : 'complexes'}
+                    {apartmentSummary.siteCount}{' '}
+                    {apartmentSummary.siteCount === 1 ? 'site' : 'sites'}
                     <span aria-hidden="true"> &middot; </span>
-                    {apartmentSummary.ungroupedBuildings} ungrouped{' '}
-                    {apartmentSummary.ungroupedBuildings === 1 ? 'building' : 'buildings'}
+                    {apartmentSummary.includedCount} included
                   </small>
                 </span>
                 <svg aria-hidden="true" viewBox="0 0 24 24">

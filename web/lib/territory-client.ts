@@ -3,15 +3,10 @@ import type { TerritoryDraftInput } from './territory-draft.ts';
 import { lineInsideTerritoryBoundary, type Position } from './territory-geometry.ts';
 
 export function apartmentSiteReady(
-  site: Pick<
-    ApartmentSite,
-    'groupingConfirmed' | 'address' | 'addressConfirmed' | 'tractCount' | 'accessStatus'
-  >,
+  site: Pick<ApartmentSite, 'address' | 'tractCount' | 'accessStatus'>,
 ): boolean {
   return Boolean(
-    site.groupingConfirmed &&
-      site.addressConfirmed &&
-      site.address?.trim() &&
+    site.address?.trim() &&
       site.tractCount !== null &&
       site.tractCount >= 1 &&
       site.accessStatus !== 'unknown',
@@ -92,18 +87,12 @@ export function territoryDraftFromWorkspace(workspace: TerritoryWorkspace): Terr
 }
 
 export function apartmentSiteSummary(sites: ApartmentSite[]): {
-  confirmedComplexes: number;
-  ungroupedBuildings: number;
+  siteCount: number;
+  includedCount: number;
 } {
   return {
-    confirmedComplexes: sites.filter(({ groupingConfirmed }) => groupingConfirmed).length,
-    ungroupedBuildings: sites
-      .filter(({ groupingConfirmed }) => !groupingConfirmed)
-      .reduce(
-        (total, { members }) =>
-          total + members.filter(({ apartmentBuilding }) => apartmentBuilding).length,
-        0,
-      ),
+    siteCount: sites.length,
+    includedCount: sites.filter(({ includedInPackets }) => includedInPackets).length,
   };
 }
 

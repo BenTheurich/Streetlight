@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { TerritorySegment, TerritoryWorkspace } from './database.ts';
 import {
   activateSegments,
+  apartmentSiteReady,
   apartmentSiteSummary,
   deriveTerritory,
   refreshTerritoryViews,
@@ -115,11 +116,32 @@ const workspace: TerritoryWorkspace = {
   totals: { allSegments: 0, eligibleSegments: 0, allHomes: 0, eligibleHomes: 0 },
 };
 
-test('apartment summaries distinguish confirmed sites from ungrouped evidence', () => {
+test('apartment inclusion needs address, tract quantity, and access', () => {
+  const complete = {
+    address: '10 Main Street',
+    tractCount: 24,
+    accessStatus: 'open' as const,
+  };
+  assert.equal(apartmentSiteReady(complete), true);
+  assert.equal(apartmentSiteReady({ ...complete, address: null }), false);
+  assert.equal(apartmentSiteReady({ ...complete, tractCount: null }), false);
+  assert.equal(apartmentSiteReady({ ...complete, accessStatus: 'unknown' }), false);
+});
+
+test('apartment summary reports sites and inclusion only', () => {
   assert.deepEqual(apartmentSiteSummary(workspace.apartmentSites), {
-    confirmedComplexes: 0,
-    ungroupedBuildings: 1,
+    siteCount: 1,
+    includedCount: 0,
   });
+  assert.deepEqual(
+    apartmentSiteSummary([
+      { ...workspace.apartmentSites[0], includedInPackets: true },
+    ]),
+    { siteCount: 1, includedCount: 1 },
+  );
+});
+
+test('apartment configuration updates the matching site and alias', () => {
   const configured = withApartmentSiteConfiguration(workspace, {
     ...workspace.apartmentSites[0],
     groupingConfirmed: true,
