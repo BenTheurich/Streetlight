@@ -423,7 +423,7 @@ test('components without a numbered address are skipped with stable warnings', (
   ]);
 });
 
-test('apartments consume requested slots by age and keep out-of-range estimates atomic', () => {
+test('configured apartments consume one requested slot and stay atomic outside the target range', () => {
   const result = generatePacketProposals({
     center: [0, 0],
     requests: [{ quantity: 2, targetHomes: 10 }],
@@ -437,7 +437,8 @@ test('apartments consume requested slots by age and keep out-of-range estimates 
         id: 'old-apartment',
         address: '10 Apartment Way, Temecula CA 92591',
         position: [0.01, 0],
-        estimatedTracts: 24,
+        tractCount: 24,
+        accessStatus: 'restricted',
         eligible: true,
         reserved: false,
         coverageClass: 'red',
@@ -447,7 +448,8 @@ test('apartments consume requested slots by age and keep out-of-range estimates 
         id: 'recent-apartment',
         address: '20 Apartment Way, Temecula CA 92591',
         position: [0.02, 0],
-        estimatedTracts: 12,
+        tractCount: 12,
+        accessStatus: 'open',
         eligible: true,
         reserved: false,
         coverageClass: 'green',
@@ -460,12 +462,13 @@ test('apartments consume requested slots by age and keep out-of-range estimates 
   assert.equal(result.proposals[0].apartmentId, 'old-apartment');
   assert.equal(result.proposals[0].targetHomes, 10);
   assert.equal(result.proposals[0].estimatedHomes, 24);
+  assert.equal(result.proposals[0].accessStatus, 'restricted');
   assert.equal(result.proposals[1].segments[0].id, 'older-street');
   assert.equal(
     result.proposals.some(({ apartmentId }) => apartmentId === 'recent-apartment'),
     false,
   );
-  assert.ok(result.warnings.some((warning) => warning.includes('24 estimated tracts')));
+  assert.ok(result.warnings.some((warning) => warning.includes('24 confirmed tracts')));
 });
 
 test('saved Temecula geometry produces connected deterministic mixed-size proposals', () => {

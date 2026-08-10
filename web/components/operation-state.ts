@@ -33,6 +33,14 @@ function isLineString(value: unknown): boolean {
   );
 }
 
+function isAreaGeometry(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    (value.type === 'Polygon' || value.type === 'MultiPolygon') &&
+    Array.isArray(value.coordinates)
+  );
+}
+
 function isPacketSegment(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -166,13 +174,37 @@ function isTerritoryImport(value: unknown): boolean {
   );
 }
 
-function isApartmentComplex(value: unknown): boolean {
+function isApartmentEvidence(value: unknown): boolean {
   return (
     isRecord(value) &&
     typeof value.id === 'string' &&
     typeof value.sourceId === 'string' &&
     isNullableString(value.address) &&
     isPosition(value.position) &&
+    (value.geometry === null || isAreaGeometry(value.geometry)) &&
+    typeof value.apartmentBuilding === 'boolean' &&
+    isNumber(value.distinctUnits)
+  );
+}
+
+function isApartmentSite(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.sourceId === 'string' &&
+    isNullableString(value.name) &&
+    isNullableString(value.address) &&
+    isPosition(value.position) &&
+    (value.boundary === null || isAreaGeometry(value.boundary)) &&
+    ['source_boundary', 'ungrouped', 'admin_group'].includes(String(value.groupingKind)) &&
+    typeof value.groupingConfirmed === 'boolean' &&
+    typeof value.addressConfirmed === 'boolean' &&
+    (value.tractCount === null || isNumber(value.tractCount)) &&
+    ['unknown', 'open', 'restricted'].includes(String(value.accessStatus)) &&
+    typeof value.includedInPackets === 'boolean' &&
+    typeof value.packetReady === 'boolean' &&
+    Array.isArray(value.members) &&
+    value.members.every(isApartmentEvidence) &&
     isNumber(value.estimatedTracts) &&
     isRecord(value.evidence) &&
     typeof value.evidence.apartmentBuilding === 'boolean' &&
@@ -213,8 +245,10 @@ export function isTerritoryWorkspacePayload(value: unknown): value is TerritoryW
     isNumber(value.radiusMiles) &&
     (value.boundaryShape === 'circle' || value.boundaryShape === 'square') &&
     isTerritoryImport(value.import) &&
+    Array.isArray(value.apartmentSites) &&
+    value.apartmentSites.every(isApartmentSite) &&
     Array.isArray(value.apartmentComplexes) &&
-    value.apartmentComplexes.every(isApartmentComplex) &&
+    value.apartmentComplexes.every(isApartmentSite) &&
     Array.isArray(value.segments) &&
     value.segments.every(isTerritorySegment) &&
     isRecord(value.totals) &&

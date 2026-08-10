@@ -125,10 +125,20 @@ function prepareBatch(filename: string): PreparedBatch {
         `INSERT INTO apartment_complexes
           (id, church_id, territory_id, import_complex_id, source_id, address, longitude,
             latitude, estimated_tracts, apartment_building, distinct_units, review_status,
-            import_generation)
+            import_generation, grouping_kind, grouping_confirmed, address_confirmed,
+            confirmed_tracts, access_status, included_in_packets, members_json)
         VALUES ('apartment-physical', 'church-temecula-pilot', 'territory-temecula-pilot',
           'apartment-logical', 'apartment-source', '40 Apartment Way', -117.14, 33.57,
-          24, 1, 24, 'ready', 0)`,
+          24, 1, 24, 'ready', 0, 'admin_group', 1, 1, 24, 'open', 1,
+          json_array(json_object(
+            'id', 'apartment-logical',
+            'sourceId', 'apartment-source',
+            'address', '40 Apartment Way',
+            'position', json_array(-117.14, 33.57),
+            'geometry', NULL,
+            'apartmentBuilding', json('true'),
+            'distinctUnits', 24
+          )))`,
       )
       .run();
     database

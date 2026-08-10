@@ -78,3 +78,15 @@ export function positionBounds(positions: Position[]): [[number, number], [numbe
     [Math.max(...longitudes), Math.max(...latitudes)],
   ];
 }
+
+export function segmentSelectionBounds(
+  segments: Array<{ id: string; geometry: { coordinates: Position[] } }>,
+  ids: string[],
+): [[number, number], [number, number]] | null {
+  const selectedIds = new Set(ids);
+  return positionBounds(
+    segments
+      .filter(({ id }) => selectedIds.has(id))
+      .flatMap(({ geometry }) => geometry.coordinates),
+  );
+}

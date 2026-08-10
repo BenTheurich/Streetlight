@@ -63,6 +63,37 @@ const reconciliationWorkspace = {
     },
   ],
 };
+const apartmentSite = {
+  id: 'apartment-1',
+  sourceId: 'source-apartment-1',
+  name: null,
+  address: '200 Main St',
+  position: [-117.09, 33.51],
+  boundary: null,
+  groupingKind: 'admin_group',
+  groupingConfirmed: true,
+  addressConfirmed: true,
+  tractCount: 24,
+  accessStatus: 'open',
+  includedInPackets: true,
+  packetReady: true,
+  members: [
+    {
+      id: 'building-1',
+      sourceId: 'source-building-1',
+      address: '200 Main St',
+      position: [-117.09, 33.51],
+      geometry: null,
+      apartmentBuilding: true,
+      distinctUnits: 24,
+    },
+  ],
+  estimatedTracts: 24,
+  evidence: { apartmentBuilding: true, distinctUnits: 24 },
+  reviewStatus: 'ready',
+  withinBoundary: true,
+};
+
 const territoryWorkspace = {
   id: 'territory-1',
   churchName: 'Grace Church',
@@ -80,18 +111,8 @@ const territoryWorkspace = {
     normalizerVersion: null,
     quality: null,
   },
-  apartmentComplexes: [
-    {
-      id: 'apartment-1',
-      sourceId: 'source-apartment-1',
-      address: '200 Main St',
-      position: [-117.09, 33.51],
-      estimatedTracts: 24,
-      evidence: { apartmentBuilding: true, distinctUnits: 24 },
-      reviewStatus: 'ready',
-      withinBoundary: true,
-    },
-  ],
+  apartmentSites: [apartmentSite],
+  apartmentComplexes: [apartmentSite],
   segments: [
     {
       id: 'segment-1',

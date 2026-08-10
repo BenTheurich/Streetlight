@@ -40,6 +40,7 @@ import {
   type ReconciliationWorkspace,
 } from './reconciliation.ts';
 import { type ChurchPrintoutSettings, parseChurchPrintoutSettings } from './settings.ts';
+import { apartmentSiteReady } from './territory-client.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import {
   type LineString,
@@ -114,8 +115,10 @@ type SegmentRow = {
 };
 
 type ApartmentRow = {
+  id?: string;
   import_complex_id: string;
   source_id: string;
+  site_name: string | null;
   address: string | null;
   longitude: number;
   latitude: number;
@@ -123,6 +126,15 @@ type ApartmentRow = {
   apartment_building: number;
   distinct_units: number;
   review_status: 'needs_review' | 'ready' | 'deferred';
+  boundary_geojson: string | null;
+  grouping_kind: 'source_boundary' | 'ungrouped' | 'admin_group';
+  grouping_confirmed: number;
+  address_confirmed: number;
+  confirmed_tracts: number | null;
+  access_status: 'unknown' | 'open' | 'restricted';
+  included_in_packets: number;
+  members_json: string;
+  import_generation?: number;
 };
 
 export type FoundationSummary = {
@@ -149,15 +161,68 @@ export type TerritorySegment = {
   excludedReason: 'hidden' | 'boundary' | 'segment' | null;
 };
 
-export type ApartmentComplex = {
+export type ApartmentEvidence = {
   id: string;
   sourceId: string;
   address: string | null;
   position: Position;
+  geometry: ImportedMapBuilding['geometry'] | null;
+  apartmentBuilding: boolean;
+  distinctUnits: number;
+};
+
+export type ApartmentSite = {
+  id: string;
+  sourceId: string;
+  name: string | null;
+  address: string | null;
+  position: Position;
+  boundary: ImportedMapBuilding['geometry'] | null;
+  groupingKind: 'source_boundary' | 'ungrouped' | 'admin_group';
+  groupingConfirmed: boolean;
+  addressConfirmed: boolean;
+  tractCount: number | null;
+  accessStatus: 'unknown' | 'open' | 'restricted';
+  includedInPackets: boolean;
+  packetReady: boolean;
+  members: ApartmentEvidence[];
+  /** @deprecated Compatibility fields removed with the Setup UI conversion. */
   estimatedTracts: number;
   evidence: { apartmentBuilding: boolean; distinctUnits: number };
+  /** @deprecated Compatibility fields removed with the Setup UI conversion. */
   reviewStatus: 'needs_review' | 'ready' | 'deferred';
   withinBoundary: boolean;
+};
+
+export type ApartmentComplex = ApartmentSite;
+
+function apartmentMembers(value: string): ApartmentEvidence[] {
+  return JSON.parse(value) as ApartmentEvidence[];
+}
+
+export class ApartmentSiteError extends Error {
+  readonly code: 'not_found' | 'invalid' | 'not_ready' | 'member_conflict';
+
+  constructor(code: 'not_found' | 'invalid' | 'not_ready' | 'member_conflict', message: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
+export type ApartmentSiteConfigurationInput = {
+  id: string;
+  name: string | null;
+  address: string | null;
+  addressConfirmed: boolean;
+  tractCount: number | null;
+  accessStatus: 'unknown' | 'open' | 'restricted';
+  groupingConfirmed: boolean;
+  includedInPackets: boolean;
+};
+
+export type ApartmentSiteMembershipInput = {
+  id: string | null;
+  memberIds: string[];
 };
 
 export type TerritoryWorkspace = {
@@ -169,6 +234,8 @@ export type TerritoryWorkspace = {
   radiusMiles: number;
   boundaryShape: 'circle' | 'square';
   import: TerritoryImportMetadata;
+  apartmentSites: ApartmentSite[];
+  /** @deprecated Compatibility alias removed with the Setup UI conversion. */
   apartmentComplexes: ApartmentComplex[];
   segments: TerritorySegment[];
   totals: {
@@ -830,14 +897,20 @@ export function getPacketGenerationWorkspace(
     const apartmentComplexes = coverage.apartmentComplexes
       .filter(
         (apartment) =>
-          apartment.withinBoundary && apartment.reviewStatus === 'ready' && apartment.address,
+          apartment.withinBoundary &&
+          apartment.packetReady &&
+          apartment.includedInPackets &&
+          apartment.address &&
+          apartment.tractCount !== null &&
+          apartment.accessStatus !== 'unknown',
       )
       .map(
         (apartment): ApartmentPacketCandidate => ({
           id: apartment.id,
           address: apartment.address as string,
           position: apartment.position,
-          estimatedTracts: apartment.estimatedTracts,
+          tractCount: apartment.tractCount as number,
+          accessStatus: apartment.accessStatus as 'open' | 'restricted',
           eligible: true,
           reserved: reservedApartments.has(apartment.id),
           coverageClass: apartment.coverageClass,
@@ -944,8 +1017,8 @@ export function finalizePacketBatch(
     const insertPacket = database.prepare(
       `INSERT INTO packets
         (id, church_id, batch_id, packet_code, start_address, estimated_homes, status,
-          sequence_number, start_longitude, start_latitude, packet_kind)
-      VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)`,
+          sequence_number, start_longitude, start_latitude, packet_kind, apartment_access_status)
+      VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
     );
     const segmentRow = database.prepare(
       `SELECT id FROM street_segments
@@ -978,6 +1051,7 @@ export function finalizePacketBatch(
         proposal.start.position[0],
         proposal.start.position[1],
         proposal.kind ?? 'street',
+        proposal.accessStatus ?? null,
       );
       proposal.segments.forEach((segment, segmentSequence) => {
         const row = segmentRow.get(workspaceChurchId(), workspaceTerritoryId(), segment.id) as
@@ -1037,6 +1111,7 @@ export function getPacketDownloadSelection(
       .prepare(
         `SELECT p.id, p.packet_code, p.batch_id, b.name AS batch_name, p.estimated_homes,
           p.start_address, p.start_longitude, p.start_latitude, p.packet_kind,
+          p.apartment_access_status,
           b.import_generation,
           a.import_complex_id
         FROM packets p
@@ -1057,6 +1132,7 @@ export function getPacketDownloadSelection(
       start_longitude: number | null;
       start_latitude: number | null;
       packet_kind: 'street' | 'apartment';
+      apartment_access_status: 'open' | 'restricted' | null;
       import_generation: number;
       import_complex_id: string | null;
     }>;
@@ -1075,6 +1151,7 @@ export function getPacketDownloadSelection(
       return {
         kind: row.packet_kind,
         apartmentId: row.import_complex_id,
+        accessStatus: row.apartment_access_status,
         id: row.id,
         code: row.packet_code,
         batchId: row.batch_id,
@@ -1937,36 +2014,64 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
               : null,
       };
     });
-    const apartmentComplexes = (
-      database
-        .prepare(
-          `SELECT import_complex_id, source_id, address, longitude, latitude, estimated_tracts,
-            apartment_building, distinct_units, review_status
-          FROM apartment_complexes
-          WHERE territory_id = ? AND church_id = ? AND is_current = 1
-          ORDER BY address, import_complex_id`,
-        )
-        .all(workspaceTerritoryId(), workspaceChurchId()) as ApartmentRow[]
-    ).map(
-      (row): ApartmentComplex => ({
-        id: row.import_complex_id,
-        sourceId: row.source_id,
-        address: row.address,
-        position: [row.longitude, row.latitude],
-        estimatedTracts: row.estimated_tracts,
-        evidence: {
-          apartmentBuilding: row.apartment_building === 1,
-          distinctUnits: row.distinct_units,
-        },
-        reviewStatus: row.review_status,
-        withinBoundary: pointInsideTerritoryBoundary(
-          [row.longitude, row.latitude],
-          center,
-          radiusMiles,
-          boundaryShape,
-        ),
-      }),
+    const apartmentRows = database
+      .prepare(
+        `SELECT import_complex_id, source_id, site_name, address, longitude, latitude,
+          estimated_tracts, apartment_building, distinct_units, review_status,
+          boundary_geojson, grouping_kind, grouping_confirmed, address_confirmed,
+          confirmed_tracts, access_status, included_in_packets, members_json
+        FROM apartment_complexes
+        WHERE territory_id = ? AND church_id = ? AND is_current = 1
+        ORDER BY grouping_confirmed DESC, site_name, address, import_complex_id`,
+      )
+      .all(workspaceTerritoryId(), workspaceChurchId()) as ApartmentRow[];
+    const claimedEvidenceIds = new Set(
+      apartmentRows
+        .filter((row) => row.grouping_confirmed === 1)
+        .flatMap((row) => apartmentMembers(row.members_json).map(({ id }) => id)),
     );
+    const apartmentSites = apartmentRows
+      .map((row): ApartmentSite | null => {
+        const members = apartmentMembers(row.members_json).filter(
+          ({ id }) => row.grouping_confirmed === 1 || !claimedEvidenceIds.has(id),
+        );
+        if (members.length === 0) return null;
+        const base = {
+          id: row.import_complex_id,
+          sourceId: row.source_id,
+          name: row.site_name,
+          address: row.address,
+          position: [row.longitude, row.latitude] as Position,
+          boundary: row.boundary_geojson
+            ? (JSON.parse(row.boundary_geojson) as ImportedMapBuilding['geometry'])
+            : null,
+          groupingKind: row.grouping_kind,
+          groupingConfirmed: row.grouping_confirmed === 1,
+          addressConfirmed: row.address_confirmed === 1,
+          tractCount: row.confirmed_tracts,
+          accessStatus: row.access_status,
+          includedInPackets: row.included_in_packets === 1,
+          members,
+        };
+        return {
+          ...base,
+          packetReady: apartmentSiteReady(base),
+          estimatedTracts: row.confirmed_tracts ?? Math.max(1, row.distinct_units),
+          evidence: {
+            apartmentBuilding: members.some(({ apartmentBuilding }) => apartmentBuilding),
+            distinctUnits: members.reduce((total, member) => total + member.distinctUnits, 0),
+          },
+          reviewStatus: row.review_status,
+          withinBoundary: pointInsideTerritoryBoundary(
+            [row.longitude, row.latitude],
+            center,
+            radiusMiles,
+            boundaryShape,
+          ),
+        };
+      })
+      .filter((site): site is ApartmentSite => site !== null);
+    const apartmentComplexes = apartmentSites;
 
     return {
       id: territory.id,
@@ -1977,6 +2082,7 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
       radiusMiles,
       boundaryShape,
       import: imported,
+      apartmentSites,
       apartmentComplexes,
       segments,
       totals: {
@@ -2032,20 +2138,17 @@ export function saveTerritoryDraft(
     }
 
     if (options.imported) {
-      const apartmentStatuses = new Map(
-        (
-          database
-            .prepare(
-              `SELECT import_complex_id, review_status
-              FROM apartment_complexes
-              WHERE territory_id = ? AND church_id = ? AND is_current = 1`,
-            )
-            .all(workspaceTerritoryId(), workspaceChurchId()) as Array<{
-            import_complex_id: string;
-            review_status: ApartmentComplex['reviewStatus'];
-          }>
-        ).map((row) => [row.import_complex_id, row.review_status]),
-      );
+      const preservedApartmentSites = database
+        .prepare(
+          `SELECT import_complex_id, source_id, site_name, address, longitude, latitude,
+            estimated_tracts, apartment_building, distinct_units, review_status,
+            boundary_geojson, grouping_kind, grouping_confirmed, address_confirmed,
+            confirmed_tracts, access_status, included_in_packets, members_json
+          FROM apartment_complexes
+          WHERE territory_id = ? AND church_id = ? AND is_current = 1
+            AND grouping_confirmed = 1`,
+        )
+        .all(workspaceTerritoryId(), workspaceChurchId()) as ApartmentRow[];
       const excludedGeometryById = new Map(
         (
           database
@@ -2196,10 +2299,17 @@ export function saveTerritoryDraft(
         `INSERT INTO apartment_complexes
           (id, church_id, territory_id, import_complex_id, source_id, address, longitude,
             latitude, estimated_tracts, apartment_building, distinct_units, review_status,
-            import_generation)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            import_generation, site_name, boundary_geojson, grouping_kind, grouping_confirmed,
+            address_confirmed, confirmed_tracts, access_status, included_in_packets, members_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
-      for (const apartment of options.imported.apartmentComplexes) {
+      const preservedIds = new Set(preservedApartmentSites.map((site) => site.import_complex_id));
+      for (const apartment of options.imported.apartmentSites) {
+        if (preservedIds.has(apartment.id)) continue;
+        const distinctUnits = apartment.members.reduce(
+          (total, member) => total + member.distinctUnits,
+          0,
+        );
         insertApartment.run(
           `${apartment.id}@${generation}`,
           workspaceChurchId(),
@@ -2209,11 +2319,46 @@ export function saveTerritoryDraft(
           apartment.address,
           apartment.position[0],
           apartment.position[1],
-          apartment.estimatedTracts,
-          apartment.evidence.apartmentBuilding ? 1 : 0,
-          apartment.evidence.distinctUnits,
-          apartmentStatuses.get(apartment.id) ?? 'needs_review',
+          Math.max(1, distinctUnits),
+          apartment.members.some(({ apartmentBuilding }) => apartmentBuilding) ? 1 : 0,
+          distinctUnits,
+          'needs_review',
           generation,
+          apartment.name,
+          apartment.boundary ? JSON.stringify(apartment.boundary) : null,
+          apartment.groupingKind,
+          0,
+          0,
+          null,
+          'unknown',
+          0,
+          JSON.stringify(apartment.members),
+        );
+      }
+      for (const apartment of preservedApartmentSites) {
+        insertApartment.run(
+          `${apartment.import_complex_id}@${generation}:preserved`,
+          workspaceChurchId(),
+          workspaceTerritoryId(),
+          apartment.import_complex_id,
+          apartment.source_id,
+          apartment.address,
+          apartment.longitude,
+          apartment.latitude,
+          apartment.estimated_tracts,
+          apartment.apartment_building,
+          apartment.distinct_units,
+          apartment.review_status,
+          generation,
+          apartment.site_name,
+          apartment.boundary_geojson,
+          apartment.grouping_kind,
+          apartment.grouping_confirmed,
+          apartment.address_confirmed,
+          apartment.confirmed_tracts,
+          apartment.access_status,
+          apartment.included_in_packets,
+          apartment.members_json,
         );
       }
       const insertMapBuilding = database.prepare(
@@ -2342,29 +2487,6 @@ export function saveTerritoryDraft(
     for (const segmentId of excludedSegmentIds) {
       excludeSegment.run(workspaceTerritoryId(), workspaceChurchId(), segmentId);
     }
-    const updateApartment = database.prepare(
-      `UPDATE apartment_complexes
-      SET review_status = ?
-      WHERE territory_id = ? AND church_id = ? AND is_current = 1 AND import_complex_id = ?
-        AND (? != 'ready' OR address IS NOT NULL)`,
-    );
-    const importedApartmentIds = options.imported
-      ? new Set(options.imported.apartmentComplexes.map(({ id }) => id))
-      : null;
-    for (const apartment of draft.apartmentStatuses ?? []) {
-      if (importedApartmentIds && !importedApartmentIds.has(apartment.id)) continue;
-      if (
-        updateApartment.run(
-          apartment.reviewStatus,
-          workspaceTerritoryId(),
-          workspaceChurchId(),
-          apartment.id,
-          apartment.reviewStatus,
-        ).changes !== 1
-      ) {
-        throw new Error('Apartment complex not found or not ready for outreach');
-      }
-    }
     database
       .prepare(
         `UPDATE churches
@@ -2391,4 +2513,244 @@ export function saveTerritoryDraft(
   } finally {
     database.close();
   }
+}
+
+type CurrentApartmentRow = ApartmentRow & { id: string; import_generation: number };
+
+function currentApartmentSiteRows(database: DatabaseSync): CurrentApartmentRow[] {
+  return database
+    .prepare(
+      `SELECT id, import_complex_id, source_id, site_name, address, longitude, latitude,
+        estimated_tracts, apartment_building, distinct_units, review_status,
+        boundary_geojson, grouping_kind, grouping_confirmed, address_confirmed,
+        confirmed_tracts, access_status, included_in_packets, members_json, import_generation
+      FROM apartment_complexes
+      WHERE territory_id = ? AND church_id = ? AND is_current = 1
+      ORDER BY grouping_confirmed DESC, import_complex_id`,
+    )
+    .all(workspaceTerritoryId(), workspaceChurchId()) as CurrentApartmentRow[];
+}
+
+export function saveApartmentSiteConfiguration(
+  input: ApartmentSiteConfigurationInput,
+  filename?: string,
+): TerritoryWorkspace {
+  if (
+    !input.id.trim() ||
+    !(input.name === null || input.name.trim()) ||
+    !(input.address === null || input.address.trim()) ||
+    !(
+      input.tractCount === null ||
+      (Number.isSafeInteger(input.tractCount) && input.tractCount >= 1)
+    )
+  ) {
+    throw new ApartmentSiteError('invalid', 'Invalid apartment site configuration');
+  }
+  const database = openWorkspaceDatabase(filename);
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    const row = currentApartmentSiteRows(database).find(
+      ({ import_complex_id }) => import_complex_id === input.id,
+    );
+    if (!row) throw new ApartmentSiteError('not_found', 'Apartment site not found');
+    const next = {
+      groupingConfirmed: input.groupingConfirmed,
+      address: input.address?.trim() || null,
+      addressConfirmed: input.addressConfirmed,
+      tractCount: input.tractCount,
+      accessStatus: input.accessStatus,
+    };
+    const ready = apartmentSiteReady(next);
+    if (input.includedInPackets && !ready && row.included_in_packets === 0) {
+      throw new ApartmentSiteError(
+        'not_ready',
+        'All four apartment setup facts are required before the site is packet-ready',
+      );
+    }
+    database
+      .prepare(
+        `UPDATE apartment_complexes
+        SET site_name = ?, address = ?, address_confirmed = ?, confirmed_tracts = ?,
+          access_status = ?, grouping_confirmed = ?, included_in_packets = ?,
+          review_status = ?
+        WHERE id = ? AND church_id = ? AND territory_id = ? AND is_current = 1`,
+      )
+      .run(
+        input.name?.trim() || null,
+        next.address,
+        input.addressConfirmed ? 1 : 0,
+        input.tractCount,
+        input.accessStatus,
+        input.groupingConfirmed ? 1 : 0,
+        input.includedInPackets && ready ? 1 : 0,
+        input.includedInPackets && ready ? 'ready' : 'needs_review',
+        row.id,
+        workspaceChurchId(),
+        workspaceTerritoryId(),
+      );
+    database.exec('COMMIT');
+  } catch (error) {
+    database.exec('ROLLBACK');
+    throw error;
+  } finally {
+    database.close();
+  }
+  return getTerritoryWorkspace(filename);
+}
+
+export function saveApartmentSiteMembership(
+  input: ApartmentSiteMembershipInput,
+  filename?: string,
+): TerritoryWorkspace {
+  if (
+    input.memberIds.length === 0 ||
+    new Set(input.memberIds).size !== input.memberIds.length ||
+    input.memberIds.some((id) => !id.trim())
+  ) {
+    throw new ApartmentSiteError('invalid', 'Select at least one unique apartment building');
+  }
+  const database = openWorkspaceDatabase(filename);
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    const rows = currentApartmentSiteRows(database);
+    const target = input.id
+      ? rows.find(({ import_complex_id }) => import_complex_id === input.id)
+      : undefined;
+    if (input.id && !target) throw new ApartmentSiteError('not_found', 'Apartment site not found');
+    const targetMembers = target ? apartmentMembers(target.members_json) : [];
+    const targetMemberIds = new Set(targetMembers.map(({ id }) => id));
+    const evidence = new Map<string, ApartmentEvidence>();
+    const confirmedOwner = new Map<string, string>();
+    for (const row of rows) {
+      for (const member of apartmentMembers(row.members_json)) {
+        evidence.set(member.id, member);
+        if (row.grouping_confirmed === 1) confirmedOwner.set(member.id, row.import_complex_id);
+      }
+    }
+    for (const memberId of input.memberIds) {
+      if (!evidence.has(memberId)) {
+        throw new ApartmentSiteError('not_found', 'Apartment evidence not found');
+      }
+      const owner = confirmedOwner.get(memberId);
+      if (owner && owner !== input.id) {
+        throw new ApartmentSiteError('member_conflict', 'Apartment evidence is already grouped');
+      }
+    }
+
+    const requested = new Set(input.memberIds);
+    const affected = new Set([...requested, ...targetMemberIds]);
+    const retiredRows = rows.filter(
+      (row) =>
+        row.id !== target?.id &&
+        row.grouping_confirmed === 0 &&
+        apartmentMembers(row.members_json).some(({ id }) => affected.has(id)),
+    );
+    const retiredEvidence = new Map<string, ApartmentEvidence>();
+    for (const row of retiredRows) {
+      for (const member of apartmentMembers(row.members_json))
+        retiredEvidence.set(member.id, member);
+      database.prepare('UPDATE apartment_complexes SET is_current = 0 WHERE id = ?').run(row.id);
+    }
+    for (const member of targetMembers) retiredEvidence.set(member.id, member);
+    const selectedMembers = input.memberIds.map((id) => evidence.get(id) as ApartmentEvidence);
+    const longitude =
+      selectedMembers.reduce((total, member) => total + member.position[0], 0) /
+      selectedMembers.length;
+    const latitude =
+      selectedMembers.reduce((total, member) => total + member.position[1], 0) /
+      selectedMembers.length;
+    const generation = (
+      database
+        .prepare('SELECT import_generation FROM territories WHERE id = ? AND church_id = ?')
+        .get(workspaceTerritoryId(), workspaceChurchId()) as { import_generation: number }
+    ).import_generation;
+    const distinctUnits = selectedMembers.reduce(
+      (total, member) => total + member.distinctUnits,
+      0,
+    );
+
+    if (target) {
+      database
+        .prepare(
+          `UPDATE apartment_complexes
+          SET longitude = ?, latitude = ?, estimated_tracts = ?, apartment_building = ?,
+            distinct_units = ?, boundary_geojson = NULL, grouping_kind = 'admin_group',
+            grouping_confirmed = 1, members_json = ?
+          WHERE id = ?`,
+        )
+        .run(
+          longitude,
+          latitude,
+          Math.max(1, distinctUnits),
+          selectedMembers.some(({ apartmentBuilding }) => apartmentBuilding) ? 1 : 0,
+          distinctUnits,
+          JSON.stringify(selectedMembers),
+          target.id,
+        );
+    } else {
+      const logicalId = `admin-apartment-site:${randomUUID()}`;
+      database
+        .prepare(
+          `INSERT INTO apartment_complexes
+            (id, church_id, territory_id, import_complex_id, source_id, address, longitude,
+              latitude, estimated_tracts, apartment_building, distinct_units, review_status,
+              import_generation, grouping_kind, grouping_confirmed, members_json)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'needs_review', ?, 'admin_group', 1, ?)`,
+        )
+        .run(
+          `${logicalId}@${generation}`,
+          workspaceChurchId(),
+          workspaceTerritoryId(),
+          logicalId,
+          selectedMembers[0].sourceId,
+          selectedMembers.find(({ address }) => address)?.address ?? null,
+          longitude,
+          latitude,
+          Math.max(1, distinctUnits),
+          selectedMembers.some(({ apartmentBuilding }) => apartmentBuilding) ? 1 : 0,
+          distinctUnits,
+          generation,
+          JSON.stringify(selectedMembers),
+        );
+    }
+
+    const represented = new Set(
+      currentApartmentSiteRows(database).flatMap((row) =>
+        apartmentMembers(row.members_json).map(({ id }) => id),
+      ),
+    );
+    const insertUngrouped = database.prepare(
+      `INSERT INTO apartment_complexes
+        (id, church_id, territory_id, import_complex_id, source_id, address, longitude,
+          latitude, estimated_tracts, apartment_building, distinct_units, review_status,
+          import_generation, grouping_kind, grouping_confirmed, members_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'needs_review', ?, 'ungrouped', 0, ?)`,
+    );
+    for (const member of retiredEvidence.values()) {
+      if (requested.has(member.id) || represented.has(member.id)) continue;
+      insertUngrouped.run(
+        `${member.id}@${generation}:restored:${randomUUID()}`,
+        workspaceChurchId(),
+        workspaceTerritoryId(),
+        member.id,
+        member.sourceId,
+        member.address,
+        member.position[0],
+        member.position[1],
+        Math.max(1, member.distinctUnits),
+        member.apartmentBuilding ? 1 : 0,
+        member.distinctUnits,
+        generation,
+        JSON.stringify([member]),
+      );
+      represented.add(member.id);
+    }
+    database.exec('COMMIT');
+  } catch (error) {
+    database.exec('ROLLBACK');
+    throw error;
+  } finally {
+    database.close();
+  }
+  return getTerritoryWorkspace(filename);
 }

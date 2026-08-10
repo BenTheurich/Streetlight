@@ -770,7 +770,7 @@ export function buildWorkspaceMapStyle(
         geometry: { type: 'Point', coordinates: apartment.position },
         properties: {
           label: 'A',
-          color: apartmentMarkerColor(apartment.reviewStatus),
+          color: apartmentMarkerColor(apartment.groupingConfirmed),
         },
       })),
     },
@@ -876,7 +876,7 @@ export function buildWorkspaceMapStyle(
       source: 'streetlightApartments',
       filter: ['!', ['has', 'point_count']],
       paint: {
-        'circle-color': ['get', 'color'],
+        'circle-color': ['case', ['==', ['get', 'selected'], true], '#2767e9', ['get', 'color']],
         'circle-radius': [
           'case',
           ['==', ['get', 'selected'], true],

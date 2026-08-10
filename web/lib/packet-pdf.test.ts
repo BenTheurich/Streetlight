@@ -13,6 +13,7 @@ function packet(id: string, code: string, offset = 0): DownloadPacket {
   return {
     kind: 'street',
     apartmentId: null,
+    accessStatus: null,
     id,
     code,
     batchId: 'batch-a',
@@ -92,6 +93,28 @@ test('PDF draws the church printout message in every footer', async () => {
 
   assert.equal(operators.match(/\/Image-\d+ Do/g)?.length, 3);
   assert.match(operators, /59652061726520746865206C69676874206F662074686520776F726C642E/i);
+});
+
+test('restricted apartment packets carry an access warning', async () => {
+  const value = packet('apartment-a', 'TEM-A01');
+  value.kind = 'apartment';
+  value.apartmentId = 'site-a';
+  value.accessStatus = 'restricted';
+  value.segments = [];
+  const bytes = await renderPacketPdf(
+    { scope: 'newest', packets: [value], mapGenerations: [] },
+    {
+      logo: png,
+      footer: { message: '', reference: '' },
+      renderMap: async () => png,
+    },
+  );
+  const document = await PDFDocument.load(bytes);
+  const contents = document.getPages()[0].node.Contents();
+  assert(contents instanceof PDFArray);
+  const stream = document.context.lookup(contents.get(0)) as PDFRawStream;
+  const operators = Buffer.from(decodePDFRawStream(stream).decode()).toString('latin1');
+  assert.match(operators, /5245535452494354454420414343455353/i);
 });
 
 test('long starting street fits before the QR panel', async () => {

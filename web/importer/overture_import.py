@@ -990,7 +990,7 @@ def _apartment_address(address_item):
     return value or None
 
 
-def _apartment_complexes(addresses, buildings, address_index=None):
+def _apartment_evidence(addresses, buildings, address_index=None):
     apartment_buildings = [
         item
         for item in buildings
@@ -998,7 +998,7 @@ def _apartment_complexes(addresses, buildings, address_index=None):
         and item["geometry"]["type"] in {"Polygon", "MultiPolygon"}
     ]
     used_indexes = set()
-    complexes = []
+    evidence = []
     for building in apartment_buildings:
         polygons = (
             [building["geometry"]["coordinates"]]
@@ -1040,21 +1040,15 @@ def _apartment_complexes(addresses, buildings, address_index=None):
             if selected
             else _building_point(building["geometry"])
         )
-        complexes.append(
+        evidence.append(
             {
                 "id": f"overture-apartment-building:{building['id']}",
                 "sourceId": building["id"],
                 "address": _apartment_address(selected[0]) if selected else None,
                 "position": point,
-                "estimatedTracts": (
-                    len(units)
-                    if units
-                    else _apartment_footprint_estimate(building)
-                ),
-                "evidence": {
-                    "apartmentBuilding": True,
-                    "distinctUnits": len(units),
-                },
+                "geometry": building["geometry"],
+                "apartmentBuilding": True,
+                "distinctUnits": len(units),
             }
         )
 
@@ -1078,26 +1072,130 @@ def _apartment_complexes(addresses, buildings, address_index=None):
             sum(item["point"][0] for item in group) / len(group),
             sum(item["point"][1] for item in group) / len(group),
         ]
-        complexes.append(
+        evidence.append(
             {
                 "id": f"overture-apartment-address:{source_id}",
                 "sourceId": source_id,
                 "address": _apartment_address(group[0]),
                 "position": point,
-                "estimatedTracts": len(units),
-                "evidence": {
-                    "apartmentBuilding": False,
-                    "distinctUnits": len(units),
-                },
+                "geometry": None,
+                "apartmentBuilding": False,
+                "distinctUnits": len(units),
             }
         )
     return sorted(
-        complexes,
+        evidence,
         key=lambda item: (
-            not item["evidence"]["apartmentBuilding"],
+            not item["apartmentBuilding"],
             item["id"],
         ),
     ), used_indexes
+
+
+def _source_tag_value(source_tags, key):
+    if isinstance(source_tags, dict):
+        value = source_tags.get(key)
+        return value if isinstance(value, str) else None
+    for item in source_tags or []:
+        if not isinstance(item, dict):
+            continue
+        item_key = item.get("key", item.get("k"))
+        if item_key == key:
+            value = item.get("value", item.get("v"))
+            return value if isinstance(value, str) else None
+    return None
+
+
+def _apartment_area_name(properties):
+    names = properties.get("names") or {}
+    primary = names.get("primary") if isinstance(names, dict) else None
+    if isinstance(primary, str) and primary.strip():
+        return primary.strip()
+    if isinstance(primary, dict):
+        value = primary.get("value")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _apartment_area_address(properties):
+    tags = properties.get("source_tags")
+    full = _source_tag_value(tags, "addr:full")
+    if full and full.strip():
+        return full.strip()
+    street = _source_tag_value(tags, "addr:street")
+    number = _source_tag_value(tags, "addr:housenumber")
+    city = _source_tag_value(tags, "addr:city")
+    postcode = _source_tag_value(tags, "addr:postcode")
+    street_line = " ".join(part.strip() for part in [number, street] if part and part.strip())
+    value = ", ".join(part.strip() for part in [street_line, city, postcode] if part and part.strip())
+    return value or None
+
+
+def _geometry_contains_point(geometry, point):
+    polygons = (
+        [geometry["coordinates"]]
+        if geometry["type"] == "Polygon"
+        else geometry["coordinates"]
+    )
+    return any(_point_in_ring(point, polygon[0]) for polygon in polygons)
+
+
+def _apartment_sites(evidence, apartment_areas=None):
+    assigned = set()
+    sites = []
+    for area in sorted(apartment_areas or [], key=lambda item: item["id"]):
+        geometry = area.get("geometry") or {}
+        properties = area.get("properties") or {}
+        if (
+            geometry.get("type") not in {"Polygon", "MultiPolygon"}
+            or (_source_tag_value(properties.get("source_tags"), "residential") or "").casefold()
+            != "apartments"
+        ):
+            continue
+        members = [
+            item
+            for item in evidence
+            if item["id"] not in assigned
+            and _geometry_contains_point(geometry, item["position"])
+        ]
+        if not members:
+            continue
+        assigned.update(item["id"] for item in members)
+        sites.append(
+            {
+                "id": f"overture-apartment-area:{area['id']}",
+                "sourceId": area["id"],
+                "name": _apartment_area_name(properties),
+                "address": _apartment_area_address(properties),
+                "position": _building_point(geometry),
+                "boundary": geometry,
+                "groupingKind": "source_boundary",
+                "members": members,
+            }
+        )
+    sites.extend(
+        {
+            "id": item["id"],
+            "sourceId": item["sourceId"],
+            "name": None,
+            "address": item["address"],
+            "position": item["position"],
+            "boundary": None,
+            "groupingKind": "ungrouped",
+            "members": [item],
+        }
+        for item in evidence
+        if item["id"] not in assigned
+    )
+    return sorted(
+        sites,
+        key=lambda item: (
+            item["groupingKind"] != "source_boundary",
+            not item["members"][0]["apartmentBuilding"],
+            item["id"],
+        ),
+    )
 
 
 def _split_overfull_segment(segment):
@@ -1202,7 +1300,7 @@ def _assign_road_groups(segments):
         segment["road_group_id"] = group_id_by_root[find(index)]
 
 
-def normalize_features(roads, addresses, buildings=None):
+def normalize_features(roads, addresses, buildings=None, apartment_areas=None):
     buildings = buildings or []
     segments = []
     candidate_classes = ALWAYS_KEEP | KEEP_WITH_ADDRESS
@@ -1240,11 +1338,12 @@ def normalize_features(roads, addresses, buildings=None):
         source_addresses,
         lambda item: [*item["point"], *item["point"]],
     )
-    apartment_complexes, apartment_address_indexes = _apartment_complexes(
+    apartment_evidence, apartment_address_indexes = _apartment_evidence(
         source_addresses,
         buildings,
         source_address_index,
     )
+    apartment_sites = _apartment_sites(apartment_evidence, apartment_areas)
     footprint_addresses = []
     address_keys = set()
     for item in source_addresses:
@@ -1650,7 +1749,7 @@ def normalize_features(roads, addresses, buildings=None):
         )
     return {
         "segments": result,
-        "apartmentComplexes": apartment_complexes,
+        "apartmentSites": apartment_sites,
         "quality": {
             "totalAddresses": len(footprint_addresses),
             "assignedAddresses": len(assigned_address_indexes),
@@ -1725,15 +1824,16 @@ def benchmark_metrics(normalized, reference_addresses):
         )
         reference_groups.setdefault(key, []).append(item)
     apartment_premises = set()
-    for apartment in normalized.get("apartmentComplexes", []):
-        address_value = apartment.get("address")
-        if not address_value:
-            continue
-        premise = address_value.split(",", 1)[0].strip().split(maxsplit=1)
-        if len(premise) == 2:
-            apartment_premises.add(
-                (canonical_street_name(premise[1]), premise[0].casefold())
-            )
+    for site in normalized.get("apartmentSites", []):
+        for member in site.get("members", []):
+            address_value = member.get("address")
+            if not address_value:
+                continue
+            premise = address_value.split(",", 1)[0].strip().split(maxsplit=1)
+            if len(premise) == 2:
+                apartment_premises.add(
+                    (canonical_street_name(premise[1]), premise[0].casefold())
+                )
     all_reference = [
         min(
             group,
@@ -2068,6 +2168,49 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
         connection.close()
 
 
+def download_apartment_areas(
+    longitude: float,
+    latitude: float,
+    radius_miles: float,
+):
+    import duckdb
+
+    west, south, east, north = enclosing_bbox(longitude, latitude, radius_miles)
+    connection = duckdb.connect()
+    try:
+        connection.execute("INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs")
+        connection.execute("SET s3_region='us-west-2'")
+        connection.execute("SET s3_access_key_id=''")
+        connection.execute("SET s3_secret_access_key=''")
+        connection.execute("SET s3_session_token=''")
+        rows = connection.execute(
+            f"""
+            SELECT id, names, source_tags, ST_AsGeoJSON(geometry)
+            FROM read_parquet(
+              's3://overturemaps-us-west-2/release/{OVERTURE_RELEASE}/theme=base/type=land_use/*',
+              hive_partitioning = true
+            )
+            WHERE class = 'residential'
+              AND lower(CAST(source_tags AS VARCHAR)) LIKE '%apartments%'
+              AND bbox.xmin <= ? AND bbox.xmax >= ?
+              AND bbox.ymin <= ? AND bbox.ymax >= ?
+            """,
+            [east, west, north, south],
+        ).fetchall()
+        return [
+            {
+                "id": source_id,
+                "properties": {"names": names, "source_tags": source_tags},
+                "geometry": json.loads(geometry),
+            }
+            for source_id, names, source_tags, geometry in rows
+            if (_source_tag_value(source_tags, "residential") or "").casefold()
+            == "apartments"
+        ]
+    finally:
+        connection.close()
+
+
 def download_fema_features(
     longitude: float,
     latitude: float,
@@ -2137,6 +2280,7 @@ def _positive_float(value):
 def main(
     argv=None,
     download=download_features,
+    download_areas=download_apartment_areas,
     download_fema=download_fema_features,
 ):
     parser = argparse.ArgumentParser()
@@ -2150,6 +2294,11 @@ def main(
     with redirect_stdout(sys.stderr):
         _report_stage("downloading_streets")
         roads, addresses, buildings = download(
+            args.longitude,
+            args.latitude,
+            args.radius_miles,
+        )
+        apartment_areas = download_areas(
             args.longitude,
             args.latitude,
             args.radius_miles,
@@ -2170,7 +2319,7 @@ def main(
             fema_buildings,
             roads,
         )
-        normalized = normalize_features(roads, addresses, buildings)
+        normalized = normalize_features(roads, addresses, buildings, apartment_areas)
         _report_stage("preparing")
     print(
         json.dumps(
@@ -2179,7 +2328,7 @@ def main(
                 "center": [args.longitude, args.latitude],
                 "radiusMiles": args.radius_miles,
                 "completedAt": datetime.now(timezone.utc).isoformat(),
-                "normalizerVersion": 11,
+                "normalizerVersion": 12,
                 "buildingMode": (
                     "overture_fema" if fema_buildings else "overture_only"
                 ),

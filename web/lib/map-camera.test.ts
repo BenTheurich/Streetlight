@@ -83,6 +83,45 @@ test('map fitting derives one bound from every visible position', async () => {
   assert.equal(camera.positionBounds?.([]), null);
 });
 
+test('segment selection bounds include only the requested road geometry', async () => {
+  const camera = (await import('./map-camera.ts')) as unknown as {
+    segmentSelectionBounds?: (
+      segments: Array<{
+        id: string;
+        geometry: { coordinates: Array<[number, number]> };
+      }>,
+      ids: string[],
+    ) => [[number, number], [number, number]] | null;
+  };
+  const segments = [
+    {
+      id: 'selected',
+      geometry: {
+        coordinates: [
+          [-117.12, 33.52],
+          [-117.1, 33.54],
+        ] as Array<[number, number]>,
+      },
+    },
+    {
+      id: 'unrelated',
+      geometry: {
+        coordinates: [
+          [-118, 34],
+          [-118.2, 34.2],
+        ] as Array<[number, number]>,
+      },
+    },
+  ];
+
+  assert.equal(typeof camera.segmentSelectionBounds, 'function');
+  assert.deepEqual(camera.segmentSelectionBounds?.(segments, ['selected']), [
+    [-117.12, 33.52],
+    [-117.1, 33.54],
+  ]);
+  assert.equal(camera.segmentSelectionBounds?.(segments, ['missing']), null);
+});
+
 test('coverage camera fitting follows both map and search selections and respects reduced motion', () => {
   const options = cameraModule.coverageSelectionCameraOptions;
   assert.equal(typeof options, 'function');

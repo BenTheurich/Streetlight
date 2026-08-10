@@ -17,6 +17,7 @@ const selection: PacketDownloadSelection = {
     {
       kind: 'street',
       apartmentId: null,
+      accessStatus: null,
       id: 'packet-one',
       code: 'TEM-001',
       batchId: 'batch-one',

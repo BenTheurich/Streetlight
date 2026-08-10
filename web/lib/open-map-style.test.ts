@@ -15,6 +15,7 @@ function packet(): DownloadPacket {
   return {
     kind: 'street',
     apartmentId: null,
+    accessStatus: null,
     id: 'packet-one',
     code: 'TEM-001',
     batchId: 'batch-one',
@@ -396,8 +397,28 @@ test('workspace map clusters apartments identically over map and satellite style
     {
       id: 'apartment-one',
       sourceId: 'source-one',
+      name: null,
       address: '1 Main Street',
       position: [0, 0],
+      boundary: null,
+      groupingKind: 'ungrouped',
+      groupingConfirmed: false,
+      addressConfirmed: false,
+      tractCount: null,
+      accessStatus: 'unknown',
+      includedInPackets: false,
+      packetReady: false,
+      members: [
+        {
+          id: 'apartment-one',
+          sourceId: 'source-one',
+          address: '1 Main Street',
+          position: [0, 0],
+          geometry: null,
+          apartmentBuilding: true,
+          distinctUnits: 18,
+        },
+      ],
       estimatedTracts: 18,
       evidence: { apartmentBuilding: true, distinctUnits: 18 },
       reviewStatus: 'needs_review',
@@ -436,7 +457,12 @@ test('workspace map clusters apartments identically over map and satellite style
     assert.deepEqual(count?.layout?.['text-field'], ['get', 'point_count_abbreviated']);
     assert.equal(count?.layout?.['text-allow-overlap'], true);
     assert.deepEqual(marker?.filter, ['!', ['has', 'point_count']]);
-    assert.equal(Array.isArray(marker?.paint?.['circle-color']), true);
+    assert.deepEqual(marker?.paint?.['circle-color'], [
+      'case',
+      ['==', ['get', 'selected'], true],
+      '#2767e9',
+      ['get', 'color'],
+    ]);
     assert.deepEqual(marker?.paint?.['circle-radius'], [
       'case',
       ['==', ['get', 'selected'], true],

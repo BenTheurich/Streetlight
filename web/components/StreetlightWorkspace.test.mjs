@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { chromium } from 'playwright';
 
 test('new churches see only territory setup until the first save succeeds', () => {
   const source = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
@@ -122,6 +123,314 @@ test('territory church location reuses onboarding place search with a manual fal
   assert.match(territory, /placeSearchFailed/);
   assert.match(workspace, /mapsApiKey={mapsApiKey}/);
 });
+
+test('expanded region settings use flat rows instead of nested cards', () => {
+  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+
+  assert.equal(territory.match(/className="region-settings-row/g)?.length, 3);
+  assert.match(styles, /\.region-settings-row \{[^}]*border-top: 1px solid var\(--line\);/s);
+  assert.doesNotMatch(styles, /\.region-settings-disclosure \{[^}]*background:/s);
+  assert.doesNotMatch(styles, /\.region-settings-disclosure:not\(\[open\]\)/);
+  assert.doesNotMatch(styles, /\.region-settings-disclosure > summary:hover \{[^}]*background:/s);
+  assert.match(styles, /\.radius-control\.region-settings-row \{[^}]*border-top: 0;/s);
+});
+
+test('territory review coordinates dense sections without a redundant introduction', () => {
+  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(territory, /Review region data/);
+  assert.doesNotMatch(territory, /Correct apartment status/);
+  assert.match(territory, /const \[openReviewSection, setOpenReviewSection\]/);
+  assert.match(territory, /<details\s+className="review-disclosure apartment-section"/);
+  assert.match(
+    territory,
+    /<summary[\s\S]*?Apartments[\s\S]*?ungrouped[\s\S]*?'building' : 'buildings'[\s\S]*?<\/summary>/,
+  );
+  assert.match(territory, /const \[apartmentSearch, setApartmentSearch\]/);
+  assert.match(territory, /apartmentReviewOptions\(/);
+  assert.match(territory, /Find an apartment site/);
+  assert.match(territory, /className="apartment-search-results"/);
+  assert.doesNotMatch(territory, /<StreetlightSelect[\s\S]*?ariaLabel="Apartment complex"/);
+  assert.match(
+    territory,
+    /<details\s+className="review-disclosure road-selection-section"[\s\S]*open=\{openReviewSection === 'roads'\}/,
+  );
+  assert.match(territory, /eligibleSegments\.toLocaleString\('en-US'\)/);
+  assert.match(territory, /eligibleHomes\.toLocaleString\('en-US'\)/);
+  assert.match(territory, /<details\s+className="review-disclosure territory-data-quality"/);
+  assert.match(territory, /warnings\.length} warning/);
+  assert.match(territory, /Some streets need a quick map review before packet generation/);
+  assert.match(territory, /Technical details/);
+  assert.doesNotMatch(territory, /inferred road\(s\)/);
+  assert.match(territory, /has-pending-changes/);
+  assert.match(
+    styles,
+    /\.review-disclosure-title \{[^}]*font-size: 0\.9rem;[^}]*text-transform: none;/s,
+  );
+  assert.match(styles, /\.region-settings-summary-copy strong \{[^}]*font-size: 0\.9rem;/s);
+  assert.doesNotMatch(styles, /\.review-disclosure\[open\] \.review-disclosure-title/);
+  assert.match(styles, /\.review-disclosure-meta \{[^}]*font-size: 0\.72rem;/s);
+  assert.match(styles, /\.section-help \{[^}]*font-size: 0\.78rem;/s);
+  assert.match(
+    styles,
+    /\.apartment-card \{[^}]*border: 1px solid var\(--selected\);[^}]*background: var\(--selected-surface\);/s,
+  );
+  assert.match(styles, /\.road-selection-tray \.text-button \{[^}]*min-height: 44px;/s);
+  assert.match(
+    styles,
+    /\.road-search-results button\[aria-pressed="true"\] \{[^}]*background: var\(--selected-surface\);/s,
+  );
+  assert.match(styles, /\.apartment-search-results \{/);
+  assert.match(
+    styles,
+    /\.territory-sidebar:not\(\.has-pending-changes\) \.sidebar-actions button:disabled/,
+  );
+  assert.match(styles, /\.road-selection-tray \{[^}]*position: sticky;[^}]*top:/s);
+});
+
+test('territory disclosures animate as joined sections with dividers between them', () => {
+  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(styles, /\.review-disclosure > summary \{[^}]*border-bottom:/s);
+  assert.match(styles, /\.territory-review-tools \{[^}]*border-top: 1px solid var\(--line\);/s);
+  assert.match(
+    styles,
+    /\.territory-review-tools > \.review-disclosure \+ \.review-disclosure \{[^}]*border-top: 1px solid var\(--line\);/s,
+  );
+  assert.match(styles, /\.review-disclosure::details-content[\s\S]*block-size: 0;/);
+  assert.match(styles, /\.review-disclosure\[open\]::details-content[\s\S]*block-size: auto;/);
+  assert.match(styles, /\.review-disclosure-body \{[^}]*padding: 1rem 0 1\.5rem;/s);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(territory, /const REVIEW_SECTION_CLOSE_MS = 150;/);
+  assert.match(territory, /const transitionReviewSection = useCallback/);
+  assert.match(
+    territory,
+    /setOpenReviewSection\(null\);[\s\S]*window\.setTimeout\([\s\S]*REVIEW_SECTION_CLOSE_MS/,
+  );
+  assert.match(territory, /transitionReviewSection\('roads'\)/);
+  assert.match(territory, /transitionReviewSection\('apartments'\)/);
+  assert.doesNotMatch(territory, /onToggle=/);
+  assert.equal(territory.match(/onKeyDown=\{/g)?.length, 4);
+  assert.equal(territory.match(/event\.key === 'Enter' \|\| event\.key === ' '/g)?.length, 4);
+});
+
+test('Setup first-pass polish keeps apartment review reversible and road search task-first', () => {
+  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+
+  assert.match(
+    territory,
+    /className="reconciliation-back-link"[\s\S]*setApartmentSelection\(null\)[\s\S]*M20 11H7\.83[\s\S]*Back to list[\s\S]*className="apartment-card apartment-site-card"/,
+  );
+  assert.doesNotMatch(styles, /\.apartment-card-back/);
+  assert.match(styles, /\.road-section-tools \{[^}]*justify-content: flex-start;/s);
+
+  const searchIndex = territory.indexOf('className="road-segment-search"');
+  const instructionsIndex = territory.indexOf(
+    'Search by street name, or select roads directly on the map.',
+  );
+  const hiddenRoadsIndex = territory.indexOf('className="road-section-tools"');
+  assert.ok(searchIndex >= 0 && searchIndex < instructionsIndex);
+  assert.ok(instructionsIndex < hiddenRoadsIndex);
+});
+
+test('apartment grouping and packet readiness save independently from region changes', () => {
+  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+  const databaseImport =
+    territory.match(/import \{([\s\S]*?)\} from '@\/lib\/database';/)?.[1] ?? '';
+
+  assert.doesNotMatch(databaseImport, /apartmentSiteReady/);
+  assert.match(territory, /Include in packet generation/);
+  assert.match(territory, /type="checkbox"/);
+  assert.match(territory, /fetch\('\/api\/territory\/apartment'/);
+  assert.match(territory, /readMutationResult/);
+  assert.match(territory, /setSavedWorkspace\(previousWorkspace\)/);
+  assert.match(territory, /Building grouping confirmed/);
+  assert.match(territory, /Primary entrance confirmed/);
+  assert.match(territory, /Tract quantity/);
+  assert.match(territory, /<option value="open">Open<\/option>/);
+  assert.match(territory, /Group apartment buildings/);
+  assert.match(territory, /method: 'POST'/);
+  assert.equal(territory.match(/disabled=\{apartmentConfigurationSaving\}/g)?.length, 5);
+  assert.match(territory, /Try again/);
+  assert.match(territory, /Reload to verify/);
+  assert.doesNotMatch(
+    territory,
+    /Outreach status|Needs review|Deferred|estimated tracts|footprint estimate/,
+  );
+  assert.doesNotMatch(territory, /apartmentStatuses:/);
+  assert.match(styles, /\.apartment-inclusion-control \{[^}]*min-height: 44px;/s);
+  assert.doesNotMatch(styles, /\.apartment-card fieldset/);
+});
+
+test('Setup disclosure controls stay inside both horizontal clipping edges', async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await browser.newPage({ viewport: { width: 390, height: 800 } });
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8').replace(
+    /^@import[^;]+;\s*/,
+    '',
+  );
+
+  await page.setContent(`
+    <style>${styles}</style>
+    <div class="territory-page">
+      <details class="region-settings-disclosure" open style="width: 326px">
+        <summary>Region settings</summary>
+        <section class="territory-basics-section">
+          <div class="region-settings-row">
+            <h2>Church location</h2>
+            <div class="address-card">
+              <strong>31087 Nicolas Rd, Temecula, CA 92591, United States</strong>
+              <button type="button">Change</button>
+            </div>
+          </div>
+          <div class="region-settings-row">
+            <div class="address-editor">
+              <label>Church or address</label>
+              <div>
+                <gmp-place-autocomplete class="territory-place-autocomplete">
+                  <span style="display: block; width: 320px">Address search</span>
+                </gmp-place-autocomplete>
+              </div>
+              <div class="address-editor-actions"><button type="button">Cancel</button></div>
+            </div>
+          </div>
+          <fieldset class="region-settings-row boundary-shape-control">
+            <legend>Boundary shape</legend>
+            <div><button class="active" type="button">Circle</button><button type="button">Square</button></div>
+          </fieldset>
+          <div class="region-settings-row radius-control">
+            <input aria-label="Region boundary distance" max="5" min="1" type="range" value="5" />
+          </div>
+        </section>
+      </details>
+    </div>
+  `);
+
+  const range = page.getByRole('slider', { name: 'Region boundary distance' });
+  await range.focus();
+  const geometry = await page.locator('.region-settings-disclosure').evaluate((details) => {
+    const boundary = details.getBoundingClientRect();
+    const rangeInput = details.querySelector('input[type="range"]');
+    const placeInput = details.querySelector('.territory-place-autocomplete');
+    const addressCard = details.querySelector('.address-card');
+    const addressText = addressCard.querySelector('strong');
+    const addressButton = addressCard.querySelector('button');
+    const shapeControl = details.querySelector('.boundary-shape-control > div');
+    const rangeRect = rangeInput.getBoundingClientRect();
+    const placeRect = placeInput.getBoundingClientRect();
+    const addressRect = addressCard.getBoundingClientRect();
+    const addressTextRect = addressText.getBoundingClientRect();
+    const addressButtonRect = addressButton.getBoundingClientRect();
+    const shapeRect = shapeControl.getBoundingClientRect();
+    const rangeStyle = getComputedStyle(rangeInput);
+    const addressStyle = getComputedStyle(addressCard);
+    const outlineOutside = Math.max(
+      0,
+      Number.parseFloat(rangeStyle.outlineWidth) + Number.parseFloat(rangeStyle.outlineOffset),
+    );
+    return {
+      boundary: { left: boundary.left, right: boundary.right },
+      address: {
+        background: addressStyle.backgroundColor,
+        borderWidth: addressStyle.borderTopWidth,
+        height: addressRect.height,
+        left: addressRect.left,
+        right: addressRect.right,
+        textRight: addressTextRect.right,
+        buttonLeft: addressButtonRect.left,
+      },
+      place: { left: placeRect.left, right: placeRect.right },
+      range: {
+        left: rangeRect.left - outlineOutside,
+        right: rangeRect.right + outlineOutside,
+      },
+      shape: { height: shapeRect.height },
+    };
+  });
+
+  assert.ok(geometry.range.left >= geometry.boundary.left - 0.5);
+  assert.ok(geometry.range.right <= geometry.boundary.right + 0.5);
+  assert.equal(geometry.address.borderWidth, '1px');
+  assert.equal(geometry.address.background, 'rgb(250, 247, 240)');
+  assert.equal(geometry.address.height, geometry.shape.height);
+  assert.ok(geometry.address.left >= geometry.boundary.left - 0.5);
+  assert.ok(geometry.address.right <= geometry.boundary.right + 0.5);
+  assert.ok(geometry.address.textRight <= geometry.address.buttonLeft);
+  assert.ok(geometry.place.left >= geometry.boundary.left - 0.5);
+  assert.ok(geometry.place.right <= geometry.boundary.right + 0.5);
+});
+
+test('workspace scrollbars keep their themed gutter before content overflows', async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await browser.newPage({ viewport: { width: 390, height: 800 } });
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8').replace(
+    /^@import[^;]+;\s*/,
+    '',
+  );
+
+  await page.setContent(`
+    <style>${styles}</style>
+    <div class="territory-page">
+      <div class="sidebar-scroll" style="height: 120px; width: 326px">
+        <div class="scrollbar-test-content">Content</div>
+      </div>
+      <div class="road-search-results"></div>
+      <div class="apartment-search-results"></div>
+      <div class="heatmap-settings-dialog"></div>
+    </div>
+  `);
+
+  const scroller = page.locator('.sidebar-scroll');
+  const widthBeforeOverflow = await page
+    .locator('.scrollbar-test-content')
+    .evaluate((element) => element.getBoundingClientRect().width);
+  await page.locator('.scrollbar-test-content').evaluate((element) => {
+    element.style.height = '300px';
+  });
+  const widthAfterOverflow = await page
+    .locator('.scrollbar-test-content')
+    .evaluate((element) => element.getBoundingClientRect().width);
+  const scrollbarStyle = await scroller.evaluate((element) => ({
+    gutter: getComputedStyle(element).scrollbarGutter,
+    thumb: getComputedStyle(element, '::-webkit-scrollbar-thumb').backgroundColor,
+    width: getComputedStyle(element, '::-webkit-scrollbar').width,
+  }));
+  const reservedGutters = await page
+    .locator(
+      '.sidebar-scroll, .road-search-results, .apartment-search-results, .heatmap-settings-dialog',
+    )
+    .evaluateAll((elements) =>
+      elements.map((element) => getComputedStyle(element).scrollbarGutter),
+    );
+  const trackColors = await page
+    .locator(
+      '.sidebar-scroll, .road-search-results, .apartment-search-results, .heatmap-settings-dialog',
+    )
+    .evaluateAll((elements) =>
+      elements.map(
+        (element) => getComputedStyle(element, '::-webkit-scrollbar-track').backgroundColor,
+      ),
+    );
+
+  assert.equal(widthAfterOverflow, widthBeforeOverflow);
+  assert.deepEqual(reservedGutters, ['stable', 'stable', 'stable', 'stable']);
+  assert.deepEqual(trackColors, [
+    'rgba(0, 0, 0, 0)',
+    'rgb(216, 207, 191)',
+    'rgb(216, 207, 191)',
+    'rgba(0, 0, 0, 0)',
+  ]);
+  assert.equal(scrollbarStyle.width, '8px');
+  assert.equal(scrollbarStyle.thumb, 'rgb(148, 141, 131)');
+});
+
 test('territory selection and long imports stay in the approved workflow', () => {
   const source = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
 
@@ -170,9 +479,19 @@ test('territory editing keeps shared overlays and selects exact segments directl
   assert.match(source, /event\.originalEvent\.shiftKey/);
   assert.match(source, /boxSelectionArmed/);
   assert.match(editor, /mutationLocked={leaveControlsDisabled}/);
+  assert.match(editor, /roadFocusRequest={roadFocusRequest}/);
+  assert.match(editor, /coverageRoads/);
+  assert.match(editor, /road\.segments\.map\(\(\{ id \}\) => id\)/);
+  assert.match(source, /segmentSelectionBounds/);
+  assert.match(source, /map\.fitBounds\(bounds, options\)/);
   assert.match(editor, /setSegmentsExcluded/);
   assert.match(editor, /activateSegments/);
-  assert.match(editor, /Shift-drag selects an area/);
+  assert.match(editor, /Select road area/);
+  assert.match(editor, /Shift-drag selects road segments/);
+  assert.match(
+    editor,
+    /setBoxSelectionArmed\(\(armed\) => !armed\);[\s\S]*transitionReviewSection\('roads'\)/,
+  );
   assert.doesNotMatch(source, /territory-exclusions|territory-drawing/);
   assert.doesNotMatch(editor, /Draw exclusion area|finishDrawing|selectedExclusionId/);
 });

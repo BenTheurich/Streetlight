@@ -49,7 +49,7 @@ test('proof data and an expanded footprint require imports', () => {
         center: draft.center,
         radiusMiles: 0.5,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 11,
+        normalizerVersion: 12,
         quality,
       },
       draft,
@@ -67,7 +67,7 @@ test('shape changes, segment edits, and radius reductions reuse a current footpr
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 11,
+        normalizerVersion: 12,
         quality,
       },
       {
@@ -89,7 +89,7 @@ test('a different pinned Overture release requires an import', () => {
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 11,
+        normalizerVersion: 12,
         quality,
       },
       draft,
@@ -105,7 +105,7 @@ test('shifted drafts reuse only containing imported footprints', () => {
     center: draft.center,
     radiusMiles: 2,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 11,
+    normalizerVersion: 12,
     quality,
   };
 
@@ -143,7 +143,7 @@ test('legacy and mismatched normalizer versions require replacement', () => {
     center: draft.center,
     radiusMiles: 2,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 11,
+    normalizerVersion: 12,
     quality,
   };
 
@@ -165,5 +165,6 @@ test('legacy and mismatched normalizer versions require replacement', () => {
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 8 }, draft), true);
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 9 }, draft), true);
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 10 }, draft), true);
+  assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 11 }, draft), true);
   assert.equal(needsTerritoryImport(current, draft), false);
 });

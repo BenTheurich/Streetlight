@@ -13,6 +13,7 @@ from .overture_import import (
     OVERTURE_RELEASE,
     SpatialIndex,
     canonical_street_name,
+    download_apartment_areas,
     download_fema_features,
     download_features,
     enclosing_bbox,
@@ -86,6 +87,20 @@ def building(
     }
 
 
+def apartment_area(source_id, coordinates, name=None, address_value=None):
+    tags = [{"key": "residential", "value": "apartments"}]
+    if address_value:
+        tags.append({"key": "addr:full", "value": address_value})
+    return {
+        "id": source_id,
+        "properties": {
+            "names": {"primary": name} if name else None,
+            "source_tags": tags,
+        },
+        "geometry": {"type": "Polygon", "coordinates": [coordinates]},
+    }
+
+
 def box(center_x_meters, center_y_meters, width_meters=10, height_meters=10):
     half_width = width_meters / 2 / 111_320
     half_height = height_meters / 2 / 111_320
@@ -115,6 +130,69 @@ def fema_building(source_id, coordinates):
 
 
 class NormalizeFeaturesTest(TestCase):
+    def test_apartment_land_use_proposes_one_site(self):
+        roads = [road("road-1", "residential", "Sample Road", [[0, 0], [0.002, 0]])]
+        addresses = [
+            address("Sample Road", 0.0003, 0.0001, number="10", unit="1"),
+            address("Sample Road", 0.0003, 0.0001, number="10", unit="2"),
+            address("Sample Road", 0.0010, 0.0001, number="20", unit="1"),
+        ]
+        buildings = [
+            building("apartment-a", "apartments", box(30, 10, 20, 20)),
+            building("apartment-b", "apartments", box(110, 10, 20, 20)),
+        ]
+        area = apartment_area(
+            "sample-apartments",
+            box(70, 10, 180, 80),
+            name="Sample Apartments",
+            address_value="10 Sample Road",
+        )
+
+        result = normalize_features(roads, addresses, buildings, [area])
+
+        self.assertEqual(len(result["apartmentSites"]), 1)
+        site = result["apartmentSites"][0]
+        self.assertEqual(site["id"], "overture-apartment-area:sample-apartments")
+        self.assertEqual(site["name"], "Sample Apartments")
+        self.assertEqual(site["address"], "10 Sample Road")
+        self.assertEqual(site["groupingKind"], "source_boundary")
+        self.assertEqual(site["boundary"], area["geometry"])
+        self.assertEqual(
+            [member["sourceId"] for member in site["members"]],
+            ["apartment-a", "apartment-b"],
+        )
+        self.assertNotIn("estimatedTracts", site)
+        self.assertTrue(all("estimatedTracts" not in member for member in site["members"]))
+
+    def test_ungrouped_apartment_evidence_stays_separate(self):
+        roads = [road("road-1", "residential", "Sample Road", [[0, 0], [0.003, 0]])]
+        addresses = [
+            *[
+                address("Sample Road", 0.0025, 0.0001, number="30", unit=str(unit))
+                for unit in range(1, 6)
+            ],
+        ]
+        buildings = [
+            building("inside", "apartments", box(20, 10, 20, 20)),
+            building("outside", "apartments", box(180, 10, 20, 20)),
+        ]
+        area = apartment_area("bounded", box(20, 10, 80, 60))
+
+        result = normalize_features(roads, addresses, buildings, [area])
+
+        self.assertEqual(
+            [(site["groupingKind"], [member["sourceId"] for member in site["members"]]) for site in result["apartmentSites"]],
+            [
+                ("source_boundary", ["inside"]),
+                ("ungrouped", ["outside"]),
+                ("ungrouped", ["sample-rd|30|"]),
+            ],
+        )
+        address_member = result["apartmentSites"][2]["members"][0]
+        self.assertFalse(address_member["apartmentBuilding"])
+        self.assertEqual(address_member["distinctUnits"], 5)
+        self.assertIsNone(address_member["geometry"])
+
     def test_spatial_index_finds_stable_candidates_across_cell_edges(self):
         meters = lambda value: value / 111_320
         features = [
@@ -214,29 +292,47 @@ class NormalizeFeaturesTest(TestCase):
 
         self.assertEqual(result["segments"][0]["estimatedHomes"], 1)
         self.assertEqual(
-            result["apartmentComplexes"],
+            result["apartmentSites"],
             [
                 {
                     "id": "overture-apartment-building:apartment-building",
                     "sourceId": "apartment-building",
+                    "name": None,
                     "address": "10 Sample Road, Example, 12345",
                     "position": [0.0002, 0.00005],
-                    "estimatedTracts": 2,
-                    "evidence": {
-                        "apartmentBuilding": True,
-                        "distinctUnits": 2,
-                    },
+                    "boundary": None,
+                    "groupingKind": "ungrouped",
+                    "members": [
+                        {
+                            "id": "overture-apartment-building:apartment-building",
+                            "sourceId": "apartment-building",
+                            "address": "10 Sample Road, Example, 12345",
+                            "position": [0.0002, 0.00005],
+                            "geometry": buildings[0]["geometry"],
+                            "apartmentBuilding": True,
+                            "distinctUnits": 2,
+                        }
+                    ],
                 },
                 {
                     "id": "overture-apartment-address:sample-rd|20|12345",
                     "sourceId": "sample-rd|20|12345",
+                    "name": None,
                     "address": "20 Sample Road, Example, 12345",
                     "position": [0.0007, 0.00005],
-                    "estimatedTracts": 5,
-                    "evidence": {
-                        "apartmentBuilding": False,
-                        "distinctUnits": 5,
-                    },
+                    "boundary": None,
+                    "groupingKind": "ungrouped",
+                    "members": [
+                        {
+                            "id": "overture-apartment-address:sample-rd|20|12345",
+                            "sourceId": "sample-rd|20|12345",
+                            "address": "20 Sample Road, Example, 12345",
+                            "position": [0.0007, 0.00005],
+                            "geometry": None,
+                            "apartmentBuilding": False,
+                            "distinctUnits": 5,
+                        }
+                    ],
                 },
             ],
         )
@@ -257,9 +353,9 @@ class NormalizeFeaturesTest(TestCase):
             ],
         )
 
-        self.assertEqual(result["apartmentComplexes"], [])
+        self.assertEqual(result["apartmentSites"], [])
 
-    def test_apartment_building_without_units_uses_a_footprint_estimate(self):
+    def test_apartment_building_without_units_does_not_invent_a_tract_quantity(self):
         result = normalize_features(
             [road("road-1", "residential", "Sample Road", [[0, 0], [0.001, 0]])],
             [
@@ -287,8 +383,10 @@ class NormalizeFeaturesTest(TestCase):
             ],
         )
 
-        self.assertEqual(result["apartmentComplexes"][0]["estimatedTracts"], 22)
-        self.assertEqual(result["apartmentComplexes"][0]["evidence"]["distinctUnits"], 0)
+        site = result["apartmentSites"][0]
+        self.assertNotIn("estimatedTracts", site)
+        self.assertNotIn("estimatedTracts", site["members"][0])
+        self.assertEqual(site["members"][0]["distinctUnits"], 0)
 
     def test_canonical_names_ignore_case_punctuation_and_suffix_spelling(self):
         self.assertEqual(canonical_street_name("Jons Place"), "jons pl")
@@ -1767,11 +1865,14 @@ class BenchmarkMetricsTest(TestCase):
                     "estimatedHomes": 3,
                 }
             ],
-            "apartmentComplexes": [
+            "apartmentSites": [
                 {
-                    "address": "10 Oak Road, Test City, 12345",
-                    "position": [0.0002, 0.00005],
-                    "estimatedTracts": 20,
+                    "members": [
+                        {
+                            "address": "10 Oak Road, Test City, 12345",
+                            "position": [0.0002, 0.00005],
+                        }
+                    ],
                 }
             ],
             "quality": {
@@ -2018,6 +2119,53 @@ class BenchmarkMetricsTest(TestCase):
 
 
 class ImportBoundaryTest(TestCase):
+    def test_download_apartment_areas_reads_only_explicit_apartment_land_use(self):
+        class Result:
+            def fetchall(self):
+                return [
+                    (
+                        "area-1",
+                        {"primary": "Sample Apartments"},
+                        [{"key": "residential", "value": "apartments"}],
+                        '{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,0]]]}',
+                    )
+                ]
+
+        class Connection:
+            def __init__(self):
+                self.calls = []
+
+            def execute(self, sql, parameters=None):
+                self.calls.append((sql, parameters))
+                return Result()
+
+            def close(self):
+                pass
+
+        connection = Connection()
+        with patch.dict(
+            sys.modules,
+            {"duckdb": type("DuckDB", (), {"connect": lambda: connection})},
+        ):
+            result = download_apartment_areas(0, 0, 1)
+
+        self.assertEqual(
+            result,
+            [
+                apartment_area(
+                    "area-1",
+                    [[0, 0], [1, 0], [1, 1], [0, 0]],
+                    name="Sample Apartments",
+                )
+            ],
+        )
+        query = connection.calls[-1]
+        self.assertIn("theme=base/type=land_use/*", query[0])
+        self.assertIn("class = 'residential'", query[0])
+        self.assertIn("residential", query[0])
+        self.assertIn("apartments", query[0])
+        self.assertEqual(len(query[1]), 4)
+
     def test_enclosing_bbox_contains_the_circle_at_the_requested_latitude(self):
         west, south, east, north = enclosing_bbox(-117.1274, 33.5107, 1)
 
@@ -2302,6 +2450,7 @@ class ImportBoundaryTest(TestCase):
                     "1",
                 ],
                 download=download,
+                download_areas=lambda *_: [],
                 download_fema=lambda *_: [],
             )
 
@@ -2309,7 +2458,7 @@ class ImportBoundaryTest(TestCase):
         self.assertEqual(parsed["release"], OVERTURE_RELEASE)
         self.assertEqual(parsed["center"], [-117.1274, 33.5107])
         self.assertEqual(parsed["radiusMiles"], 1)
-        self.assertEqual(parsed["normalizerVersion"], 11)
+        self.assertEqual(parsed["normalizerVersion"], 12)
         self.assertEqual(parsed["buildingMode"], "overture_only")
         self.assertEqual(
             [(item["source"], item["sourceId"]) for item in parsed["mapBuildings"]],
@@ -2354,6 +2503,7 @@ class ImportBoundaryTest(TestCase):
                     [],
                     [building("building-1", "house", box(0, 0))],
                 ),
+                download_areas=lambda *_: [],
                 download_fema=lambda *_: (_ for _ in ()).throw(
                     OSError("service unavailable")
                 ),

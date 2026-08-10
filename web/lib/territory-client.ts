@@ -1,6 +1,30 @@
-import type { TerritorySegment, TerritoryWorkspace } from './database.ts';
+import type { ApartmentSite, TerritorySegment, TerritoryWorkspace } from './database.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import { lineInsideTerritoryBoundary, type Position } from './territory-geometry.ts';
+
+export function apartmentSiteReady(
+  site: Pick<
+    ApartmentSite,
+    'groupingConfirmed' | 'address' | 'addressConfirmed' | 'tractCount' | 'accessStatus'
+  >,
+): boolean {
+  return Boolean(
+    site.groupingConfirmed &&
+      site.addressConfirmed &&
+      site.address?.trim() &&
+      site.tractCount !== null &&
+      site.tractCount >= 1 &&
+      site.accessStatus !== 'unknown',
+  );
+}
+
+export function territoryMapMode(
+  tool: 'coverage' | 'packets' | 'progress' | 'setup',
+  setupView: 'territory' | 'printouts',
+): { visible: boolean; interactive: boolean } {
+  const visible = tool === 'setup';
+  return { visible, interactive: visible && setupView === 'territory' };
+}
 
 export async function refreshTerritoryViews(
   imported: boolean,
@@ -64,10 +88,36 @@ export function territoryDraftFromWorkspace(workspace: TerritoryWorkspace): Terr
       .filter((segment) => segment.manuallyExcluded)
       .map((segment) => segment.id)
       .sort(),
-    apartmentStatuses: workspace.apartmentComplexes.map(({ id, reviewStatus }) => ({
-      id,
-      reviewStatus,
-    })),
+  };
+}
+
+export function apartmentSiteSummary(sites: ApartmentSite[]): {
+  confirmedComplexes: number;
+  ungroupedBuildings: number;
+} {
+  return {
+    confirmedComplexes: sites.filter(({ groupingConfirmed }) => groupingConfirmed).length,
+    ungroupedBuildings: sites
+      .filter(({ groupingConfirmed }) => !groupingConfirmed)
+      .reduce(
+        (total, { members }) =>
+          total + members.filter(({ apartmentBuilding }) => apartmentBuilding).length,
+        0,
+      ),
+  };
+}
+
+export function withApartmentSiteConfiguration(
+  workspace: TerritoryWorkspace,
+  site: ApartmentSite,
+): TerritoryWorkspace {
+  const apartmentSites = workspace.apartmentSites.map((candidate) =>
+    candidate.id === site.id ? site : candidate,
+  );
+  return {
+    ...workspace,
+    apartmentSites,
+    apartmentComplexes: apartmentSites,
   };
 }
 

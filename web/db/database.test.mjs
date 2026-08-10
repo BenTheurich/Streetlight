@@ -12,6 +12,8 @@ import {
   getPacketGenerationWorkspace,
   getTerritoryWorkspace,
   recordCoverageCompletion,
+  saveApartmentSiteConfiguration,
+  saveApartmentSiteMembership,
   saveCoverageThresholds,
   saveTerritoryDraft,
 } from '../lib/database.ts';
@@ -66,7 +68,7 @@ function importedTerritory(segments) {
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 11,
+    normalizerVersion: 12,
     buildingMode: 'overture_fema',
     mapBuildings: [
       {
@@ -101,7 +103,7 @@ function importedTerritory(segments) {
       warnings: ['Address matching is below the 95% reliability target (83.3% matched).'],
     },
     segments,
-    apartmentComplexes: [],
+    apartmentSites: [],
   };
 }
 
@@ -109,10 +111,22 @@ function importedApartment(id, address = '10 Sample Road, Temecula CA 92591') {
   return {
     id,
     sourceId: `source-${id}`,
+    name: null,
     address,
     position: [-117.11685, 33.54295],
-    estimatedTracts: 12,
-    evidence: { apartmentBuilding: true, distinctUnits: 12 },
+    boundary: null,
+    groupingKind: 'ungrouped',
+    members: [
+      {
+        id,
+        sourceId: `source-${id}`,
+        address,
+        position: [-117.11685, 33.54295],
+        geometry: null,
+        apartmentBuilding: true,
+        distinctUnits: 12,
+      },
+    ],
   };
 }
 
@@ -184,7 +198,79 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
   }
 });
 
-test('apartment imports default to review, preserve decisions, and retire missing complexes', () => {
+test('migration 027 turns legacy apartment rows into unconfigured sites without breaking packet targets', () => {
+  const database = openDatabase(':memory:');
+  try {
+    database.exec(`
+      CREATE TABLE apartment_complexes (
+        id TEXT PRIMARY KEY,
+        church_id TEXT NOT NULL,
+        territory_id TEXT NOT NULL,
+        import_complex_id TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        address TEXT,
+        longitude REAL NOT NULL,
+        latitude REAL NOT NULL,
+        estimated_tracts INTEGER NOT NULL,
+        apartment_building INTEGER NOT NULL,
+        distinct_units INTEGER NOT NULL,
+        review_status TEXT NOT NULL,
+        import_generation INTEGER NOT NULL,
+        is_current INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) STRICT;
+      CREATE TABLE packet_apartment_complexes (
+        church_id TEXT NOT NULL,
+        packet_id TEXT PRIMARY KEY,
+        apartment_complex_id TEXT NOT NULL REFERENCES apartment_complexes(id)
+      ) STRICT;
+      INSERT INTO apartment_complexes VALUES
+        ('legacy-site', 'church', 'territory', 'legacy-import', 'building-1',
+          '10 Sample Road', -117.1, 33.5, 18, 1, 12, 'ready', 1, 1, CURRENT_TIMESTAMP);
+      INSERT INTO packet_apartment_complexes VALUES ('church', 'packet', 'legacy-site');
+    `);
+
+    database.exec(
+      readFileSync(
+        path.join(import.meta.dirname, 'migrations', '027_apartment_site_model.sql'),
+        'utf8',
+      ),
+    );
+
+    const site = database.prepare('SELECT * FROM apartment_complexes').get();
+    assert.equal(site.grouping_kind, 'ungrouped');
+    assert.equal(site.grouping_confirmed, 0);
+    assert.equal(site.address_confirmed, 0);
+    assert.equal(site.confirmed_tracts, null);
+    assert.equal(site.access_status, 'unknown');
+    assert.equal(site.included_in_packets, 0);
+    assert.deepEqual(JSON.parse(site.members_json), [
+      {
+        id: 'legacy-import',
+        sourceId: 'building-1',
+        address: '10 Sample Road',
+        position: [-117.1, 33.5],
+        geometry: null,
+        apartmentBuilding: true,
+        distinctUnits: 12,
+      },
+    ]);
+    assert.equal(
+      database
+        .prepare(
+          `SELECT a.import_complex_id
+          FROM packet_apartment_complexes p
+          JOIN apartment_complexes a ON a.id = p.apartment_complex_id`,
+        )
+        .get().import_complex_id,
+      'legacy-import',
+    );
+  } finally {
+    database.close();
+  }
+});
+
+test('apartment imports remain visible as unconfigured site evidence', () => {
   withDatabase((filename) => {
     const initial = getTerritoryWorkspace(filename);
     const draft = {
@@ -194,14 +280,13 @@ test('apartment imports default to review, preserve decisions, and retire missin
       boundaryShape: 'circle',
       activatedSegmentIds: [],
       excludedSegmentIds: [],
-      apartmentStatuses: [],
     };
     saveTerritoryDraft(draft, {
       filename,
       imported: {
         ...importedTerritory([importedSegment('road', 'Sample Road', 'residential', 1)]),
         radiusMiles: 1,
-        apartmentComplexes: [
+        apartmentSites: [
           importedApartment('apartments-10'),
           importedApartment('units-20'),
           importedApartment('missing-address', null),
@@ -211,83 +296,190 @@ test('apartment imports default to review, preserve decisions, and retire missin
 
     const imported = getTerritoryWorkspace(filename);
     assert.deepEqual(
-      imported.apartmentComplexes
-        .map(({ id, reviewStatus, estimatedTracts }) => ({
+      imported.apartmentSites
+        .map(({ id, groupingKind, groupingConfirmed, packetReady, includedInPackets }) => ({
           id,
-          reviewStatus,
-          estimatedTracts,
+          groupingKind,
+          groupingConfirmed,
+          packetReady,
+          includedInPackets,
         }))
         .sort((left, right) => left.id.localeCompare(right.id)),
       [
-        { id: 'apartments-10', reviewStatus: 'needs_review', estimatedTracts: 12 },
-        { id: 'missing-address', reviewStatus: 'needs_review', estimatedTracts: 12 },
-        { id: 'units-20', reviewStatus: 'needs_review', estimatedTracts: 12 },
+        {
+          id: 'apartments-10',
+          groupingKind: 'ungrouped',
+          groupingConfirmed: false,
+          packetReady: false,
+          includedInPackets: false,
+        },
+        {
+          id: 'missing-address',
+          groupingKind: 'ungrouped',
+          groupingConfirmed: false,
+          packetReady: false,
+          includedInPackets: false,
+        },
+        {
+          id: 'units-20',
+          groupingKind: 'ungrouped',
+          groupingConfirmed: false,
+          packetReady: false,
+          includedInPackets: false,
+        },
       ],
     );
+  });
+});
+
+test('apartment grouping and all four confirmed facts control packet inclusion', () => {
+  withDatabase((filename) => {
+    const initial = getTerritoryWorkspace(filename);
+    const draft = {
+      originAddress: initial.originAddress,
+      center: initial.center,
+      radiusMiles: 1,
+      boundaryShape: 'circle',
+      activatedSegmentIds: [],
+      excludedSegmentIds: [],
+    };
+    saveTerritoryDraft(draft, {
+      filename,
+      imported: {
+        ...importedTerritory([importedSegment('road', 'Sample Road', 'residential', 1)]),
+        radiusMiles: 1,
+        apartmentSites: [importedApartment('apartments-10'), importedApartment('units-20')],
+      },
+    });
+
+    const grouped = saveApartmentSiteMembership(
+      { id: null, memberIds: ['apartments-10', 'units-20'] },
+      filename,
+    ).apartmentSites[0];
+    assert.equal(grouped.groupingConfirmed, true);
+    assert.equal(grouped.members.length, 2);
+    assert.equal(grouped.packetReady, false);
+
     assert.throws(
       () =>
-        saveTerritoryDraft(
+        saveApartmentSiteConfiguration(
           {
-            ...draft,
-            apartmentStatuses: [{ id: 'missing-address', reviewStatus: 'ready' }],
+            id: grouped.id,
+            name: 'Sample Apartments',
+            address: '10 Sample Road, Temecula CA 92591',
+            addressConfirmed: true,
+            tractCount: 24,
+            accessStatus: 'unknown',
+            groupingConfirmed: true,
+            includedInPackets: true,
           },
-          { filename },
+          filename,
         ),
-      /not ready for outreach/,
+      /packet-ready/i,
     );
 
-    saveTerritoryDraft(
+    const ready = saveApartmentSiteConfiguration(
       {
-        ...draft,
-        apartmentStatuses: [
-          { id: 'apartments-10', reviewStatus: 'ready' },
-          { id: 'units-20', reviewStatus: 'deferred' },
-        ],
+        id: grouped.id,
+        name: 'Sample Apartments',
+        address: '10 Sample Road, Temecula CA 92591',
+        addressConfirmed: true,
+        tractCount: 24,
+        accessStatus: 'restricted',
+        groupingConfirmed: true,
+        includedInPackets: true,
       },
-      { filename },
+      filename,
+    ).apartmentSites[0];
+    assert.equal(ready.packetReady, true);
+    assert.equal(ready.includedInPackets, true);
+
+    const invalidated = saveApartmentSiteConfiguration(
+      {
+        id: grouped.id,
+        name: 'Sample Apartments',
+        address: '10 Sample Road, Temecula CA 92591',
+        addressConfirmed: false,
+        tractCount: 24,
+        accessStatus: 'restricted',
+        groupingConfirmed: true,
+        includedInPackets: true,
+      },
+      filename,
+    ).apartmentSites[0];
+    assert.equal(invalidated.packetReady, false);
+    assert.equal(invalidated.includedInPackets, false);
+  });
+});
+
+test('membership edits restore evidence and confirmed sites survive imports', () => {
+  withDatabase((filename) => {
+    const initial = getTerritoryWorkspace(filename);
+    const draft = {
+      originAddress: initial.originAddress,
+      center: initial.center,
+      radiusMiles: 1,
+      boundaryShape: 'circle',
+      activatedSegmentIds: [],
+      excludedSegmentIds: [],
+    };
+    const imported = {
+      ...importedTerritory([importedSegment('road', 'Sample Road', 'residential', 1)]),
+      radiusMiles: 1,
+      apartmentSites: [importedApartment('apartments-10'), importedApartment('units-20')],
+    };
+    saveTerritoryDraft(draft, { filename, imported });
+    const group = saveApartmentSiteMembership(
+      { id: null, memberIds: ['apartments-10', 'units-20'] },
+      filename,
+    ).apartmentSites[0];
+
+    const edited = saveApartmentSiteMembership(
+      { id: group.id, memberIds: ['apartments-10'] },
+      filename,
     );
-    saveTerritoryDraft(
-      {
-        ...draft,
-        apartmentStatuses: [
-          { id: 'apartments-10', reviewStatus: 'ready' },
-          { id: 'units-20', reviewStatus: 'deferred' },
-        ],
-      },
-      {
-        filename,
-        imported: {
-          ...importedTerritory([importedSegment('road', 'Sample Road', 'residential', 1)]),
-          radiusMiles: 1,
-          apartmentComplexes: [importedApartment('apartments-10')],
-        },
-      },
+    assert.deepEqual(
+      edited.apartmentSites.map((site) => [
+        site.groupingConfirmed,
+        site.members.map(({ id }) => id),
+      ]),
+      [
+        [true, ['apartments-10']],
+        [false, ['units-20']],
+      ],
     );
+
+    saveApartmentSiteConfiguration(
+      {
+        id: group.id,
+        name: 'Saved Site',
+        address: '10 Sample Road, Temecula CA 92591',
+        addressConfirmed: true,
+        tractCount: 12,
+        accessStatus: 'open',
+        groupingConfirmed: true,
+        includedInPackets: true,
+      },
+      filename,
+    );
+    saveTerritoryDraft(draft, { filename, imported });
 
     const reimported = getTerritoryWorkspace(filename);
+    const preserved = reimported.apartmentSites.find(({ id }) => id === group.id);
+    assert.ok(preserved);
+    assert.equal(preserved.name, 'Saved Site');
+    assert.equal(preserved.tractCount, 12);
+    assert.equal(preserved.includedInPackets, true);
     assert.deepEqual(
-      reimported.apartmentComplexes.map(({ id, reviewStatus }) => ({ id, reviewStatus })),
-      [{ id: 'apartments-10', reviewStatus: 'ready' }],
+      preserved.members.map(({ id }) => id),
+      ['apartments-10'],
     );
-    const database = openDatabase(filename);
-    try {
-      assert.deepEqual(
-        database
-          .prepare(
-            'SELECT import_complex_id, is_current FROM apartment_complexes ORDER BY import_complex_id, import_generation',
-          )
-          .all()
-          .map((row) => ({ ...row })),
-        [
-          { import_complex_id: 'apartments-10', is_current: 0 },
-          { import_complex_id: 'apartments-10', is_current: 1 },
-          { import_complex_id: 'missing-address', is_current: 0 },
-          { import_complex_id: 'units-20', is_current: 0 },
-        ],
-      );
-    } finally {
-      database.close();
-    }
+    assert.equal(
+      reimported.apartmentSites.filter((site) =>
+        site.members.some(({ id }) => id === 'apartments-10'),
+      ).length,
+      1,
+    );
   });
 });
 

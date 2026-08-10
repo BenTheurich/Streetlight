@@ -13,7 +13,7 @@ const validOutput = {
   center: requestedCenter,
   radiusMiles: 1,
   completedAt: '2026-07-27T12:00:00.000Z',
-  normalizerVersion: 11,
+  normalizerVersion: 12,
   buildingMode: 'overture_fema',
   mapBuildings: [
     {
@@ -71,17 +71,55 @@ const validOutput = {
     buildingAddressDisagreements: 1,
     warnings: ['Address matching is below the 95% reliability target (83.3% matched).'],
   },
-  apartmentComplexes: [
+  apartmentSites: [
     {
-      id: 'overture-apartment-building:building-1',
-      sourceId: 'building-1',
+      id: 'overture-apartment-area:area-1',
+      sourceId: 'area-1',
+      name: 'Sample Apartments',
       address: '10 Main Street, Temecula, 92591',
       position: [-117.129, 33.5101],
-      estimatedTracts: 24,
-      evidence: {
-        apartmentBuilding: true,
-        distinctUnits: 24,
+      boundary: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-117.13, 33.51],
+            [-117.128, 33.51],
+            [-117.128, 33.512],
+            [-117.13, 33.51],
+          ],
+        ],
       },
+      groupingKind: 'source_boundary',
+      members: [
+        {
+          id: 'overture-apartment-building:building-1',
+          sourceId: 'building-1',
+          address: '10 Main Street, Temecula, 92591',
+          position: [-117.129, 33.5101],
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [-117.1291, 33.5101],
+                [-117.129, 33.5101],
+                [-117.129, 33.5102],
+                [-117.1291, 33.5101],
+              ],
+            ],
+          },
+          apartmentBuilding: true,
+          distinctUnits: 24,
+        },
+        {
+          id: 'overture-apartment-address:main-st|12|92591',
+          sourceId: 'main-st|12|92591',
+          address: '12 Main Street, Temecula, 92591',
+          position: [-117.1288, 33.5102],
+          geometry: null,
+          apartmentBuilding: false,
+          distinctUnits: 6,
+        },
+      ],
     },
   ],
   segments: [
@@ -147,6 +185,32 @@ test('rejects invalid importer arguments before starting Python', () => {
 
 test('accepts the complete pinned import contract', () => {
   assert.deepEqual(parseOvertureImportOutput(JSON.stringify(validOutput)), validImportedOutput);
+});
+
+test('rejects malformed apartment sites and legacy complex payloads', () => {
+  const site = validOutput.apartmentSites[0];
+  const member = site.members[0];
+  const duplicateMember = { ...site.members[1], id: member.id };
+  const { apartmentSites: _apartmentSites, ...withoutSites } = validOutput;
+
+  for (const value of [
+    { ...withoutSites, apartmentComplexes: [] },
+    { ...validOutput, apartmentSites: [{ ...site, members: [] }] },
+    { ...validOutput, apartmentSites: [{ ...site, groupingKind: 'clustered' }] },
+    { ...validOutput, apartmentSites: [{ ...site, members: [member, duplicateMember] }] },
+    {
+      ...validOutput,
+      apartmentSites: [
+        {
+          ...site,
+          members: [{ ...member, geometry: { type: 'Point', coordinates: member.position } }],
+        },
+      ],
+    },
+    { ...validOutput, apartmentSites: [{ ...site, extra: true }] },
+  ]) {
+    assert.throws(() => parseOvertureImportOutput(JSON.stringify(value)), /import output/i);
+  }
 });
 
 test('rejects guessed or invalid display buildings', () => {

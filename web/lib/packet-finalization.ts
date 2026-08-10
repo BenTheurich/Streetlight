@@ -37,6 +37,7 @@ export type FinalizedBatch = {
 export type DownloadPacket = {
   kind: 'street' | 'apartment';
   apartmentId: string | null;
+  accessStatus: 'open' | 'restricted' | null;
   id: string;
   code: string;
   batchId: string;
@@ -115,6 +116,7 @@ export function packetProposalFingerprint(proposals: PacketProposal[]): string {
   const stable = proposals.map((proposal) => ({
     kind: proposal.kind ?? 'street',
     apartmentId: proposal.apartmentId ?? null,
+    accessStatus: proposal.accessStatus ?? null,
     targetHomes: proposal.targetHomes,
     estimatedHomes: proposal.estimatedHomes,
     coverageClass: proposal.coverageClass,

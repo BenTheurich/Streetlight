@@ -13,6 +13,7 @@ import {
   getPacketGenerationWorkspace,
   getTerritoryWorkspace,
   recordCoverageCompletion,
+  saveApartmentSiteConfiguration,
   saveTerritoryDraft,
 } from './database.ts';
 import type { ImportedTerritoryInput } from './overture-import.ts';
@@ -65,7 +66,7 @@ function preparePacketGraph(filename: string, includeApartment = false): void {
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',
-    normalizerVersion: 11,
+    normalizerVersion: 12,
     buildingMode: 'overture_fema',
     mapBuildings: [
       {
@@ -100,15 +101,27 @@ function preparePacketGraph(filename: string, includeApartment = false): void {
       warnings: [],
     },
     segments,
-    apartmentComplexes: includeApartment
+    apartmentSites: includeApartment
       ? [
           {
             id: 'apartment-one',
             sourceId: 'building-one',
+            name: null,
             address: '100 Apartment Way, Temecula CA 92591',
             position: [-117.11685, 33.54295],
-            estimatedTracts: 24,
-            evidence: { apartmentBuilding: true, distinctUnits: 24 },
+            boundary: null,
+            groupingKind: 'ungrouped',
+            members: [
+              {
+                id: 'apartment-one',
+                sourceId: 'building-one',
+                address: '100 Apartment Way, Temecula CA 92591',
+                position: [-117.11685, 33.54295],
+                geometry: null,
+                apartmentBuilding: true,
+                distinctUnits: 24,
+              },
+            ],
           },
         ]
       : [],
@@ -125,23 +138,24 @@ function preparePacketGraph(filename: string, includeApartment = false): void {
     { filename, imported },
   );
   if (includeApartment) {
-    saveTerritoryDraft(
+    saveApartmentSiteConfiguration(
       {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        activatedSegmentIds: [],
-        excludedSegmentIds: [],
-        apartmentStatuses: [{ id: 'apartment-one', reviewStatus: 'ready' }],
+        id: 'apartment-one',
+        name: 'Apartment One',
+        address: '100 Apartment Way, Temecula CA 92591',
+        addressConfirmed: true,
+        tractCount: 24,
+        accessStatus: 'restricted',
+        groupingConfirmed: true,
+        includedInPackets: true,
       },
-      { filename },
+      filename,
     );
   }
   for (const segment of segments) recordCoverageCompletion(segment.id, '2025-01-01', filename);
 }
 
-test('ready apartment complexes finalize and reserve as separate atomic packets', () => {
+test('configured apartment sites finalize and reserve as separate atomic packets', () => {
   withDatabase((filename) => {
     preparePacketGraph(filename, true);
     const input = reviewedInput(filename);
@@ -159,6 +173,7 @@ test('ready apartment complexes finalize and reserve as separate atomic packets'
     });
     assert.equal(finalized.packetCount, 1);
     assert.equal(finalized.packets[0].apartmentId, 'apartment-one');
+    assert.equal(finalized.packets[0].accessStatus, 'restricted');
 
     const database = openDatabase(filename);
     try {
@@ -180,6 +195,7 @@ test('ready apartment complexes finalize and reserve as separate atomic packets'
     const apartmentDownload = getPacketDownloadSelection('newest', filename).packets[0];
     assert.equal(apartmentDownload.kind, 'apartment');
     assert.equal(apartmentDownload.apartmentId, 'apartment-one');
+    assert.equal(apartmentDownload.accessStatus, 'restricted');
     assert.deepEqual(apartmentDownload.segments, []);
   });
 });

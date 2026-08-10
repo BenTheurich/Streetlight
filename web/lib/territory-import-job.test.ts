@@ -91,10 +91,10 @@ test('territory import jobs are deduplicated, staged, and swap territory only on
           center: draft.center,
           radiusMiles: draft.radiusMiles,
           completedAt: '2026-08-03T12:00:00.000Z',
-          normalizerVersion: 11,
+          normalizerVersion: 12,
           buildingMode: 'overture_only',
           mapBuildings: [],
-          apartmentComplexes: [],
+          apartmentSites: [],
           quality: {
             totalAddresses: 0,
             assignedAddresses: 0,

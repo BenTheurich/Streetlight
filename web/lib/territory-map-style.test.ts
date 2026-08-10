@@ -8,10 +8,124 @@ import {
   segmentVisibleOnMap,
 } from './territory-map-style.ts';
 
-test('apartment markers stay blue across review states', () => {
-  assert.equal(apartmentMarkerColor('needs_review'), '#123464');
-  assert.equal(apartmentMarkerColor('ready'), '#123464');
-  assert.equal(apartmentMarkerColor('deferred'), '#123464');
+test('apartment markers distinguish ungrouped evidence from confirmed sites', () => {
+  assert.equal(apartmentMarkerColor(false), '#8f8a80');
+  assert.equal(apartmentMarkerColor(true), '#123464');
+});
+
+test('apartment options use packet inclusion and disambiguate anonymous complexes by road', async () => {
+  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
+  const reviewOptions = module.apartmentReviewOptions as
+    | ((
+        apartments: Array<{
+          id: string;
+          address: string | null;
+          position: [number, number];
+          name: string | null;
+          groupingConfirmed: boolean;
+          packetReady: boolean;
+          includedInPackets: boolean;
+          members: Array<{ apartmentBuilding: boolean }>;
+        }>,
+        segments: Array<{
+          id: string;
+          streetName: string;
+          geometry: { coordinates: Array<[number, number]> };
+        }>,
+        query: string,
+      ) => Array<{
+        apartment: { id: string };
+        label: string;
+        nearbyStreet: string | null;
+        disambiguator: string | null;
+      }>)
+    | undefined;
+  const segments = [
+    {
+      id: 'unnamed',
+      streetName: 'Unnamed road',
+      geometry: {
+        coordinates: [
+          [0.0001, 0],
+          [0.0001, 1],
+        ] as Array<[number, number]>,
+      },
+    },
+    {
+      id: 'main',
+      streetName: 'Main Street',
+      geometry: {
+        coordinates: [
+          [0, 0],
+          [0, 1],
+        ] as Array<[number, number]>,
+      },
+    },
+    {
+      id: 'oak',
+      streetName: 'Oak Road',
+      geometry: {
+        coordinates: [
+          [2, 0],
+          [2, 1],
+        ] as Array<[number, number]>,
+      },
+    },
+  ];
+  const apartments = [
+    {
+      id: 'ready-oak',
+      name: 'Oak Apartments',
+      address: '12 Oak Road',
+      position: [2, 0.5] as [number, number],
+      groupingConfirmed: true,
+      packetReady: true,
+      includedInPackets: true,
+      members: [{ apartmentBuilding: true }],
+    },
+    {
+      id: 'anonymous-b',
+      name: null,
+      address: null,
+      position: [0.0002, 0.6] as [number, number],
+      groupingConfirmed: false,
+      packetReady: false,
+      includedInPackets: false,
+      members: [{ apartmentBuilding: true }],
+    },
+    {
+      id: 'anonymous-a',
+      name: null,
+      address: null,
+      position: [0.0001, 0.4] as [number, number],
+      groupingConfirmed: false,
+      packetReady: false,
+      includedInPackets: false,
+      members: [{ apartmentBuilding: true }],
+    },
+  ];
+
+  assert.equal(typeof reviewOptions, 'function');
+  const options = reviewOptions?.(apartments, segments, '') ?? [];
+  assert.deepEqual(
+    options.map(({ apartment }) => apartment.id),
+    ['anonymous-a', 'anonymous-b', 'ready-oak'],
+  );
+  assert.equal(options[0]?.nearbyStreet, 'Main Street');
+  assert.equal(options[0]?.disambiguator, 'Building 1');
+  assert.equal(options[1]?.disambiguator, 'Building 2');
+  assert.equal(
+    options[0]?.label,
+    'Address unavailable near Main Street · Needs setup · Building 1',
+  );
+  assert.equal(
+    options[1]?.label,
+    'Address unavailable near Main Street · Needs setup · Building 2',
+  );
+  assert.deepEqual(
+    reviewOptions?.(apartments, segments, 'oak').map(({ apartment }) => apartment.id),
+    ['ready-oak'],
+  );
 });
 
 test('map overlays republish after the basemap style is replaced', async () => {
@@ -140,9 +254,12 @@ test('apartment interaction keeps selection origin, camera threshold, and drawin
   const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
   const optionLabel = module.apartmentOptionLabel as
     | ((apartment: {
+        name: string | null;
         address: string | null;
-        reviewStatus: 'needs_review' | 'ready' | 'deferred';
-        estimatedTracts: number;
+        groupingConfirmed: boolean;
+        packetReady: boolean;
+        includedInPackets: boolean;
+        members: Array<{ apartmentBuilding: boolean }>;
       }) => string)
     | undefined;
   const focusZoom = module.apartmentFocusZoom as
@@ -165,12 +282,26 @@ test('apartment interaction keeps selection origin, camera threshold, and drawin
 
   assert.equal(typeof optionLabel, 'function');
   assert.equal(
-    optionLabel?.({ address: null, reviewStatus: 'needs_review', estimatedTracts: 18 }),
-    'Address unavailable · Needs review · 18 estimated tracts',
+    optionLabel?.({
+      address: null,
+      name: null,
+      groupingConfirmed: false,
+      packetReady: false,
+      includedInPackets: false,
+      members: [{ apartmentBuilding: true }],
+    }),
+    'Address unavailable · Needs setup',
   );
   assert.equal(
-    optionLabel?.({ address: '1 Main Street', reviewStatus: 'ready', estimatedTracts: 1 }),
-    '1 Main Street · Ready · 1 estimated tract',
+    optionLabel?.({
+      address: '1 Main Street',
+      name: null,
+      groupingConfirmed: true,
+      packetReady: true,
+      includedInPackets: true,
+      members: [{ apartmentBuilding: true }],
+    }),
+    '1 Main Street · Included',
   );
   assert.equal(focusZoom?.('map', 11), null);
   assert.equal(focusZoom?.('selector', 11), 16);

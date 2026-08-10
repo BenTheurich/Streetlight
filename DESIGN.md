@@ -243,8 +243,11 @@ Church, packet-start, and apartment markers form one family: Map Marker Blue wit
 outline, fixed screen sizing, and no shadow. Church and packet pins share the same 44-pixel canvas
 and outer silhouette. The church uses a clear, vertically proportioned white cross directly on the
 pin; a packet start uses a plain white dot. Apartment markers and clusters use a 12-pixel radius and
-the same outline, growing only to show selection. Their inner `A` or count distinguishes meaning
-without changing the shell.
+the same outline. Ungrouped apartment evidence uses a subdued warm gray; confirmed sites use Map
+Marker Blue. A selected apartment grows and changes to Packet Blue while retaining its white
+outline, and its evidence footprints plus any source boundary receive a restrained gold highlight.
+The redundant size, color, and geometry cues keep selection clear at a glance. Their inner `A` or
+count distinguishes meaning.
 
 ## Do's and Don'ts
 

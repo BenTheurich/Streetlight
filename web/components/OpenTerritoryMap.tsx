@@ -2,7 +2,8 @@
 
 import type { GeoJSONSource, MapLayerMouseEvent, Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
-import type { ApartmentComplex, TerritorySegment } from '@/lib/database';
+import type { ApartmentSite, TerritorySegment } from '@/lib/database';
+import { coverageSelectionCameraOptions, segmentSelectionBounds } from '@/lib/map-camera';
 import { type BoundaryShape, type Position, territoryBoundary } from '@/lib/territory-geometry';
 import {
   type ApartmentSelectionSource,
@@ -20,20 +21,24 @@ import {
 } from '@/lib/territory-map-style';
 
 type OpenTerritoryMapProps = {
-  active: boolean;
+  visible: boolean;
+  interactive: boolean;
   map: MapLibreMap | null;
   center: Position;
   radiusMiles: number;
   boundaryShape: BoundaryShape;
   segments: TerritorySegment[];
-  apartmentComplexes: ApartmentComplex[];
+  apartmentSites: ApartmentSite[];
   mutationLocked: boolean;
   selectedSegmentIds: string[];
+  roadFocusRequest: { ids: string[]; key: number } | null;
   showHiddenRoads: boolean;
   boxSelectionArmed: boolean;
   onBoxSelectionComplete: () => void;
   onSelectSegments: (ids: string[], additive: boolean) => void;
   onSelectApartment: (id: string) => void;
+  groupingMemberIds: string[] | null;
+  onToggleApartmentMember: (id: string) => void;
   selectedApartmentId: string | null;
   selectedApartmentPosition: Position | null;
   apartmentSelectionSource: ApartmentSelectionSource | null;
@@ -44,26 +49,31 @@ function beforeRoadLabels(map: MapLibreMap): string | undefined {
 }
 
 export function OpenTerritoryMap({
-  active,
+  visible,
+  interactive,
   map,
   center,
   radiusMiles,
   boundaryShape,
   segments,
-  apartmentComplexes,
+  apartmentSites,
   mutationLocked,
   selectedSegmentIds,
+  roadFocusRequest,
   showHiddenRoads,
   boxSelectionArmed,
   onBoxSelectionComplete,
   onSelectSegments,
   onSelectApartment,
+  groupingMemberIds,
+  onToggleApartmentMember,
   selectedApartmentId,
   selectedApartmentPosition,
   apartmentSelectionSource,
 }: OpenTerritoryMapProps) {
   const mutationLockedRef = useRef(mutationLocked);
   const previousCenterRef = useRef(center);
+  const previousRoadFocusKeyRef = useRef<number | null>(null);
   const [mapStyleRevision, setMapStyleRevision] = useState(0);
   mutationLockedRef.current = mutationLocked;
 
@@ -82,25 +92,25 @@ export function OpenTerritoryMap({
       }
     };
     const stop = keepMapOverlayPublished(map, () => {
-      setRoadGeometryVisibility(active ? 'none' : 'visible');
+      setRoadGeometryVisibility(visible ? 'none' : 'visible');
     });
     return () => {
       stop();
-      if (active) setRoadGeometryVisibility('visible');
+      if (visible) setRoadGeometryVisibility('visible');
     };
-  }, [active, map]);
+  }, [map, visible]);
 
   useEffect(() => {
     const previous = previousCenterRef.current;
     previousCenterRef.current = center;
-    if (active && map && (previous[0] !== center[0] || previous[1] !== center[1])) {
+    if (visible && map && (previous[0] !== center[0] || previous[1] !== center[1])) {
       map.easeTo({ center });
     }
-  }, [active, center, map]);
+  }, [center, map, visible]);
 
   useEffect(() => {
     if (
-      !active ||
+      !interactive ||
       !map ||
       !selectedApartmentId ||
       !selectedApartmentPosition ||
@@ -109,11 +119,27 @@ export function OpenTerritoryMap({
       return;
     const zoom = apartmentFocusZoom(apartmentSelectionSource, map.getZoom());
     if (zoom !== null) map.easeTo({ center: selectedApartmentPosition, zoom });
-  }, [active, apartmentSelectionSource, map, selectedApartmentId, selectedApartmentPosition]);
+  }, [apartmentSelectionSource, interactive, map, selectedApartmentId, selectedApartmentPosition]);
+
+  useEffect(() => {
+    if (!visible || !map || !roadFocusRequest) {
+      previousRoadFocusKeyRef.current = null;
+      return;
+    }
+    if (previousRoadFocusKeyRef.current === roadFocusRequest.key) return;
+    const bounds = segmentSelectionBounds(segments, roadFocusRequest.ids);
+    if (!bounds) return;
+    previousRoadFocusKeyRef.current = roadFocusRequest.key;
+    const options = coverageSelectionCameraOptions(
+      'search',
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    );
+    map.fitBounds(bounds, options);
+  }, [map, roadFocusRequest, segments, visible]);
 
   useEffect(() => {
     void mapStyleRevision;
-    if (!active || !map) return;
+    if (!visible || !map) return;
     const fillSource = 'territory-boundary-fill';
     const lineSource = 'territory-boundary-line';
     const fillLayer = 'territory-boundary-fill';
@@ -159,11 +185,11 @@ export function OpenTerritoryMap({
       if (map.getSource(lineSource)) map.removeSource(lineSource);
       if (map.getSource(fillSource)) map.removeSource(fillSource);
     };
-  }, [active, map, mapStyleRevision]);
+  }, [map, mapStyleRevision, visible]);
 
   useEffect(() => {
     void mapStyleRevision;
-    if (!active || !map) return;
+    if (!visible || !map) return;
     const boundary = territoryBoundary(center, radiusMiles, boundaryShape);
     (map.getSource('territory-boundary-fill') as GeoJSONSource | undefined)?.setData({
       type: 'Feature',
@@ -178,11 +204,61 @@ export function OpenTerritoryMap({
         coordinates: boundaryStrokePaths(boundary.coordinates[0], boundaryShape),
       },
     });
-  }, [active, boundaryShape, center, map, mapStyleRevision, radiusMiles]);
+  }, [boundaryShape, center, map, mapStyleRevision, radiusMiles, visible]);
 
   useEffect(() => {
     void mapStyleRevision;
-    if (!active || !map) return;
+    if (!visible || !map) return;
+    const sourceId = 'streetlight-apartment-selection';
+    const fillId = 'streetlight-apartment-selection-fill';
+    const lineId = 'streetlight-apartment-selection-line';
+    map.addSource(sourceId, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    });
+    map.addLayer(
+      {
+        id: fillId,
+        type: 'fill',
+        source: sourceId,
+        paint: { 'fill-color': '#d2a128', 'fill-opacity': 0.16 },
+      },
+      beforeRoadLabels(map),
+    );
+    map.addLayer(
+      {
+        id: lineId,
+        type: 'line',
+        source: sourceId,
+        paint: { 'line-color': '#b07a17', 'line-width': 3, 'line-opacity': 0.9 },
+      },
+      beforeRoadLabels(map),
+    );
+    return () => {
+      if (map.getLayer(lineId)) map.removeLayer(lineId);
+      if (map.getLayer(fillId)) map.removeLayer(fillId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    };
+  }, [map, mapStyleRevision, visible]);
+
+  useEffect(() => {
+    void mapStyleRevision;
+    if (!visible || !map) return;
+    const selected = apartmentSites.find(({ id }) => id === selectedApartmentId);
+    const geometries = selected
+      ? [selected.boundary, ...selected.members.map(({ geometry }) => geometry)].filter(
+          (geometry): geometry is NonNullable<typeof geometry> => geometry !== null,
+        )
+      : [];
+    (map.getSource('streetlight-apartment-selection') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: geometries.map((geometry) => ({ type: 'Feature', properties: {}, geometry })),
+    });
+  }, [apartmentSites, map, mapStyleRevision, selectedApartmentId, visible]);
+
+  useEffect(() => {
+    void mapStyleRevision;
+    if (!visible || !map) return;
     const layerIds = ['streetlight-coverage', 'streetlight-territory-hidden'] as const;
     const selectedIds = new Set(selectedSegmentIds);
     const visibleSegments = segments.filter((segment) =>
@@ -201,7 +277,7 @@ export function OpenTerritoryMap({
             manuallyExcluded: segment.manuallyExcluded,
             hidden: !segment.active && !segment.manuallyExcluded,
             selected: appearance.selected,
-            selectable: !mutationLocked && appearance.selectable,
+            selectable: interactive && !mutationLocked && appearance.selectable,
             color: appearance.strokeColor,
             opacity: appearance.strokeOpacity,
             weightOffset: appearance.weightOffset,
@@ -221,6 +297,7 @@ export function OpenTerritoryMap({
         ['+', ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5], ['get', 'weightOffset']],
       ]);
     }
+    if (!interactive) return;
     const select = (event: MapLayerMouseEvent) => {
       if (mutationLocked) return;
       const properties = event.features?.find(
@@ -251,7 +328,7 @@ export function OpenTerritoryMap({
       }
     };
   }, [
-    active,
+    interactive,
     map,
     mapStyleRevision,
     mutationLocked,
@@ -259,33 +336,53 @@ export function OpenTerritoryMap({
     segments,
     selectedSegmentIds,
     showHiddenRoads,
+    visible,
   ]);
   useEffect(() => {
     void mapStyleRevision;
-    if (!active || !map) return;
+    if (!visible || !map) return;
     const clusterId = 'streetlight-apartment-clusters';
     const circleId = 'streetlight-apartments';
     (map.getSource('streetlightApartments') as GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection',
-      features: apartmentComplexes
-        .filter(({ withinBoundary }) => withinBoundary)
-        .map((apartment) => ({
-          type: 'Feature' as const,
-          geometry: { type: 'Point' as const, coordinates: apartment.position },
-          properties: {
-            id: apartment.id,
-            label: 'A',
-            color: apartmentMarkerColor(apartment.reviewStatus),
-            selected: apartment.id === selectedApartmentId,
-          },
-        })),
+      features: (groupingMemberIds
+        ? apartmentSites.flatMap((site) =>
+            site.members.map((member) => ({
+              id: member.id,
+              position: member.position,
+              groupingConfirmed: site.groupingConfirmed,
+            })),
+          )
+        : apartmentSites
+            .filter(({ withinBoundary }) => withinBoundary)
+            .map((site) => ({
+              id: site.id,
+              position: site.position,
+              groupingConfirmed: site.groupingConfirmed,
+            }))
+      ).map((apartment) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: apartment.position },
+        properties: {
+          id: apartment.id,
+          label: 'A',
+          color: apartmentMarkerColor(apartment.groupingConfirmed),
+          selected: groupingMemberIds
+            ? groupingMemberIds.includes(apartment.id)
+            : apartment.id === selectedApartmentId,
+        },
+      })),
     });
     for (const id of apartmentLayerIds) map.setLayoutProperty(id, 'visibility', 'visible');
     map.setPaintProperty(circleId, 'circle-stroke-width', ['case', ['get', 'selected'], 3, 2]);
+    if (!interactive) return;
     const select = (event: MapLayerMouseEvent) => {
       if (mutationLocked) return;
       const id = event.features?.[0]?.properties?.id;
-      if (typeof id === 'string') onSelectApartment(id);
+      if (typeof id === 'string') {
+        if (groupingMemberIds) onToggleApartmentMember(id);
+        else onSelectApartment(id);
+      }
     };
     const expand = (event: MapLayerMouseEvent) => {
       const feature = event.features?.[0];
@@ -318,17 +415,20 @@ export function OpenTerritoryMap({
       map.off('mouseleave', circleId, clear);
     };
   }, [
-    active,
-    apartmentComplexes,
+    apartmentSites,
+    groupingMemberIds,
+    interactive,
     map,
     mapStyleRevision,
     mutationLocked,
     onSelectApartment,
+    onToggleApartmentMember,
     selectedApartmentId,
+    visible,
   ]);
 
   useEffect(() => {
-    if (!active || !map || mutationLocked) return;
+    if (!interactive || !map || mutationLocked) return;
     const container = map.getCanvasContainer();
     const boxZoomWasEnabled = map.boxZoom.isEnabled();
     map.boxZoom.disable();
@@ -361,10 +461,10 @@ export function OpenTerritoryMap({
     const move = (event: MouseEvent) => {
       if (!start || !box) return;
       const current = point(event);
-      box.style.left = Math.min(start.x, current.x) + 'px';
-      box.style.top = Math.min(start.y, current.y) + 'px';
-      box.style.width = Math.abs(current.x - start.x) + 'px';
-      box.style.height = Math.abs(current.y - start.y) + 'px';
+      box.style.left = `${Math.min(start.x, current.x)}px`;
+      box.style.top = `${Math.min(start.y, current.y)}px`;
+      box.style.width = `${Math.abs(current.x - start.x)}px`;
+      box.style.height = `${Math.abs(current.y - start.y)}px`;
     };
     const finish = (event: MouseEvent) => {
       if (!start) return;
@@ -408,7 +508,14 @@ export function OpenTerritoryMap({
       reset();
       if (boxZoomWasEnabled) map.boxZoom.enable();
     };
-  }, [active, boxSelectionArmed, map, mutationLocked, onBoxSelectionComplete, onSelectSegments]);
+  }, [
+    boxSelectionArmed,
+    interactive,
+    map,
+    mutationLocked,
+    onBoxSelectionComplete,
+    onSelectSegments,
+  ]);
 
   return null;
 }

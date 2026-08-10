@@ -15,7 +15,7 @@ import {
 import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 import type { ReconciliationHistoryTarget } from '@/lib/reconciliation';
 import type { ChurchPrintoutSettings } from '@/lib/settings';
-import { refreshTerritoryViews } from '@/lib/territory-client';
+import { refreshTerritoryViews, territoryMapMode } from '@/lib/territory-client';
 import { AdministratorAccount } from './AdministratorAccount';
 import { CoverageDashboard } from './CoverageDashboard';
 import { HeatmapSettingsOverlay } from './HeatmapSettingsOverlay';
@@ -103,6 +103,7 @@ export function StreetlightWorkspace({
   const [progressPlaying, setProgressPlaying] = useState(false);
   const [progressDisplayMode, setProgressDisplayMode] = useState<ProgressDisplayMode>('admin');
   const [reducedMotion, setReducedMotion] = useState(false);
+  const setupMap = territoryMapMode(tool, setupView);
   const [map, setMap] = useState<MapLibreMap | null>(null);
   const [mapData, setMapData] = useState<OpenMapData | null>(null);
   const [mapDataError, setMapDataError] = useState('');
@@ -484,9 +485,10 @@ export function StreetlightWorkspace({
         />
         {territory && (
           <TerritoryEditor
-            active={tool === 'setup' && setupView === 'territory'}
+            active={setupMap.interactive}
             initialData={territory}
             map={map}
+            mapVisible={setupMap.visible}
             mapsApiKey={mapsApiKey}
             onDirtyChange={setTerritoryDirty}
             onDiscardAndLeave={finishSetupLeave}

@@ -41,6 +41,7 @@ export async function renderPacketPdf(
   const muted = rgb(116 / 255, 109 / 255, 100 / 255);
   const border = rgb(215 / 255, 209 / 255, 200 / 255);
   const panel = rgb(247 / 255, 243 / 255, 236 / 255);
+  const warning = rgb(128 / 255, 82 / 255, 31 / 255);
 
   for (const packet of selection.packets) {
     const mapBytes = await options.renderMap(packet);
@@ -81,6 +82,16 @@ export async function renderPacketPdf(
       font: bold,
       color: ink,
     });
+    if (packet.kind === 'apartment' && packet.accessStatus === 'restricted') {
+      page.drawText('RESTRICTED ACCESS', { x: 22, y: 679, size: 8, font: bold, color: warning });
+      page.drawText('Coordinate access before outreach.', {
+        x: 22,
+        y: 666,
+        size: 7.5,
+        font: bold,
+        color: warning,
+      });
+    }
     page.drawText('STARTING ADDRESS', {
       x: 318,
       y: 752,

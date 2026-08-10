@@ -44,18 +44,21 @@ export type CoverageSegmentInput = {
   eligible: boolean;
 };
 
-type CoverageSearchableSegment = {
+type CoverageRoadSegment = {
   id: string;
   roadGroupId: string;
   streetName: string;
   geometry?: { coordinates: Array<[number, number]> };
+};
+
+type CoverageSearchableSegment = CoverageRoadSegment & {
   estimatedHomes: number;
   lastCoveredOn: string | null;
   eligible: boolean;
   coverageClass: CoverageClass;
 };
 
-export type CoverageRoad<T extends CoverageSearchableSegment = CoverageSearchableSegment> = {
+export type CoverageRoad<T extends CoverageRoadSegment = CoverageSearchableSegment> = {
   roadGroupId: string;
   streetName: string;
   segments: T[];
@@ -100,9 +103,7 @@ function linesAreNearby(first: Array<[number, number]>, second: Array<[number, n
   return near(first, second) || near(second, first);
 }
 
-export function coverageRoads<T extends CoverageSearchableSegment>(
-  segments: T[],
-): CoverageRoad<T>[] {
+export function coverageRoads<T extends CoverageRoadSegment>(segments: T[]): CoverageRoad<T>[] {
   const sourceRoads = new Map<string, CoverageRoad<T> & { sourceIndex: number }>();
   for (const [sourceIndex, segment] of segments.entries()) {
     const road = sourceRoads.get(segment.roadGroupId);

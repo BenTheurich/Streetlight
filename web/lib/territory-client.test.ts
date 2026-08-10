@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { TerritorySegment } from './database.ts';
+import type { TerritorySegment, TerritoryWorkspace } from './database.ts';
 import {
   activateSegments,
+  apartmentSiteSummary,
   deriveTerritory,
   refreshTerritoryViews,
   setSegmentsExcluded,
+  territoryDraftFromWorkspace,
+  territoryMapMode,
+  withApartmentSiteConfiguration,
 } from './territory-client.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 
@@ -56,6 +60,77 @@ const draft: TerritoryDraftInput = {
   excludedSegmentIds: [],
   apartmentStatuses: [],
 };
+
+const workspace: TerritoryWorkspace = {
+  id: 'territory',
+  churchName: 'Church',
+  name: 'Region',
+  originAddress: '1 Main Street',
+  center: [0, 0],
+  radiusMiles: 1,
+  boundaryShape: 'circle',
+  import: {
+    kind: 'proof',
+    release: null,
+    center: null,
+    radiusMiles: null,
+    completedAt: null,
+    normalizerVersion: null,
+    quality: null,
+  },
+  apartmentSites: [
+    {
+      id: 'apartment',
+      sourceId: 'source',
+      name: null,
+      address: '1 Main Street',
+      position: [0, 0],
+      boundary: null,
+      groupingKind: 'ungrouped',
+      groupingConfirmed: false,
+      addressConfirmed: false,
+      tractCount: null,
+      accessStatus: 'unknown',
+      includedInPackets: false,
+      packetReady: false,
+      members: [
+        {
+          id: 'building-one',
+          sourceId: 'source',
+          address: '1 Main Street',
+          position: [0, 0],
+          geometry: null,
+          apartmentBuilding: true,
+          distinctUnits: 0,
+        },
+      ],
+      estimatedTracts: 12,
+      evidence: { apartmentBuilding: true, distinctUnits: 12 },
+      reviewStatus: 'needs_review',
+      withinBoundary: true,
+    },
+  ],
+  apartmentComplexes: [],
+  segments: [],
+  totals: { allSegments: 0, eligibleSegments: 0, allHomes: 0, eligibleHomes: 0 },
+};
+
+test('apartment summaries distinguish confirmed sites from ungrouped evidence', () => {
+  assert.deepEqual(apartmentSiteSummary(workspace.apartmentSites), {
+    confirmedComplexes: 0,
+    ungroupedBuildings: 1,
+  });
+  const configured = withApartmentSiteConfiguration(workspace, {
+    ...workspace.apartmentSites[0],
+    groupingConfirmed: true,
+    packetReady: true,
+    includedInPackets: true,
+  });
+  assert.equal(workspace.apartmentSites[0].groupingConfirmed, false);
+  assert.equal(configured.apartmentSites[0].includedInPackets, true);
+  assert.equal(configured.apartmentComplexes[0].includedInPackets, true);
+  assert.equal('apartmentStatuses' in territoryDraftFromWorkspace(workspace), false);
+});
 
 test('activation includes only the exact hidden segment selected', () => {
   const result = deriveTerritory(
@@ -162,4 +237,18 @@ test('completed territory imports refresh overlays and base map data', async () 
   );
 
   assert.deepEqual(refreshed, ['coverage', 'map']);
+});
+test('setup keeps the region map visible while editing only in the Region view', () => {
+  assert.deepEqual(territoryMapMode('setup', 'territory'), {
+    visible: true,
+    interactive: true,
+  });
+  assert.deepEqual(territoryMapMode('setup', 'printouts'), {
+    visible: true,
+    interactive: false,
+  });
+  assert.deepEqual(territoryMapMode('coverage', 'territory'), {
+    visible: false,
+    interactive: false,
+  });
 });

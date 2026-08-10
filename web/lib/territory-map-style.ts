@@ -93,22 +93,127 @@ export function mapPinDataUrl(symbol: 'church' | 'start'): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-export function apartmentMarkerColor(status: 'needs_review' | 'ready' | 'deferred'): string {
-  void status;
-  return mapMarkerStyle.fill;
+export function apartmentMarkerColor(groupingConfirmed: boolean): string {
+  return groupingConfirmed ? mapMarkerStyle.fill : '#8f8a80';
 }
 
-export function apartmentOptionLabel(apartment: {
+type ApartmentReviewInput = {
+  id: string;
+  name: string | null;
   address: string | null;
-  reviewStatus: 'needs_review' | 'ready' | 'deferred';
-  estimatedTracts: number;
-}): string {
-  const status = {
-    needs_review: 'Needs review',
-    ready: 'Ready',
-    deferred: 'Deferred',
-  }[apartment.reviewStatus];
-  return `${apartment.address ?? 'Address unavailable'} · ${status} · ${apartment.estimatedTracts} estimated tract${apartment.estimatedTracts === 1 ? '' : 's'}`;
+  position: Position;
+  groupingConfirmed: boolean;
+  packetReady: boolean;
+  includedInPackets: boolean;
+  members: Array<{ apartmentBuilding: boolean }>;
+};
+
+type ApartmentReviewSegment = {
+  id: string;
+  streetName: string;
+  geometry: { coordinates: Position[] };
+};
+
+function pointToLineDistanceSquared(point: Position, start: Position, end: Position): number {
+  const latitudeScale = 111_320;
+  const longitudeScale = latitudeScale * Math.cos((point[1] * Math.PI) / 180);
+  const startX = (start[0] - point[0]) * longitudeScale;
+  const startY = (start[1] - point[1]) * latitudeScale;
+  const endX = (end[0] - point[0]) * longitudeScale;
+  const endY = (end[1] - point[1]) * latitudeScale;
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+  const position = lengthSquared
+    ? Math.max(0, Math.min(1, -(startX * deltaX + startY * deltaY) / lengthSquared))
+    : 0;
+  const nearestX = startX + position * deltaX;
+  const nearestY = startY + position * deltaY;
+  return nearestX * nearestX + nearestY * nearestY;
+}
+
+function nearestNamedRoad(position: Position, segments: ApartmentReviewSegment[]): string | null {
+  let nearest: { distance: number; streetName: string } | null = null;
+  for (const segment of segments) {
+    const streetName = segment.streetName.trim();
+    if (!streetName || /^unnamed road$/i.test(streetName)) continue;
+    for (let index = 1; index < segment.geometry.coordinates.length; index += 1) {
+      const distance = pointToLineDistanceSquared(
+        position,
+        segment.geometry.coordinates[index - 1],
+        segment.geometry.coordinates[index],
+      );
+      if (!nearest || distance < nearest.distance) nearest = { distance, streetName };
+    }
+  }
+  return nearest?.streetName ?? null;
+}
+
+export function apartmentOptionLabel(
+  apartment: {
+    name: string | null;
+    address: string | null;
+    groupingConfirmed: boolean;
+    packetReady: boolean;
+    includedInPackets: boolean;
+    members: Array<{ apartmentBuilding: boolean }>;
+  },
+  nearbyStreet?: string | null,
+): string {
+  const status = apartment.includedInPackets
+    ? 'Included'
+    : apartment.packetReady
+      ? 'Packet ready'
+      : 'Needs setup';
+  const location =
+    apartment.name ??
+    apartment.address ??
+    (nearbyStreet ? `Address unavailable near ${nearbyStreet}` : 'Address unavailable');
+  return `${location} · ${status}`;
+}
+
+export function apartmentReviewOptions<T extends ApartmentReviewInput>(
+  apartments: T[],
+  segments: ApartmentReviewSegment[],
+  query: string,
+): Array<{
+  apartment: T;
+  label: string;
+  nearbyStreet: string | null;
+  disambiguator: string | null;
+}> {
+  const options = apartments
+    .map((apartment) => {
+      const nearbyStreet = nearestNamedRoad(apartment.position, segments);
+      return {
+        apartment,
+        nearbyStreet,
+        baseLabel: apartmentOptionLabel(apartment, nearbyStreet),
+      };
+    })
+    .sort(
+      (left, right) =>
+        left.baseLabel.localeCompare(right.baseLabel) ||
+        left.apartment.id.localeCompare(right.apartment.id),
+    );
+  const totals = new Map<string, number>();
+  for (const option of options)
+    totals.set(option.baseLabel, (totals.get(option.baseLabel) ?? 0) + 1);
+  const indexes = new Map<string, number>();
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  return options
+    .map(({ apartment, nearbyStreet, baseLabel }) => {
+      const index = (indexes.get(baseLabel) ?? 0) + 1;
+      indexes.set(baseLabel, index);
+      const disambiguator = totals.get(baseLabel) === 1 ? null : `Building ${index}`;
+      return {
+        apartment,
+        nearbyStreet,
+        disambiguator,
+        label: disambiguator ? `${baseLabel} · ${disambiguator}` : baseLabel,
+      };
+    })
+    .filter(({ label }) => !normalizedQuery || label.toLocaleLowerCase().includes(normalizedQuery));
 }
 
 export function apartmentFocusZoom(
