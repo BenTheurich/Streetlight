@@ -94,7 +94,7 @@ test('membership groups exact current evidence and rejects malformed requests', 
 });
 
 test('configuration derives legacy confirmations and invalidates incomplete inclusion', async () => {
-  await withSeededDatabase(async (filename) => {
+  await withSeededDatabase(async () => {
     const groupedResponse = await updateApartmentSiteMembership(
       request('POST', { id: null, memberIds: ['building-one', 'building-two'] }),
     );
@@ -137,7 +137,9 @@ test('configuration derives legacy confirmations and invalidates incomplete incl
       request('PATCH', { ...base, accessStatus: 'restricted', tractCount: null }),
     );
     assert.equal(invalidatedResponse.status, 200);
-    const invalidated = (await invalidatedResponse.json()) as ReturnType<typeof getTerritoryWorkspace>;
+    const invalidated = (await invalidatedResponse.json()) as ReturnType<
+      typeof getTerritoryWorkspace
+    >;
     assert.equal(invalidated.apartmentSites[0].includedInPackets, false);
   });
 });
