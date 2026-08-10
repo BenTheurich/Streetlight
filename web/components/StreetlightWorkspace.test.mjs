@@ -467,6 +467,19 @@ test('territory verification keeps global tool navigation available without unmo
   assert.match(workspace, /\{territory && \(\s*<TerritoryEditor/);
 });
 
+test('region footer waits for apartment mutations while preserving its draft gates', () => {
+  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+
+  assert.match(
+    territory,
+    /className="secondary"\s+disabled=\{!hasUnsavedChanges \|\| leaveControlsDisabled\}[\s\S]*?>\s*Cancel\s*<\/button>/,
+  );
+  assert.match(
+    territory,
+    /disabled=\{!canSave \|\| leaveControlsDisabled \|\| Boolean\(radiusError\)\}[\s\S]*?>[\s\S]*?'Save changes'\}[\s\S]*?<\/button>/,
+  );
+});
+
 test('workflow surfaces use one atomic operation status without duplicate live copy', () => {
   const packets = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
   const reconciliation = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');

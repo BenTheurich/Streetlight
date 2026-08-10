@@ -1648,14 +1648,14 @@ export function TerritoryEditor({
               <div>
                 <button
                   className="secondary"
-                  disabled={!hasUnsavedChanges || saving || verificationRequired}
+                  disabled={!hasUnsavedChanges || leaveControlsDisabled}
                   onClick={cancelChanges}
                   type="button"
                 >
                   Cancel
                 </button>
                 <button
-                  disabled={!canSave || saving || verificationRequired || Boolean(radiusError)}
+                  disabled={!canSave || leaveControlsDisabled || Boolean(radiusError)}
                   onClick={() => void saveChanges()}
                   type="button"
                 >
