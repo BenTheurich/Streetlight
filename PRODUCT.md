@@ -4,7 +4,7 @@
 
 Status: approved founder direction  
 Approved: 2026-07-27
-Updated: 2026-08-04
+Updated: 2026-08-10
 
 ## Platform
 
@@ -182,7 +182,9 @@ Version one has one authenticated role: administrator.
 ## Coverage model
 
 The tracked street-coverage unit is a short street segment rather than an individual household.
-Apartment complexes are separate tracked outreach units.
+Included apartment sites are separate tracked outreach units. Apartment evidence defaults to not
+included, remains visible in Setup, and does not enter field-facing packets or printouts until an
+administrator deliberately includes it.
 
 - Every selected segment includes residential homes on both sides of the street.
 - Streetlight never assigns only one side of a selected segment.
@@ -212,28 +214,34 @@ Apartment complexes are separate tracked outreach units.
   may contribute one fallback home only when no address already accounts for it and its road
   assignment is unambiguous. Unknown and non-residential buildings do not contribute fallback
   homes.
-- Apartment complexes are tracked separately from street segments. An Overture building explicitly
-  classified as apartments is a probable complex; address-only evidence requires at least five
-  distinct units at one street address. Smaller multiplexes remain ordinary street outreach.
-- Apartment unit evidence contributes only to the complex's clearly labeled estimated tract count
-  and does not also increase an adjacent street segment estimate. Streetlight retains the aggregate
-  estimate, not individual apartment unit identifiers.
-- When an apartment-class building has no unit evidence, its estimate uses the building footprint
-  and available floor count (or height) as a conservative deterministic fallback. The interface
-  identifies this as a footprint estimate rather than presenting it as an observed unit count.
-- Every probable apartment complex starts as needs review. An administrator may mark it ready for
-  outreach or deferred/inaccessible. All three states remain visible so gated or otherwise
-  inaccessible properties are not silently forgotten.
-- A complex without a usable starting address remains needs review or deferred; it cannot be marked
-  ready because Streetlight cannot produce its required printed address and navigation QR code.
-- A ready apartment complex receives its own packet and is never folded into a street packet.
+- Overture apartment-class buildings, qualifying address premises, and explicit apartment
+  residential land-use boundaries are apartment evidence, not automatically confirmed complexes.
+  Apartment evidence does not increase adjacent street-segment estimates.
+- An explicit apartment land-use boundary may propose one apartment site containing the evidence
+  inside it. Nearby evidence is never grouped only because it is close. An administrator may keep a
+  one-building site, group multiple buildings, or edit a site's membership. Grouping is an
+  occasional correction tool, not a separately confirmed review state.
+- Setup shows only `Not included` and `Included` for apartment sites. It does not expose `Needs
+  setup`, `Packet ready`, a review status, building-grouping confirmation, or address confirmation.
+- Inclusion requires a usable primary entrance/address, a positive administrator tract quantity,
+  and explicit `Open` or `Restricted` access. Turning inclusion on also accepts the current building
+  membership and address. Imported unit evidence and footprint calculations do not become the
+  operational tract quantity.
+- Apartment configuration and inclusion auto-save independently from Region Setup Save and Cancel.
+  Clearing a required value automatically turns inclusion off. Editing building membership also
+  turns inclusion off so the administrator can review the tract quantity before including the
+  revised site again.
+- V1 does not ask the administrator to name a complex. A source name may remain stored, but the
+  starting address identifies the site when no source name is available.
+- An included apartment complex receives its own packet and is never folded into a street packet.
   Apartment packets are atomic: taking one accepts the complete complex, and reconciliation later
   records one completion date for the complex.
-- Ready, unreserved apartment complexes participate in the requested packet count by heatmap age
-  and estimated tract fit; they are not appended beyond that count. A recently covered complex does
-  not displace an older street or apartment candidate. An indivisible complex outside the normal
-  packet-size tolerance remains atomic and is clearly flagged rather than split or silently
-  orphaned.
+- Included, unreserved apartment complexes participate in the requested packet count by heatmap
+  age and the administrator-confirmed tract quantity; they are not appended beyond that count. A
+  recently covered complex does not displace an older street or apartment candidate. An indivisible
+  complex outside the normal packet-size tolerance remains atomic and is clearly flagged rather than
+  split or silently orphaned. Restricted complexes may be included, but their packet carries a clear
+  access warning.
 - Imported street geometry and estimated home counts cannot be edited in the first release.
 - A territory import retains every Overture feature classified as a road. High-confidence
   residential roads are active automatically; all other retained roads begin hidden.

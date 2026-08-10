@@ -772,6 +772,8 @@ desktop and tablet widths with no clipped or unreachable controls.
 
 ### Evidence
 
+- On August 4, 2026, the founder confirmed that Coverage and Packets are visually approved for
+  this polish pass. Remaining founder-directed Phase 9 UI work is scoped to Setup.
 - Coverage keeps the recurring work cycle visible while leaving all four tools directly available.
 - Packet proposals expand and collapse in place; the map shows all proposals until one packet is
   selected, and download failures remain recoverable.
@@ -816,9 +818,10 @@ desktop and tablet widths with no clipped or unreachable controls.
   corrections use one truthful operation-state treatment with recovery that distinguishes a
   confirmed rejection from an uncertain mutation result. Existing drafts and choices remain
   available while operations are pending or need reload verification.
-- Apartment markers now cluster with counts at overview zoom, expand to individual state-colored
-  markers, and remain keyboard-selectable from the sidebar. Region segment selection remains
-  available without a persistent edit mode.
+- Apartment markers cluster with counts at overview zoom and remain keyboard-selectable from the
+  sidebar. Ungrouped evidence is subdued, confirmed sites use navy, and selection adds the existing
+  Packet Blue marker plus evidence-footprint and source-boundary highlights. Region segment
+  selection remains available without a persistent edit mode.
 - One combined browser pass covered signed-out landing behavior and the authenticated Coverage,
   Generate, Finalize/Download, Reconcile, and Region workflows at 1440-by-900 desktop and
   768-by-1024 portrait-tablet widths. It verified search, Current Work, operation recovery,
@@ -827,8 +830,42 @@ desktop and tablet widths with no clipped or unreachable controls.
 - One final independent branch review found no Critical issues. Its three Important findings were
   fixed: apartment clusters expand on every shared open map, heatmap controls meet 44-by-44-pixel
   targets, and Current Work uses the guarded tool transition.
-- The single final integration run passes 243 Node checks and 64 Python importer checks, Biome with
-  no errors (24 retained warnings), TypeScript, and the Next.js 16.2.11 production build. The build
+- The August 5 Setup reorientation keeps one disclosure hierarchy while matching the approved
+  Coverage and Packets language: apartment complexes are searchable with
+  nearby-road disambiguation, road searches return grouped streets and fit the map, apartment and
+  road selections share the pale-blue selected surface, Data Quality leads with workflow impact,
+  and the saved footer stays quiet until a draft changes. A signed-in localhost pass covered the
+  collapsed, apartment, addressless-apartment, grouped-road, selected-road, warning, clean, and
+  dirty states with no browser console errors.
+- The Setup reorientation passes all 267 Node checks, TypeScript, Biome with no errors (24 retained
+  warnings), and the Next.js 16.2.11 production build.
+- The August 6 apartment-site reorientation preserves raw imported evidence, uses only explicit
+  Overture apartment land-use boundaries for proposed grouping, and lets administrators confirm or
+  edit one- or multi-building sites. Setup reports confirmed complexes and ungrouped buildings
+  separately instead of calling every imported row a complex.
+- Apartment packet readiness is computed from four independently auto-saved facts: confirmed
+  building membership, confirmed primary entrance/address, positive administrator tract quantity,
+  and explicit Open or Restricted access. Inclusion remains a separate auto-saved checkbox and is
+  disabled until readiness; invalidating a fact turns inclusion off.
+- On August 10, the founder approved the V1 simplification in
+  [`Apartment V1 Simplification`](docs/superpowers/specs/2026-08-10-apartment-v1-simplification-design.md).
+  The pending Phase 9 revision removes the separate readiness and confirmation concepts from the
+  administrator interface: address, tract quantity, access, and one inclusion choice replace the
+  prior confirmation workflow, while grouping remains an occasional correction tool.
+- Only ready, included sites become one atomic apartment packet. Imported footprint estimates do
+  not control packet size, and restricted sites retain an access warning through finalization and
+  PDF download.
+- Deferred founder idea: when Data Quality is open, visually identify the specific suspect roads or
+  building-heavy areas on the map and connect each warning to those locations. Keep this out of the
+  current first-pass polish until its deterministic issue-to-map mapping and interaction are
+  designed and reviewed.
+- The single final integration run passes 280 Node checks and 69 Python importer checks, Biome with
+  no errors (31 retained warnings and four informational findings), TypeScript, and the Next.js
+  16.2.11 production build. A signed-in localhost pass covered the apartment list, selected-site
+  configuration, all four independently auto-saved readiness facts, inclusion persistence across a
+  reload, manual evidence selection and cancellation, and the restored unconfigured fixture. The
+  final browser session introduced no console errors; the 390-pixel clipping regression check also
+  passes. The build
   retains non-fatal worktree-root and broad file-tracing warnings documented for founder review.
 
 ### Human review
