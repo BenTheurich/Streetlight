@@ -332,7 +332,7 @@ test('apartment imports remain visible as unconfigured site evidence', () => {
   });
 });
 
-test('apartment grouping and all four confirmed facts control packet inclusion', () => {
+test('address, tract quantity, access, and inclusion control apartment packets', () => {
   withDatabase((filename) => {
     const initial = getTerritoryWorkspace(filename);
     const draft = {
@@ -348,66 +348,59 @@ test('apartment grouping and all four confirmed facts control packet inclusion',
       imported: {
         ...importedTerritory([importedSegment('road', 'Sample Road', 'residential', 1)]),
         radiusMiles: 1,
-        apartmentSites: [importedApartment('apartments-10'), importedApartment('units-20')],
+        apartmentSites: [importedApartment('apartments-10')],
       },
     });
-
-    const grouped = saveApartmentSiteMembership(
-      { id: null, memberIds: ['apartments-10', 'units-20'] },
-      filename,
-    ).apartmentSites[0];
-    assert.equal(grouped.groupingConfirmed, true);
-    assert.equal(grouped.members.length, 2);
-    assert.equal(grouped.packetReady, false);
+    const site = getTerritoryWorkspace(filename).apartmentSites[0];
 
     assert.throws(
       () =>
         saveApartmentSiteConfiguration(
           {
-            id: grouped.id,
-            name: 'Sample Apartments',
+            id: site.id,
+            name: site.name,
             address: '10 Sample Road, Temecula CA 92591',
-            addressConfirmed: true,
+            addressConfirmed: false,
             tractCount: 24,
             accessStatus: 'unknown',
-            groupingConfirmed: true,
+            groupingConfirmed: false,
             includedInPackets: true,
           },
           filename,
         ),
-      /packet-ready/i,
+      /address, tract quantity, and access/i,
     );
 
-    const ready = saveApartmentSiteConfiguration(
+    const included = saveApartmentSiteConfiguration(
       {
-        id: grouped.id,
-        name: 'Sample Apartments',
-        address: '10 Sample Road, Temecula CA 92591',
-        addressConfirmed: true,
-        tractCount: 24,
-        accessStatus: 'restricted',
-        groupingConfirmed: true,
-        includedInPackets: true,
-      },
-      filename,
-    ).apartmentSites[0];
-    assert.equal(ready.packetReady, true);
-    assert.equal(ready.includedInPackets, true);
-
-    const invalidated = saveApartmentSiteConfiguration(
-      {
-        id: grouped.id,
-        name: 'Sample Apartments',
+        id: site.id,
+        name: site.name,
         address: '10 Sample Road, Temecula CA 92591',
         addressConfirmed: false,
         tractCount: 24,
         accessStatus: 'restricted',
-        groupingConfirmed: true,
+        groupingConfirmed: false,
         includedInPackets: true,
       },
       filename,
     ).apartmentSites[0];
-    assert.equal(invalidated.packetReady, false);
+    assert.equal(included.includedInPackets, true);
+    assert.equal(included.groupingConfirmed, true);
+    assert.equal(included.addressConfirmed, true);
+
+    const invalidated = saveApartmentSiteConfiguration(
+      {
+        id: included.id,
+        name: included.name,
+        address: included.address,
+        addressConfirmed: included.addressConfirmed,
+        tractCount: null,
+        accessStatus: included.accessStatus,
+        groupingConfirmed: included.groupingConfirmed,
+        includedInPackets: true,
+      },
+      filename,
+    ).apartmentSites[0];
     assert.equal(invalidated.includedInPackets, false);
   });
 });
@@ -434,6 +427,20 @@ test('membership edits restore evidence and confirmed sites survive imports', ()
       filename,
     ).apartmentSites[0];
 
+    saveApartmentSiteConfiguration(
+      {
+        id: group.id,
+        name: 'Saved Site',
+        address: '10 Sample Road, Temecula CA 92591',
+        addressConfirmed: true,
+        tractCount: 12,
+        accessStatus: 'open',
+        groupingConfirmed: true,
+        includedInPackets: true,
+      },
+      filename,
+    );
+
     const edited = saveApartmentSiteMembership(
       { id: group.id, memberIds: ['apartments-10'] },
       filename,
@@ -448,28 +455,19 @@ test('membership edits restore evidence and confirmed sites survive imports', ()
         [false, ['units-20']],
       ],
     );
-
-    saveApartmentSiteConfiguration(
-      {
-        id: group.id,
-        name: 'Saved Site',
-        address: '10 Sample Road, Temecula CA 92591',
-        addressConfirmed: true,
-        tractCount: 12,
-        accessStatus: 'open',
-        groupingConfirmed: true,
-        includedInPackets: true,
-      },
-      filename,
-    );
+    const editedSite = edited.apartmentSites.find(({ id }) => id === group.id);
+    assert.ok(editedSite);
+    assert.equal(editedSite.includedInPackets, false);
+    assert.equal(editedSite.groupingConfirmed, true);
+    assert.equal(editedSite.tractCount, 12);
     saveTerritoryDraft(draft, { filename, imported });
 
     const reimported = getTerritoryWorkspace(filename);
     const preserved = reimported.apartmentSites.find(({ id }) => id === group.id);
     assert.ok(preserved);
-    assert.equal(preserved.name, 'Saved Site');
+    assert.equal(preserved.name, group.name);
     assert.equal(preserved.tractCount, 12);
-    assert.equal(preserved.includedInPackets, true);
+    assert.equal(preserved.includedInPackets, false);
     assert.deepEqual(
       preserved.members.map(({ id }) => id),
       ['apartments-10'],

@@ -93,7 +93,7 @@ test('membership groups exact current evidence and rejects malformed requests', 
   });
 });
 
-test('configuration requires all four facts before replay-safe inclusion', async () => {
+test('configuration derives legacy confirmations and invalidates incomplete inclusion', async () => {
   await withSeededDatabase(async (filename) => {
     const groupedResponse = await updateApartmentSiteMembership(
       request('POST', { id: null, memberIds: ['building-one', 'building-two'] }),
@@ -104,10 +104,10 @@ test('configuration requires all four facts before replay-safe inclusion', async
       id,
       name: 'Sample Apartments',
       address: '10 Main Street',
-      addressConfirmed: true,
+      addressConfirmed: false,
       tractCount: 30,
       accessStatus: 'unknown',
-      groupingConfirmed: true,
+      groupingConfirmed: false,
       includedInPackets: true,
     };
 
@@ -123,17 +123,22 @@ test('configuration requires all four facts before replay-safe inclusion', async
       assert.equal(invalid.status, 400);
     }
 
-    for (const includedInPackets of [true, true, false]) {
-      const response = await updateApartmentSiteConfiguration(
-        request('PATCH', { ...base, accessStatus: 'restricted', includedInPackets }),
-      );
-      assert.equal(response.status, 200);
-      const saved = (await response.json()) as ReturnType<typeof getTerritoryWorkspace>;
-      assert.equal(saved.apartmentSites[0].packetReady, true);
-      assert.equal(saved.apartmentSites[0].includedInPackets, includedInPackets);
-    }
+    const includedResponse = await updateApartmentSiteConfiguration(
+      request('PATCH', { ...base, accessStatus: 'restricted' }),
+    );
+    assert.equal(includedResponse.status, 200);
+    const included = (await includedResponse.json()) as ReturnType<typeof getTerritoryWorkspace>;
+    assert.equal(included.apartmentSites[0].packetReady, true);
+    assert.equal(included.apartmentSites[0].includedInPackets, true);
+    assert.equal(included.apartmentSites[0].addressConfirmed, true);
+    assert.equal(included.apartmentSites[0].groupingConfirmed, true);
 
-    assert.equal(getTerritoryWorkspace(filename).apartmentSites[0].includedInPackets, false);
+    const invalidatedResponse = await updateApartmentSiteConfiguration(
+      request('PATCH', { ...base, accessStatus: 'restricted', tractCount: null }),
+    );
+    assert.equal(invalidatedResponse.status, 200);
+    const invalidated = (await invalidatedResponse.json()) as ReturnType<typeof getTerritoryWorkspace>;
+    assert.equal(invalidated.apartmentSites[0].includedInPackets, false);
   });
 });
 

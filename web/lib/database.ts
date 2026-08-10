@@ -2554,9 +2554,7 @@ export function saveApartmentSiteConfiguration(
     );
     if (!row) throw new ApartmentSiteError('not_found', 'Apartment site not found');
     const next = {
-      groupingConfirmed: input.groupingConfirmed,
       address: input.address?.trim() || null,
-      addressConfirmed: input.addressConfirmed,
       tractCount: input.tractCount,
       accessStatus: input.accessStatus,
     };
@@ -2564,9 +2562,15 @@ export function saveApartmentSiteConfiguration(
     if (input.includedInPackets && !ready && row.included_in_packets === 0) {
       throw new ApartmentSiteError(
         'not_ready',
-        'All four apartment setup facts are required before the site is packet-ready',
+        'Add an address, tract quantity, and access before including this apartment site',
       );
     }
+    const included = input.includedInPackets && ready;
+    const groupingConfirmed = row.grouping_confirmed === 1 || included;
+    const addressConfirmed = Boolean(
+      next.address &&
+        (included || (row.address_confirmed === 1 && row.address === next.address)),
+    );
     database
       .prepare(
         `UPDATE apartment_complexes
@@ -2576,14 +2580,14 @@ export function saveApartmentSiteConfiguration(
         WHERE id = ? AND church_id = ? AND territory_id = ? AND is_current = 1`,
       )
       .run(
-        input.name?.trim() || null,
+        row.site_name,
         next.address,
-        input.addressConfirmed ? 1 : 0,
+        addressConfirmed ? 1 : 0,
         input.tractCount,
         input.accessStatus,
-        input.groupingConfirmed ? 1 : 0,
-        input.includedInPackets && ready ? 1 : 0,
-        input.includedInPackets && ready ? 'ready' : 'needs_review',
+        groupingConfirmed ? 1 : 0,
+        included ? 1 : 0,
+        included ? 'ready' : 'needs_review',
         row.id,
         workspaceChurchId(),
         workspaceTerritoryId(),
@@ -2675,7 +2679,8 @@ export function saveApartmentSiteMembership(
           `UPDATE apartment_complexes
           SET longitude = ?, latitude = ?, estimated_tracts = ?, apartment_building = ?,
             distinct_units = ?, boundary_geojson = NULL, grouping_kind = 'admin_group',
-            grouping_confirmed = 1, members_json = ?
+            grouping_confirmed = 1, included_in_packets = 0, review_status = 'needs_review',
+            members_json = ?
           WHERE id = ?`,
         )
         .run(
