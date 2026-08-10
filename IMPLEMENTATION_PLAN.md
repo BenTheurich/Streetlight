@@ -839,11 +839,13 @@ desktop and tablet widths with no clipped or unreachable controls.
   dirty states with no browser console errors.
 - The Setup reorientation passes all 267 Node checks, TypeScript, Biome with no errors (24 retained
   warnings), and the Next.js 16.2.11 production build.
-- The August 6 apartment-site reorientation preserves raw imported evidence, uses only explicit
-  Overture apartment land-use boundaries for proposed grouping, and lets administrators confirm or
-  edit one- or multi-building sites. Setup reports confirmed complexes and ungrouped buildings
-  separately instead of calling every imported row a complex.
-- Apartment packet readiness is computed from four independently auto-saved facts: confirmed
+- Pre-simplification historical evidence from the August 6 apartment-site reorientation preserves
+  raw imported evidence, uses only explicit Overture apartment land-use boundaries for proposed
+  grouping, and lets administrators confirm or edit one- or multi-building sites. That interface
+  reports confirmed complexes and ungrouped buildings separately instead of calling every imported
+  row a complex.
+- In that pre-simplification workflow, apartment packet readiness is computed from four independently
+  auto-saved facts: confirmed
   building membership, confirmed primary entrance/address, positive administrator tract quantity,
   and explicit Open or Restricted access. Inclusion remains a separate auto-saved checkbox and is
   disabled until readiness; invalidating a fact turns inclusion off.
@@ -858,8 +860,9 @@ desktop and tablet widths with no clipped or unreachable controls.
   selected-site fields, tract-quantity blur autosave and inclusion gating, Restricted access,
   inclusion persistence, selected-map highlighting, membership invalidation with configured facts
   preserved, re-inclusion, list return, and 1440-by-900, 768-by-1024, and 390-by-844 fit without
-  console errors. Atomic finalization and Restricted PDF output, forced autosave failure, and forced
-  clustering remain covered by the deterministic suites rather than this browser pass.
+  console errors. The deterministic suites cover atomic finalization, Restricted PDF output,
+  autosave recovery source contracts, and clustering helpers; live finalization, a deliberately
+  forced autosave failure, and a forced clustering threshold were not browser-driven.
 - Only ready, included sites become one atomic apartment packet. Imported footprint estimates do
   not control packet size, and restricted sites retain an access warning through finalization and
   PDF download.
@@ -867,13 +870,13 @@ desktop and tablet widths with no clipped or unreachable controls.
   building-heavy areas on the map and connect each warning to those locations. Keep this out of the
   current first-pass polish until its deterministic issue-to-map mapping and interaction are
   designed and reviewed.
-- The single final integration run passes 280 Node checks and 69 Python importer checks, Biome with
-  no errors (31 retained warnings and four informational findings), TypeScript, and the Next.js
-  16.2.11 production build. A signed-in localhost pass covered the apartment list, selected-site
-  configuration, all four independently auto-saved readiness facts, inclusion persistence across a
-  reload, manual evidence selection and cancellation, and the restored unconfigured fixture. The
-  final browser session introduced no console errors; the 390-pixel clipping regression check also
-  passes. The build
+- Pre-simplification historical evidence from the single final integration run passes 280 Node
+  checks and 69 Python importer checks, Biome with no errors (31 retained warnings and four
+  informational findings), TypeScript, and the Next.js 16.2.11 production build. Its signed-in
+  localhost pass covered the apartment list, selected-site configuration, all four independently
+  auto-saved readiness facts, inclusion persistence across a reload, manual evidence selection and
+  cancellation, and the restored unconfigured fixture. That browser session introduced no console
+  errors; its 390-pixel clipping regression check also passes. The build
   retains non-fatal worktree-root and broad file-tracing warnings documented for founder review.
 
 ### Human review
