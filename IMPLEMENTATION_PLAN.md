@@ -854,15 +854,19 @@ desktop and tablet widths with no clipped or unreachable controls.
   inclusion choice; inclusion accepts the current grouping and address, while later membership
   edits or invalid required values turn inclusion off. The legacy confirmation columns remain
   internal for migration and history compatibility.
-- The complete 282-check Node and 69-check Python importer suites, Biome with no errors (31 retained
-  warnings and four informational findings), TypeScript, the Next.js 16.2.11 production build, and
-  whitespace check pass. A signed-in isolated-localhost pass covered the two visible states, search,
+- The complete 290-check Node and 69-check Python importer suites, Biome with no errors across 135
+  files (31 retained warnings and four informational findings), TypeScript, the Next.js 16.2.11
+  production build, and whitespace check pass. A signed-in isolated-localhost pass covered the two
+  visible states, search,
   selected-site fields, tract-quantity blur autosave and inclusion gating, Restricted access,
   inclusion persistence, selected-map highlighting, membership invalidation with configured facts
   preserved, re-inclusion, list return, and 1440-by-900, 768-by-1024, and 390-by-844 fit without
   console errors. The deterministic suites cover atomic finalization, Restricted PDF output,
-  autosave recovery source contracts, and clustering helpers; live finalization, a deliberately
-  forced autosave failure, and a forced clustering threshold were not browser-driven.
+  marker styling based on Included or Not included, production-used apartment mutation state and
+  recovery, two-way serialization between apartment mutations and Region operations, reachable
+  Retry/Reload recovery actions, autosave recovery source contracts, and clustering helpers. These
+  review-fix behaviors were not re-browser-driven; live finalization, a deliberately forced autosave
+  failure, and a forced clustering threshold were not browser-driven.
 - Only ready, included sites become one atomic apartment packet. Imported footprint estimates do
   not control packet size, and restricted sites retain an access warning through finalization and
   PDF download.
