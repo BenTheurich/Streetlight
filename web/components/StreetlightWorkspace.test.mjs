@@ -146,8 +146,9 @@ test('territory review coordinates dense sections without a redundant introducti
   assert.match(territory, /<details\s+className="review-disclosure apartment-section"/);
   assert.match(
     territory,
-    /<summary[\s\S]*?Apartments[\s\S]*?ungrouped[\s\S]*?'building' : 'buildings'[\s\S]*?<\/summary>/,
+    /<summary[\s\S]*?Apartments[\s\S]*?apartmentSummary\.siteCount[\s\S]*?'site' : 'sites'[\s\S]*?apartmentSummary\.includedCount[\s\S]*?included[\s\S]*?<\/summary>/,
   );
+  assert.doesNotMatch(territory, /apartmentSummary\.ungrouped.*building/s);
   assert.match(territory, /const \[apartmentSearch, setApartmentSearch\]/);
   assert.match(territory, /apartmentReviewOptions\(/);
   assert.match(territory, /Find an apartment site/);
@@ -237,7 +238,7 @@ test('Setup first-pass polish keeps apartment review reversible and road search 
   assert.ok(instructionsIndex < hiddenRoadsIndex);
 });
 
-test('apartment grouping and packet readiness save independently from region changes', () => {
+test('apartment inclusion uses one choice after the three packet facts', () => {
   const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
   const databaseImport =
@@ -249,13 +250,19 @@ test('apartment grouping and packet readiness save independently from region cha
   assert.match(territory, /fetch\('\/api\/territory\/apartment'/);
   assert.match(territory, /readMutationResult/);
   assert.match(territory, /setSavedWorkspace\(previousWorkspace\)/);
-  assert.match(territory, /Building grouping confirmed/);
-  assert.match(territory, /Primary entrance confirmed/);
+  assert.match(territory, /Primary entrance or address/);
   assert.match(territory, /Tract quantity/);
   assert.match(territory, /<option value="open">Open<\/option>/);
+  assert.match(territory, /<option value="restricted">Restricted<\/option>/);
+  assert.match(territory, /Include in packet generation/);
+  assert.match(territory, /Edit buildings/);
+  assert.doesNotMatch(territory, /Complex name/);
+  assert.doesNotMatch(territory, /Building grouping confirmed/);
+  assert.doesNotMatch(territory, /Primary entrance confirmed/);
+  assert.doesNotMatch(territory, /Needs setup/);
+  assert.doesNotMatch(territory, /Packet ready/);
   assert.match(territory, /Group apartment buildings/);
   assert.match(territory, /method: 'POST'/);
-  assert.equal(territory.match(/disabled=\{apartmentConfigurationSaving\}/g)?.length, 5);
   assert.match(territory, /Try again/);
   assert.match(territory, /Reload to verify/);
   assert.doesNotMatch(
@@ -264,6 +271,12 @@ test('apartment grouping and packet readiness save independently from region cha
   );
   assert.doesNotMatch(territory, /apartmentStatuses:/);
   assert.match(styles, /\.apartment-inclusion-control \{[^}]*min-height: 44px;/s);
+  assert.match(styles, /\.apartment-site-heading > span\.included \{/);
+  assert.doesNotMatch(styles, /\.apartment-readiness-checks/);
+  assert.match(
+    styles,
+    /\.apartment-configuration-fields label:first-child \{[^}]*grid-column: 1 \/ -1;/s,
+  );
   assert.doesNotMatch(styles, /\.apartment-card fieldset/);
 });
 

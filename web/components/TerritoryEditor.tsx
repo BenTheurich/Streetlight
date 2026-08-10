@@ -1172,8 +1172,12 @@ export function TerritoryEditor({
                                 selectedApartment.address ??
                                 'Apartment site'}
                             </strong>
-                            <span className={selectedApartment.packetReady ? 'ready' : undefined}>
-                              {selectedApartment.packetReady ? 'Packet ready' : 'Needs setup'}
+                            <span
+                              className={
+                                selectedApartment.includedInPackets ? 'included' : undefined
+                              }
+                            >
+                              {selectedApartment.includedInPackets ? 'Included' : 'Not included'}
                             </span>
                           </div>
                           <small>
@@ -1200,22 +1204,6 @@ export function TerritoryEditor({
                           </button>
                           <div className="apartment-configuration-fields">
                             <label>
-                              Complex name <small>Optional</small>
-                              <input
-                                defaultValue={selectedApartment.name ?? ''}
-                                disabled={apartmentConfigurationSaving}
-                                key={`${selectedApartment.id}:name`}
-                                onBlur={(event) => {
-                                  const name = event.target.value.trim() || null;
-                                  if (name !== selectedApartment.name)
-                                    void saveApartmentConfiguration(
-                                      apartmentConfiguration(selectedApartment, { name }),
-                                    );
-                                }}
-                                placeholder="Apartment complex name"
-                              />
-                            </label>
-                            <label>
                               Primary entrance or address
                               <input
                                 defaultValue={selectedApartment.address ?? ''}
@@ -1225,10 +1213,7 @@ export function TerritoryEditor({
                                   const address = event.target.value.trim() || null;
                                   if (address !== selectedApartment.address)
                                     void saveApartmentConfiguration(
-                                      apartmentConfiguration(selectedApartment, {
-                                        address,
-                                        addressConfirmed: false,
-                                      }),
+                                      apartmentConfiguration(selectedApartment, { address }),
                                     );
                                 }}
                                 placeholder="Enter a usable starting address"
@@ -1274,40 +1259,6 @@ export function TerritoryEditor({
                               </select>
                             </label>
                           </div>
-                          <div className="apartment-readiness-checks">
-                            <label>
-                              <input
-                                checked={selectedApartment.groupingConfirmed}
-                                disabled={apartmentConfigurationSaving}
-                                onChange={(event) =>
-                                  void saveApartmentConfiguration(
-                                    apartmentConfiguration(selectedApartment, {
-                                      groupingConfirmed: event.target.checked,
-                                    }),
-                                  )
-                                }
-                                type="checkbox"
-                              />
-                              Building grouping confirmed
-                            </label>
-                            <label>
-                              <input
-                                checked={selectedApartment.addressConfirmed}
-                                disabled={
-                                  apartmentConfigurationSaving || !selectedApartment.address
-                                }
-                                onChange={(event) =>
-                                  void saveApartmentConfiguration(
-                                    apartmentConfiguration(selectedApartment, {
-                                      addressConfirmed: event.target.checked,
-                                    }),
-                                  )
-                                }
-                                type="checkbox"
-                              />
-                              Primary entrance confirmed
-                            </label>
-                          </div>
                           <label className="apartment-inclusion-control">
                             <input
                               checked={selectedApartment.includedInPackets}
@@ -1318,6 +1269,10 @@ export function TerritoryEditor({
                                 void saveApartmentConfiguration(
                                   apartmentConfiguration(selectedApartment, {
                                     includedInPackets: event.target.checked,
+                                    groupingConfirmed:
+                                      event.target.checked || selectedApartment.groupingConfirmed,
+                                    addressConfirmed:
+                                      event.target.checked || selectedApartment.addressConfirmed,
                                   }),
                                 )
                               }
@@ -1330,7 +1285,8 @@ export function TerritoryEditor({
                           </label>
                           {!selectedApartment.packetReady && (
                             <small>
-                              Confirm the grouping, entrance, tract quantity, and access first.
+                              Add a starting address, tract quantity, and access before including
+                              this site.
                             </small>
                           )}
                           {savingApartmentId === selectedApartment.id && (
@@ -1356,11 +1312,7 @@ export function TerritoryEditor({
                                     `Address unavailable near ${nearbyStreet ?? 'mapped roads'}`}
                                 </strong>
                                 <span>
-                                  {apartment.includedInPackets
-                                    ? 'Included'
-                                    : apartment.packetReady
-                                      ? 'Packet ready'
-                                      : 'Needs setup'}
+                                  {apartment.includedInPackets ? 'Included' : 'Not included'}
                                   {disambiguator ? ` · ${disambiguator}` : ''}
                                 </span>
                               </button>

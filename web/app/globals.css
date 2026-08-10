@@ -1727,7 +1727,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   text-transform: uppercase;
 }
 
-.apartment-site-heading > span.ready {
+.apartment-site-heading > span.included {
   color: #356b50;
 }
 
@@ -1737,8 +1737,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   gap: 0.75rem;
 }
 
-.apartment-configuration-fields label:first-child,
-.apartment-configuration-fields label:nth-child(2) {
+.apartment-configuration-fields label:first-child {
   grid-column: 1 / -1;
 }
 
@@ -1759,27 +1758,6 @@ button.administrator-account-trigger:not(:disabled):hover {
   width: 100%;
   min-height: 42px;
   padding: 0.55rem 0.65rem;
-}
-
-.apartment-readiness-checks {
-  display: grid;
-  gap: 0.5rem;
-  padding-top: 0.25rem;
-}
-
-.apartment-readiness-checks label {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  color: var(--ink);
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-
-.apartment-readiness-checks input {
-  width: 18px;
-  min-height: 18px;
-  accent-color: var(--navy);
 }
 
 .apartment-search {
