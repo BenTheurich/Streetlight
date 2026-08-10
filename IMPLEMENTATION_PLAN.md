@@ -819,7 +819,7 @@ desktop and tablet widths with no clipped or unreachable controls.
   confirmed rejection from an uncertain mutation result. Existing drafts and choices remain
   available while operations are pending or need reload verification.
 - Apartment markers cluster with counts at overview zoom and remain keyboard-selectable from the
-  sidebar. Ungrouped evidence is subdued, confirmed sites use navy, and selection adds the existing
+  sidebar. Not-included sites are subdued, included sites use navy, and selection adds the existing
   Packet Blue marker plus evidence-footprint and source-boundary highlights. Region segment
   selection remains available without a persistent edit mode.
 - One combined browser pass covered signed-out landing behavior and the authenticated Coverage,
