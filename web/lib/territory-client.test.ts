@@ -134,9 +134,7 @@ test('apartment summary reports sites and inclusion only', () => {
     includedCount: 0,
   });
   assert.deepEqual(
-    apartmentSiteSummary([
-      { ...workspace.apartmentSites[0], includedInPackets: true },
-    ]),
+    apartmentSiteSummary([{ ...workspace.apartmentSites[0], includedInPackets: true }]),
     { siteCount: 1, includedCount: 1 },
   );
 });
