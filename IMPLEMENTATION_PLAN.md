@@ -847,11 +847,16 @@ desktop and tablet widths with no clipped or unreachable controls.
   building membership, confirmed primary entrance/address, positive administrator tract quantity,
   and explicit Open or Restricted access. Inclusion remains a separate auto-saved checkbox and is
   disabled until readiness; invalidating a fact turns inclusion off.
-- On August 10, the founder approved the V1 simplification in
-  [`Apartment V1 Simplification`](docs/superpowers/specs/2026-08-10-apartment-v1-simplification-design.md).
-  The pending Phase 9 revision removes the separate readiness and confirmation concepts from the
-  administrator interface: address, tract quantity, access, and one inclusion choice replace the
-  prior confirmation workflow, while grouping remains an occasional correction tool.
+- The August 10 founder-approved apartment V1 simplification now exposes only Not included and
+  Included. Address, positive tract quantity, and Open or Restricted access gate one auto-saved
+  inclusion choice; inclusion accepts the current grouping and address, while later membership
+  edits or invalid required values turn inclusion off. The legacy confirmation columns remain
+  internal for migration and history compatibility.
+- The complete 282-check Node and 69-check Python importer suites, Biome with no errors (31 retained
+  warnings and four informational findings), TypeScript, the Next.js 16.2.11 production build, and
+  whitespace check pass. The isolated localhost review copy opened the signed-out landing page
+  without console errors, but the selected browser had no signed-in tab and WorkOS required email
+  authentication, so the signed-in apartment workflow and responsive matrix remain at founder review.
 - Only ready, included sites become one atomic apartment packet. Imported footprint estimates do
   not control packet size, and restricted sites retain an access warning through finalization and
   PDF download.
