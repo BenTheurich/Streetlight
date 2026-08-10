@@ -1587,6 +1587,7 @@ export function TerritoryEditor({
                   </button>
                 ) : (
                   <button
+                    disabled={leaveControlsDisabled}
                     onClick={() => void retryApartmentMutation(apartmentSaveFailure)}
                     type="button"
                   >

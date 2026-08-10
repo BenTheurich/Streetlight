@@ -492,9 +492,18 @@ test('apartment recovery stays reachable outside the inert region editor', () =>
   assert.equal(territory.match(/\{apartmentSaveFailure && \(/g)?.length, 1);
   assert.doesNotMatch(territory.slice(scrollStart, actionsStart), /apartmentSaveFailure &&/);
   const recovery = territory.slice(recoveryStart, regionStatusStart);
-  assert.match(recovery, /window\.location\.reload\(\)/);
+  const reloadStart = recovery.indexOf('<button onClick={() => window.location.reload()}');
+  const reloadEnd = recovery.indexOf('</button>', reloadStart);
+  const reloadAction = recovery.slice(reloadStart, reloadEnd);
+  const retryStart = recovery.indexOf('<button', reloadEnd);
+  const retryAction = recovery.slice(retryStart, recovery.indexOf('</button>', retryStart));
+
+  assert.ok(reloadStart >= 0 && retryStart > reloadStart);
+  assert.doesNotMatch(reloadAction, /disabled=/);
+  assert.match(reloadAction, /window\.location\.reload\(\)/);
   assert.match(recovery, /Reload to verify/);
-  assert.match(recovery, /retryApartmentMutation\(apartmentSaveFailure\)/);
+  assert.match(retryAction, /disabled=\{leaveControlsDisabled\}/);
+  assert.match(retryAction, /retryApartmentMutation\(apartmentSaveFailure\)/);
   assert.match(recovery, /Try again/);
 });
 
