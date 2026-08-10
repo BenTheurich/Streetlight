@@ -2568,8 +2568,7 @@ export function saveApartmentSiteConfiguration(
     const included = input.includedInPackets && ready;
     const groupingConfirmed = row.grouping_confirmed === 1 || included;
     const addressConfirmed = Boolean(
-      next.address &&
-        (included || (row.address_confirmed === 1 && row.address === next.address)),
+      next.address && (included || (row.address_confirmed === 1 && row.address === next.address)),
     );
     database
       .prepare(
