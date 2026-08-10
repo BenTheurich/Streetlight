@@ -350,7 +350,7 @@ export function OpenTerritoryMap({
             site.members.map((member) => ({
               id: member.id,
               position: member.position,
-              groupingConfirmed: site.groupingConfirmed,
+              includedInPackets: site.includedInPackets,
             })),
           )
         : apartmentSites
@@ -358,7 +358,7 @@ export function OpenTerritoryMap({
             .map((site) => ({
               id: site.id,
               position: site.position,
-              groupingConfirmed: site.groupingConfirmed,
+              includedInPackets: site.includedInPackets,
             }))
       ).map((apartment) => ({
         type: 'Feature' as const,
@@ -366,7 +366,7 @@ export function OpenTerritoryMap({
         properties: {
           id: apartment.id,
           label: 'A',
-          color: apartmentMarkerColor(apartment.groupingConfirmed),
+          color: apartmentMarkerColor(apartment),
           selected: groupingMemberIds
             ? groupingMemberIds.includes(apartment.id)
             : apartment.id === selectedApartmentId,

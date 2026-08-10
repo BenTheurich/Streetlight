@@ -249,7 +249,8 @@ test('apartment inclusion uses one choice after the three packet facts', () => {
   assert.match(territory, /type="checkbox"/);
   assert.match(territory, /fetch\('\/api\/territory\/apartment'/);
   assert.match(territory, /readMutationResult/);
-  assert.match(territory, /setSavedWorkspace\(previousWorkspace\)/);
+  assert.match(territory, /optimisticApartmentConfiguration/);
+  assert.match(territory, /resolveApartmentMutation/);
   assert.match(territory, /Primary entrance or address/);
   assert.match(territory, /Tract quantity/);
   assert.match(territory, /<option value="open">Open<\/option>/);

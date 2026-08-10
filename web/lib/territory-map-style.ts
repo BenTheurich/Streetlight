@@ -93,8 +93,8 @@ export function mapPinDataUrl(symbol: 'church' | 'start'): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-export function apartmentMarkerColor(groupingConfirmed: boolean): string {
-  return groupingConfirmed ? mapMarkerStyle.fill : '#8f8a80';
+export function apartmentMarkerColor(apartment: { includedInPackets: boolean }): string {
+  return apartment.includedInPackets ? mapMarkerStyle.fill : '#8f8a80';
 }
 
 type ApartmentReviewInput = {

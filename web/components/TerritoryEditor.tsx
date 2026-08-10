@@ -13,13 +13,11 @@ import type {
 import { loadGoogleMaps } from '@/lib/google-maps-browser';
 import {
   activateSegments,
-  apartmentSiteReady,
   apartmentSiteSummary,
   deriveTerritory,
   hasUnsavedTerritoryChanges,
   setSegmentsExcluded,
   territoryDraftFromWorkspace,
-  withApartmentSiteConfiguration,
 } from '@/lib/territory-client';
 import { parseTerritoryDraft } from '@/lib/territory-draft';
 import { type Position, pointInsideTerritoryBoundary } from '@/lib/territory-geometry';
@@ -30,6 +28,11 @@ import {
   apartmentReviewOptions,
   createApartmentSelection,
 } from '@/lib/territory-map-style';
+import {
+  type ApartmentSaveFailure,
+  optimisticApartmentConfiguration,
+  resolveApartmentMutation,
+} from './apartment-mutation-state';
 import { OpenTerritoryMap } from './OpenTerritoryMap';
 import { OperationStatus } from './OperationStatus';
 import {
@@ -48,15 +51,6 @@ type TerritorySaveFailure = {
   message: string;
   recovery: 'retry' | 'reload';
   willImport: boolean;
-};
-
-type ApartmentSaveFailure = {
-  id: string;
-  mutation:
-    | { kind: 'configuration'; input: ApartmentSiteConfigurationInput }
-    | { kind: 'membership'; input: ApartmentSiteMembershipInput };
-  message: string;
-  recovery: 'retry' | 'reload';
 };
 
 type ReviewSection = 'region' | 'apartments' | 'roads' | 'quality';
@@ -510,16 +504,10 @@ export function TerritoryEditor({
 
   async function saveApartmentConfiguration(input: ApartmentSiteConfigurationInput) {
     const previousWorkspace = savedWorkspace;
-    const current = previousWorkspace.apartmentSites.find(({ id }) => id === input.id);
-    if (!current) return;
-    const packetReady = apartmentSiteReady(input);
-    const optimistic: ApartmentSite = {
-      ...current,
-      ...input,
-      packetReady,
-      includedInPackets: packetReady && input.includedInPackets,
-    };
-    setSavedWorkspace(withApartmentSiteConfiguration(previousWorkspace, optimistic));
+    const optimistic = optimisticApartmentConfiguration(previousWorkspace, input);
+    if (!optimistic) return;
+    const mutation = { kind: 'configuration' as const, input };
+    setSavedWorkspace(optimistic);
     setSavingApartmentId(input.id);
     setApartmentSaveFailure(null);
 
@@ -534,8 +522,9 @@ export function TerritoryEditor({
     );
 
     setSavingApartmentId(null);
+    const resolved = resolveApartmentMutation(previousWorkspace, mutation, result);
+    setSavedWorkspace(resolved.workspace);
     if (result.status === 'success') {
-      setSavedWorkspace(result.value);
       try {
         await onSaved(result.value, false);
       } catch {
@@ -544,19 +533,12 @@ export function TerritoryEditor({
       return;
     }
 
-    setSavedWorkspace(previousWorkspace);
-    setApartmentSaveFailure({
-      id: input.id,
-      mutation: { kind: 'configuration', input },
-      message:
-        result.status === 'rejected'
-          ? result.message
-          : 'Streetlight could not confirm whether the apartment site was saved.',
-      recovery: result.recovery,
-    });
+    setApartmentSaveFailure(resolved.failure);
   }
 
   async function saveApartmentMembership(input: ApartmentSiteMembershipInput) {
+    const previousWorkspace = savedWorkspace;
+    const mutation = { kind: 'membership' as const, input };
     setSavingApartmentId(input.id ?? 'new');
     setApartmentSaveFailure(null);
     const result = await readMutationResult(
@@ -569,8 +551,9 @@ export function TerritoryEditor({
       isTerritoryWorkspacePayload,
     );
     setSavingApartmentId(null);
+    const resolved = resolveApartmentMutation(previousWorkspace, mutation, result);
+    setSavedWorkspace(resolved.workspace);
     if (result.status === 'success') {
-      setSavedWorkspace(result.value);
       setGroupingApartment(null);
       const selected = input.id
         ? result.value.apartmentSites.find(({ id }) => id === input.id)
@@ -588,15 +571,7 @@ export function TerritoryEditor({
       }
       return;
     }
-    setApartmentSaveFailure({
-      id: input.id ?? 'new',
-      mutation: { kind: 'membership', input },
-      message:
-        result.status === 'rejected'
-          ? result.message
-          : 'Streetlight could not confirm whether the apartment grouping was saved.',
-      recovery: result.recovery,
-    });
+    setApartmentSaveFailure(resolved.failure);
   }
 
   function retryApartmentMutation(failure: ApartmentSaveFailure) {

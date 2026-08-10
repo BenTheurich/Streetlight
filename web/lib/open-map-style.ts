@@ -770,7 +770,7 @@ export function buildWorkspaceMapStyle(
         geometry: { type: 'Point', coordinates: apartment.position },
         properties: {
           label: 'A',
-          color: apartmentMarkerColor(apartment.groupingConfirmed),
+          color: apartmentMarkerColor(apartment),
         },
       })),
     },

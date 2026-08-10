@@ -8,9 +8,16 @@ import {
   segmentVisibleOnMap,
 } from './territory-map-style.ts';
 
-test('apartment markers distinguish ungrouped evidence from confirmed sites', () => {
-  assert.equal(apartmentMarkerColor(false), '#8f8a80');
-  assert.equal(apartmentMarkerColor(true), '#123464');
+test('apartment markers follow packet inclusion after membership invalidation', () => {
+  const membershipInvalidated = {
+    groupingConfirmed: true,
+    includedInPackets: false,
+  };
+  assert.equal(apartmentMarkerColor(membershipInvalidated), '#8f8a80');
+  assert.equal(
+    apartmentMarkerColor({ ...membershipInvalidated, includedInPackets: true }),
+    '#123464',
+  );
 });
 
 test('apartment options use packet inclusion and disambiguate anonymous complexes by road', async () => {

@@ -134,7 +134,7 @@ export function OpenCoverageMap({
           properties: {
             id: apartment.id,
             label: 'A',
-            color: apartmentMarkerColor(apartment.groupingConfirmed),
+            color: apartmentMarkerColor(apartment),
           },
         })),
       });
