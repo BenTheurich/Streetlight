@@ -6,6 +6,7 @@ import {
   type PacketSizeRequest,
   parsePacketSizeRequests,
 } from '../../../lib/packet-selection.ts';
+import { applyMvpCapabilities } from '../../../lib/product-capabilities.ts';
 
 export async function proposePackets(request: Request): Promise<Response> {
   let requests: PacketSizeRequest[];
@@ -26,7 +27,7 @@ export async function proposePackets(request: Request): Promise<Response> {
   }
 
   try {
-    const workspace = getPacketGenerationWorkspace();
+    const workspace = applyMvpCapabilities(getPacketGenerationWorkspace());
     return Response.json(
       withProposalFingerprint(generatePacketProposals({ ...workspace, requests })),
     );

@@ -6,6 +6,7 @@ import {
   saveApartmentSiteConfiguration,
   saveApartmentSiteMembership,
 } from '../../../../lib/database.ts';
+import { APARTMENTS_ENABLED } from '../../../../lib/product-capabilities.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,7 +92,14 @@ function domainError(error: unknown, fallback: string): Response {
   return Response.json({ error: fallback }, { status: 500 });
 }
 
-export async function updateApartmentSiteConfiguration(request: Request) {
+export async function updateApartmentSiteConfiguration(
+  request: Request,
+  apartmentsEnabled = APARTMENTS_ENABLED,
+) {
+  if (!apartmentsEnabled) {
+    return Response.json({ error: 'Apartments are coming later' }, { status: 404 });
+  }
+
   let input: ApartmentSiteConfigurationInput;
   try {
     input = parseConfiguration(await request.json());
@@ -108,7 +116,14 @@ export async function updateApartmentSiteConfiguration(request: Request) {
   }
 }
 
-export async function updateApartmentSiteMembership(request: Request) {
+export async function updateApartmentSiteMembership(
+  request: Request,
+  apartmentsEnabled = APARTMENTS_ENABLED,
+) {
+  if (!apartmentsEnabled) {
+    return Response.json({ error: 'Apartments are coming later' }, { status: 404 });
+  }
+
   let input: ApartmentSiteMembershipInput;
   try {
     input = parseMembership(await request.json());

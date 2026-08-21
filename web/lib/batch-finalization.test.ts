@@ -170,6 +170,7 @@ test('configured apartment sites finalize and reserve as separate atomic packets
       filename,
       now: new Date('2026-07-28T19:30:00.000Z'),
       asOf: '2026-07-28',
+      apartmentsEnabled: true,
     });
     assert.equal(finalized.packetCount, 1);
     assert.equal(finalized.packets[0].apartmentId, 'apartment-one');
@@ -197,6 +198,22 @@ test('configured apartment sites finalize and reserve as separate atomic packets
     assert.equal(apartmentDownload.apartmentId, 'apartment-one');
     assert.equal(apartmentDownload.accessStatus, 'restricted');
     assert.deepEqual(apartmentDownload.segments, []);
+  });
+});
+
+test('MVP finalization rejects a stale apartment proposal without mutation', () => {
+  withDatabase((filename) => {
+    preparePacketGraph(filename, true);
+
+    assert.throws(
+      () =>
+        finalizePacketBatch(reviewedInput(filename), {
+          filename,
+          now: new Date('2026-07-28T19:30:00.000Z'),
+          asOf: '2026-07-28',
+        }),
+      /Packet proposals changed/,
+    );
   });
 });
 

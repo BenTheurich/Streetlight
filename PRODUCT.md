@@ -4,7 +4,7 @@
 
 Status: approved founder direction  
 Approved: 2026-07-27
-Updated: 2026-08-10
+Updated: 2026-08-21
 
 ## Platform
 
@@ -72,6 +72,10 @@ left running unattended on a church display.
   printable PDFs, and reconciles complete paper packets.
 - Version one has one administrator role, one workspace and outreach region per church, and no volunteer
   accounts, household records, partial packet completion, advanced reporting, or public signup.
+- Apartment import and implementation remain preserved, but apartment setup, map markers, progress,
+  and new packet creation are deferred until after the first MVP. Region Setup shows only a quiet
+  `Apartments: Coming later` row. See
+  [`docs/APARTMENTS_MVP_DEFERRAL.md`](docs/APARTMENTS_MVP_DEFERRAL.md).
 - Product behavior is AI-free, geographically reviewable, privacy-minimizing, and inexpensive
   enough that the founder-church pilot does not operate at an ongoing loss.
 - The approved pilot architecture and provider boundaries are binding until measured needs cross
@@ -181,10 +185,11 @@ Version one has one authenticated role: administrator.
 
 ## Coverage model
 
-The tracked street-coverage unit is a short street segment rather than an individual household.
-Included apartment sites are separate tracked outreach units. Apartment evidence defaults to not
-included, remains visible in Setup, and does not enter field-facing packets or printouts until an
-administrator deliberately includes it.
+The MVP tracks short street segments rather than individual households. Apartment evidence may
+still be imported and stored so current work is not lost, but apartments are not active outreach
+units in the MVP. Apartment setup, markers, coverage, progress, proposals, and new finalization are
+disabled at the product boundary documented in
+[`docs/APARTMENTS_MVP_DEFERRAL.md`](docs/APARTMENTS_MVP_DEFERRAL.md).
 
 - Every selected segment includes residential homes on both sides of the street.
 - Streetlight never assigns only one side of a selected segment.
@@ -214,34 +219,11 @@ administrator deliberately includes it.
   may contribute one fallback home only when no address already accounts for it and its road
   assignment is unambiguous. Unknown and non-residential buildings do not contribute fallback
   homes.
-- Overture apartment-class buildings, qualifying address premises, and explicit apartment
-  residential land-use boundaries are apartment evidence, not automatically confirmed complexes.
-  Apartment evidence does not increase adjacent street-segment estimates.
-- An explicit apartment land-use boundary may propose one apartment site containing the evidence
-  inside it. Nearby evidence is never grouped only because it is close. An administrator may keep a
-  one-building site, group multiple buildings, or edit a site's membership. Grouping is an
-  occasional correction tool, not a separately confirmed review state.
-- Setup shows only `Not included` and `Included` for apartment sites. It does not expose `Needs
-  setup`, `Packet ready`, a review status, building-grouping confirmation, or address confirmation.
-- Inclusion requires a usable primary entrance/address, a positive administrator tract quantity,
-  and explicit `Open` or `Restricted` access. Turning inclusion on also accepts the current building
-  membership and address. Imported unit evidence and footprint calculations do not become the
-  operational tract quantity.
-- Apartment configuration and inclusion auto-save independently from Region Setup Save and Cancel.
-  Clearing a required value automatically turns inclusion off. Editing building membership also
-  turns inclusion off so the administrator can review the tract quantity before including the
-  revised site again.
-- V1 does not ask the administrator to name a complex. A source name may remain stored, but the
-  starting address identifies the site when no source name is available.
-- An included apartment complex receives its own packet and is never folded into a street packet.
-  Apartment packets are atomic: taking one accepts the complete complex, and reconciliation later
-  records one completion date for the complex.
-- Included, unreserved apartment complexes participate in the requested packet count by heatmap
-  age and the administrator-confirmed tract quantity; they are not appended beyond that count. A
-  recently covered complex does not displace an older street or apartment candidate. An indivisible
-  complex outside the normal packet-size tolerance remains atomic and is clearly flagged rather than
-  split or silently orphaned. Restricted complexes may be included, but their packet carries a clear
-  access warning.
+- Apartment evidence does not increase adjacent street-segment estimates. The importer, stored
+  evidence, and the implemented future apartment workflow remain intact, but no apartment site can
+  be configured or included through the MVP interface or APIs.
+- Existing finalized apartment packets retain download, reconciliation, correction, cancellation,
+  and history recovery. The MVP does not create new apartment packets.
 - Imported street geometry and estimated home counts cannot be edited in the first release.
 - A territory import retains every Overture feature classified as a road. High-confidence
   residential roads are active automatically; all other retained roads begin hidden.
@@ -261,8 +243,8 @@ administrator deliberately includes it.
   A materially changed or replacement segment does not inherit the exclusion.
 - Drawing roads, changing road geometry, deactivating an active segment, and correcting home
   counts are outside the first release.
-- Completing a street packet records a coverage event for every included segment. Completing an
-  apartment packet records one coverage event for the complex.
+- Completing a street packet records a coverage event for every included segment. Reconciliation
+  may still record or correct events for an apartment packet finalized before the MVP deferral.
 - Coverage history must be retained. Correcting a mistake records the correction instead of silently replacing history.
 
 An administrator creates a region from an address, boundary distance, and either a circle or
@@ -271,7 +253,7 @@ distance as its radius. The square uses the exact latitude-aware bounding box th
 circle for the Overture import. The outer boundary is not reshaped as a freeform polygon. Segments
 outside the selected boundary are not displayed. Gray segments are always inside the selected
 boundary but excluded by exact-segment override. The administrator can exclude highways, commercial
-districts, rivers, apartment complexes, areas assigned elsewhere, and other unsuitable locations.
+districts, rivers, areas assigned elsewhere, and other unsuitable locations.
 Boundary distance is limited to one through five miles.
 
 A territory save reuses imported streets and addresses whenever the proposed region's enclosing
@@ -407,9 +389,9 @@ The administrator prints the batch and places each sheet with the matching numbe
 
 A volunteer takes one sheet and its tracts. Taking them means accepting responsibility for the entire packet. Streetlight has no partial-completion state because the church's process treats each packet as indivisible.
 
-Finalized packets reserve their street segments or apartment complex so another packet cannot
-include the same outreach unit. A sheet left available remains active and keeps its reservation
-unless the administrator cancels it.
+Newly finalized MVP packets reserve their street segments so another packet cannot include the
+same outreach unit. A sheet left available remains active and keeps its reservation unless the
+administrator cancels it. Existing apartment packet reservations remain valid for recovery.
 
 ## Reconciliation
 
@@ -428,8 +410,10 @@ date or an estimated volunteer completion date. The server supplies the current 
 church's time zone.
 
 Sheets still present can remain active for a later outreach session or be cancelled. Active sheets
-keep their reservations. Cancelling a sheet releases its segments or apartment complex back into
-packet generation. Cancellation does not delete the packet or its history.
+keep their reservations. Cancelling a sheet releases its street segments back into packet
+generation. Cancelling a preserved apartment sheet releases its legacy apartment reservation but
+does not make apartments eligible for new MVP packets. Cancellation does not delete the packet or
+its history.
 
 Administrators can undo an incorrect completion or change its date only as a whole packet.
 Streetlight retains the original event and every correction. Undo restores all packet reservations

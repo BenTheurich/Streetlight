@@ -1,5 +1,6 @@
 import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
 import { getTerritoryWorkspace, saveTerritoryDraft } from '../../../lib/database.ts';
+import { applyMvpCapabilities } from '../../../lib/product-capabilities.ts';
 import { parseTerritoryDraft, type TerritoryDraftInput } from '../../../lib/territory-draft.ts';
 import { needsTerritoryImport } from '../../../lib/territory-import.ts';
 import {
@@ -12,7 +13,7 @@ import { requireWorkspaceScope } from '../../../lib/workspace-scope.ts';
 export const dynamic = 'force-dynamic';
 
 export function getTerritory() {
-  return Response.json(getTerritoryWorkspace());
+  return Response.json(applyMvpCapabilities(getTerritoryWorkspace()));
 }
 
 export async function updateTerritory(request: Request) {
@@ -45,7 +46,7 @@ export async function updateTerritory(request: Request) {
 
   try {
     saveTerritoryDraft(draft);
-    return Response.json(getTerritoryWorkspace());
+    return Response.json(applyMvpCapabilities(getTerritoryWorkspace()));
   } catch {
     return Response.json({ error: 'Could not save region changes' }, { status: 500 });
   }

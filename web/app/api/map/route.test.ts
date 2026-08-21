@@ -31,8 +31,13 @@ test('authenticated administrators receive only their read-only open-map data', 
       filename,
     );
     assert.equal(response.status, 200);
-    const result = (await response.json()) as { churchId: string; buildings: unknown[] };
+    const result = (await response.json()) as {
+      apartmentComplexes: unknown[];
+      churchId: string;
+      buildings: unknown[];
+    };
     assert.equal(result.churchId, 'church-temecula-pilot');
+    assert.deepEqual(result.apartmentComplexes, []);
     assert.ok(Array.isArray(result.buildings));
 
     const override = await handleMapData(

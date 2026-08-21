@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import type { OutreachProgressPeriod, OutreachProgressSnapshot } from '@/lib/outreach-progress';
+import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 import { StreetlightSelect } from './StreetlightSelect';
 
 export type ProgressDisplayMode = 'admin' | 'presentation' | 'print';
@@ -25,10 +26,12 @@ function Metrics({ snapshot }: { snapshot: OutreachProgressSnapshot }) {
         <dt>Street sections</dt>
         <dd>{snapshot.streetSections.toLocaleString()}</dd>
       </div>
-      <div>
-        <dt>Apartment complexes</dt>
-        <dd>{snapshot.apartmentComplexes.toLocaleString()}</dd>
-      </div>
+      {APARTMENTS_ENABLED && (
+        <div>
+          <dt>Apartment complexes</dt>
+          <dd>{snapshot.apartmentComplexes.toLocaleString()}</dd>
+        </div>
+      )}
       <div>
         <dt>Estimated homes</dt>
         <dd>{snapshot.estimatedHomes.toLocaleString()}</dd>

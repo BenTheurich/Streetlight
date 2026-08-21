@@ -28,6 +28,7 @@ import {
   type PacketAddress,
   type PacketSelectionSegment,
 } from './packet-selection.ts';
+import { APARTMENTS_ENABLED, applyMvpCapabilities } from './product-capabilities.ts';
 import {
   type PacketCompletionCorrectionInput,
   type PacketCoverageHistory,
@@ -329,6 +330,7 @@ type FinalizePacketBatchOptions = {
   filename?: string;
   now?: Date;
   asOf?: string;
+  apartmentsEnabled?: boolean;
 };
 
 function workspaceDatabaseFilename(filename?: string): string {
@@ -979,7 +981,10 @@ export function finalizePacketBatch(
   database.exec('BEGIN IMMEDIATE');
   try {
     const generatedProposals = generatePacketProposals({
-      ...getPacketGenerationWorkspace(options.filename, options.asOf ?? todayForWorkspace()),
+      ...applyMvpCapabilities(
+        getPacketGenerationWorkspace(options.filename, options.asOf ?? todayForWorkspace()),
+        options.apartmentsEnabled ?? APARTMENTS_ENABLED,
+      ),
       requests: input.requests,
     }).proposals;
     if (

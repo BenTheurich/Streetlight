@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { CoverageThresholds } from '@/lib/coverage';
 import type { CoverageWorkspace } from '@/lib/database';
+import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 
 type HeatmapSettingsOverlayProps = {
   open: boolean;
@@ -174,19 +175,21 @@ export function HeatmapSettingsOverlay({
               {error}
             </p>
           )}
-          <section aria-labelledby="map-display-settings-title" className="map-display-settings">
-            <h3 id="map-display-settings-title">Map display</h3>
-            <label className="map-display-toggle">
-              <span>Show apartment markers</span>
-              <input
-                aria-checked={showApartmentMarkers}
-                checked={showApartmentMarkers}
-                onChange={(event) => onShowApartmentMarkersChange(event.target.checked)}
-                role="switch"
-                type="checkbox"
-              />
-            </label>
-          </section>
+          {APARTMENTS_ENABLED && (
+            <section aria-labelledby="map-display-settings-title" className="map-display-settings">
+              <h3 id="map-display-settings-title">Map display</h3>
+              <label className="map-display-toggle">
+                <span>Show apartment markers</span>
+                <input
+                  aria-checked={showApartmentMarkers}
+                  checked={showApartmentMarkers}
+                  onChange={(event) => onShowApartmentMarkersChange(event.target.checked)}
+                  role="switch"
+                  type="checkbox"
+                />
+              </label>
+            </section>
+          )}
           <div className="heatmap-settings-actions">
             <button className="secondary" disabled={saving} onClick={onClose} type="button">
               Close

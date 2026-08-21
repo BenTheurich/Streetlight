@@ -51,6 +51,29 @@ test('the four top-level tools keep packet and setup workflows together', () => 
   assert.match(source, /<OutreachProgress/);
 });
 
+test('the MVP keeps apartments behind one disabled product capability', () => {
+  const capability = readFileSync(
+    new URL('../lib/product-capabilities.ts', import.meta.url),
+    'utf8',
+  );
+  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
+  const settings = readFileSync(new URL('./HeatmapSettingsOverlay.tsx', import.meta.url), 'utf8');
+  const progress = readFileSync(new URL('./OutreachProgress.tsx', import.meta.url), 'utf8');
+  const packets = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
+  const importRoute = readFileSync(
+    new URL('../app/api/territory/import/route.ts', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(capability, /export const APARTMENTS_ENABLED = false/);
+  assert.match(territory, /hidden={!APARTMENTS_ENABLED}/);
+  assert.match(territory, /<small className="review-disclosure-meta">Coming later<\/small>/);
+  assert.match(settings, /APARTMENTS_ENABLED && \(/);
+  assert.match(progress, /APARTMENTS_ENABLED && \(/);
+  assert.match(packets, /APARTMENTS_ENABLED \? ' and apartment complexes' : ''/);
+  assert.match(importRoute, /applyMvpCapabilities\(getTerritoryWorkspace\(\)\)/);
+});
+
 test('the shared coverage map expands apartment clusters and removes its click handler', () => {
   const source = readFileSync(new URL('./OpenCoverageMap.tsx', import.meta.url), 'utf8');
 

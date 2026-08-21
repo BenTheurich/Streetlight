@@ -1,5 +1,6 @@
 import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
 import { getTerritoryWorkspace } from '../../../../lib/database.ts';
+import { applyMvpCapabilities } from '../../../../lib/product-capabilities.ts';
 import {
   ensureTerritoryImportJobRunning,
   getLatestTerritoryImportJob,
@@ -17,7 +18,7 @@ export function getTerritoryImport() {
   }
   return Response.json({
     job,
-    workspace: job?.status === 'succeeded' ? getTerritoryWorkspace() : null,
+    workspace: job?.status === 'succeeded' ? applyMvpCapabilities(getTerritoryWorkspace()) : null,
   });
 }
 

@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { CoverageWorkspace } from '@/lib/database';
 import type { FinalizedBatch, ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
+import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 import { OperationStatus } from './OperationStatus';
 import {
   isFinalizedBatchPayload,
@@ -484,7 +485,10 @@ export function PacketGenerator({
                       {result.proposals.length === 1 ? '' : 's'} · {proposedHomes} estimated tract
                       {proposedHomes === 1 ? '' : 's'}
                     </p>
-                    <p>These streets and apartment complexes will be reserved for this outreach.</p>
+                    <p>
+                      These streets{APARTMENTS_ENABLED ? ' and apartment complexes' : ''} will be
+                      reserved for this outreach.
+                    </p>
                     <div>
                       <button
                         className="secondary"

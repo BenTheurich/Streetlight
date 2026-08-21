@@ -68,9 +68,11 @@ test('GET returns the current coverage workspace without mutation', async () => 
 
     assert.equal(response.status, 200);
     const workspace = (await response.json()) as {
+      apartmentComplexes: unknown[];
       center: [number, number];
       segments: Array<{ id: string }>;
     };
+    assert.deepEqual(workspace.apartmentComplexes, []);
     assert.equal(workspace.center.length, 2);
     assert.ok(workspace.segments.length > 0);
     assert.equal(eventCount(filename), before);

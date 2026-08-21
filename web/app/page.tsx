@@ -11,6 +11,7 @@ import { getChurchPrintoutSettings, getCoverageWorkspace } from '@/lib/database'
 import { isFounderEmail } from '@/lib/founder-auth';
 import { getGoogleMapsBrowserKey } from '@/lib/google-maps-server';
 import { listPilotRequests } from '@/lib/pilot-requests';
+import { applyMvpCapabilities } from '@/lib/product-capabilities';
 import { runInWorkspace } from '@/lib/workspace-scope';
 
 export const dynamic = 'force-dynamic';
@@ -51,7 +52,7 @@ export default async function CoverageDashboardPage() {
     timeZone: session.access.timeZone,
   };
   const [initialData, initialPrintoutSettings] = runInWorkspace(workspace, () => [
-    getCoverageWorkspace(),
+    applyMvpCapabilities(getCoverageWorkspace()),
     getChurchPrintoutSettings(),
   ]);
   const pendingPilotRequests = isFounderEmail(session.user.email)

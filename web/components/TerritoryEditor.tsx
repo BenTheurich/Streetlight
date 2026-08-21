@@ -11,6 +11,7 @@ import type {
   TerritoryWorkspace,
 } from '@/lib/database';
 import { loadGoogleMaps } from '@/lib/google-maps-browser';
+import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 import {
   activateSegments,
   apartmentSiteSummary,
@@ -1034,8 +1035,16 @@ export function TerritoryEditor({
           </details>
 
           <div className="territory-review-tools">
+            {/* The apartment editor stays compiled for reactivation after the MVP. */}
+            {!APARTMENTS_ENABLED && (
+              <section className="apartment-coming-later">
+                <strong className="review-disclosure-title">Apartments</strong>
+                <small className="review-disclosure-meta">Coming later</small>
+              </section>
+            )}
             <details
               className="review-disclosure apartment-section"
+              hidden={!APARTMENTS_ENABLED}
               open={openReviewSection === 'apartments'}
             >
               {/* biome-ignore lint/a11y/noStaticElementInteractions: summary is the native disclosure control. */}

@@ -47,7 +47,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only region, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
-| 9 | Application UX/UI polish | Phase 8 | In progress | Founder-led UI review and polish are still underway; the four-tool workspace, exact-segment Region Setup, recoverable background imports, and shared map behavior are implemented |
+| 9 | Application UX/UI polish | Phase 8 | Awaiting founder review | Apartment workflows are deferred behind one preserved capability seam; automated verification and signed-in desktop/tablet acceptance pass, and founder approval remains |
 | 10 | Outreach progress and presentation | Phase 9 | Pending | Early implementation exists, but formal review and acceptance remain deferred until Phase 9 is approved |
 | 11 | Public trust and access presentation | Phase 10 | Pending | None |
 | 12 | Deployment and recovery | Phase 11 | Pending | None |
@@ -758,6 +758,9 @@ trust and access presentation without changing its workflow.
 - Fix accessibility basics: keyboard operation, focus visibility, labels, contrast, and reduced
   motion.
 - Remove visual clutter and inconsistent one-off styles. Do not add new product features.
+- Keep the preserved apartment implementation disabled for this MVP. Show only the quiet
+  `Apartments: Coming later` row in Setup and keep apartment markers, settings, progress, mutations,
+  proposals, and new finalization out of active product paths.
 
 ### Automated checks
 
@@ -768,12 +771,20 @@ trust and access presentation without changing its workflow.
 ### Browser check
 
 Run Coverage, Region Setup, Generate Packets, Finalize/Download, and Reconcile at representative
-desktop and tablet widths with no clipped or unreachable controls.
+desktop and tablet widths with no clipped or unreachable controls. Confirm that apartment markers,
+controls, progress metrics, and new packet candidates are absent.
 
 ### Evidence
 
 - On August 4, 2026, the founder confirmed that Coverage and Packets are visually approved for
   this polish pass. Remaining founder-directed Phase 9 UI work is scoped to Setup.
+- On August 21, 2026, the founder deferred apartments until after the first MVP. One hardcoded
+  product-capability seam now removes apartments from outward-facing workspaces, mutation routes,
+  new proposal and finalization paths, settings, and progress. Raw imported evidence, database
+  history, migrations, legacy packet recovery, and the complete implementation remain preserved.
+  Region Setup shows one quiet `Apartments: Coming later` row. The decision and reactivation check
+  are recorded in
+  [`docs/APARTMENTS_MVP_DEFERRAL.md`](docs/APARTMENTS_MVP_DEFERRAL.md).
 - Coverage keeps the recurring work cycle visible while leaving all four tools directly available.
 - Packet proposals expand and collapse in place; the map shows all proposals until one packet is
   selected, and download failures remain recoverable.
@@ -882,6 +893,11 @@ desktop and tablet widths with no clipped or unreachable controls.
   cancellation, and the restored unconfigured fixture. That browser session introduced no console
   errors; its 390-pixel clipping regression check also passes. The build
   retains non-fatal worktree-root and broad file-tracing warnings documented for founder review.
+- Final 2026-08-21 verification passes 295 Node checks, 69 Python importer checks, Biome with no
+  errors, TypeScript, whitespace validation, and the Next.js 16.2.11 production build. Signed-in
+  acceptance at 1440 by 900 and 768 by 1024 confirms the quiet apartment placeholder, street-only
+  packet proposals and finalization copy, no apartment map setting or progress metric, no horizontal
+  overflow, and no browser console errors.
 
 ### Human review
 
@@ -896,23 +912,25 @@ Phase 9 is at the founder-review checkpoint. The founder:
   through the normal guarded tool transition.
 - Generates proposals, finalizes a review batch, downloads its PDF, and confirms that pending,
   success, failure, and reload-verification states remain understandable and recoverable.
-- Reviews apartment clusters at overview zoom, expands one cluster, selects individual complexes
-  from both the map and sidebar, switches Map/Satellite, and confirms exact-segment Region selection
-  remains clear and recoverable.
+- Confirms Setup shows only the quiet `Apartments: Coming later` row, with no apartment editor,
+  markers, map setting, progress metric, or apartment candidate in a newly generated batch.
+- Switches Map/Satellite and confirms exact-segment Region selection remains clear and recoverable
+  without apartment markers.
 - Confirms the landing page, heatmap legend, estimated-progress bar, and existing paper-based
   reconciliation workflow still feel approved and familiar.
 - Starts the production build locally and confirms the Next.js development `N` indicator is absent;
   the automated final-verification environment could build successfully but could not keep a
   background production listener alive long enough for this visual confirmation.
 
-Phase 9 remains at the active founder-review checkpoint. Remaining work is founder-directed visual
-and copy polish; correctness, data integrity, accessibility, and workflow-blocking regressions stay
-inside Phase 9 until resolved. Early Phase 10 implementation remains present but does not change the
-phase order.
+Phase 9 is awaiting founder approval at the review checkpoint. Remaining work is founder-directed
+visual and copy polish; correctness, data integrity, accessibility, and workflow-blocking regressions
+stay inside Phase 9 until resolved. Early Phase 10 implementation remains present but does not change
+the phase order.
 
 ### Completion condition
 
-The founder approves the authenticated interface and the existing workflow remains unchanged.
+The founder approves the authenticated interface, the street workflow remains unchanged, and the
+deferred apartment workflow is absent apart from the quiet Setup placeholder.
 
 ## Phase 10: Outreach progress and presentation
 
@@ -967,7 +985,7 @@ full-screen state at desktop and TV-sized widths, and print the static view.
 - The authenticated workspace now has exactly four top-level tools. Generate and Reconcile retain
   their existing stateful workflows inside Packets; Region and Printouts sit inside Setup.
 - Outreach Progress derives yearly dates, cumulative map state, completed packets, covered street
-  sections, apartment complexes, and estimated homes from effective append-only coverage records.
+  sections, and estimated homes from effective append-only coverage records.
   Its administrator, presentation, and print modes reuse one composition and reduced-motion skips
   playback animation.
 - Church-wide packet footer text and its optional reference are persisted, removable, previewed in

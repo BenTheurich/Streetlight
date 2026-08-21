@@ -66,15 +66,35 @@ function request(method: 'PATCH' | 'POST', body: unknown): Request {
   });
 }
 
+test('MVP apartment mutations stay unavailable', async () => {
+  const response = await updateApartmentSiteConfiguration(
+    request('PATCH', {
+      id: 'apartment-one',
+      name: null,
+      address: '10 Main Street',
+      addressConfirmed: true,
+      tractCount: 10,
+      accessStatus: 'open',
+      groupingConfirmed: true,
+      includedInPackets: false,
+    }),
+  );
+
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { error: 'Apartments are coming later' });
+});
+
 test('membership groups exact current evidence and rejects malformed requests', async () => {
   await withSeededDatabase(async (filename) => {
     const invalid = await updateApartmentSiteMembership(
       request('POST', { id: null, memberIds: ['building-one'], extra: true }),
+      true,
     );
     assert.equal(invalid.status, 400);
 
     const response = await updateApartmentSiteMembership(
       request('POST', { id: null, memberIds: ['building-one', 'building-two'] }),
+      true,
     );
     assert.equal(response.status, 200);
     const saved = (await response.json()) as ReturnType<typeof getTerritoryWorkspace>;
@@ -87,6 +107,7 @@ test('membership groups exact current evidence and rejects malformed requests', 
 
     const duplicate = await updateApartmentSiteMembership(
       request('POST', { id: null, memberIds: ['building-one', 'building-one'] }),
+      true,
     );
     assert.equal(duplicate.status, 400);
     assert.deepEqual(getTerritoryWorkspace(filename), saved);
@@ -97,6 +118,7 @@ test('configuration derives legacy confirmations and invalidates incomplete incl
   await withSeededDatabase(async () => {
     const groupedResponse = await updateApartmentSiteMembership(
       request('POST', { id: null, memberIds: ['building-one', 'building-two'] }),
+      true,
     );
     const grouped = (await groupedResponse.json()) as ReturnType<typeof getTerritoryWorkspace>;
     const id = grouped.apartmentSites[0].id;
@@ -111,7 +133,7 @@ test('configuration derives legacy confirmations and invalidates incomplete incl
       includedInPackets: true,
     };
 
-    const notReady = await updateApartmentSiteConfiguration(request('PATCH', base));
+    const notReady = await updateApartmentSiteConfiguration(request('PATCH', base), true);
     assert.equal(notReady.status, 409);
 
     for (const value of [
@@ -119,12 +141,13 @@ test('configuration derives legacy confirmations and invalidates incomplete incl
       { ...base, accessStatus: 'private' },
       { ...base, accessStatus: 'open', extra: true },
     ]) {
-      const invalid = await updateApartmentSiteConfiguration(request('PATCH', value));
+      const invalid = await updateApartmentSiteConfiguration(request('PATCH', value), true);
       assert.equal(invalid.status, 400);
     }
 
     const includedResponse = await updateApartmentSiteConfiguration(
       request('PATCH', { ...base, accessStatus: 'restricted' }),
+      true,
     );
     assert.equal(includedResponse.status, 200);
     const included = (await includedResponse.json()) as ReturnType<typeof getTerritoryWorkspace>;
@@ -135,6 +158,7 @@ test('configuration derives legacy confirmations and invalidates incomplete incl
 
     const invalidatedResponse = await updateApartmentSiteConfiguration(
       request('PATCH', { ...base, accessStatus: 'restricted', tractCount: null }),
+      true,
     );
     assert.equal(invalidatedResponse.status, 200);
     const invalidated = (await invalidatedResponse.json()) as ReturnType<
@@ -157,11 +181,13 @@ test('unknown sites and evidence cannot escape the active church workspace', asy
         groupingConfirmed: true,
         includedInPackets: false,
       }),
+      true,
     );
     assert.equal(missingConfiguration.status, 404);
 
     const missingEvidence = await updateApartmentSiteMembership(
       request('POST', { id: null, memberIds: ['other-church-building'] }),
+      true,
     );
     assert.equal(missingEvidence.status, 404);
   });

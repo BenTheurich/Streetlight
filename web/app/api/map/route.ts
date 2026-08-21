@@ -1,6 +1,7 @@
 import type { AuthLoader } from '../../../lib/auth.ts';
 import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
 import { getOpenMapData } from '../../../lib/database.ts';
+import { applyMvpCapabilities } from '../../../lib/product-capabilities.ts';
 
 export function handleMapData(request: Request, loadSession?: AuthLoader, filename?: string) {
   return authenticatedRoute(
@@ -11,7 +12,7 @@ export function handleMapData(request: Request, loadSession?: AuthLoader, filena
       if ([...new URL(authenticatedRequest.url).searchParams].length > 0) {
         return Response.json({ error: 'Church overrides are not allowed' }, { status: 400 });
       }
-      return Response.json(getOpenMapData(filename));
+      return Response.json(applyMvpCapabilities(getOpenMapData(filename)));
     },
     loadSession,
     filename,
