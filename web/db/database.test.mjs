@@ -8,6 +8,7 @@ import { countEligibleHomesCovered } from '../lib/coverage.ts';
 import {
   appendCoverageCorrection,
   getCoverageWorkspace,
+  getCurrentImportedTerritory,
   getFoundationSummary,
   getPacketGenerationWorkspace,
   getTerritoryWorkspace,
@@ -728,6 +729,36 @@ test('an imported save atomically replaces proof segments and records its footpr
     } finally {
       database.close();
     }
+  });
+});
+
+test('loads the complete current normalized generation for incremental reuse', () => {
+  withDatabase((filename) => {
+    const workspace = getTerritoryWorkspace(filename);
+    const segment = importedSegment('reuse', 'Reuse Road', 'residential', 1);
+    segment.addresses = [
+      {
+        number: '10',
+        street: 'Reuse Road',
+        locality: 'Temecula',
+        postcode: '92591',
+        position: [-117.11685, 33.54295],
+      },
+    ];
+    const imported = importedTerritory([segment]);
+    imported.apartmentComplexes = [importedApartment('reuse-apartment')];
+    saveTerritoryDraft(
+      {
+        originAddress: workspace.originAddress,
+        center: workspace.center,
+        radiusMiles: workspace.radiusMiles,
+        boundaryShape: workspace.boundaryShape,
+        exclusions: workspace.exclusions,
+      },
+      { filename, imported },
+    );
+
+    assert.deepEqual(getCurrentImportedTerritory(filename), imported);
   });
 });
 

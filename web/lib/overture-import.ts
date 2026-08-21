@@ -1,7 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import path from 'node:path';
 import type { LineString, Polygon, Position } from './territory-geometry.ts';
-import { OVERTURE_RELEASE } from './territory-import.ts';
+import { type ImportBounds, OVERTURE_RELEASE } from './territory-import.ts';
 
 const IMPORT_REQUEST_TOLERANCE = 1e-9;
 const IMPORT_TIMEOUT_MS = 15 * 60_000;
@@ -272,14 +272,18 @@ function failImportOutput(): never {
   throw new Error('Invalid Overture import output');
 }
 
-export function buildImporterArguments(center: Position, radiusMiles: number): string[] {
+export function buildImporterArguments(
+  center: Position,
+  radiusMiles: number,
+  bounds?: ImportBounds,
+): string[] {
   if (!isGeographicPosition(center)) {
     throw new Error('Invalid import center');
   }
   if (!Number.isFinite(radiusMiles) || radiusMiles <= 0) {
     throw new Error('Invalid import radius');
   }
-  return [
+  const result = [
     '--longitude',
     String(center[0]),
     '--latitude',
@@ -287,9 +291,235 @@ export function buildImporterArguments(center: Position, radiusMiles: number): s
     '--radius-miles',
     String(radiusMiles),
   ];
+  if (bounds) {
+    if (
+      ![bounds.west, bounds.south, bounds.east, bounds.north].every(Number.isFinite) ||
+      bounds.west < -180 ||
+      bounds.east > 180 ||
+      bounds.south < -90 ||
+      bounds.north > 90 ||
+      bounds.west >= bounds.east ||
+      bounds.south >= bounds.north
+    ) {
+      throw new Error('Invalid import bounds');
+    }
+    result.push(
+      '--bounds',
+      String(bounds.west),
+      String(bounds.south),
+      String(bounds.east),
+      String(bounds.north),
+    );
+  }
+  return result;
 }
 
-export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInput {
+const qualityCounts: Array<keyof Omit<ImportQuality, 'warnings'>> = [
+  'totalAddresses',
+  'assignedAddresses',
+  'spatiallyAssignedAddresses',
+  'inferredRoads',
+  'unmatchedAddresses',
+  'unresolvedClusters',
+  'totalResidentialBuildings',
+  'fallbackBuildings',
+  'unmatchedResidentialBuildings',
+  'populatedUnnamedRoads',
+  'buildingAddressDisagreements',
+];
+
+function distanceToLineSquared(point: Position, line: LineString): number {
+  let best = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < line.coordinates.length; index += 1) {
+    const start = line.coordinates[index - 1];
+    const end = line.coordinates[index];
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    const length = dx * dx + dy * dy;
+    const amount =
+      length === 0
+        ? 0
+        : Math.max(
+            0,
+            Math.min(1, ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / length),
+          );
+    const x = start[0] + amount * dx - point[0];
+    const y = start[1] + amount * dy - point[1];
+    best = Math.min(best, x * x + y * y);
+  }
+  return best;
+}
+
+function importWarnings(quality: ImportQuality, hasSegments: boolean): string[] {
+  const warnings: string[] = [];
+  if (quality.totalAddresses === 0 && hasSegments) {
+    warnings.push('No usable address points were available for this territory.');
+  } else if (
+    quality.totalAddresses > 0 &&
+    quality.assignedAddresses / quality.totalAddresses < 0.95
+  ) {
+    warnings.push(
+      `Address matching is below the 95% reliability target (${(
+        (quality.assignedAddresses / quality.totalAddresses) * 100
+      ).toFixed(1)}% matched).`,
+    );
+  }
+  if (quality.unmatchedResidentialBuildings > 0) {
+    const count = quality.unmatchedResidentialBuildings;
+    warnings.push(
+      `${count} residential building ${count === 1 ? 'footprint' : 'footprints'} could not be matched to a road.`,
+    );
+  }
+  if (quality.populatedUnnamedRoads > 0) {
+    const count = quality.populatedUnnamedRoads;
+    warnings.push(
+      `${count} populated road ${count === 1 ? 'group still has' : 'groups still have'} no supported street name.`,
+    );
+  }
+  if (quality.buildingAddressDisagreements > 0) {
+    const count = quality.buildingAddressDisagreements;
+    warnings.push(
+      `${count} road ${count === 1 ? 'group has' : 'groups have'} materially different address and residential-building counts.`,
+    );
+  }
+  return warnings;
+}
+
+export function mergeImportedTerritories(
+  current: ImportedTerritoryInput,
+  additions: ImportedTerritoryInput[],
+  center: Position,
+  radiusMiles: number,
+): ImportedTerritoryInput {
+  const segments = new Map(
+    current.segments.map((segment) => [segment.id, structuredClone(segment)]),
+  );
+  const sourceSegments = new Map<string, ImportedTerritorySegment[]>();
+  for (const segment of segments.values()) {
+    const values = sourceSegments.get(segment.sourceSegmentId) ?? [];
+    values.push(segment);
+    sourceSegments.set(segment.sourceSegmentId, values);
+  }
+  const apartments = new Map(current.apartmentComplexes.map((item) => [item.id, item]));
+  const buildings = new Map(
+    current.mapBuildings.map((item) => [`${item.source}:${item.sourceId}`, item]),
+  );
+  const quality = structuredClone(current.quality);
+  for (const addition of additions) {
+    const additionsBySource = new Map<string, ImportedTerritorySegment[]>();
+    for (const segment of addition.segments) {
+      const values = additionsBySource.get(segment.sourceSegmentId) ?? [];
+      values.push(segment);
+      additionsBySource.set(segment.sourceSegmentId, values);
+    }
+    for (const [sourceId, incoming] of additionsBySource) {
+      const existing = sourceSegments.get(sourceId);
+      if (!existing) {
+        const added = incoming.map((segment) => structuredClone(segment));
+        for (const segment of added) segments.set(segment.id, segment);
+        sourceSegments.set(sourceId, added);
+        continue;
+      }
+      const fallbackHomes = incoming.reduce(
+        (total, segment) => total + Math.max(0, segment.estimatedHomes - segment.addresses.length),
+        0,
+      );
+      const enriched =
+        incoming.find((segment) => segment.activationKind === 'automatic') ??
+        incoming.find((segment) => segment.streetName !== 'Unnamed road') ??
+        incoming[0];
+      for (const segment of existing) {
+        segment.roadClass = enriched.roadClass;
+        if (enriched.streetName !== 'Unnamed road') segment.streetName = enriched.streetName;
+        if (enriched.activationKind === 'automatic') segment.activationKind = 'automatic';
+        if (enriched.activationKind === 'automatic' || enriched.streetName !== 'Unnamed road') {
+          segment.roadGroupId = enriched.roadGroupId;
+        }
+      }
+      const knownAddresses = new Set(
+        existing.flatMap((segment) => segment.addresses.map((address) => JSON.stringify(address))),
+      );
+      for (const address of incoming.flatMap((segment) => segment.addresses)) {
+        const key = JSON.stringify(address);
+        if (knownAddresses.has(key)) continue;
+        const target = existing.reduce((nearest, segment) =>
+          distanceToLineSquared(address.position, segment.geometry) <
+          distanceToLineSquared(address.position, nearest.geometry)
+            ? segment
+            : nearest,
+        );
+        if (target.estimatedHomes >= 100) {
+          throw new Error('Incremental street merge requires full import');
+        }
+        target.addresses.push(address);
+        target.estimatedHomes += 1;
+        knownAddresses.add(key);
+      }
+      // ponytail: anonymous building homes are additive estimates; stable building-to-road
+      // identities would be required to remove the rare seam-crossing duplicate.
+      for (let index = 0; index < fallbackHomes; index += 1) {
+        const target = existing.reduce((smallest, segment) =>
+          segment.estimatedHomes < smallest.estimatedHomes ? segment : smallest,
+        );
+        target.estimatedHomes += 1;
+      }
+    }
+    for (const apartment of addition.apartmentComplexes) {
+      const existing = apartments.get(apartment.id);
+      const apartmentBuilding =
+        (existing?.evidence.apartmentBuilding ?? false) || apartment.evidence.apartmentBuilding;
+      const distinctUnits =
+        (existing?.evidence.distinctUnits ?? 0) + apartment.evidence.distinctUnits;
+      apartments.set(
+        apartment.id,
+        existing
+          ? {
+              ...existing,
+              address: existing.address ?? apartment.address,
+              estimatedTracts: Math.max(
+                existing.estimatedTracts,
+                apartment.estimatedTracts,
+                distinctUnits,
+              ),
+              evidence: {
+                apartmentBuilding,
+                distinctUnits,
+              },
+            }
+          : apartment,
+      );
+    }
+    for (const building of addition.mapBuildings) {
+      buildings.set(`${building.source}:${building.sourceId}`, building);
+    }
+    // ponytail: edge-crossing source features can slightly overcount diagnostic quality totals;
+    // persist raw features only if exact incremental quality accounting becomes operationally useful.
+    for (const key of qualityCounts) quality[key] += addition.quality[key];
+  }
+  const latest = additions.at(-1);
+  quality.warnings = importWarnings(quality, segments.size > 0);
+  return {
+    release: OVERTURE_RELEASE,
+    center,
+    radiusMiles,
+    completedAt: latest?.completedAt ?? current.completedAt,
+    normalizerVersion: 10,
+    buildingMode:
+      current.buildingMode === 'overture_fema' &&
+      additions.every((addition) => addition.buildingMode === 'overture_fema')
+        ? 'overture_fema'
+        : 'overture_only',
+    mapBuildings: [...buildings.values()],
+    quality,
+    apartmentComplexes: [...apartments.values()],
+    segments: [...segments.values()],
+  };
+}
+
+export function parseOvertureImportOutput(
+  stdout: string,
+  allowEmptySegments = false,
+): ImportedTerritoryInput {
   let value: unknown;
   try {
     value = JSON.parse(stdout);
@@ -319,7 +549,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     !isSuccessfulImportQuality(value.quality) ||
     !Array.isArray(value.apartmentComplexes) ||
     !Array.isArray(value.segments) ||
-    value.segments.length === 0
+    (!allowEmptySegments && value.segments.length === 0)
   ) {
     failImportOutput();
   }
@@ -499,8 +729,12 @@ export async function readImporterProcess(
   center: Position,
   radiusMiles: number,
   timeoutMs = IMPORT_TIMEOUT_MS,
+  allowEmptySegments = false,
 ): Promise<ImportedTerritoryInput> {
-  const imported = parseOvertureImportOutput(await readProcess(child, timeoutMs));
+  const imported = parseOvertureImportOutput(
+    await readProcess(child, timeoutMs),
+    allowEmptySegments,
+  );
   if (
     Math.abs(imported.center[0] - center[0]) > IMPORT_REQUEST_TOLERANCE ||
     Math.abs(imported.center[1] - center[1]) > IMPORT_REQUEST_TOLERANCE ||
@@ -514,9 +748,10 @@ export async function readImporterProcess(
 export function runOvertureImport(
   center: Position,
   radiusMiles: number,
+  bounds?: ImportBounds,
 ): Promise<ImportedTerritoryInput> {
   const executable = process.env.STREETLIGHT_PYTHON ?? 'python';
   const script = path.join(process.cwd(), 'importer', 'overture_import.py');
-  const child = spawn(executable, [script, ...buildImporterArguments(center, radiusMiles)]);
-  return readImporterProcess(child, center, radiusMiles);
+  const child = spawn(executable, [script, ...buildImporterArguments(center, radiusMiles, bounds)]);
+  return readImporterProcess(child, center, radiusMiles, IMPORT_TIMEOUT_MS, bounds !== undefined);
 }

@@ -1824,6 +1824,35 @@ class ImportBoundaryTest(TestCase):
         self.assertEqual(parsed["segments"][0]["id"], "overture:road-1:0")
         self.assertEqual(output.getvalue().count("\n"), 1)
 
+    def test_cli_passes_explicit_bounds_to_incremental_downloads(self):
+        calls = []
+
+        def download(longitude, latitude, radius_miles, bounds):
+            calls.append(("overture", longitude, latitude, radius_miles, bounds))
+            return ([road("road-1", "residential", "Main", [[0, 0], [1, 0]])], [], [])
+
+        def download_fema(longitude, latitude, radius_miles, bounds):
+            calls.append(("fema", longitude, latitude, radius_miles, bounds))
+            return []
+
+        with redirect_stdout(StringIO()):
+            main(
+                [
+                    "--longitude", "0", "--latitude", "0", "--radius-miles", "2",
+                    "--bounds", "0.5", "0.25", "1", "0.75",
+                ],
+                download=download,
+                download_fema=download_fema,
+            )
+
+        self.assertEqual(
+            calls,
+            [
+                ("overture", 0, 0, 2, (0.5, 0.25, 1, 0.75)),
+                ("fema", 0, 0, 2, (0.5, 0.25, 1, 0.75)),
+            ],
+        )
+
     def test_cli_rejects_nonpositive_radius_before_downloading(self):
         with redirect_stderr(StringIO()):
             with self.assertRaises(SystemExit):

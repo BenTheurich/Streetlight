@@ -1,8 +1,16 @@
-import { authenticatedRoute } from '@/lib/authenticated-route';
-import { getTerritoryWorkspace, saveTerritoryDraft } from '@/lib/database';
-import { type ImportedTerritoryInput, runOvertureImport } from '@/lib/overture-import';
-import { parseTerritoryDraft, type TerritoryDraftInput } from '@/lib/territory-draft';
-import { needsTerritoryImport } from '@/lib/territory-import';
+import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
+import {
+  getCurrentImportedTerritory,
+  getTerritoryWorkspace,
+  saveTerritoryDraft,
+} from '../../../lib/database.ts';
+import {
+  type ImportedTerritoryInput,
+  mergeImportedTerritories,
+  runOvertureImport,
+} from '../../../lib/overture-import.ts';
+import { parseTerritoryDraft, type TerritoryDraftInput } from '../../../lib/territory-draft.ts';
+import { type ImportBounds, planTerritoryImport } from '../../../lib/territory-import.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +18,19 @@ export function getTerritory() {
   return Response.json(getTerritoryWorkspace());
 }
 
-export async function updateTerritory(request: Request) {
+type TerritoryRouteDependencies = {
+  filename?: string;
+  runImport?: (
+    center: [number, number],
+    radiusMiles: number,
+    bounds?: ImportBounds,
+  ) => Promise<ImportedTerritoryInput>;
+};
+
+export async function updateTerritory(
+  request: Request,
+  dependencies: TerritoryRouteDependencies = {},
+) {
   let draft: TerritoryDraftInput;
   try {
     draft = parseTerritoryDraft(await request.json());
@@ -21,11 +41,26 @@ export async function updateTerritory(request: Request) {
     );
   }
 
-  const workspace = getTerritoryWorkspace();
+  const workspace = getTerritoryWorkspace(dependencies.filename);
   let imported: ImportedTerritoryInput | undefined;
-  if (needsTerritoryImport(workspace.import, draft)) {
+  const plan = planTerritoryImport(workspace.import, draft);
+  if (plan.kind !== 'none') {
     try {
-      imported = await runOvertureImport(draft.center, draft.radiusMiles);
+      const runImport = dependencies.runImport ?? runOvertureImport;
+      if (plan.kind === 'full') {
+        imported = await runImport(draft.center, draft.radiusMiles);
+      } else {
+        const current = getCurrentImportedTerritory(dependencies.filename);
+        if (!current) {
+          imported = await runImport(draft.center, draft.radiusMiles);
+        } else {
+          const additions: ImportedTerritoryInput[] = [];
+          for (const bounds of plan.bounds) {
+            additions.push(await runImport(draft.center, draft.radiusMiles, bounds));
+          }
+          imported = mergeImportedTerritories(current, additions, draft.center, draft.radiusMiles);
+        }
+      }
     } catch {
       return Response.json(
         {
@@ -37,8 +72,8 @@ export async function updateTerritory(request: Request) {
   }
 
   try {
-    saveTerritoryDraft(draft, { imported });
-    return Response.json(getTerritoryWorkspace());
+    saveTerritoryDraft(draft, { filename: dependencies.filename, imported });
+    return Response.json(getTerritoryWorkspace(dependencies.filename));
   } catch {
     return Response.json({ error: 'Could not save territory changes' }, { status: 500 });
   }

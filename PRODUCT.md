@@ -14,7 +14,7 @@ If existing code, old chat transcripts, mockups, or earlier technical suggestion
 
 Streetlight is a hosted web application for churches that organize house-to-house tract distribution.
 
-An administrator defines the church's outreach territory, sees how recently each area was covered, generates printable packets for volunteers, and reconciles the packets after distribution. Streetlight exists to prevent recently covered streets from being repeated while older areas remain untouched.
+An administrator defines the church's outreach region, sees how recently each area was covered, generates printable packets for volunteers, and reconciles the packets after distribution. Streetlight exists to prevent recently covered streets from being repeated while older areas remain untouched.
 
 The application is for administrators. Volunteers continue using paper. They do not need Streetlight accounts, phones, or a reporting process.
 
@@ -44,8 +44,14 @@ church, `/` shows the persistent administrator map workspace. The final
 Version one has one authenticated role: administrator.
 
 - A church has one workspace.
-- A workspace has one outreach territory.
+- A workspace has one outreach region.
 - All administrators have the same permissions.
+- WorkOS organization membership is the administrator roster. Streetlight does not maintain a
+  second user-membership system.
+- The authenticated Church account page lists active administrators and pending invitations for
+  the current church. Any administrator may invite another full administrator, revoke a pending
+  invitation, or remove another administrator from that church. An administrator cannot remove
+  their own membership.
 - Volunteers have no application access.
 - Multiple campuses, multiple territories, custom roles, and volunteer accounts are outside the first release.
 
@@ -64,7 +70,7 @@ Version one has one authenticated role: administrator.
 - An invited administrator confirms the church name, full church address, and time zone at first
   sign-in. A valid Google geocode is required.
 - A new church begins with a one-mile circular territory draft centered on the church. It remains
-  in Territory Setup until the first explicit save succeeds; that save is the first action that
+  in Region Setup until the first explicit save succeeds; that save is the first action that
   may launch an Overture import.
 - Existing configured church workspaces bypass onboarding unchanged.
 
@@ -72,7 +78,7 @@ Version one has one authenticated role: administrator.
 
 | Term | Meaning |
 |---|---|
-| Coverage area | The church's outreach territory. |
+| Coverage area | The church's outreach region. |
 | Street segment | A short section of street tracked as one coverage unit. |
 | Home count | The estimated number of residential homes, and therefore tracts, assigned to a packet. |
 | Packet | One connected volunteer assignment map and, once printed, its sheet plus the matching number of tracts. |
@@ -188,7 +194,7 @@ severe-outlier percentage uses evaluated segments as its denominator.
 
 The pinned global pipeline is acceptable for the pilot when every fixed holdout is at least usable
 with warnings. High confidence remains the improvement target. A territory that does not meet the
-high-confidence thresholds shows a persistent warning with concrete reasons in Territory Setup and
+high-confidence thresholds shows a persistent warning with concrete reasons in Region Setup and
 Generate Packets, but the administrator may continue without another confirmation modal. The
 warning is not printed on volunteer packets. If a holdout falls below the usable floor, evaluate
 the source data or a broadly applicable normalizer defect instead of adding regional production
@@ -336,7 +342,7 @@ The first dashboard contains:
 - Reconcile Batch action
 
 For a signed-in configured administrator, the website uses one persistent map workspace at `/`.
-Coverage, Generate Packets, Reconcile Packets, and Territory Setup are tools in that workspace
+Coverage, Generate Packets, Reconcile Packets, and Region Setup are tools in that workspace
 rather than separate pages.
 
 The workspace's standard **Map** view uses MapLibre with Streetlight's approved pinned
@@ -352,7 +358,7 @@ layers remain print-specific.
 Switching tools keeps
 the map camera, Map/Satellite choice, and each tool's in-progress state. Coverage and Generate
 Packets share the complete heatmap; a selected packet adds a distinct review highlight and
-starting pin above it. Territory Setup replaces the heatmap treatment with its editing overlays.
+starting pin above it. Region Setup replaces the heatmap treatment with its editing overlays.
 The saved church location uses the founder-supplied church marker in every tool, and the header
 uses the founder-supplied logo beside the `STREETLIGHT` text. A compact lower-right **Layers** card
 opens the Map/Satellite chooser without loading a second map or static-map thumbnail.
@@ -375,8 +381,9 @@ Presentation mode is a calm, unattended full-screen composition suitable for lea
 TV or display. It contains no administrative controls and requires no one to click through a
 dashboard. Its default yearly playback is cumulative: a street lights up when its recorded outreach
 occurs and remains lit for the rest of the playback, allowing the congregation to see outreach
-spread across the territory. It rests on the completed view, then repeats gently. The operational
-heatmap remains separate and continues to show time since last outreach.
+spread across the territory and be encouraged by its steady work. It rests on the completed view,
+then repeats gently. The operational heatmap remains separate and continues to show time since
+last outreach.
 
 The first version does not include a report builder, rankings, volunteer statistics, a public
 sharing link, or video export. Full-screen presentation and the static print view use the same
@@ -390,6 +397,7 @@ Included:
 - Invite-only access requests and founder-managed approval
 - Public How it works, Why Streetlight, and Pricing pages
 - Plain-language church access status in the administrator account
+- Church administrator list, invitation, pending-invitation revocation, and removal
 - Church workspace setup
 - Territory creation and correction
 - Editable territory boundary shape and distance
@@ -432,9 +440,11 @@ plan at **$149 per year** or **$15 per month**. Annual billing appears first. Th
 subject to an explicit founder revision after real pilot cost and support evidence, but Streetlight
 does not imply that the product is generally free while that evidence is collected.
 
-Every ordinary approved church receives a 90-day full-product free trial with no credit card. There
-is no permanent public free plan, feature tier, packet quota, home-count limit, or administrator
-limit. Data-integrity and correction behavior never depends on access type.
+Every ordinary approved church receives a 90-day full-product free trial with no credit card
+required. A church may optionally choose a subscription during the trial; its first charge begins
+when the trial ends, and cancelling before then owes nothing. There is no permanent public free
+plan, feature tier, packet quota, home-count limit, or administrator limit. Data-integrity and
+correction behavior never depends on access type.
 
 The founder church receives **Founding church access**. Its account states exactly:
 
@@ -442,16 +452,9 @@ The founder church receives **Founding church access**. Its account states exact
 >
 > Streetlight is provided to your church at no cost. No payment is required.
 
-The founder may grant **Sponsored access** to another church at personal discretion. Founding and
-sponsored churches receive the same product as paying churches. Streetlight may later publish a
-truthful aggregate sponsored-church count, but it does not identify a recipient, collect its
-membership for this purpose, or claim that one subscriber funds a precise share of another
-church's access.
-
 The public landing page contains no pricing section. Once How it works and Why Streetlight are
 available, navigation links to a separate Pricing page containing the annual and monthly prices,
-trial terms, email-support boundary, sponsored-access explanation, FAQs, and a signed founder note
-with a photograph. Follow the approved
+trial terms, email-support boundary, FAQs, and a signed founder note with a photograph. Follow the approved
 [`Public site, trial, and subscription experience`](docs/superpowers/specs/2026-08-04-public-site-trial-subscription-design.md).
 
 Pricing and access presentation precede the founder-church handoff. Payment collection,

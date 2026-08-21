@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { needsTerritoryImport } from './territory-import.ts';
+import { needsTerritoryImport, planTerritoryImport } from './territory-import.ts';
 
 const draft = {
   originAddress: '31087 Nicolas Rd, Temecula, CA 92591',
@@ -182,4 +182,58 @@ test('legacy and mismatched normalizer versions require replacement', () => {
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 8 }, draft), true);
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 9 }, draft), true);
   assert.equal(needsTerritoryImport(current, draft), false);
+});
+
+test('plans only newly added strips for a centered expansion', () => {
+  const plan = planTerritoryImport(
+    {
+      kind: 'overture',
+      release: '2026-06-17.0',
+      center: draft.center,
+      radiusMiles: 1,
+      completedAt: '2026-07-27T12:00:00.000Z',
+      normalizerVersion: 10,
+      quality,
+    },
+    { ...draft, radiusMiles: 2 },
+  );
+
+  assert.equal(plan.kind, 'incremental');
+  assert.equal(plan.kind === 'incremental' ? plan.bounds.length : 0, 4);
+});
+
+test('plans one new strip for an overlapping same-size recenter', () => {
+  const imported = {
+    kind: 'overture' as const,
+    release: '2026-06-17.0',
+    center: draft.center,
+    radiusMiles: 1,
+    completedAt: '2026-07-27T12:00:00.000Z',
+    normalizerVersion: 10,
+    quality,
+  };
+  const plan = planTerritoryImport(imported, {
+    ...draft,
+    center: [draft.center[0] + 0.005, draft.center[1]],
+  });
+
+  assert.equal(plan.kind, 'incremental');
+  assert.equal(plan.kind === 'incremental' ? plan.bounds.length : 0, 1);
+});
+
+test('plans no import for a contained shrink and a full import for a disjoint recenter', () => {
+  const imported = {
+    kind: 'overture' as const,
+    release: '2026-06-17.0',
+    center: draft.center,
+    radiusMiles: 2,
+    completedAt: '2026-07-27T12:00:00.000Z',
+    normalizerVersion: 10,
+    quality,
+  };
+
+  assert.deepEqual(planTerritoryImport(imported, draft), { kind: 'none' });
+  assert.deepEqual(planTerritoryImport(imported, { ...draft, center: [-110, 40] }), {
+    kind: 'full',
+  });
 });

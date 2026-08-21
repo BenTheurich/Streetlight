@@ -1634,10 +1634,10 @@ def query_bbox(connection, path, west, south, east, north):
     ]
 
 
-def download_features(longitude: float, latitude: float, radius_miles: float):
+def download_features(longitude: float, latitude: float, radius_miles: float, bounds=None):
     import duckdb
 
-    west, south, east, north = enclosing_bbox(longitude, latitude, radius_miles)
+    west, south, east, north = bounds or enclosing_bbox(longitude, latitude, radius_miles)
     connection = duckdb.connect()
     try:
         connection.execute("INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs")
@@ -1681,9 +1681,10 @@ def download_fema_features(
     longitude: float,
     latitude: float,
     radius_miles: float,
+    bounds=None,
     open_url=urllib.request.urlopen,
 ):
-    west, south, east, north = enclosing_bbox(longitude, latitude, radius_miles)
+    west, south, east, north = bounds or enclosing_bbox(longitude, latitude, radius_miles)
     result = []
     offset = 0
     while True:
@@ -1752,20 +1753,24 @@ def main(
     parser.add_argument("--longitude", type=_finite_float, required=True)
     parser.add_argument("--latitude", type=_finite_float, required=True)
     parser.add_argument("--radius-miles", type=_positive_float, required=True)
+    parser.add_argument("--bounds", type=_finite_float, nargs=4)
     args = parser.parse_args(argv)
     if not -180 <= args.longitude <= 180 or not -90 <= args.latitude <= 90:
         parser.error("coordinates are out of range")
+    bounds = tuple(args.bounds) if args.bounds else None
+    if bounds and not (
+        -180 <= bounds[0] < bounds[2] <= 180
+        and -90 <= bounds[1] < bounds[3] <= 90
+    ):
+        parser.error("bounds are invalid")
 
     with redirect_stdout(sys.stderr):
-        roads, addresses, buildings = download(
-            args.longitude,
-            args.latitude,
-            args.radius_miles,
+        import_args = (args.longitude, args.latitude, args.radius_miles)
+        roads, addresses, buildings = (
+            download(*import_args, bounds) if bounds else download(*import_args)
         )
-        fema_buildings = download_fema(
-            args.longitude,
-            args.latitude,
-            args.radius_miles,
+        fema_buildings = (
+            download_fema(*import_args, bounds) if bounds else download_fema(*import_args)
         )
         map_buildings = select_map_buildings(
             addresses,

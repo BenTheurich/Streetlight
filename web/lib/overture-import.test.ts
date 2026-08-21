@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import test from 'node:test';
+import type { ImportedTerritoryInput } from './overture-import.ts';
 import {
   buildImporterArguments,
+  mergeImportedTerritories,
   parseOvertureImportOutput,
   readImporterProcess,
 } from './overture-import.ts';
@@ -120,7 +122,7 @@ const validOutput = {
   ],
 };
 
-const validImportedOutput = validOutput;
+const validImportedOutput = validOutput as ImportedTerritoryInput;
 
 function outputProcess(value: unknown) {
   return spawn(process.execPath, [
@@ -145,8 +147,184 @@ test('rejects invalid importer arguments before starting Python', () => {
   assert.throws(() => buildImporterArguments([-117.1274, 33.5107], 0), /radius/i);
 });
 
+test('builds explicit bounds importer arguments without replacing target metadata', () => {
+  assert.deepEqual(
+    buildImporterArguments(requestedCenter, 2, {
+      west: -117.2,
+      south: 33.4,
+      east: -117.1,
+      north: 33.5,
+    }),
+    [
+      '--longitude',
+      '-117.1274',
+      '--latitude',
+      '33.5107',
+      '--radius-miles',
+      '2',
+      '--bounds',
+      '-117.2',
+      '33.4',
+      '-117.1',
+      '33.5',
+    ],
+  );
+});
+
+test('merges normalized overlap without duplicate streets, addresses, apartments, or buildings', () => {
+  const addition = structuredClone(validImportedOutput);
+  addition.center = [-117.12, 33.51];
+  addition.radiusMiles = 0.25;
+  addition.completedAt = '2026-08-04T12:00:00.000Z';
+  addition.segments[0].addresses = [
+    addition.segments[0].addresses[0],
+    {
+      number: '12',
+      street: 'Main Street',
+      locality: 'Temecula',
+      postcode: '92591',
+      position: [-117.128, 33.5101],
+    },
+  ];
+  addition.segments[0].estimatedHomes = 2;
+
+  const merged = mergeImportedTerritories(validImportedOutput, [addition], requestedCenter, 2);
+
+  assert.equal(merged.segments.length, 1);
+  assert.equal(merged.segments[0].addresses.length, 3);
+  assert.equal(merged.segments[0].estimatedHomes, 5);
+  assert.equal(merged.apartmentComplexes.length, 1);
+  assert.equal(merged.mapBuildings.length, 2);
+  assert.deepEqual(merged.center, requestedCenter);
+  assert.equal(merged.radiusMiles, 2);
+  assert.equal(merged.completedAt, addition.completedAt);
+});
+
+test('preserves existing source-road partitions when a strip normalizes that road differently', () => {
+  const current = structuredClone(validImportedOutput);
+  current.segments = [
+    {
+      ...current.segments[0],
+      roadGroupId: 'old-hidden-group',
+      streetName: 'Unnamed road',
+      activationKind: 'hidden',
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [-117.13, 33.51],
+          [-117.125, 33.51],
+        ],
+      },
+      addresses: [current.segments[0].addresses[0]],
+      estimatedHomes: 1,
+    },
+    {
+      ...current.segments[0],
+      id: 'overture:road-1:1',
+      roadGroupId: 'old-hidden-group',
+      streetName: 'Unnamed road',
+      activationKind: 'hidden',
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [-117.125, 33.51],
+          [-117.12, 33.51],
+        ],
+      },
+      addresses: [current.segments[0].addresses[1]],
+      estimatedHomes: 1,
+    },
+  ];
+  const addition = structuredClone(validImportedOutput);
+  addition.segments[0].addresses = [
+    {
+      number: '12',
+      street: 'Main Street',
+      locality: 'Temecula',
+      postcode: '92591',
+      position: [-117.121, 33.5101],
+    },
+  ];
+  addition.apartmentComplexes[0].estimatedTracts = 4;
+  addition.apartmentComplexes[0].evidence.distinctUnits = 4;
+
+  const merged = mergeImportedTerritories(current, [addition], requestedCenter, 2);
+
+  assert.deepEqual(
+    merged.segments.map(
+      ({ id, geometry, estimatedHomes, streetName, activationKind, roadGroupId }) => ({
+        id,
+        geometry,
+        estimatedHomes,
+        streetName,
+        activationKind,
+        roadGroupId,
+      }),
+    ),
+    current.segments.map(({ id, geometry }, index) => ({
+      id,
+      geometry,
+      estimatedHomes: index === 0 ? 1 : 2,
+      streetName: 'Main Street',
+      activationKind: 'automatic',
+      roadGroupId: validImportedOutput.segments[0].roadGroupId,
+    })),
+  );
+  assert.equal(merged.apartmentComplexes[0].estimatedTracts, 28);
+  assert.equal(merged.apartmentComplexes[0].evidence.distinctUnits, 28);
+});
+
 test('accepts the complete pinned import contract', () => {
   assert.deepEqual(parseOvertureImportOutput(JSON.stringify(validOutput)), validImportedOutput);
+});
+
+test('accepts an empty normalized result only for an incremental rectangle', () => {
+  const empty = { ...validOutput, segments: [] };
+
+  assert.throws(() => parseOvertureImportOutput(JSON.stringify(empty)), /import output/i);
+  assert.deepEqual(parseOvertureImportOutput(JSON.stringify(empty), true).segments, []);
+});
+
+test('recomputes whole-region warnings instead of retaining an empty-strip warning', () => {
+  const empty = structuredClone(validImportedOutput);
+  empty.segments = [];
+  empty.mapBuildings = [];
+  empty.apartmentComplexes = [];
+  empty.quality = {
+    totalAddresses: 0,
+    assignedAddresses: 0,
+    spatiallyAssignedAddresses: 0,
+    inferredRoads: 0,
+    unmatchedAddresses: 0,
+    unresolvedClusters: 0,
+    totalResidentialBuildings: 0,
+    fallbackBuildings: 0,
+    unmatchedResidentialBuildings: 0,
+    populatedUnnamedRoads: 0,
+    buildingAddressDisagreements: 0,
+    warnings: ['No usable address points were available for this territory.'],
+  };
+
+  const merged = mergeImportedTerritories(validImportedOutput, [empty], requestedCenter, 2);
+
+  assert.equal(
+    merged.quality.warnings.includes('No usable address points were available for this territory.'),
+    false,
+  );
+});
+
+test('adds anonymous fallback-building homes when an overlapping source expands', () => {
+  const current = structuredClone(validImportedOutput);
+  current.segments[0].estimatedHomes = 100;
+  const addition = structuredClone(validImportedOutput);
+  addition.segments[0].estimatedHomes = addition.segments[0].addresses.length + 1;
+
+  const merged = mergeImportedTerritories(current, [addition], requestedCenter, 2);
+
+  assert.equal(
+    merged.segments.find(({ id }) => id === validImportedOutput.segments[0].id)?.estimatedHomes,
+    101,
+  );
 });
 
 test('rejects guessed or invalid display buildings', () => {

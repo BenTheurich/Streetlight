@@ -48,8 +48,8 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only territory, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
 | 9 | Application UX/UI polish | Phase 8 | Pending | None |
-| 10 | Public trust and access presentation | Phase 9 | Pending | None |
-| 11 | Outreach progress and presentation | Phase 10 | Pending | None |
+| 10 | Outreach progress and presentation | Phase 9 | Pending | None |
+| 11 | Public trust and access presentation | Phase 10 | Pending | None |
 | 12 | Deployment and recovery | Phase 11 | Pending | None |
 | 13 | Founder-church pilot | Phase 12 | Pending | None |
 
@@ -740,8 +740,11 @@ trust and access presentation without changing its workflow.
 - Decide whether the public request should collect first and last names separately and whether
   WorkOS can prefill them without replacing hosted AuthKit.
 - Polish the onboarding presentation and copy without exposing implementation details.
+- Replace the customer-facing **Territory Setup** label and outreach-territory wording with
+  **Region Setup** and outreach-region wording. Internal code, routes, and database names may remain
+  `territory`.
 - Remove redundant current-tool labels beside the Streetlight wordmark and in the centered header,
-  especially while a new church can only use Territory Setup.
+  especially while a new church can only use Region Setup.
 - Give long territory imports a prominent progress state and useful failure placement instead of
   dimming the complete workspace and burying a small status message.
 - Clarify the shared map navigation, tool sidebars, empty states, loading states, warnings, and
@@ -763,86 +766,43 @@ trust and access presentation without changing its workflow.
 - Core controls have accessible names and keyboard paths.
 - Reduced-motion behavior does not depend on scroll animation.
 
+### Evidence
+
+- Region expansion now subtracts the compatible saved import footprint from the requested square
+  and downloads only the resulting non-overlapping strips. A contained shrink downloads nothing;
+  a disjoint recenter or incompatible source/normalizer safely uses a full import.
+- Incremental results reuse the current normalized generation and deduplicate streets, address
+  evidence, apartment complexes, and map buildings before entering the existing atomic generation
+  replacement transaction.
+- Anonymous homes inferred from residential building footprints are added as estimates when their
+  road overlaps the old and new footprints. This avoids blocking the save; a building crossing a
+  strip seam can make the estimate slightly high because normalized data does not retain its
+  building-to-road identity.
+- Existing generation replacement continues to preserve coverage history, exclusion polygons,
+  exact unchanged segment exclusions, administrator-activated or source-removed manual roads, and
+  apartment review decisions. A failed strip import or replacement leaves the saved region and
+  generation unchanged.
+- Focused checks cover centered expansion, overlapping recentering, contained shrinking, disjoint
+  recenter fallback, overlap deduplication, current-generation reconstruction, and failure recovery.
+- All 203 Node checks and 54 Python importer checks pass. TypeScript, the full-repository Biome
+  check, and the credential-safe Next.js production build pass. Biome retains 24 non-blocking
+  warnings in unrelated landing-page files.
+
 ### Browser check
 
-Run Coverage, Territory Setup, Generate Packets, Finalize/Download, and Reconcile at representative
+Run Coverage, Region Setup, Generate Packets, Finalize/Download, and Reconcile at representative
 desktop and tablet widths with no clipped or unreachable controls.
 
 ### Human review
 
-The founder reviews the complete authenticated workflow for clarity and consistency before public
-trust and access presentation begins.
+The founder reviews the complete authenticated workflow for clarity and consistency before
+Outreach Progress work begins.
 
 ### Completion condition
 
 The founder approves the authenticated interface and the existing workflow remains unchanged.
 
-## Phase 10: Public trust and access presentation
-
-### Goal
-
-Make Streetlight's purpose, operation, price, and special access for the founder church explicit
-before anyone at that church receives the hosted application.
-
-### Agent work
-
-- Follow the approved
-  [`Public site, trial, and subscription experience`](docs/superpowers/specs/2026-08-04-public-site-trial-subscription-design.md).
-- Add public How it works, Why Streetlight, and Pricing pages without placing pricing content in
-  the landing-page body.
-- Replace customer-facing `Request pilot access` language with `Request access` and describe the
-  90-day free trial; retain existing internal pilot-request names and records.
-- Add all three public-page links to the shared navigation only when the complete set is ready.
-- Explain the real Territory, Coverage, Generate, Print, and Reconcile workflow with approved
-  product screenshots and no new product claims.
-- Present one plan with **$149 per year** first and **$15 per month** second, a 90-day full-product
-  free trial, and no credit-card requirement.
-- Include the founder story and photograph, the email-support boundary, sponsored-access language,
-  and the approved pricing FAQs.
-- Add one Account destination to the authenticated administrator menu and persist the minimum
-  church access label needed to render it.
-- Mark the founder church as **Founding church access** and show: `Streetlight is provided to your
-  church at no cost. No payment is required.`
-- Show the standard annual and monthly prices beneath the founding status so administrators can
-  accurately explain that their access is special and Streetlight is not generally free.
-- Support **Sponsored access** as a separate founder-controlled label for later recipient churches.
-
-Do not add checkout, card collection, subscription webhooks, automatic trial dates, expiration
-enforcement, feature gates, usage limits, or a billing-provider dependency in this phase.
-
-### Automated checks
-
-- The landing-page body contains no pricing section.
-- Public copy uses `free trial` and `request access`, not the internal `pilot access` term.
-- How it works, Why Streetlight, and Pricing render publicly with shared navigation.
-- The Pricing page presents `$149 per year` before `$15 per month` and states `90-day free trial`
-  and `No credit card required`.
-- Public content makes no claims outside `PRODUCT.md` and has accessible headings and links.
-- Account access is derived server-side from the authenticated church.
-- The founder church sees the exact approved Founding church access wording and the standard price.
-- A sponsored test church sees Sponsored access without gaining cross-church access.
-- Existing administrator workflow and isolation checks continue to pass.
-- No payment provider or operational access gate is introduced.
-
-### Browser check
-
-Navigate from the landing page through How it works, Why Streetlight, and Pricing at supported
-desktop and mobile widths. Sign in as the founder church and a sponsored test church, inspect each
-Account state and its pricing context, and run the unchanged core workflow.
-
-### Human review
-
-The founder approves the public content, photograph, pricing explanation, support boundary, and the
-founder church's Account presentation. A founder-church administrator confirms that the interface
-makes both facts clear: their church pays nothing, and Streetlight is normally a paid product.
-
-### Completion condition
-
-The founder approves every public page and the founder-church administrator understands the access
-and pricing distinction without an explanatory conversation. The agent then stops before Outreach
-Progress work.
-
-## Phase 11: Outreach progress and presentation
+## Phase 10: Outreach progress and presentation
 
 ### Goal
 
@@ -887,14 +847,96 @@ full-screen state at desktop and TV-sized widths, and print the static view.
 
 ### Human review
 
-The founder confirms that the page feels like celebrating faithful neighborhood outreach rather
-than measuring marketing performance, and that it can remain calmly on a church display without
-someone operating it.
+The founder confirms that the page encourages the church through a truthful view of faithful
+neighborhood outreach rather than measuring marketing performance, and that it can remain calmly
+on a church display without someone operating it.
 
 ### Completion condition
 
 The founder approves the administrator, presentation, and print views and every displayed claim is
-traceable to Streetlight's recorded data.
+traceable to Streetlight's recorded data. The agent then stops before public trust and access work.
+
+## Phase 11: Public trust and access presentation
+
+### Goal
+
+Make Streetlight's purpose, operation, price, and special access for the founder church explicit
+before anyone at that church receives the hosted application.
+
+### Agent work
+
+- Follow the approved
+  [`Public site, trial, and subscription experience`](docs/superpowers/specs/2026-08-04-public-site-trial-subscription-design.md).
+- Refresh outdated landing-page screenshots and PDF examples with approved captures from the
+  finished Phase 10 application.
+- Add public How it works, Why Streetlight, and Pricing pages without placing pricing content in
+  the landing-page body.
+- Replace customer-facing `Request pilot access` language with `Request access` and describe the
+  90-day free trial; retain existing internal pilot-request names and records.
+- Add all three public-page links to the shared navigation only when the complete set is ready.
+- Frame How it works around keeping the paper workflow while giving it a better memory. Explain the
+  real Region Setup, Coverage, Generate, Print, Reconcile, and Outreach Progress workflow with
+  approved product screenshots and no new product claims.
+- Present Outreach Progress in How it works as **See the progress—and be encouraged.** Show recent
+  months or a full year on a television, screen, or printed report without claiming people reached,
+  volunteer performance, or spiritual outcomes.
+- Present one plan with **$149 per year** first and **$15 per month** second, a 90-day full-product
+  free trial, and no credit-card requirement.
+- Include the founder story and photograph, the email-support boundary, and the approved pricing
+  FAQs.
+- Add one Account destination to the authenticated administrator menu and persist the minimum
+  church access label needed to render it.
+- Add a narrow **Administrators** section to Church account using the current church's WorkOS
+  organization as the source of truth. List active administrators and pending invitations; allow
+  any administrator to invite another full administrator, revoke a pending invitation, or remove
+  another administrator. Do not allow self-removal.
+- Keep one full administrator role. Do not add view-only access, custom permissions, or a duplicate
+  local membership model.
+- Mark the founder church as **Founding church access** and show: `Streetlight is provided to your
+  church at no cost. No payment is required.`
+
+Do not add checkout, card collection, subscription webhooks, automatic trial dates, expiration
+enforcement, feature gates, usage limits, or a billing-provider dependency in this phase.
+
+### Automated checks
+
+- The landing-page body contains no pricing section and its product visuals match the finished
+  application.
+- Public copy uses `free trial` and `request access`, not the internal `pilot access` term.
+- How it works, Why Streetlight, and Pricing render publicly with shared navigation.
+- The Pricing page presents `$149 per year` before `$15 per month` and states `90-day free trial`
+  and `No credit card required`.
+- Public content makes no claims outside `PRODUCT.md` and has accessible headings and links.
+- Account access is derived server-side from the authenticated church.
+- Administrator listing and mutations derive the WorkOS organization server-side, never from a
+  browser-supplied organization identifier.
+- Invitations are idempotent within one church, pending invitations can be revoked, removing an
+  administrator removes only that church membership, and self-removal is rejected.
+- An administrator from one church cannot list, invite, revoke, or remove members of another.
+- The founder church sees the exact approved Founding church access wording.
+- An ordinary test church cannot see the founder church's Founding church access label.
+- Existing administrator workflow and isolation checks continue to pass.
+- No payment provider or operational access gate is introduced.
+
+### Browser check
+
+Navigate from the refreshed landing page through How it works, Why Streetlight, and Pricing at
+supported desktop and mobile widths. Sign in as the founder church and an ordinary test church,
+inspect each Account state, invite and remove a second administrator, and run the unchanged core
+workflow.
+
+### Human review
+
+The founder approves the landing-page visuals, public content, photograph, pricing explanation,
+support boundary, and the founder church's Account presentation. A founder-church administrator
+invites and removes a second administrator, then confirms that the interface makes both facts
+clear: their church pays nothing, and Streetlight is normally a paid product.
+
+### Completion condition
+
+The founder approves every public page, the administrator-management flow, and the founder church's
+access presentation. The founder-church administrator understands the access and pricing
+distinction without an explanatory conversation. The agent then stops before deployment work.
 
 ## Phase 12: Deployment and recovery
 

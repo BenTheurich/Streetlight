@@ -20,7 +20,10 @@ The Python importer accepts an explicit bounding rectangle in addition to its ex
 contract. Each rectangle is normalized independently. The TypeScript importer merges rectangles in
 stable order. Streets deduplicate by imported segment identity and combine distinct address evidence;
 buildings deduplicate by source and source ID; apartments deduplicate by imported complex identity.
-Existing entities remain unless a matching imported identity replaces or enriches them.
+Existing entities remain unless a matching imported identity replaces or enriches them. Known
+addresses deduplicate exactly. Anonymous homes inferred from building footprints have no persisted
+building-to-road identity, so their strip counts are added as estimates; a building crossing a
+strip seam may therefore contribute one extra estimated home.
 
 The merged result describes the complete requested import footprint and is passed to the existing
 `saveTerritoryDraft` transaction. That transaction remains responsible for generation replacement,
@@ -42,5 +45,6 @@ review state through the generation swap, and failure before or during replaceme
 
 ## Deliberate limits
 
-Do not persist raw Overture features or add a job queue. A future source/normalizer change performs
-one full refresh because previously normalized data is not a safe input to a changed normalizer.
+Do not persist raw Overture features or add a job queue. Accept the small possible seam overcount
+for anonymous building-based estimates. A future source/normalizer change performs one full refresh
+because previously normalized data is not a safe input to a changed normalizer.

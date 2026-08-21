@@ -15,10 +15,26 @@ export type TerritoryImportMetadata = {
   quality: ImportQuality | null;
 };
 
-export function needsTerritoryImport(
+export type ImportBounds = { west: number; south: number; east: number; north: number };
+export type TerritoryImportPlan =
+  | { kind: 'none' }
+  | { kind: 'full' }
+  | { kind: 'incremental'; bounds: ImportBounds[] };
+
+function importBounds(center: Position, radiusMiles: number): ImportBounds {
+  const ring = territoryBoundary(center, radiusMiles, 'square').coordinates[0];
+  return {
+    west: ring[0][0],
+    south: ring[0][1],
+    east: ring[2][0],
+    north: ring[2][1],
+  };
+}
+
+export function planTerritoryImport(
   imported: TerritoryImportMetadata,
   draft: TerritoryDraftInput,
-): boolean {
+): TerritoryImportPlan {
   if (
     imported.kind === 'proof' ||
     imported.release !== OVERTURE_RELEASE ||
@@ -27,22 +43,31 @@ export function needsTerritoryImport(
     imported.center === null ||
     imported.radiusMiles === null
   ) {
-    return true;
+    return { kind: 'full' };
   }
-  const [importWestSouth, importEastSouth, importEastNorth] = territoryBoundary(
-    imported.center,
-    imported.radiusMiles,
-    'square',
-  ).coordinates[0];
-  const [draftWestSouth, draftEastSouth, draftEastNorth] = territoryBoundary(
-    draft.center,
-    draft.radiusMiles,
-    'square',
-  ).coordinates[0];
-  return (
-    draftWestSouth[0] < importWestSouth[0] - FOOTPRINT_EPSILON ||
-    draftWestSouth[1] < importWestSouth[1] - FOOTPRINT_EPSILON ||
-    draftEastSouth[0] > importEastSouth[0] + FOOTPRINT_EPSILON ||
-    draftEastNorth[1] > importEastNorth[1] + FOOTPRINT_EPSILON
+  const oldBox = importBounds(imported.center, imported.radiusMiles);
+  const newBox = importBounds(draft.center, draft.radiusMiles);
+  const west = Math.max(oldBox.west, newBox.west);
+  const south = Math.max(oldBox.south, newBox.south);
+  const east = Math.min(oldBox.east, newBox.east);
+  const north = Math.min(oldBox.north, newBox.north);
+  if (west >= east - FOOTPRINT_EPSILON || south >= north - FOOTPRINT_EPSILON) {
+    return { kind: 'full' };
+  }
+  const bounds = [
+    { west: newBox.west, south: newBox.south, east: west, north: newBox.north },
+    { west: east, south: newBox.south, east: newBox.east, north: newBox.north },
+    { west, south: newBox.south, east, north: south },
+    { west, south: north, east, north: newBox.north },
+  ].filter(
+    (box) => box.east - box.west > FOOTPRINT_EPSILON && box.north - box.south > FOOTPRINT_EPSILON,
   );
+  return bounds.length === 0 ? { kind: 'none' } : { kind: 'incremental', bounds };
+}
+
+export function needsTerritoryImport(
+  imported: TerritoryImportMetadata,
+  draft: TerritoryDraftInput,
+): boolean {
+  return planTerritoryImport(imported, draft).kind !== 'none';
 }

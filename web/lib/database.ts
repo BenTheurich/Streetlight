@@ -2071,6 +2071,130 @@ export function getTerritoryWorkspace(filename?: string): TerritoryWorkspace {
   }
 }
 
+export function getCurrentImportedTerritory(filename?: string): ImportedTerritoryInput | null {
+  const workspace = getTerritoryWorkspace(filename);
+  if (
+    workspace.import.kind !== 'overture' ||
+    workspace.import.release !== OVERTURE_RELEASE ||
+    workspace.import.center === null ||
+    workspace.import.radiusMiles === null ||
+    workspace.import.completedAt === null ||
+    workspace.import.normalizerVersion !== 10 ||
+    workspace.import.quality === null
+  ) {
+    return null;
+  }
+  const database = openWorkspaceDatabase(filename);
+  try {
+    const territory = database
+      .prepare(
+        `SELECT import_generation, import_building_mode FROM territories
+        WHERE id = ? AND church_id = ?`,
+      )
+      .get(workspaceTerritoryId(), workspaceChurchId()) as {
+      import_generation: number;
+      import_building_mode: ImportedTerritoryInput['buildingMode'] | null;
+    };
+    const addresses = new Map<string, ImportedTerritoryInput['segments'][number]['addresses']>();
+    for (const row of database
+      .prepare(
+        `SELECT s.import_segment_id, a.house_number, a.street, a.locality, a.postcode,
+          a.longitude, a.latitude
+        FROM street_segments s
+        JOIN segment_addresses a ON a.street_segment_id = s.id
+        WHERE s.territory_id = ? AND s.church_id = ? AND s.is_current = 1
+        ORDER BY a.id`,
+      )
+      .all(workspaceTerritoryId(), workspaceChurchId()) as Array<{
+      import_segment_id: string;
+      house_number: string | null;
+      street: string;
+      locality: string | null;
+      postcode: string | null;
+      longitude: number;
+      latitude: number;
+    }>) {
+      const values = addresses.get(row.import_segment_id) ?? [];
+      values.push({
+        number: row.house_number,
+        street: row.street,
+        locality: row.locality,
+        postcode: row.postcode,
+        position: [row.longitude, row.latitude],
+      });
+      addresses.set(row.import_segment_id, values);
+    }
+    const mapBuildings = (
+      database
+        .prepare(
+          `SELECT source, source_feature_id, geometry_geojson, fema_address_source_id,
+            fema_distance_meters, fema_source, fema_product_date, fema_image_date
+          FROM map_buildings
+          WHERE church_id = ? AND territory_id = ? AND import_generation = ?
+          ORDER BY source, source_feature_id`,
+        )
+        .all(workspaceChurchId(), workspaceTerritoryId(), territory.import_generation) as Array<{
+        source: 'overture' | 'fema';
+        source_feature_id: string;
+        geometry_geojson: string;
+        fema_address_source_id: string | null;
+        fema_distance_meters: number | null;
+        fema_source: string | null;
+        fema_product_date: string | null;
+        fema_image_date: string | null;
+      }>
+    ).map(
+      (row): ImportedMapBuilding => ({
+        source: row.source,
+        sourceId: row.source_feature_id,
+        geometry: parseGeometry<ImportedMapBuilding['geometry']>(row.geometry_geojson),
+        fema:
+          row.source === 'fema'
+            ? {
+                addressSourceId: row.fema_address_source_id as string,
+                distanceMeters: row.fema_distance_meters as number,
+                occupancy: 'Single Family Dwelling',
+                outbuilding: false,
+                source: row.fema_source,
+                productDate: row.fema_product_date,
+                imageDate: row.fema_image_date,
+              }
+            : null,
+      }),
+    );
+    return {
+      release: OVERTURE_RELEASE,
+      center: workspace.import.center,
+      radiusMiles: workspace.import.radiusMiles,
+      completedAt: workspace.import.completedAt,
+      normalizerVersion: 10,
+      buildingMode: territory.import_building_mode ?? 'overture_only',
+      mapBuildings,
+      quality: workspace.import.quality,
+      apartmentComplexes: workspace.apartmentComplexes.map(
+        ({ reviewStatus: _reviewStatus, withinBoundary: _withinBoundary, ...apartment }) =>
+          apartment,
+      ),
+      segments: workspace.segments.map(
+        ({
+          active: _active,
+          withinBoundary: _withinBoundary,
+          manuallyExcluded: _manuallyExcluded,
+          eligible: _eligible,
+          excludedReason: _excludedReason,
+          ...segment
+        }) => ({
+          ...segment,
+          activationKind: segment.activationKind === 'manual' ? 'hidden' : segment.activationKind,
+          addresses: addresses.get(segment.id) ?? [],
+        }),
+      ),
+    };
+  } finally {
+    database.close();
+  }
+}
+
 type SaveTerritoryOptions = {
   filename?: string;
   imported?: ImportedTerritoryInput;
