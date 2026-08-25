@@ -35,7 +35,6 @@ export type PacketCoverageGroup = {
 
 export type CoverageHistory = {
   roots: InterpretedCoverageRoot[];
-  rootsByTarget: ReadonlyMap<string, InterpretedCoverageRoot[]>;
   packetGroups: ReadonlyMap<string, PacketCoverageGroup[]>;
 };
 
@@ -49,7 +48,6 @@ export function interpretCoverageHistory(
 ): CoverageHistory {
   const roots = new Map<string, InterpretedCoverageRoot>();
   const eventIds = new Set<string>();
-  const rootsByTarget = new Map<string, InterpretedCoverageRoot[]>();
   const packetGroups = new Map<string, Map<string, InterpretedCoverageRoot[]>>();
 
   for (const event of [...events].sort((first, second) => first.sequence - second.sequence)) {
@@ -71,9 +69,6 @@ export function interpretCoverageHistory(
         corrections: [],
       };
       roots.set(event.id, root);
-      const targetRoots = rootsByTarget.get(event.targetId) ?? [];
-      targetRoots.push(root);
-      rootsByTarget.set(event.targetId, targetRoots);
       if (event.packetId && event.completionGroupId) {
         const groups = packetGroups.get(event.packetId) ?? new Map();
         const groupRoots = groups.get(event.completionGroupId) ?? [];
@@ -125,7 +120,6 @@ export function interpretCoverageHistory(
 
   return {
     roots: [...roots.values()],
-    rootsByTarget,
     packetGroups: interpretedGroups,
   };
 }

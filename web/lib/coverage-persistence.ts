@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import type { DatabaseSync } from 'node:sqlite';
 import {
   type CoverageThresholds,
   type CoverageWorkspace,
@@ -10,7 +11,11 @@ import {
   validateCoverageDate,
 } from './coverage.ts';
 import { interpretCoverageHistory, projectCoverageSegments } from './reconciliation-history.ts';
-import { openSqliteDatabase, workspaceDatabaseFilename } from './sqlite-persistence.ts';
+import {
+  openSqliteDatabase,
+  withImmediateTransaction,
+  workspaceDatabaseFilename,
+} from './sqlite-persistence.ts';
 import { getTerritoryWorkspace } from './territory-persistence.ts';
 import { requireWorkspaceScope } from './workspace-scope.ts';
 
@@ -273,39 +278,19 @@ export function appendCoverageCorrection(
   coveredOn: string | null,
   filename?: string,
 ): CoverageWorkspace {
-  if (coveredOn !== null) validateCoverageDate(coveredOn, todayForWorkspace());
-  const database = openSqliteDatabase(filename);
-  database.exec('BEGIN IMMEDIATE');
-  try {
-    const root = database
-      .prepare(
-        `SELECT id, church_id, street_segment_id, covered_on, packet_id
-        FROM coverage_events
-        WHERE id = ? AND church_id = ? AND kind = 'completed'`,
-      )
-      .get(eventId, workspaceChurchId()) as
-      | {
-          id: string;
-          church_id: string;
-          street_segment_id: string;
-          covered_on: string;
-          packet_id: string | null;
-        }
-      | undefined;
+  const asOf = todayForWorkspace();
+  if (coveredOn !== null) validateCoverageDate(coveredOn, asOf);
+  withImmediateTransaction(filename, (database) => {
+    const root = coverageRoot(database, eventId, asOf);
     if (!root) throw new Error('Coverage event not found');
-    if (root.packet_id) {
+    if (root.packetId) {
       throw new Error('Packet-managed coverage must be corrected in Reconcile packets');
     }
-    const latest = database
-      .prepare(
-        `SELECT covered_on, is_void FROM coverage_events
-        WHERE corrects_event_id = ? ORDER BY rowid DESC LIMIT 1`,
-      )
-      .get(eventId) as { covered_on: string; is_void: number } | undefined;
-    if (coveredOn === null && latest?.is_void === 1)
+    if (coveredOn === null && root.effectiveCoveredOn === null) {
       throw new Error('Coverage event is already void');
-    const effectiveDate = latest?.is_void === 0 ? latest.covered_on : root.covered_on;
-    const correctionDate = coveredOn ?? effectiveDate;
+    }
+    const correctionDate = coveredOn ?? root.effectiveCoveredOn;
+    if (!correctionDate) throw new Error('Invalid coverage history');
     database
       .prepare(
         `INSERT INTO coverage_events
@@ -314,18 +299,50 @@ export function appendCoverageCorrection(
       )
       .run(
         randomUUID(),
-        root.church_id,
-        root.street_segment_id,
+        workspaceChurchId(),
+        root.targetId,
         correctionDate,
         eventId,
         coveredOn === null ? 1 : 0,
       );
-    database.exec('COMMIT');
-  } catch (error) {
-    database.exec('ROLLBACK');
-    throw error;
-  } finally {
-    database.close();
-  }
+  });
   return getCoverageWorkspace(filename);
+}
+
+function coverageRoot(database: DatabaseSync, eventId: string, asOf: string) {
+  const rows = database
+    .prepare(
+      `SELECT id, rowid AS sequence, street_segment_id, packet_id, completion_group_id,
+        covered_on, kind, corrects_event_id, is_void
+      FROM coverage_events
+      WHERE church_id = ? AND street_segment_id IS NOT NULL
+        AND (id = ? OR corrects_event_id = ?)
+      ORDER BY rowid`,
+    )
+    .all(workspaceChurchId(), eventId, eventId) as Array<{
+    id: string;
+    sequence: number;
+    street_segment_id: string;
+    packet_id: string | null;
+    completion_group_id: string | null;
+    covered_on: string;
+    kind: 'completed' | 'correction';
+    corrects_event_id: string | null;
+    is_void: number;
+  }>;
+  return interpretCoverageHistory(
+    rows.map((row) => ({
+      id: row.id,
+      sequence: row.sequence,
+      targetId: row.street_segment_id,
+      targetKind: 'street',
+      packetId: row.packet_id,
+      completionGroupId: row.completion_group_id,
+      coveredOn: row.covered_on,
+      kind: row.kind,
+      correctsEventId: row.corrects_event_id,
+      isVoid: row.is_void === 1,
+    })),
+    asOf,
+  ).roots.find(({ eventId: rootId }) => rootId === eventId);
 }

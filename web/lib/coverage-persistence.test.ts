@@ -50,26 +50,28 @@ test('coverage reads one append-only correction, void, and restore history', () 
     const segmentId = before.segments[0]?.id;
     assert.ok(segmentId);
     const rootId = insertCoverageCompletionFixture(segmentId, '2026-07-01', filename);
+    const assertEffectiveDate = (
+      returned: ReturnType<typeof getCoverageWorkspace>,
+      expected: string | null,
+    ) => {
+      const fromMutation = returned.segments.find(({ id }) => id === segmentId);
+      const reread = getCoverageWorkspace(filename, '2026-08-25').segments.find(
+        ({ id }) => id === segmentId,
+      );
+      assert.equal(fromMutation?.lastCoveredOn, expected);
+      assert.equal(reread?.lastCoveredOn, expected);
+      assert.deepEqual(fromMutation?.roots, reread?.roots);
+      return reread;
+    };
 
-    appendCoverageCorrection(rootId, '2026-07-20', filename);
-    assert.equal(
-      getCoverageWorkspace(filename, '2026-08-25').segments.find(({ id }) => id === segmentId)
-        ?.lastCoveredOn,
-      '2026-07-20',
-    );
+    assertEffectiveDate(appendCoverageCorrection(rootId, '2026-07-20', filename), '2026-07-20');
 
-    appendCoverageCorrection(rootId, null, filename);
-    assert.equal(
-      getCoverageWorkspace(filename, '2026-08-25').segments.find(({ id }) => id === segmentId)
-        ?.lastCoveredOn,
-      null,
-    );
+    assertEffectiveDate(appendCoverageCorrection(rootId, null, filename), null);
 
-    appendCoverageCorrection(rootId, '2026-07-21', filename);
-    const restored = getCoverageWorkspace(filename, '2026-08-25').segments.find(
-      ({ id }) => id === segmentId,
+    const restored = assertEffectiveDate(
+      appendCoverageCorrection(rootId, '2026-07-21', filename),
+      '2026-07-21',
     );
-    assert.equal(restored?.lastCoveredOn, '2026-07-21');
     assert.deepEqual(Object.keys(restored?.roots[0] ?? {}).sort(), [
       'corrections',
       'effectiveCoveredOn',

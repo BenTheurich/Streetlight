@@ -145,6 +145,18 @@ test('street search keeps unnamed roads reachable and caps visible road groups a
   assert.equal(result?.matches.at(-1)?.roadGroupId, 'road-19');
 });
 
+test('street search announcements cover blank, empty, singular, and capped live results', () => {
+  const announce = coverageModule.coverageSearchAnnouncement;
+  assert.equal(announce('', { total: 0, hasMore: false }), null);
+  assert.equal(announce(' Oak ', { total: 0, hasMore: false }), 'No streets match “Oak”.');
+  assert.equal(announce('Oak', { total: 1, hasMore: false }), '1 matching road.');
+  assert.equal(announce('Oak', { total: 2, hasMore: false }), '2 matching roads.');
+  assert.equal(
+    announce('Oak', { total: 22, hasMore: true }),
+    'Showing 20 of 22 roads. Refine your search to narrow the list.',
+  );
+});
+
 test('street search merges nearby same-name carriageways but keeps distant namesakes separate', () => {
   const segment = (id: string, roadGroupId: string, coordinates: Array<[number, number]>) => ({
     ...searchableSegment(id, roadGroupId, 'Winchester Road'),

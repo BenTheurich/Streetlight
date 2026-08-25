@@ -14,7 +14,7 @@ import {
   type CoverageHistoryEvent,
   interpretCoverageHistory,
 } from './reconciliation-history.ts';
-import { openSqliteDatabase } from './sqlite-persistence.ts';
+import { withImmediateTransaction, withWorkspaceDatabase } from './sqlite-persistence.ts';
 import type { LineString, Position } from './territory-geometry.ts';
 import { requireWorkspaceScope } from './workspace-scope.ts';
 
@@ -97,126 +97,130 @@ function packetHistory(database: DatabaseSync, asOf: string, packetId?: string):
   return interpretCoverageHistory(events, asOf);
 }
 
-export function readReconciliation(options: ReconciliationOptions = {}): ReconciliationWorkspace {
-  const asOf = todayForWorkspace(options.now);
-  const database = openSqliteDatabase(options.filename);
-  try {
-    const history = packetHistory(database, asOf);
-    const batchRows = database
-      .prepare(
-        `SELECT id, name, status, finalized_at
+function readReconciliationFromDatabase(
+  database: DatabaseSync,
+  asOf: string,
+): ReconciliationWorkspace {
+  const history = packetHistory(database, asOf);
+  const batchRows = database
+    .prepare(
+      `SELECT id, name, status, finalized_at
         FROM batches
         WHERE church_id = ? AND finalized_at IS NOT NULL
         ORDER BY finalized_at DESC, id DESC`,
-      )
-      .all(workspaceChurchId()) as Array<{
-      id: string;
-      name: string;
-      status: ReconciliationBatch['status'];
-      finalized_at: string | null;
-    }>;
-    const packetRows = database.prepare(
-      `SELECT id, packet_code, estimated_homes, start_address, start_longitude, start_latitude,
+    )
+    .all(workspaceChurchId()) as Array<{
+    id: string;
+    name: string;
+    status: ReconciliationBatch['status'];
+    finalized_at: string | null;
+  }>;
+  const packetRows = database.prepare(
+    `SELECT id, packet_code, estimated_homes, start_address, start_longitude, start_latitude,
         packet_kind, status
       FROM packets
       WHERE church_id = ? AND batch_id = ?
       ORDER BY sequence_number, id`,
-    );
-    const segmentRows = database.prepare(
-      `SELECT s.import_segment_id, s.geometry_geojson, s.estimated_homes
+  );
+  const segmentRows = database.prepare(
+    `SELECT s.import_segment_id, s.geometry_geojson, s.estimated_homes
       FROM packet_segments ps
       JOIN street_segments s ON s.id = ps.street_segment_id
       WHERE ps.church_id = ? AND ps.packet_id = ?
       ORDER BY ps.sequence_number`,
-    );
-    const apartmentRow = database.prepare(
-      `SELECT a.import_complex_id, a.longitude, a.latitude
+  );
+  const apartmentRow = database.prepare(
+    `SELECT a.import_complex_id, a.longitude, a.latitude
       FROM packet_apartment_complexes pa
       JOIN apartment_complexes a ON a.id = pa.apartment_complex_id
       WHERE pa.church_id = ? AND pa.packet_id = ?`,
-    );
-    const batches = batchRows.map((batch): ReconciliationBatch => {
-      const packets = (
-        packetRows.all(workspaceChurchId(), batch.id) as Array<{
-          id: string;
-          packet_code: string;
+  );
+  const batches = batchRows.map((batch): ReconciliationBatch => {
+    const packets = (
+      packetRows.all(workspaceChurchId(), batch.id) as Array<{
+        id: string;
+        packet_code: string;
+        estimated_homes: number;
+        start_address: string;
+        start_longitude: number | null;
+        start_latitude: number | null;
+        packet_kind: ReconciliationPacket['kind'];
+        status: ReconciliationPacket['status'];
+      }>
+    ).map((packet): ReconciliationPacket => {
+      const groups = history.packetGroups.get(packet.id) ?? [];
+      const packetCoverage: PacketCoverageHistory[] = groups.map((group) => ({
+        completionGroupId: group.completionGroupId,
+        originalCoveredOn: group.originalCoveredOn,
+        effectiveCoveredOn: group.effectiveCoveredOn,
+      }));
+      const completedOn =
+        packetCoverage.findLast(({ effectiveCoveredOn }) => effectiveCoveredOn !== null)
+          ?.effectiveCoveredOn ?? null;
+      const apartment = apartmentRow.get(workspaceChurchId(), packet.id) as
+        | { import_complex_id: string; longitude: number; latitude: number }
+        | undefined;
+      const segments = (
+        segmentRows.all(workspaceChurchId(), packet.id) as Array<{
+          import_segment_id: string;
+          geometry_geojson: string;
           estimated_homes: number;
-          start_address: string;
-          start_longitude: number | null;
-          start_latitude: number | null;
-          packet_kind: ReconciliationPacket['kind'];
-          status: ReconciliationPacket['status'];
         }>
-      ).map((packet): ReconciliationPacket => {
-        const groups = history.packetGroups.get(packet.id) ?? [];
-        const packetCoverage: PacketCoverageHistory[] = groups.map((group) => ({
-          completionGroupId: group.completionGroupId,
-          originalCoveredOn: group.originalCoveredOn,
-          effectiveCoveredOn: group.effectiveCoveredOn,
-        }));
-        const completedOn =
-          packetCoverage.findLast(({ effectiveCoveredOn }) => effectiveCoveredOn !== null)
-            ?.effectiveCoveredOn ?? null;
-        const apartment = apartmentRow.get(workspaceChurchId(), packet.id) as
-          | { import_complex_id: string; longitude: number; latitude: number }
-          | undefined;
-        const segments = (
-          segmentRows.all(workspaceChurchId(), packet.id) as Array<{
-            import_segment_id: string;
-            geometry_geojson: string;
-            estimated_homes: number;
-          }>
-        ).map((segment) => ({
-          id: segment.import_segment_id,
-          geometry: parseGeometry<LineString>(segment.geometry_geojson),
-          estimatedHomes: segment.estimated_homes,
-        }));
-        const startPosition: Position | undefined =
-          packet.start_longitude !== null && packet.start_latitude !== null
-            ? [packet.start_longitude, packet.start_latitude]
-            : apartment
-              ? [apartment.longitude, apartment.latitude]
-              : segments[0]?.geometry.coordinates[0];
-        if (!startPosition) throw new Error('Packet starting point missing');
-        return {
-          id: packet.id,
-          code: packet.packet_code,
-          kind: packet.packet_kind,
-          status: packet.status,
-          estimatedTracts: packet.estimated_homes,
-          start: { address: packet.start_address, position: startPosition },
-          segments,
-          apartment: apartment
-            ? {
-                id: apartment.import_complex_id,
-                position: [apartment.longitude, apartment.latitude],
-              }
-            : null,
-          completedOn,
-          history: packetCoverage,
-        };
-      });
+      ).map((segment) => ({
+        id: segment.import_segment_id,
+        geometry: parseGeometry<LineString>(segment.geometry_geojson),
+        estimatedHomes: segment.estimated_homes,
+      }));
+      const startPosition: Position | undefined =
+        packet.start_longitude !== null && packet.start_latitude !== null
+          ? [packet.start_longitude, packet.start_latitude]
+          : apartment
+            ? [apartment.longitude, apartment.latitude]
+            : segments[0]?.geometry.coordinates[0];
+      if (!startPosition) throw new Error('Packet starting point missing');
       return {
-        id: batch.id,
-        name: batch.name,
-        status: batch.status,
-        finalizedAt: batch.finalized_at,
-        packets,
-        counts: {
-          active: packets.filter(({ status }) => status === 'active').length,
-          completed: packets.filter(({ status }) => status === 'completed').length,
-          cancelled: packets.filter(({ status }) => status === 'cancelled').length,
-        },
+        id: packet.id,
+        code: packet.packet_code,
+        kind: packet.packet_kind,
+        status: packet.status,
+        estimatedTracts: packet.estimated_homes,
+        start: { address: packet.start_address, position: startPosition },
+        segments,
+        apartment: apartment
+          ? {
+              id: apartment.import_complex_id,
+              position: [apartment.longitude, apartment.latitude],
+            }
+          : null,
+        completedOn,
+        history: packetCoverage,
       };
     });
     return {
-      asOf,
-      defaultBatchId: batches.find(({ counts }) => counts.active > 0)?.id ?? batches[0]?.id ?? null,
-      batches,
+      id: batch.id,
+      name: batch.name,
+      status: batch.status,
+      finalizedAt: batch.finalized_at,
+      packets,
+      counts: {
+        active: packets.filter(({ status }) => status === 'active').length,
+        completed: packets.filter(({ status }) => status === 'completed').length,
+        cancelled: packets.filter(({ status }) => status === 'cancelled').length,
+      },
     };
-  } finally {
-    database.close();
-  }
+  });
+  return {
+    asOf,
+    defaultBatchId: batches.find(({ counts }) => counts.active > 0)?.id ?? batches[0]?.id ?? null,
+    batches,
+  };
+}
+
+export function readReconciliation(options: ReconciliationOptions = {}): ReconciliationWorkspace {
+  const asOf = todayForWorkspace(options.now);
+  return withWorkspaceDatabase(options.filename, (database) =>
+    readReconciliationFromDatabase(database, asOf),
+  );
 }
 
 function parseDecisions(value: unknown): ReconciliationDecision[] | null {
@@ -306,9 +310,7 @@ function reconcilePacketBatch(
   const cancel = input.decisions
     .filter(({ outcome }) => outcome === 'discarded')
     .map(({ packetId }) => packetId);
-  const database = openSqliteDatabase(options.filename);
-  database.exec('BEGIN IMMEDIATE');
-  try {
+  return withImmediateTransaction(options.filename, (database) => {
     const batch = database
       .prepare('SELECT id FROM batches WHERE id = ? AND church_id = ? AND finalized_at IS NOT NULL')
       .get(input.batchId, workspaceChurchId());
@@ -344,8 +346,7 @@ function reconcilePacketBatch(
           'Reconciliation changed. Reload and review the batch again.',
         );
       }
-      database.exec('ROLLBACK');
-      return readReconciliation(options);
+      return readReconciliationFromDatabase(database, coveredOn);
     }
 
     const insertStreetEvent = database.prepare(
@@ -440,14 +441,8 @@ function reconcilePacketBatch(
     database
       .prepare('UPDATE batches SET status = ? WHERE id = ? AND church_id = ?')
       .run(status, input.batchId, workspaceChurchId());
-    database.exec('COMMIT');
-  } catch (error) {
-    if (database.isTransaction) database.exec('ROLLBACK');
-    throw error;
-  } finally {
-    database.close();
-  }
-  return readReconciliation(options);
+    return readReconciliationFromDatabase(database, coveredOn);
+  });
 }
 
 function correctPacketCompletion(
@@ -455,9 +450,7 @@ function correctPacketCompletion(
   options: ReconciliationOptions,
 ): ReconciliationWorkspace {
   const asOf = todayForWorkspace(options.now);
-  const database = openSqliteDatabase(options.filename);
-  database.exec('BEGIN IMMEDIATE');
-  try {
+  return withImmediateTransaction(options.filename, (database) => {
     const packet = database
       .prepare(
         `SELECT id, batch_id, status
@@ -542,14 +535,8 @@ function correctPacketCompletion(
         .prepare("UPDATE batches SET status = 'finalized' WHERE id = ? AND church_id = ?")
         .run(packet.batch_id, workspaceChurchId());
     }
-    database.exec('COMMIT');
-  } catch (error) {
-    if (database.isTransaction) database.exec('ROLLBACK');
-    throw error;
-  } finally {
-    database.close();
-  }
-  return readReconciliation(options);
+    return readReconciliationFromDatabase(database, asOf);
+  });
 }
 
 export function applyReconciliation(

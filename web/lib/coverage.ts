@@ -228,6 +228,18 @@ export function searchCoverageRoads<T extends CoverageSearchableSegment>(
   };
 }
 
+export function coverageSearchAnnouncement(
+  query: string,
+  result: Pick<ReturnType<typeof searchCoverageRoads>, 'total' | 'hasMore'>,
+): string | null {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) return null;
+  if (result.total === 0) return `No streets match “${normalizedQuery}”.`;
+  return result.hasMore
+    ? `Showing 20 of ${result.total} roads. Refine your search to narrow the list.`
+    : `${result.total} matching ${result.total === 1 ? 'road' : 'roads'}.`;
+}
+
 export function coverageRoadResultContent<T extends CoverageSearchableSegment>(
   road: CoverageRoad<T>,
 ) {

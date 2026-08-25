@@ -485,6 +485,71 @@ test('one reconciliation atomically completes missing packets, keeps present, ca
   });
 });
 
+test('a failure after the first completion event rolls back the whole reconciliation', async () => {
+  await withDatabase((filename) => {
+    const prepared = prepareBatch(filename);
+    const database = openDatabase(filename);
+    const beforeEvents = (
+      database.prepare('SELECT COUNT(*) AS count FROM coverage_events').get() as { count: number }
+    ).count;
+    database.exec(`
+      CREATE TRIGGER fail_second_packet_completion
+      BEFORE INSERT ON coverage_events
+      WHEN NEW.packet_id = 'packet-street'
+        AND (SELECT COUNT(*) FROM coverage_events WHERE packet_id = NEW.packet_id) = 1
+      BEGIN
+        SELECT RAISE(ABORT, 'forced reconciliation rollback');
+      END;
+    `);
+    database.close();
+
+    assert.throws(
+      () =>
+        applyReconciliation(
+          'reconcile',
+          {
+            batchId: prepared.batchId,
+            decisions: [
+              { packetId: prepared.streetPacketId, outcome: 'taken' },
+              { packetId: prepared.keepPacketId, outcome: 'still-here' },
+              { packetId: prepared.cancelPacketId, outcome: 'still-here' },
+              { packetId: prepared.apartmentPacketId, outcome: 'still-here' },
+            ],
+          },
+          { filename, now: new Date('2026-07-29T12:00:00.000Z') },
+        ),
+      /forced reconciliation rollback/,
+    );
+
+    const unchanged = openDatabase(filename);
+    try {
+      assert.equal(
+        (
+          unchanged.prepare('SELECT COUNT(*) AS count FROM coverage_events').get() as {
+            count: number;
+          }
+        ).count,
+        beforeEvents,
+      );
+      assert.deepEqual(
+        unchanged
+          .prepare('SELECT status FROM packets WHERE batch_id = ? ORDER BY sequence_number')
+          .all(prepared.batchId)
+          .map((row) => ({ ...row })),
+        [{ status: 'active' }, { status: 'active' }, { status: 'active' }, { status: 'active' }],
+      );
+      assert.deepEqual(
+        {
+          ...unchanged.prepare('SELECT status FROM batches WHERE id = ?').get(prepared.batchId),
+        },
+        { status: 'finalized' },
+      );
+    } finally {
+      unchanged.close();
+    }
+  });
+});
+
 test('whole-packet correction and undo preserve earlier coverage and reject reservation conflicts', async () => {
   await withDatabase(async (filename) => {
     const prepared = prepareBatch(filename);

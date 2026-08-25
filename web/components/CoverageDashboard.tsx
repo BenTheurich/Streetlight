@@ -7,6 +7,7 @@ import {
   coverageRoadForSegment,
   coverageRoadPacketGroups,
   coverageRoadResultContent,
+  coverageSearchAnnouncement,
   currentWorkState,
   searchCoverageRoads,
   stackCoverageLabelRows,
@@ -50,6 +51,7 @@ export function CoverageDashboard({
   const selected = coverageRoadForSegment(workspace.segments, selectedSegmentId);
   const search = searchCoverageRoads(workspace.segments, query);
   const selectedContent = selected ? coverageRoadResultContent(selected) : null;
+  const searchAnnouncement = coverageSearchAnnouncement(query, search);
   const selectedDates = selected ? coverageRoadPacketGroups(selected.segments) : [];
   const workState = currentWorkState(workspace.activePackets);
   const distribution = countEligibleHomesByCoverageClass(workspace.segments);
@@ -148,49 +150,42 @@ export function CoverageDashboard({
               Search by street name, or select a street directly on the map.
             </p>
           )}
-          {!selected && query.trim() && search.total === 0 && (
+          {!selected && searchAnnouncement && (
             <p className="coverage-search-status" role="status">
-              No streets match “{query.trim()}”.
+              {searchAnnouncement}
             </p>
           )}
           {!selected && search.total > 0 && (
-            <>
-              <p className="coverage-search-status" role="status">
-                {search.hasMore
-                  ? `Showing 20 of ${search.total} roads. Refine your search to narrow the list.`
-                  : `${search.total} matching ${search.total === 1 ? 'road' : 'roads'}.`}
-              </p>
-              <ul className="coverage-search-results">
-                {search.matches.map((road) => {
-                  const content = coverageRoadResultContent(road);
-                  const anchor = road.segments[0];
-                  return (
-                    <li key={road.roadGroupId}>
-                      <button
-                        onClick={() => {
-                          setQuery(content.streetName);
-                          onSelectSegment(anchor.id);
-                        }}
-                        type="button"
-                      >
-                        <strong>{content.streetName}</strong>
-                        <span>
-                          {content.sections} {content.sections === 1 ? 'section' : 'sections'} ·{' '}
-                          {content.estimatedTracts} estimated tract
-                          {content.estimatedTracts === 1 ? '' : 's'} · Last outreach:{' '}
-                          {content.lastOutreach === 'mixed'
-                            ? 'Mixed dates'
-                            : content.lastOutreach
-                              ? formatDate(content.lastOutreach)
-                              : 'Never'}
-                        </span>
-                        <small>{content.eligibility}</small>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
+            <ul className="coverage-search-results">
+              {search.matches.map((road) => {
+                const content = coverageRoadResultContent(road);
+                const anchor = road.segments[0];
+                return (
+                  <li key={road.roadGroupId}>
+                    <button
+                      onClick={() => {
+                        setQuery(content.streetName);
+                        onSelectSegment(anchor.id);
+                      }}
+                      type="button"
+                    >
+                      <strong>{content.streetName}</strong>
+                      <span>
+                        {content.sections} {content.sections === 1 ? 'section' : 'sections'} ·{' '}
+                        {content.estimatedTracts} estimated tract
+                        {content.estimatedTracts === 1 ? '' : 's'} · Last outreach:{' '}
+                        {content.lastOutreach === 'mixed'
+                          ? 'Mixed dates'
+                          : content.lastOutreach
+                            ? formatDate(content.lastOutreach)
+                            : 'Never'}
+                      </span>
+                      <small>{content.eligibility}</small>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </section>
         {selected && (
