@@ -11,7 +11,7 @@ import type {
   MapOverlayMarker,
   WorkspaceMapBasePresentation,
 } from './map-overlay-lifecycle.ts';
-import baseStyleJson from './open-map-base-style.json';
+import baseStyleJson from './open-map-base-style.json' with { type: 'json' };
 import { buildWorkspaceMapStyle, type OpenMapStyle } from './open-map-style.ts';
 import { mapPinDataUrl } from './territory-map-style.ts';
 
@@ -25,10 +25,10 @@ export function createMapLibreOverlayAdapter(
   const canvas = map.getCanvas();
   const pending = new Set<() => void>();
 
-  function waitForStyle(action?: () => void): Promise<void> {
+  function waitFor(event: 'load' | 'style.load', action?: () => void): Promise<void> {
     return new Promise((resolve, reject) => {
       const cleanup = () => {
-        map.off('style.load', loaded);
+        map.off(event, loaded);
         map.off('error', failed);
         pending.delete(cancel);
       };
@@ -45,7 +45,7 @@ export function createMapLibreOverlayAdapter(
         reject(new Error('Open map was detached'));
       };
       pending.add(cancel);
-      map.once('style.load', loaded);
+      map.once(event, loaded);
       map.once('error', failed);
       try {
         action?.();
@@ -59,10 +59,10 @@ export function createMapLibreOverlayAdapter(
   return {
     initialBase,
     waitUntilReady() {
-      return map.isStyleLoaded() ? Promise.resolve() : waitForStyle();
+      return map.loaded() || map.isStyleLoaded() ? Promise.resolve() : waitFor('load');
     },
     replaceStyle(base) {
-      return waitForStyle(() => {
+      return waitFor('style.load', () => {
         map.setStyle(
           buildWorkspaceMapStyle(
             baseStyleJson as unknown as OpenMapStyle,
