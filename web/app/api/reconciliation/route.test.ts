@@ -88,9 +88,7 @@ test('reconciliation route exposes read, confirm, replay, correction, and undo',
 
     const body = {
       batchId: 'route-batch',
-      activePacketIds: ['route-packet'],
-      presentPacketIds: [],
-      cancelPacketIds: [],
+      decisions: [{ packetId: 'route-packet', outcome: 'taken' }],
     };
     const confirmed = await POST(request('POST', body));
     assert.equal(confirmed.status, 200);
@@ -122,9 +120,7 @@ test('reconciliation route rejects malformed, stale, and missing requests withou
         await POST(
           request('POST', {
             batchId: 'route-batch',
-            activePacketIds: ['route-packet'],
-            presentPacketIds: [],
-            cancelPacketIds: [],
+            decisions: [{ packetId: 'route-packet', outcome: 'taken' }],
           }),
         )
       ).status,
@@ -135,9 +131,7 @@ test('reconciliation route rejects malformed, stale, and missing requests withou
         await POST(
           request('POST', {
             batchId: 'route-batch',
-            activePacketIds: ['route-packet'],
-            presentPacketIds: ['route-packet'],
-            cancelPacketIds: [],
+            decisions: [{ packetId: 'route-packet', outcome: 'still-here' }],
           }),
         )
       ).status,

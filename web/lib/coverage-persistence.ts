@@ -6,10 +6,10 @@ import {
   calendarDateInTimeZone,
   classifyCoverage,
   coverageLegend,
-  deriveCoverageSegments,
   parseCoverageThresholds,
   validateCoverageDate,
 } from './coverage.ts';
+import { interpretCoverageHistory, projectCoverageSegments } from './reconciliation-history.ts';
 import { openSqliteDatabase, workspaceDatabaseFilename } from './sqlite-persistence.ts';
 import { getTerritoryWorkspace } from './territory-persistence.ts';
 import { requireWorkspaceScope } from './workspace-scope.ts';
@@ -61,7 +61,8 @@ export function getCoverageWorkspace(
     const events = database
       .prepare(
         `SELECT ce.id, s.import_segment_id AS segment_id, ce.rowid AS sequence,
-          ce.packet_id, ce.covered_on, ce.kind, ce.corrects_event_id, ce.is_void
+          ce.packet_id, ce.completion_group_id, ce.covered_on, ce.kind,
+          ce.corrects_event_id, ce.is_void
         FROM coverage_events ce
         JOIN street_segments s ON s.id = ce.street_segment_id
         WHERE ce.church_id = ? AND s.territory_id = ?
@@ -74,6 +75,7 @@ export function getCoverageWorkspace(
           segment_id: string;
           sequence: number;
           packet_id: string | null;
+          completion_group_id: string | null;
           covered_on: string;
           kind: 'completed' | 'correction';
           corrects_event_id: string | null;
@@ -81,8 +83,10 @@ export function getCoverageWorkspace(
         };
         return {
           id: event.id,
-          segmentId: event.segment_id,
+          targetId: event.segment_id,
+          targetKind: 'street' as const,
           packetId: event.packet_id,
+          completionGroupId: event.completion_group_id,
           sequence: event.sequence,
           coveredOn: event.covered_on,
           kind: event.kind,
@@ -93,7 +97,8 @@ export function getCoverageWorkspace(
     const apartmentEvents = database
       .prepare(
         `SELECT ce.id, a.import_complex_id AS complex_id, ce.rowid AS sequence,
-          ce.packet_id, ce.covered_on, ce.kind, ce.corrects_event_id, ce.is_void
+          ce.packet_id, ce.completion_group_id, ce.covered_on, ce.kind,
+          ce.corrects_event_id, ce.is_void
         FROM coverage_events ce
         JOIN apartment_complexes a ON a.id = ce.apartment_complex_id
         WHERE ce.church_id = ? AND a.territory_id = ?
@@ -106,6 +111,7 @@ export function getCoverageWorkspace(
           complex_id: string;
           sequence: number;
           packet_id: string | null;
+          completion_group_id: string | null;
           covered_on: string;
           kind: 'completed' | 'correction';
           corrects_event_id: string | null;
@@ -113,8 +119,10 @@ export function getCoverageWorkspace(
         };
         return {
           id: event.id,
-          segmentId: event.complex_id,
+          targetId: event.complex_id,
+          targetKind: 'apartment' as const,
           packetId: event.packet_id,
+          completionGroupId: event.completion_group_id,
           sequence: event.sequence,
           coveredOn: event.covered_on,
           kind: event.kind,
@@ -123,9 +131,8 @@ export function getCoverageWorkspace(
         };
       });
     const derived = new Map(
-      deriveCoverageSegments(
-        events,
-        asOf,
+      projectCoverageSegments(
+        interpretCoverageHistory(events, asOf),
         territory.segments.map(({ id, estimatedHomes, eligible }) => ({
           id,
           estimatedHomes,
@@ -134,9 +141,8 @@ export function getCoverageWorkspace(
       ).map((segment) => [segment.id, segment]),
     );
     const apartmentDerived = new Map(
-      deriveCoverageSegments(
-        apartmentEvents,
-        asOf,
+      projectCoverageSegments(
+        interpretCoverageHistory(apartmentEvents, asOf),
         territory.apartmentComplexes.map((apartment) => ({
           id: apartment.id,
           estimatedHomes: apartment.estimatedTracts,

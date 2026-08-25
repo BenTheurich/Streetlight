@@ -14,11 +14,7 @@ import {
 import type { OpenMapData } from './open-map-data.ts';
 import type { OutreachProgressPeriod } from './outreach-progress.ts';
 import { type PacketProposal, proposalsForMap } from './packet-selection.ts';
-import {
-  type ReconciliationBatch,
-  type ReconciliationPacket,
-  reconciliationMapPackets,
-} from './reconciliation.ts';
+import type { ReconciliationMapPresentation } from './reconciliation.ts';
 import { type BoundaryShape, type Position, territoryBoundary } from './territory-geometry.ts';
 import {
   type ApartmentSelectionSource,
@@ -97,11 +93,7 @@ export type WorkspaceMapPresentation =
   | {
       kind: 'reconciliation';
       visible: boolean;
-      batch: ReconciliationBatch | null;
-      history: boolean;
-      presentIds: ReadonlySet<string>;
-      cancelIds: ReadonlySet<string>;
-      selectedPacketId: string | null;
+      presentation: ReconciliationMapPresentation;
     };
 
 export type MapOverlayEvent = {
@@ -303,7 +295,7 @@ export function createMapOverlayLifecycle({
   let coverageFitted = false;
   let coverageFocusKey = '';
   let proposalFocusKey = '';
-  let reconciliationFocusKey = '';
+  let reconciliationFocusKey: string | null = null;
   let territoryRoadFocusKey: number | null = null;
   let territoryApartmentFocusKey = '';
   let territoryCenter: Position | null = null;
@@ -1117,7 +1109,7 @@ export function createMapOverlayLifecycle({
     current: MapOverlayAdapter,
     value: Extract<WorkspaceMapPresentation, { kind: 'reconciliation' }>,
   ): void {
-    if (!value.visible || !value.batch) {
+    if (!value.visible || value.presentation.packets.length === 0) {
       setVisible(
         current,
         ['streetlight-reconciliation-halo', 'streetlight-reconciliation-line'],
@@ -1159,46 +1151,34 @@ export function createMapOverlayLifecycle({
       },
       beforeLabels(current),
     );
-    const batch = value.batch;
-    const packets = batch
-      ? reconciliationMapPackets(
-          batch.packets,
-          value.history ? 'history' : 'active',
-          value.selectedPacketId,
-        )
-      : [];
-    const disposition = (packet: ReconciliationPacket) =>
-      packet.status === 'cancelled' || value.cancelIds.has(packet.id)
-        ? 'cancel'
-        : packet.status === 'completed' || !value.presentIds.has(packet.id)
-          ? 'complete'
-          : 'active';
+    const packets = value.presentation.packets;
     const colors = { complete: '#3e8b65', active: '#1769ff', cancel: '#77736c' };
     current.setSourceData(
       'streetlight-reconciliation',
       featureCollection(
-        packets.flatMap((packet) =>
+        packets.flatMap(({ packet, disposition, selected }) =>
           packet.segments.map((segment) => ({
             type: 'Feature',
             geometry: segment.geometry,
             properties: {
-              color: colors[disposition(packet)],
-              selected: packet.id === value.selectedPacketId,
+              color: colors[disposition],
+              selected,
             },
           })),
         ),
       ),
     );
-    const visible = value.visible && batch !== null;
+    const visible = value.visible && packets.length > 0;
     setVisible(
       current,
       ['streetlight-reconciliation-halo', 'streetlight-reconciliation-line'],
       visible,
     );
-    if (!visible || !batch) return;
-    const selected = batch.packets.find(({ id }) => id === value.selectedPacketId) ?? null;
-    for (const packet of packets.filter(({ apartment }) => apartment)) {
-      if (packet.id === value.selectedPacketId || !packet.apartment) continue;
+    if (!visible) return;
+    const selected = packets.find((packet) => packet.selected) ?? null;
+    for (const presentation of packets.filter(({ packet }) => packet.apartment)) {
+      const { packet, disposition } = presentation;
+      if (presentation.selected || !packet.apartment) continue;
       addCleanup(
         'reconciliation',
         current.addMarker({
@@ -1206,7 +1186,7 @@ export function createMapOverlayLifecycle({
           kind: 'label',
           position: packet.apartment.position,
           text: 'A',
-          color: colors[disposition(packet)],
+          color: colors[disposition],
           title: `${packet.code} · ${packet.estimatedTracts} estimated tract${packet.estimatedTracts === 1 ? '' : 's'}`,
         }),
       );
@@ -1215,17 +1195,17 @@ export function createMapOverlayLifecycle({
       addCleanup(
         'reconciliation',
         current.addMarker({
-          key: `reconciliation-start:${selected.id}`,
+          key: `reconciliation-start:${selected.packet.id}`,
           kind: 'pin',
           symbol: 'start',
-          position: selected.start.position,
-          title: `Starting address: ${selected.start.address}`,
+          position: selected.packet.start.position,
+          title: `Starting address: ${selected.packet.start.address}`,
         }),
       );
     }
-    const focusKey = `${batch.id}:${value.selectedPacketId ?? 'all'}`;
+    const focusKey = value.presentation.focusKey;
     if (focusKey !== reconciliationFocusKey) {
-      const focusPackets = selected ? [selected] : packets;
+      const focusPackets = selected ? [selected.packet] : packets.map(({ packet }) => packet);
       const positions = focusPackets.flatMap((packet) => [
         ...packet.segments.flatMap(({ geometry }) => geometry.coordinates),
         ...(packet.apartment ? [packet.apartment.position] : []),

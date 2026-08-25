@@ -9,14 +9,89 @@ import { insertCoverageCompletionFixture } from '../test/persistence-fixtures.ts
 import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
 import { appendCoverageCorrection, getCoverageWorkspace } from './coverage-persistence.ts';
 import { getPacketGenerationWorkspace } from './packet-persistence.ts';
+import { APARTMENTS_ENABLED } from './product-capabilities.ts';
 import {
-  buildReconciliationChoices,
-  buildReconciliationPreview,
-  parsePacketCompletionCorrection,
-  parseReconciliationInput,
+  projectReconciliation,
   type ReconciliationBatch,
   type ReconciliationPacket,
+  type ReconciliationWorkspace,
 } from './reconciliation.ts';
+import {
+  applyReconciliation,
+  type ReconciliationApplyResult,
+  readReconciliation,
+} from './reconciliation-persistence.ts';
+import { runInWorkspace } from './workspace-scope.ts';
+
+function accepted(result: ReconciliationApplyResult): ReconciliationWorkspace {
+  if (result.kind !== 'accepted') assert.fail(`${result.kind}: ${result.message}`);
+  return result.workspace;
+}
+
+test('one projection owns explicit sheet decisions and the stable retry submission', () => {
+  const packet = (id: string): ReconciliationPacket => ({
+    id,
+    code: id,
+    kind: 'street',
+    status: 'active',
+    estimatedTracts: 1,
+    start: { address: `${id} Road`, position: [0, 0] },
+    segments: [],
+    apartment: null,
+    completedOn: null,
+    history: [],
+  });
+  const packets = [packet('still-here'), packet('taken'), packet('discarded')];
+  const workspace: ReconciliationWorkspace = {
+    asOf: '2026-08-25',
+    defaultBatchId: 'batch',
+    batches: [
+      {
+        id: 'batch',
+        name: 'Batch',
+        status: 'finalized',
+        finalizedAt: '2026-08-25T12:00:00.000Z',
+        packets,
+        counts: { active: 3, completed: 0, cancelled: 0 },
+      },
+    ],
+  };
+  const outcomes = new Map([
+    ['discarded', 'discarded'],
+    ['taken', 'taken'],
+    ['still-here', 'still-here'],
+  ] as const);
+
+  const projection = projectReconciliation(workspace, {
+    batchId: 'batch',
+    outcomes,
+    selectedPacketId: 'taken',
+    view: 'active',
+  });
+
+  assert.deepEqual(projection.review, {
+    unreviewed: [],
+    active: ['still-here'],
+    complete: ['taken'],
+    cancel: ['discarded'],
+  });
+  assert.deepEqual(projection.submission, {
+    batchId: 'batch',
+    decisions: [
+      { packetId: 'still-here', outcome: 'still-here' },
+      { packetId: 'taken', outcome: 'taken' },
+      { packetId: 'discarded', outcome: 'discarded' },
+    ],
+  });
+  assert.deepEqual(
+    projection.map.packets.map(({ packet, disposition, selected }) => ({
+      id: packet.id,
+      disposition,
+      selected,
+    })),
+    [{ id: 'taken', disposition: 'complete', selected: true }],
+  );
+});
 
 async function withDatabase(run: (filename: string) => void | Promise<void>): Promise<void> {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-reconciliation-'));
@@ -220,116 +295,14 @@ test('legacy packets without saved coordinates use their stored outreach geometr
       .run(segment.id);
     database.close();
 
-    const persistence = await import('./reconciliation-persistence.ts');
-    const packet = persistence
-      .getReconciliationWorkspace(filename)
-      .batches[0]?.packets.find(({ id }) => id === 'legacy-packet');
+    const packet = readReconciliation({ filename }).batches[0]?.packets.find(
+      ({ id }) => id === 'legacy-packet',
+    );
     assert.deepEqual(packet?.start.position, JSON.parse(segment.geometry_geojson).coordinates[0]);
   });
 });
 
-test('reconciliation request parsers accept only exact whole-packet choices', async () => {
-  const valid = {
-    batchId: 'batch',
-    activePacketIds: ['one', 'two'],
-    presentPacketIds: ['two'],
-    cancelPacketIds: ['two'],
-  };
-  assert.deepEqual(parseReconciliationInput(valid), valid);
-  assert.deepEqual(
-    parsePacketCompletionCorrection(
-      {
-        packetId: 'one',
-        coveredOn: '2026-07-20',
-      },
-      '2026-07-29',
-    ),
-    { packetId: 'one', coveredOn: '2026-07-20' },
-  );
-  for (const invalid of [
-    { ...valid, extra: true },
-    { ...valid, activePacketIds: ['one', 'one'] },
-    { ...valid, presentPacketIds: ['missing'] },
-    { ...valid, cancelPacketIds: ['one'] },
-  ]) {
-    assert.throws(() => parseReconciliationInput(invalid), /Invalid reconciliation request/);
-  }
-});
-
-test('reconciliation preview derives complete, active, and cancel groups from physical sheets', () => {
-  assert.deepEqual(
-    buildReconciliationPreview(['one', 'two', 'three'], ['two', 'three'], ['three']),
-    {
-      complete: ['one'],
-      active: ['two'],
-      cancel: ['three'],
-    },
-  );
-  assert.throws(
-    () => buildReconciliationPreview(['one', 'two'], ['two'], ['one']),
-    /Invalid reconciliation choices/,
-  );
-});
-
-test('reconciliation choices leave sheets unresolved until each has an explicit outcome', () => {
-  assert.deepEqual(
-    buildReconciliationChoices(
-      ['one', 'two', 'three', 'four'],
-      new Map([
-        ['one', 'still-here'],
-        ['two', 'taken'],
-        ['three', 'discarded'],
-      ]),
-    ),
-    {
-      unreviewed: ['four'],
-      active: ['one'],
-      complete: ['two'],
-      cancel: ['three'],
-    },
-  );
-});
-
-test('reconciliation separates batches needing action from batches with history', async () => {
-  const reconciliationModule = (await import('./reconciliation.ts')) as Record<string, unknown>;
-  const batchesForView = reconciliationModule.reconciliationBatchesForView;
-  assert.equal(typeof batchesForView, 'function');
-  if (typeof batchesForView !== 'function') return;
-
-  const batch = (id: string, counts: ReconciliationBatch['counts']): ReconciliationBatch => ({
-    id,
-    name: id,
-    status: 'finalized',
-    finalizedAt: '2026-07-29T12:00:00.000Z',
-    packets: [],
-    counts,
-  });
-  const batches = [
-    batch('active-only', { active: 2, completed: 0, cancelled: 0 }),
-    batch('mixed', { active: 1, completed: 1, cancelled: 0 }),
-    batch('history-only', { active: 0, completed: 1, cancelled: 1 }),
-  ];
-  const filter = batchesForView as (
-    batches: ReconciliationBatch[],
-    view: 'active' | 'history',
-  ) => ReconciliationBatch[];
-
-  assert.deepEqual(
-    filter(batches, 'active').map(({ id }) => id),
-    ['active-only', 'mixed'],
-  );
-  assert.deepEqual(
-    filter(batches, 'history').map(({ id }) => id),
-    ['mixed', 'history-only'],
-  );
-});
-
-test('reconciliation history target resolves only an exact historical packet', async () => {
-  const reconciliationModule = (await import('./reconciliation.ts')) as Record<string, unknown>;
-  const resolveTarget = reconciliationModule.reconciliationHistorySelection;
-  assert.equal(typeof resolveTarget, 'function');
-  if (typeof resolveTarget !== 'function') return;
-
+test('one projection owns active and history batches plus exact history targeting', () => {
   const packet = (id: string, status: ReconciliationPacket['status']): ReconciliationPacket => ({
     id,
     code: id,
@@ -356,90 +329,72 @@ test('reconciliation history target resolves only an exact historical packet', a
   });
   const batches = [
     batch('active-batch', [packet('active-packet', 'active')]),
-    batch('history-batch', [packet('history-packet', 'completed')]),
+    batch('mixed-batch', [packet('mixed-active', 'active'), packet('mixed-history', 'completed')]),
+    batch('history-batch', [
+      packet('history-packet', 'completed'),
+      packet('cancelled-packet', 'cancelled'),
+    ]),
   ];
-  const resolve = resolveTarget as (
-    batches: ReconciliationBatch[],
-    packetId: string,
-  ) => { batchId: string; packetId: string } | null;
+  const workspace: ReconciliationWorkspace = {
+    asOf: '2026-07-29',
+    defaultBatchId: 'active-batch',
+    batches,
+  };
+  const projection = projectReconciliation(workspace, {
+    batchId: 'active-batch',
+    historyTarget: { packetId: 'history-packet' },
+    outcomes: new Map(),
+    selectedPacketId: null,
+    view: 'active',
+  });
 
-  assert.deepEqual(resolve(batches, 'history-packet'), {
+  assert.deepEqual(
+    projection.activeBatches.map(({ id }) => id),
+    ['active-batch', 'mixed-batch'],
+  );
+  assert.deepEqual(
+    projection.historyBatches.map(({ id }) => id),
+    ['mixed-batch', 'history-batch'],
+  );
+  assert.deepEqual(projection.targetSelection, {
     batchId: 'history-batch',
     packetId: 'history-packet',
   });
-  assert.equal(resolve(batches, 'active-packet'), null);
-  assert.equal(resolve(batches, 'missing-packet'), null);
-});
-test('reconciliation map isolates the selected packet in active and history views', async () => {
-  const reconciliationModule = (await import('./reconciliation.ts')) as Record<string, unknown>;
-  const mapPackets = reconciliationModule.reconciliationMapPackets;
-  assert.equal(typeof mapPackets, 'function');
-  if (typeof mapPackets !== 'function') return;
+  assert.equal(projection.view, 'history');
+  assert.equal(projection.batch?.id, 'history-batch');
+  assert.deepEqual(
+    projection.map.packets.map(({ packet: candidate, selected }) => [candidate.id, selected]),
+    [['history-packet', true]],
+  );
 
-  const packet = (id: string, status: ReconciliationPacket['status']): ReconciliationPacket => ({
-    id,
-    code: id,
-    kind: 'street',
-    status,
-    estimatedTracts: 1,
-    start: { address: id, position: [0, 0] },
-    segments: [],
-    apartment: null,
-    completedOn: status === 'completed' ? '2026-07-29' : null,
-    history: [],
+  const unresolved = projectReconciliation(workspace, {
+    batchId: 'active-batch',
+    outcomes: new Map(),
+    selectedPacketId: null,
+    view: 'active',
   });
-  const packets = [
-    packet('active-one', 'active'),
-    packet('active-two', 'active'),
-    packet('completed', 'completed'),
-  ];
-  const select = mapPackets as (
-    packets: ReconciliationPacket[],
-    view: 'active' | 'history',
-    selectedPacketId: string | null,
-  ) => ReconciliationPacket[];
-
-  assert.deepEqual(
-    select(packets, 'active', 'active-two').map(({ id }) => id),
-    ['active-two'],
-  );
-  assert.deepEqual(
-    select(packets, 'history', 'completed').map(({ id }) => id),
-    ['completed'],
-  );
+  assert.deepEqual(unresolved.review.unreviewed, ['active-packet']);
+  assert.equal(unresolved.submission, null);
 });
 
 test('one reconciliation atomically completes missing packets, keeps present, cancels selected, and replays safely', async () => {
   await withDatabase(async (filename) => {
     const prepared = prepareBatch(filename);
-    const databaseModule = await import('./reconciliation-persistence.ts');
-    assert.equal(typeof databaseModule.getReconciliationWorkspace, 'function');
-    assert.equal(typeof databaseModule.reconcilePacketBatch, 'function');
-    if (
-      typeof databaseModule.getReconciliationWorkspace !== 'function' ||
-      typeof databaseModule.reconcilePacketBatch !== 'function'
-    ) {
-      return;
-    }
-    const before = databaseModule.getReconciliationWorkspace(filename);
+    const now = new Date('2026-07-29T12:00:00.000Z');
+    const before = readReconciliation({ filename, now });
     assert.equal(before.defaultBatchId, prepared.batchId);
     assert.equal(before.batches[0].packets.length, 4);
 
     const input = {
       batchId: prepared.batchId,
-      activePacketIds: [
-        prepared.streetPacketId,
-        prepared.keepPacketId,
-        prepared.cancelPacketId,
-        prepared.apartmentPacketId,
+      decisions: [
+        { packetId: prepared.streetPacketId, outcome: 'taken' },
+        { packetId: prepared.keepPacketId, outcome: 'still-here' },
+        { packetId: prepared.cancelPacketId, outcome: 'discarded' },
+        { packetId: prepared.apartmentPacketId, outcome: 'taken' },
       ],
-      presentPacketIds: [prepared.keepPacketId, prepared.cancelPacketId],
-      cancelPacketIds: [prepared.cancelPacketId],
     };
-    const after = databaseModule.reconcilePacketBatch(input, {
-      filename,
-      now: new Date('2026-07-29T12:00:00.000Z'),
-    });
+    const after = accepted(applyReconciliation('reconcile', input, { filename, now }));
     const batch = after.batches.find(({ id }) => id === prepared.batchId);
     assert.ok(batch);
     assert.deepEqual(
@@ -490,10 +445,12 @@ test('one reconciliation atomically completes missing packets, keeps present, ca
       /Reconcile packets/,
     );
 
-    databaseModule.reconcilePacketBatch(input, {
-      filename,
-      now: new Date('2026-07-29T12:01:00.000Z'),
-    });
+    accepted(
+      applyReconciliation('reconcile', input, {
+        filename,
+        now: new Date('2026-07-29T12:01:00.000Z'),
+      }),
+    );
     const apartmentCandidate = getPacketGenerationWorkspace(
       filename,
       '2026-07-29',
@@ -509,59 +466,51 @@ test('one reconciliation atomically completes missing packets, keeps present, ca
     );
     replayed.close();
 
-    assert.throws(
-      () =>
-        databaseModule.reconcilePacketBatch(
-          {
-            ...input,
-            presentPacketIds: [
-              prepared.streetPacketId,
-              prepared.keepPacketId,
-              prepared.cancelPacketId,
-            ],
-          },
-          { filename, now: new Date('2026-07-29T12:02:00.000Z') },
+    const stale = applyReconciliation(
+      'reconcile',
+      {
+        ...input,
+        decisions: input.decisions.map((decision) =>
+          decision.packetId === prepared.streetPacketId
+            ? { ...decision, outcome: 'still-here' }
+            : decision,
         ),
-      /Reconciliation changed/,
+      },
+      { filename, now: new Date('2026-07-29T12:02:00.000Z') },
     );
+    assert.deepEqual(stale, {
+      kind: 'conflict',
+      message: 'Reconciliation changed. Reload and review the batch again.',
+    });
   });
 });
 
 test('whole-packet correction and undo preserve earlier coverage and reject reservation conflicts', async () => {
   await withDatabase(async (filename) => {
     const prepared = prepareBatch(filename);
-    const databaseModule = await import('./reconciliation-persistence.ts');
-    assert.equal(typeof databaseModule.reconcilePacketBatch, 'function');
-    assert.equal(typeof databaseModule.correctPacketCompletion, 'function');
-    if (
-      typeof databaseModule.reconcilePacketBatch !== 'function' ||
-      typeof databaseModule.correctPacketCompletion !== 'function'
-    ) {
-      return;
-    }
     insertCoverageCompletionFixture(prepared.streetLogicalIds[0], '2025-01-01', filename);
-    databaseModule.reconcilePacketBatch(
-      {
-        batchId: prepared.batchId,
-        activePacketIds: [
-          prepared.streetPacketId,
-          prepared.keepPacketId,
-          prepared.cancelPacketId,
-          prepared.apartmentPacketId,
-        ],
-        presentPacketIds: [
-          prepared.keepPacketId,
-          prepared.cancelPacketId,
-          prepared.apartmentPacketId,
-        ],
-        cancelPacketIds: [prepared.cancelPacketId],
-      },
-      { filename, now: new Date('2026-07-29T12:00:00.000Z') },
+    accepted(
+      applyReconciliation(
+        'reconcile',
+        {
+          batchId: prepared.batchId,
+          decisions: [
+            { packetId: prepared.streetPacketId, outcome: 'taken' },
+            { packetId: prepared.keepPacketId, outcome: 'still-here' },
+            { packetId: prepared.cancelPacketId, outcome: 'discarded' },
+            { packetId: prepared.apartmentPacketId, outcome: 'still-here' },
+          ],
+        },
+        { filename, now: new Date('2026-07-29T12:00:00.000Z') },
+      ),
     );
 
-    databaseModule.correctPacketCompletion(
-      { packetId: prepared.streetPacketId, coveredOn: '2026-07-20' },
-      { filename, now: new Date('2026-07-29T13:00:00.000Z') },
+    accepted(
+      applyReconciliation(
+        'completion',
+        { packetId: prepared.streetPacketId, coveredOn: '2026-07-20' },
+        { filename, now: new Date('2026-07-29T13:00:00.000Z') },
+      ),
     );
     const correctedCoverage = getCoverageWorkspace(filename, '2026-07-29');
     for (const id of prepared.streetLogicalIds) {
@@ -597,21 +546,27 @@ test('whole-packet correction and undo preserve earlier coverage and reject rese
       .run(prepared.streetPhysicalIds[0]);
     conflictDatabase.close();
 
-    assert.throws(
-      () =>
-        databaseModule.correctPacketCompletion(
-          { packetId: prepared.streetPacketId, coveredOn: null },
-          { filename, now: new Date('2026-07-29T13:30:00.000Z') },
-        ),
-      /TEM-NEWER/,
+    assert.deepEqual(
+      applyReconciliation(
+        'completion',
+        { packetId: prepared.streetPacketId, coveredOn: null },
+        { filename, now: new Date('2026-07-29T13:30:00.000Z') },
+      ),
+      {
+        kind: 'conflict',
+        message: 'Cannot undo while TEM-NEWER reserves this outreach',
+      },
     );
 
     const release = openDatabase(filename);
     release.prepare("UPDATE packets SET status = 'cancelled' WHERE id = 'newer-packet'").run();
     release.close();
-    databaseModule.correctPacketCompletion(
-      { packetId: prepared.streetPacketId, coveredOn: null },
-      { filename, now: new Date('2026-07-29T14:00:00.000Z') },
+    accepted(
+      applyReconciliation(
+        'completion',
+        { packetId: prepared.streetPacketId, coveredOn: null },
+        { filename, now: new Date('2026-07-29T14:00:00.000Z') },
+      ),
     );
     const undoneCoverage = getCoverageWorkspace(filename, '2026-07-29');
     assert.equal(
@@ -623,11 +578,139 @@ test('whole-packet correction and undo preserve earlier coverage and reject rese
       null,
     );
     assert.equal(
-      databaseModule
-        .getReconciliationWorkspace(filename)
+      readReconciliation({ filename, now: new Date('2026-07-29T14:00:00.000Z') })
         .batches.find(({ id }) => id === prepared.batchId)
         ?.packets.find(({ id }) => id === prepared.streetPacketId)?.status,
       'active',
     );
+  });
+});
+
+test('foreign church batch, packet, event, and correction identifiers stay inaccessible', async () => {
+  await withDatabase((filename) => {
+    const prepared = prepareBatch(filename);
+    const eventId = insertCoverageCompletionFixture(
+      prepared.streetLogicalIds[0],
+      '2026-07-01',
+      filename,
+    );
+    const database = openDatabase(filename);
+    const eventCount = (
+      database.prepare('SELECT COUNT(*) AS count FROM coverage_events').get() as { count: number }
+    ).count;
+    database.close();
+
+    runInWorkspace(
+      {
+        churchId: 'church-second-test',
+        territoryId: 'territory-second-test',
+        timeZone: 'America/New_York',
+      },
+      () => {
+        assert.deepEqual(readReconciliation({ filename }).batches, []);
+        assert.deepEqual(
+          applyReconciliation(
+            'reconcile',
+            {
+              batchId: prepared.batchId,
+              decisions: [{ packetId: prepared.streetPacketId, outcome: 'taken' }],
+            },
+            { filename },
+          ),
+          { kind: 'not-found', message: 'Batch not found' },
+        );
+        assert.deepEqual(
+          applyReconciliation(
+            'completion',
+            { packetId: prepared.streetPacketId, coveredOn: '2026-07-20' },
+            { filename },
+          ),
+          { kind: 'not-found', message: 'Packet not found' },
+        );
+        assert.throws(
+          () => appendCoverageCorrection(eventId, '2026-07-20', filename),
+          /Coverage event not found/,
+        );
+      },
+    );
+
+    const unchanged = openDatabase(filename);
+    assert.equal(
+      (
+        unchanged.prepare('SELECT COUNT(*) AS count FROM coverage_events').get() as {
+          count: number;
+        }
+      ).count,
+      eventCount,
+    );
+    unchanged.close();
+  });
+});
+
+test('inconsistent packet completion groups fail as corrupt history', async () => {
+  await withDatabase((filename) => {
+    const prepared = prepareBatch(filename);
+    const database = openDatabase(filename);
+    const insert = database.prepare(
+      `INSERT INTO coverage_events
+        (id, church_id, street_segment_id, packet_id, completion_group_id, covered_on, kind)
+      VALUES (?, 'church-temecula-pilot', ?, ?, 'corrupt-group', ?, 'completed')`,
+    );
+    insert.run('corrupt-one', prepared.streetPhysicalIds[0], prepared.streetPacketId, '2026-07-01');
+    insert.run('corrupt-two', prepared.streetPhysicalIds[1], prepared.streetPacketId, '2026-07-02');
+    database.close();
+
+    assert.throws(
+      () => readReconciliation({ filename, now: new Date('2026-07-29T12:00:00.000Z') }),
+      /Invalid coverage history/,
+    );
+  });
+});
+
+test('preserved apartment packets still support completion, correction, and undo while disabled', async () => {
+  await withDatabase((filename) => {
+    assert.equal(APARTMENTS_ENABLED, false);
+    const prepared = prepareBatch(filename);
+    accepted(
+      applyReconciliation(
+        'reconcile',
+        {
+          batchId: prepared.batchId,
+          decisions: [
+            { packetId: prepared.streetPacketId, outcome: 'still-here' },
+            { packetId: prepared.keepPacketId, outcome: 'still-here' },
+            { packetId: prepared.cancelPacketId, outcome: 'still-here' },
+            { packetId: prepared.apartmentPacketId, outcome: 'taken' },
+          ],
+        },
+        { filename, now: new Date('2026-07-29T12:00:00.000Z') },
+      ),
+    );
+    accepted(
+      applyReconciliation(
+        'completion',
+        { packetId: prepared.apartmentPacketId, coveredOn: '2026-07-20' },
+        { filename, now: new Date('2026-07-29T13:00:00.000Z') },
+      ),
+    );
+    assert.equal(
+      getCoverageWorkspace(filename, '2026-07-29').apartmentComplexes.find(
+        ({ id }) => id === prepared.apartmentLogicalId,
+      )?.lastCoveredOn,
+      '2026-07-20',
+    );
+
+    accepted(
+      applyReconciliation(
+        'completion',
+        { packetId: prepared.apartmentPacketId, coveredOn: null },
+        { filename, now: new Date('2026-07-29T14:00:00.000Z') },
+      ),
+    );
+    const restored = getPacketGenerationWorkspace(filename, '2026-07-29').apartmentComplexes.find(
+      ({ id }) => id === prepared.apartmentLogicalId,
+    );
+    assert.equal(restored?.reserved, true);
+    assert.equal(restored?.lastCoveredOn, null);
   });
 });

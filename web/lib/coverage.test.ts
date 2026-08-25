@@ -8,7 +8,6 @@ import {
   countEligibleHomesCovered,
   coverageLegend,
   DEFAULT_COVERAGE_THRESHOLDS,
-  deriveCoverageSegments,
   parseCorrectionRequest,
   parseCoverageThresholds,
   validateCoverageDate,
@@ -343,136 +342,31 @@ test('correction requests accept exactly eventId and coveredOn', () => {
   }
 });
 
-test('derivation retains root history, isolates roots, and supports correction void and restore', () => {
-  const [segment] = deriveCoverageSegments(
-    [
-      {
-        id: 'completed-old',
-        segmentId: 'segment-1',
-        sequence: 1,
-        coveredOn: '2025-01-01',
-        kind: 'completed',
-        correctsEventId: null,
-        isVoid: false,
-        packetId: 'packet-1',
-      },
-      {
-        id: 'completed-new',
-        segmentId: 'segment-1',
-        sequence: 2,
-        coveredOn: '2026-06-01',
-        kind: 'completed',
-        correctsEventId: null,
-        isVoid: false,
-      },
-      {
-        id: 'old-correction',
-        segmentId: 'segment-1',
-        sequence: 3,
-        coveredOn: '2026-07-01',
-        kind: 'correction',
-        correctsEventId: 'completed-old',
-        isVoid: false,
-      },
-      {
-        id: 'new-void',
-        segmentId: 'segment-1',
-        sequence: 4,
-        coveredOn: '2026-06-01',
-        kind: 'correction',
-        correctsEventId: 'completed-new',
-        isVoid: true,
-      },
-      {
-        id: 'new-restore',
-        segmentId: 'segment-1',
-        sequence: 5,
-        coveredOn: '2026-07-20',
-        kind: 'correction',
-        correctsEventId: 'completed-new',
-        isVoid: false,
-      },
-    ],
-    asOf,
-  );
-
-  assert.equal(segment.lastCoveredOn, '2026-07-20');
-  assert.deepEqual(segment.roots, [
-    {
-      eventId: 'completed-old',
-      packetId: 'packet-1',
-      originalCoveredOn: '2025-01-01',
-      effectiveCoveredOn: '2026-07-01',
-      corrections: [
-        {
-          id: 'old-correction',
-          sequence: 3,
-          coveredOn: '2026-07-01',
-          isVoid: false,
-        },
-      ],
-    },
-    {
-      eventId: 'completed-new',
-      packetId: null,
-      originalCoveredOn: '2026-06-01',
-      effectiveCoveredOn: '2026-07-20',
-      corrections: [
-        { id: 'new-void', sequence: 4, coveredOn: '2026-06-01', isVoid: true },
-        { id: 'new-restore', sequence: 5, coveredOn: '2026-07-20', isVoid: false },
-      ],
-    },
-  ]);
-});
-
 test('eligible period homes include each covered logical segment once at inclusive endpoints', () => {
-  const derived = deriveCoverageSegments(
-    [
-      {
-        id: 'a',
-        segmentId: 'a',
-        sequence: 1,
-        coveredOn: '2026-04-30',
-        kind: 'completed',
-        correctsEventId: null,
-        isVoid: false,
-      },
-      {
-        id: 'b',
-        segmentId: 'b',
-        sequence: 2,
-        coveredOn: '2026-07-28',
-        kind: 'completed',
-        correctsEventId: null,
-        isVoid: false,
-      },
-      {
-        id: 'a-again',
-        segmentId: 'a',
-        sequence: 3,
-        coveredOn: '2026-05-15',
-        kind: 'completed',
-        correctsEventId: null,
-        isVoid: false,
-      },
-      {
-        id: 'c',
-        segmentId: 'c',
-        sequence: 4,
-        coveredOn: '2026-04-29',
-        kind: 'completed',
-        correctsEventId: null,
-        isVoid: false,
-      },
-    ],
-    asOf,
-    [
-      { id: 'a', estimatedHomes: 3, eligible: true },
-      { id: 'b', estimatedHomes: 5, eligible: true },
-      { id: 'c', estimatedHomes: 7, eligible: true },
-      { id: 'd', estimatedHomes: 11, eligible: false },
-    ],
-  );
+  const derived = [
+    {
+      id: 'a',
+      estimatedHomes: 3,
+      eligible: true,
+      lastCoveredOn: '2026-05-15',
+      roots: [],
+    },
+    {
+      id: 'b',
+      estimatedHomes: 5,
+      eligible: true,
+      lastCoveredOn: '2026-07-28',
+      roots: [],
+    },
+    {
+      id: 'c',
+      estimatedHomes: 7,
+      eligible: true,
+      lastCoveredOn: '2026-04-29',
+      roots: [],
+    },
+    { id: 'd', estimatedHomes: 11, eligible: false, lastCoveredOn: null, roots: [] },
+  ];
   assert.equal(countEligibleHomesCovered(derived, asOf, 90), 8);
   assert.equal(
     countEligibleHomesCovered(

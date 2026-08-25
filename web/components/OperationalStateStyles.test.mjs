@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { chromium } from 'playwright';
 
+// Repository policy: execute the shipped stylesheets in Chromium so focus, motion, and target-size
+// regressions are checked as computed behavior rather than by preserving CSS syntax.
 const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8').replace(
   /^@import[^\n]+\n/,
   '',
