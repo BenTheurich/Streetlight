@@ -1,27 +1,15 @@
 'use client';
 
-import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
-import { useEffect, useRef } from 'react';
-import { positionBounds } from '@/lib/map-camera';
-import {
-  type ReconciliationBatch,
-  type ReconciliationPacket,
-  reconciliationMapPackets,
-} from '@/lib/reconciliation';
-import { keepMapOverlayPublished, mapPinDataUrl } from '@/lib/territory-map-style';
-
-const dispositionColors = {
-  complete: '#3e8b65',
-  active: '#1769ff',
-  cancel: '#77736c',
-};
+import { useEffect } from 'react';
+import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
+import type { ReconciliationBatch } from '@/lib/reconciliation';
 
 export function OpenReconciliationOverlay({
   active,
   batch,
   cancelIds,
   history,
-  map,
+  lifecycle,
   presentIds,
   selectedPacketId,
 }: {
@@ -29,141 +17,21 @@ export function OpenReconciliationOverlay({
   batch: ReconciliationBatch | null;
   cancelIds: Set<string>;
   history: boolean;
-  map: MapLibreMap | null;
+  lifecycle: MapOverlayLifecycle | null;
   presentIds: Set<string>;
   selectedPacketId: string | null;
 }) {
-  const lastFocusRef = useRef('');
-
   useEffect(() => {
-    if (!active || !map || !batch) return;
-    const sourceId = 'streetlight-reconciliation';
-    const haloId = 'streetlight-reconciliation-halo';
-    const lineId = 'streetlight-reconciliation-line';
-    const markers: MapLibreMarker[] = [];
-    let disposed = false;
-    const selected = batch.packets.find(({ id }) => id === selectedPacketId) ?? null;
-    const packets = reconciliationMapPackets(
-      batch.packets,
-      history ? 'history' : 'active',
+    if (!lifecycle) return;
+    return lifecycle.present({
+      kind: 'reconciliation',
+      visible: active,
+      batch,
+      history,
+      presentIds,
+      cancelIds,
       selectedPacketId,
-    );
-    const disposition = (packet: ReconciliationPacket) =>
-      packet.status === 'cancelled' || cancelIds.has(packet.id)
-        ? 'cancel'
-        : packet.status === 'completed' || !presentIds.has(packet.id)
-          ? 'complete'
-          : 'active';
-    const publish = () => {
-      if (!map.getSource(sourceId)) {
-        map.addSource(sourceId, {
-          type: 'geojson',
-          data: {
-            type: 'FeatureCollection',
-            features: packets.flatMap((packet) =>
-              packet.segments.map((segment) => ({
-                type: 'Feature' as const,
-                geometry: segment.geometry,
-                properties: {
-                  color: dispositionColors[disposition(packet)],
-                  selected: packet.id === selectedPacketId,
-                },
-              })),
-            ),
-          },
-        });
-      }
-      const haloBefore = map.getLayer('streetlight-coverage')
-        ? 'streetlight-coverage'
-        : map.getLayer('highway-name-minor')
-          ? 'highway-name-minor'
-          : undefined;
-      const lineBefore = map.getLayer('highway-name-minor') ? 'highway-name-minor' : undefined;
-      if (!map.getLayer(haloId)) {
-        map.addLayer(
-          {
-            id: haloId,
-            type: 'line',
-            source: sourceId,
-            layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: {
-              'line-color': '#78a9ff',
-              'line-opacity': 1,
-              'line-width': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 13],
-            },
-          },
-          haloBefore,
-        );
-      }
-      if (!map.getLayer(lineId)) {
-        map.addLayer(
-          {
-            id: lineId,
-            type: 'line',
-            source: sourceId,
-            layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: {
-              'line-color': ['get', 'color'],
-              'line-opacity': 0.9,
-              'line-width': [
-                '+',
-                ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5],
-                ['case', ['get', 'selected'], 2, 0],
-              ],
-            },
-          },
-          lineBefore,
-        );
-      }
-    };
-    const stopPublishing = keepMapOverlayPublished(map, publish);
-    const focusPackets = selected ? [selected] : packets;
-    const positions = focusPackets.flatMap((packet) => [
-      ...packet.segments.flatMap(({ geometry }) => geometry.coordinates),
-      ...(packet.apartment ? [packet.apartment.position] : []),
-    ]);
-    const focusKey = `${batch.id}:${selectedPacketId ?? 'all'}`;
-    const bounds = positionBounds(positions);
-    if (lastFocusRef.current !== focusKey && bounds) {
-      map.fitBounds(bounds, { padding: 56 });
-      lastFocusRef.current = focusKey;
-    }
-    void import('maplibre-gl').then(({ Marker }) => {
-      if (disposed) return;
-      for (const packet of packets.filter(({ apartment }) => apartment)) {
-        if (packet.id === selectedPacketId) continue;
-        const content = document.createElement('span');
-        content.className = 'reconciliation-apartment-marker';
-        content.style.setProperty('--reconciliation-color', dispositionColors[disposition(packet)]);
-        content.textContent = 'A';
-        content.title = `${packet.code} · ${packet.estimatedTracts} estimated tract${packet.estimatedTracts === 1 ? '' : 's'}`;
-        markers.push(
-          new Marker({ element: content })
-            .setLngLat(packet.apartment?.position as [number, number])
-            .addTo(map),
-        );
-      }
-      if (selected) {
-        const markerElement = document.createElement('img');
-        markerElement.alt = '';
-        markerElement.src = mapPinDataUrl('start');
-        markerElement.className = 'workspace-map-pin';
-        const marker = new Marker({ anchor: 'bottom', element: markerElement })
-          .setLngLat(selected.start.position)
-          .addTo(map);
-        marker.getElement().title = `Starting address: ${selected.start.address}`;
-        markers.push(marker);
-      }
     });
-    return () => {
-      disposed = true;
-      stopPublishing();
-      for (const marker of markers) marker.remove();
-      if (map.getLayer(lineId)) map.removeLayer(lineId);
-      if (map.getLayer(haloId)) map.removeLayer(haloId);
-      if (map.getSource(sourceId)) map.removeSource(sourceId);
-    };
-  }, [active, batch, cancelIds, history, map, presentIds, selectedPacketId]);
-
+  }, [active, batch, cancelIds, history, lifecycle, presentIds, selectedPacketId]);
   return null;
 }

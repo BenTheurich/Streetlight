@@ -63,14 +63,6 @@ test('the MVP keeps apartments behind one disabled product capability', () => {
   assert.match(importRoute, /workspace: workspace \? applyMvpCapabilities\(workspace\) : null/);
 });
 
-test('the shared coverage map expands apartment clusters and removes its click handler', () => {
-  const source = readFileSync(new URL('./OpenCoverageMap.tsx', import.meta.url), 'utf8');
-
-  assert.match(source, /expandApartmentCluster\(/);
-  assert.match(source, /map\.on\('click', 'streetlight-apartment-clusters', expand\)/);
-  assert.match(source, /map\.off\('click', 'streetlight-apartment-clusters', expand\)/);
-});
-
 test('map display and heatmap ranges are edited from the shared legend', () => {
   const workspace = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
   const map = readFileSync(new URL('./OpenCoverageMap.tsx', import.meta.url), 'utf8');
@@ -302,30 +294,6 @@ test('workflow surfaces use one atomic operation status without duplicate live c
   assert.doesNotMatch(reconciliation, /<p aria-live="polite">{notice}<\/p>/);
 });
 
-test('territory editing keeps shared overlays and selects exact segments directly', () => {
-  const source = readFileSync(new URL('./OpenTerritoryMap.tsx', import.meta.url), 'utf8');
-
-  assert.match(source, /getSource\('streetlightCoverage'\)/);
-  assert.match(source, /selectedIds\.has\(segment\.id\)/);
-  assert.match(source, /queryRenderedFeatures\(bounds/);
-  assert.match(source, /event\.originalEvent\.shiftKey/);
-  assert.match(source, /boxSelectionArmed/);
-  assert.match(source, /segmentSelectionBounds/);
-  assert.match(source, /map\.fitBounds\(bounds, options\)/);
-  assert.doesNotMatch(source, /territory-exclusions|territory-drawing/);
-});
-
-test('basemap changes republish the map after the replacement style has committed', () => {
-  const source = readFileSync(new URL('./WorkspaceMap.tsx', import.meta.url), 'utf8');
-
-  assert.match(source, /map\.once\('style\.load', republish\)/);
-  assert.match(
-    source,
-    /republish = \(\) => \{\s*frame = requestAnimationFrame\(\(\) => onMapChangeRef\.current\(map\)\)/,
-  );
-  assert.match(source, /cancelAnimationFrame\(frame\)/);
-});
-
 test('reconciliation requires an explicit outcome for every physical sheet', () => {
   const source = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
 
@@ -358,15 +326,6 @@ test('reconciliation identifies every batch with its saved name and finalized ti
   assert.match(source, /timeStyle: 'short'/);
   assert.match(source, /\? batchOptionLabel\(candidate\)/);
   assert.match(source, /: historyBatchOptionLabel\(candidate\)/);
-});
-
-test('reconciliation highlights the selected batch with the shared light-blue road halo', () => {
-  const source = readFileSync(new URL('./OpenReconciliationOverlay.tsx', import.meta.url), 'utf8');
-
-  assert.match(source, /'line-color': '#78a9ff'/);
-  assert.match(source, /const haloBefore = map\.getLayer\('streetlight-coverage'\)/);
-  assert.match(source, /'line-width': \['interpolate', \['linear'\], \['zoom'\], 11, 10, 14, 13\]/);
-  assert.match(source, /const focusKey = `\$\{batch\.id\}:/);
 });
 
 test('reconciliation correction status and retry stay with the affected packet', () => {

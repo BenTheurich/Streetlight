@@ -2,13 +2,6 @@ import type { OpenMapData } from './open-map-data.ts';
 import type { DownloadPacket, PacketMapGeneration } from './packet-finalization.ts';
 import { endpointMeetsInterior } from './packet-selection.ts';
 import type { LineString, Position } from './territory-geometry.ts';
-import {
-  apartmentLayerIds,
-  apartmentMarkerColor,
-  coverageColors,
-  mapMarkerStyle,
-  territoryBoundaryStyle,
-} from './territory-map-style.ts';
 
 const ZOOM_STOPS = [14, 18, 20] as const;
 const WIDTHS = {
@@ -96,10 +89,6 @@ function routeWidthExpression(): unknown[] {
       ],
     ]),
   ];
-}
-
-function coverageWidthExpression(): unknown[] {
-  return ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5];
 }
 
 const INTERACTIVE_ROAD_STOPS: Array<[string, unknown[]]> = [
@@ -737,174 +726,25 @@ export function buildWorkspaceMapStyle(
         })),
       },
     };
-  }
-  style.sources.streetlightCoverage = {
-    type: 'geojson',
-    data: {
-      type: 'FeatureCollection',
-      features: data.segments.map((segment) => ({
-        type: 'Feature',
-        geometry: segment.geometry,
-        properties: {
-          id: segment.id,
-          roadClass: segment.roadClass,
-          color: segment.eligible ? coverageColors[segment.coverageClass] : coverageColors.gray,
-          opacity: segment.eligible ? 0.68 : 0.42,
+    insertBefore(style, 'highway-name-minor', [
+      {
+        id: 'streetlight-house-numbers',
+        type: 'symbol',
+        source: 'streetlightHouseNumbers',
+        minzoom: 18,
+        layout: {
+          'text-field': ['get', 'number'],
+          'text-size': 10,
+          'text-font': ['Noto Sans Bold'],
+          'text-allow-overlap': false,
         },
-      })),
-    },
-  };
-  style.sources.streetlightBoundary = {
-    type: 'geojson',
-    data: { type: 'Feature', properties: {}, geometry: data.boundary },
-  };
-  style.sources.streetlightApartments = {
-    type: 'geojson',
-    cluster: true,
-    clusterRadius: 44,
-    clusterMaxZoom: 16,
-    data: {
-      type: 'FeatureCollection',
-      features: data.apartmentComplexes.map((apartment) => ({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: apartment.position },
-        properties: {
-          label: 'A',
-          color: apartmentMarkerColor(apartment),
+        paint: {
+          'text-color': '#7b8794',
+          'text-halo-color': 'rgba(255, 255, 255, 0.72)',
+          'text-halo-width': 0.5,
         },
-      })),
-    },
-  };
-  insertBefore(style, 'highway-name-minor', [
-    ...(!overlay
-      ? [
-          {
-            id: 'streetlight-house-numbers',
-            type: 'symbol',
-            source: 'streetlightHouseNumbers',
-            minzoom: 18,
-            layout: {
-              'text-field': ['get', 'number'],
-              'text-size': 10,
-              'text-font': ['Noto Sans Bold'],
-              'text-allow-overlap': false,
-            },
-            paint: {
-              'text-color': '#7b8794',
-              'text-halo-color': 'rgba(255, 255, 255, 0.72)',
-              'text-halo-width': 0.5,
-            },
-          },
-        ]
-      : []),
-    {
-      id: 'streetlight-boundary',
-      type: 'line',
-      source: 'streetlightBoundary',
-      paint: {
-        'line-color': territoryBoundaryStyle.color,
-        'line-opacity': territoryBoundaryStyle.opacity,
-        'line-width': territoryBoundaryStyle.width,
-        'line-dasharray': [...territoryBoundaryStyle.dashArray],
       },
-    },
-    {
-      id: 'streetlight-coverage-selection',
-      type: 'line',
-      source: 'streetlightCoverage',
-      filter: ['==', ['get', 'selected'], true],
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': '#78a9ff',
-        'line-opacity': 1,
-        'line-width': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 13],
-      },
-    },
-    {
-      id: 'streetlight-coverage',
-      type: 'line',
-      source: 'streetlightCoverage',
-      filter: ['!=', ['get', 'hidden'], true],
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': ['get', 'color'],
-        'line-opacity': ['get', 'opacity'],
-        'line-width': coverageWidthExpression(),
-      },
-    },
-    {
-      id: 'streetlight-territory-hidden',
-      type: 'line',
-      source: 'streetlightCoverage',
-      filter: ['==', ['get', 'hidden'], true],
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': ['get', 'color'],
-        'line-opacity': ['get', 'opacity'],
-        'line-width': coverageWidthExpression(),
-      },
-    },
-    {
-      id: 'streetlight-apartment-clusters',
-      type: 'circle',
-      source: 'streetlightApartments',
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-color': mapMarkerStyle.fill,
-        'circle-radius': mapMarkerStyle.radius,
-        'circle-stroke-color': mapMarkerStyle.outline,
-        'circle-stroke-width': mapMarkerStyle.outlineWidth,
-      },
-    },
-    {
-      id: 'streetlight-apartment-cluster-count',
-      type: 'symbol',
-      source: 'streetlightApartments',
-      filter: ['has', 'point_count'],
-      layout: {
-        'text-field': ['get', 'point_count_abbreviated'],
-        'text-size': 11,
-        'text-font': ['Noto Sans Bold'],
-        'text-allow-overlap': true,
-        'text-ignore-placement': true,
-      },
-      paint: { 'text-color': '#ffffff' },
-    },
-    {
-      id: 'streetlight-apartments',
-      type: 'circle',
-      source: 'streetlightApartments',
-      filter: ['!', ['has', 'point_count']],
-      paint: {
-        'circle-color': ['case', ['==', ['get', 'selected'], true], '#2767e9', ['get', 'color']],
-        'circle-radius': [
-          'case',
-          ['==', ['get', 'selected'], true],
-          mapMarkerStyle.selectedRadius,
-          mapMarkerStyle.radius,
-        ],
-        'circle-stroke-color': mapMarkerStyle.outline,
-        'circle-stroke-width': mapMarkerStyle.outlineWidth,
-      },
-    },
-    {
-      id: 'streetlight-apartment-labels',
-      type: 'symbol',
-      source: 'streetlightApartments',
-      filter: ['!', ['has', 'point_count']],
-      layout: {
-        'text-field': ['get', 'label'],
-        'text-size': 11,
-        'text-font': ['Noto Sans Bold'],
-        'text-allow-overlap': true,
-        'text-ignore-placement': true,
-      },
-      paint: { 'text-color': '#ffffff' },
-    },
-  ]);
-  for (const apartmentLayerId of apartmentLayerIds) {
-    const layerIndex = style.layers.findIndex(({ id }) => id === apartmentLayerId);
-    if (layerIndex >= 0) style.layers.push(...style.layers.splice(layerIndex, 1));
+    ]);
   }
   return style;
 }

@@ -1,10 +1,10 @@
 'use client';
 
-import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { coverageRoads } from '@/lib/coverage';
 import { loadGoogleMaps } from '@/lib/google-maps-browser';
+import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
 import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 import type { RegionSetupReadyView, RegionSetupWorkflow } from '@/lib/region-setup-workflow';
 import { apartmentSiteSummary } from '@/lib/territory-client';
@@ -61,7 +61,7 @@ const importStageLabels: Record<TerritoryImportStage, string> = {
 
 export function TerritoryEditor({
   active,
-  map,
+  lifecycle,
   mapVisible,
   mapsApiKey,
   overlayRoot,
@@ -73,7 +73,7 @@ export function TerritoryEditor({
   workflow,
 }: {
   active: boolean;
-  map: MapLibreMap | null;
+  lifecycle: MapOverlayLifecycle | null;
   mapVisible: boolean;
   mapsApiKey: string;
   overlayRoot: HTMLDivElement | null;
@@ -493,7 +493,7 @@ export function TerritoryEditor({
         boundaryShape={draft.boundaryShape}
         boxSelectionArmed={boxSelectionArmed}
         center={draft.center}
-        map={map}
+        lifecycle={lifecycle}
         groupingMemberIds={groupingApartment?.memberIds ?? null}
         mutationLocked={leaveControlsDisabled}
         onBoxSelectionComplete={() => setBoxSelectionArmed(false)}

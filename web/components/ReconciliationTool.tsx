@@ -1,7 +1,7 @@
 'use client';
 
-import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
 import {
   buildReconciliationChoices,
   type ReconciliationBatch,
@@ -83,14 +83,14 @@ type ReconciliationFeedback =
 
 export function ReconciliationTool({
   active,
-  map,
+  lifecycle,
   onChanged,
   onTargetHandled,
   onViewChange,
   target,
 }: {
   active: boolean;
-  map: MapLibreMap | null;
+  lifecycle: MapOverlayLifecycle | null;
   onChanged: () => Promise<void>;
   onTargetHandled: () => void;
   onViewChange: (view: 'generate' | 'reconcile') => void;
@@ -403,7 +403,7 @@ export function ReconciliationTool({
         batch={batch}
         cancelIds={overlayCancelIds}
         history={reconciliationView === 'history'}
-        map={map}
+        lifecycle={lifecycle}
         presentIds={overlayPresentIds}
         selectedPacketId={selectedPacketId}
       />

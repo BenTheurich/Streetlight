@@ -1,0 +1,598 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import type { CoverageWorkspace } from './coverage.ts';
+import {
+  createMapOverlayLifecycle,
+  type MapOverlayAdapter,
+  type MapOverlayEvent,
+  type MapOverlayLayer,
+  type MapOverlayMarker,
+  type WorkspaceMapBasePresentation,
+} from './map-overlay-lifecycle.ts';
+import type { OpenMapData } from './open-map-data.ts';
+import type { PacketProposal } from './packet-selection.ts';
+import type { ReconciliationBatch } from './reconciliation.ts';
+
+const emptyData: OpenMapData = {
+  churchId: 'church-one',
+  territoryId: 'territory-one',
+  territoryName: 'Test territory',
+  center: [-117.1, 33.5] as [number, number],
+  bounds: [-117.2, 33.4, -117, 33.6] as [number, number, number, number],
+  boundary: {
+    type: 'Polygon' as const,
+    coordinates: [
+      [
+        [-117.2, 33.4],
+        [-117, 33.4],
+        [-117, 33.6],
+        [-117.2, 33.6],
+        [-117.2, 33.4],
+      ],
+    ],
+  },
+  importGeneration: 1,
+  overtureRelease: 'test',
+  buildingMode: 'overture_only' as const,
+  segments: [],
+  apartmentComplexes: [],
+  buildings: [],
+  houseNumbers: [],
+  attribution: { base: 'Base', roads: 'Roads', buildings: 'Buildings', fema: null },
+};
+
+function base(mapType: 'roadmap' | 'satellite' = 'roadmap'): WorkspaceMapBasePresentation {
+  return { kind: 'base', data: emptyData, mapType };
+}
+
+class TestMapAdapter implements MapOverlayAdapter {
+  readonly initialBase = base();
+  readonly sources = new Map<string, unknown>();
+  readonly sourceOptions = new Map<string, Record<string, unknown> | undefined>();
+  readonly layers = new Map<string, MapOverlayLayer>();
+  readonly listeners = new Map<string, Set<(event: MapOverlayEvent) => void>>();
+  readonly markers = new Map<string, MapOverlayMarker>();
+  readonly fits: Array<{ bounds: unknown; options: unknown }> = [];
+  readonly eases: Array<{ center?: [number, number]; zoom?: number }> = [];
+  renderedLayers: MapOverlayAdapter['styleLayers'] extends () => infer Result ? Result : never = [];
+  boxSelection: ((ids: string[], additive: boolean) => void) | null = null;
+  clusterZoom: Promise<number> = Promise.resolve(14);
+  readonly styleRequests: Array<{
+    complete: () => void;
+    reject: (error: Error) => void;
+  }> = [];
+  styleReplacements = 0;
+  ready = Promise.resolve();
+
+  waitUntilReady() {
+    return this.ready;
+  }
+
+  replaceStyle() {
+    this.styleReplacements += 1;
+    this.sources.clear();
+    this.layers.clear();
+    return new Promise<void>((resolve, reject) => {
+      this.styleRequests.push({ complete: resolve, reject });
+    });
+  }
+
+  hasSource(id: string) {
+    return this.sources.has(id);
+  }
+
+  addSource(id: string, data: unknown, options?: Record<string, unknown>) {
+    assert.equal(this.sources.has(id), false);
+    this.sources.set(id, data);
+    this.sourceOptions.set(id, options);
+  }
+
+  setSourceData(id: string, data: unknown) {
+    assert.equal(this.sources.has(id), true);
+    this.sources.set(id, data);
+  }
+
+  removeSource(id: string) {
+    this.sources.delete(id);
+  }
+
+  hasLayer(id: string) {
+    return this.layers.has(id);
+  }
+
+  addLayer(layer: MapOverlayLayer) {
+    assert.equal(this.layers.has(layer.id), false);
+    this.layers.set(layer.id, layer);
+  }
+
+  removeLayer(id: string) {
+    this.layers.delete(id);
+  }
+
+  setLayerVisibility(id: string, visible: boolean) {
+    const layer = this.layers.get(id);
+    assert(layer);
+    this.layers.set(id, { ...layer, visible });
+  }
+
+  setPaintProperty() {}
+
+  styleLayers() {
+    return this.renderedLayers;
+  }
+
+  onLayer(event: string, layerId: string, listener: (event: MapOverlayEvent) => void) {
+    const key = `${event}:${layerId}`;
+    const listeners = this.listeners.get(key) ?? new Set();
+    listeners.add(listener);
+    this.listeners.set(key, listeners);
+    return () => listeners.delete(listener);
+  }
+
+  setCursor() {}
+  fitBounds(bounds: unknown, options: unknown) {
+    this.fits.push({ bounds, options });
+  }
+  easeTo(camera: { center?: [number, number]; zoom?: number }) {
+    this.eases.push(camera);
+  }
+  getZoom() {
+    return 11;
+  }
+  getClusterExpansionZoom() {
+    return this.clusterZoom;
+  }
+  registerBoxSelection(options: { onComplete: (ids: string[], additive: boolean) => void }) {
+    this.boxSelection = options.onComplete;
+    return () => {
+      this.boxSelection = null;
+    };
+  }
+
+  addMarker(marker: MapOverlayMarker) {
+    this.markers.set(marker.key, marker);
+    return () => this.markers.delete(marker.key);
+  }
+
+  dispose() {
+    this.listeners.clear();
+    this.markers.clear();
+  }
+
+  emit(event: string, layerId: string, value: MapOverlayEvent) {
+    for (const listener of this.listeners.get(`${event}:${layerId}`) ?? []) listener(value);
+  }
+}
+
+async function turn(): Promise<void> {
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
+test('publishes, updates, hides, and cleans one coverage overlay without duplication', async () => {
+  const statuses: string[] = [];
+  const lifecycle = createMapOverlayLifecycle({ onStatus: ({ state }) => statuses.push(state) });
+  const adapter = new TestMapAdapter();
+  const detach = lifecycle.attach(adapter);
+  const selected: string[] = [];
+  const first = lifecycle.present({
+    kind: 'coverage',
+    visible: true,
+    interactive: true,
+    segments: [
+      {
+        id: 'segment-one',
+        roadGroupId: 'road-one',
+        streetName: 'Main Street',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [-117.1, 33.5],
+            [-117.09, 33.5],
+          ],
+        },
+        estimatedHomes: 10,
+        eligible: true,
+        excludedReason: null,
+        lastCoveredOn: null,
+        coverageClass: 'red',
+        roots: [],
+      },
+    ],
+    apartments: [],
+    selectedSegmentId: null,
+    selectionSource: null,
+    showApartmentMarkers: false,
+    fitOnFirstShow: true,
+    onSelectSegment: (id) => selected.push(id),
+  });
+  await turn();
+
+  assert.deepEqual(statuses, ['loading', 'ready']);
+  assert.equal(adapter.sources.size, 2);
+  assert.equal(adapter.layers.size, 7);
+  assert.deepEqual(adapter.sourceOptions.get('streetlightApartments'), {
+    cluster: true,
+    clusterRadius: 44,
+    clusterMaxZoom: 16,
+  });
+  assert.deepEqual(adapter.layers.get('streetlight-coverage')?.paint?.['line-width'], [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    11,
+    2,
+    14,
+    5,
+  ]);
+  assert.equal(adapter.listeners.get('click:streetlight-coverage')?.size, 1);
+
+  const second = lifecycle.present({
+    kind: 'coverage',
+    visible: false,
+    interactive: false,
+    segments: [],
+    apartments: [],
+    selectedSegmentId: null,
+    selectionSource: null,
+    showApartmentMarkers: false,
+    fitOnFirstShow: true,
+    onSelectSegment: (id) => selected.push(id),
+  });
+  await turn();
+
+  assert.equal(adapter.listeners.get('click:streetlight-coverage')?.size ?? 0, 0);
+  assert.equal(adapter.layers.get('streetlight-coverage')?.visible, false);
+  second();
+  first();
+  detach();
+  lifecycle.dispose();
+  assert.equal(adapter.listeners.size, 0);
+  assert.equal(adapter.markers.size, 0);
+});
+
+test('serializes style replacement, applies only the latest base, and republishes once', async () => {
+  const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
+  const adapter = new TestMapAdapter();
+  lifecycle.present(base());
+  lifecycle.attach(adapter);
+  await turn();
+
+  lifecycle.present(base('satellite'));
+  lifecycle.present({ ...base('roadmap'), data: { ...emptyData, importGeneration: 2 } });
+  await turn();
+  assert.equal(adapter.styleReplacements, 1);
+
+  adapter.styleRequests[0]?.complete();
+  await turn();
+  assert.equal(adapter.styleReplacements, 2);
+
+  adapter.styleRequests[1]?.complete();
+  await turn();
+  assert.equal(adapter.styleReplacements, 2);
+  lifecycle.dispose();
+});
+
+test('territory intent owns road suppression, direct selection, and box selection cleanup', async () => {
+  const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
+  const adapter = new TestMapAdapter();
+  adapter.layers.set('base-road', {
+    id: 'base-road',
+    type: 'line',
+    source: 'openmaptiles',
+  });
+  adapter.renderedLayers = [
+    {
+      id: 'base-road',
+      type: 'line',
+      source: 'openmaptiles',
+      sourceLayer: 'transportation',
+    },
+  ];
+  const selected: Array<{ ids: string[]; additive: boolean }> = [];
+  const cleanup = lifecycle.present({
+    kind: 'territory',
+    visible: true,
+    interactive: true,
+    center: [-117.1, 33.5],
+    radiusMiles: 2,
+    boundaryShape: 'circle',
+    segments: [
+      {
+        id: 'segment-one',
+        sourceSegmentId: 'source-one',
+        roadGroupId: 'road-one',
+        roadClass: 'residential',
+        streetName: 'Main Street',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [-117.1, 33.5],
+            [-117.09, 33.5],
+          ],
+        },
+        estimatedHomes: 10,
+        activationKind: 'automatic',
+        active: true,
+        withinBoundary: true,
+        manuallyExcluded: false,
+        eligible: true,
+        excludedReason: null,
+      },
+    ],
+    apartments: [],
+    mutationLocked: false,
+    selectedSegmentIds: [],
+    roadFocusRequest: null,
+    showHiddenRoads: false,
+    boxSelectionArmed: true,
+    onBoxSelectionComplete() {},
+    onSelectSegments: (ids, additive) => selected.push({ ids, additive }),
+    onSelectApartment() {},
+    groupingMemberIds: null,
+    onToggleApartmentMember() {},
+    selectedApartmentId: null,
+    selectedApartmentPosition: null,
+    apartmentSelectionSource: null,
+  });
+  lifecycle.attach(adapter);
+  await turn();
+
+  assert.equal(adapter.layers.get('base-road')?.visible, false);
+  adapter.emit('click', 'streetlight-coverage', {
+    shiftKey: true,
+    features: [
+      {
+        geometry: { type: 'LineString' },
+        properties: { id: 'segment-one', selectable: true },
+      },
+    ],
+  });
+  adapter.boxSelection?.(['segment-one'], false);
+  assert.deepEqual(selected, [
+    { ids: ['segment-one'], additive: true },
+    { ids: ['segment-one'], additive: false },
+  ]);
+
+  cleanup();
+  assert.equal(adapter.layers.get('base-road')?.visible, true);
+  assert.equal(adapter.boxSelection, null);
+  lifecycle.dispose();
+});
+
+test('stale readiness from a detached map cannot publish into either map epoch', async () => {
+  let releaseFirst = () => {};
+  const first = new TestMapAdapter();
+  first.ready = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const second = new TestMapAdapter();
+  const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
+  lifecycle.present(base());
+  lifecycle.attach(first);
+  lifecycle.attach(second);
+  await turn();
+  releaseFirst();
+  await turn();
+
+  assert.equal(first.sources.size, 0);
+  assert.equal(second.sources.has('streetlightBoundary'), true);
+  assert.equal(second.layers.get('streetlight-boundary')?.visible, false);
+  const hideCoverage = lifecycle.present({
+    kind: 'coverage',
+    visible: true,
+    interactive: false,
+    segments: [],
+    apartments: [],
+    selectedSegmentId: null,
+    selectionSource: null,
+    showApartmentMarkers: false,
+    fitOnFirstShow: false,
+    onSelectSegment() {},
+  });
+  assert.equal(second.layers.get('streetlight-boundary')?.visible, true);
+  hideCoverage();
+  assert.equal(second.layers.get('streetlight-boundary')?.visible, false);
+  lifecycle.dispose();
+});
+
+test('a readiness failure reports one stable product error without publishing overlays', async () => {
+  const statuses: Array<{ state: string; message?: string }> = [];
+  const lifecycle = createMapOverlayLifecycle({ onStatus: (status) => statuses.push(status) });
+  const adapter = new TestMapAdapter();
+  adapter.ready = Promise.reject(new Error('provider detail'));
+  lifecycle.present(base());
+  lifecycle.attach(adapter);
+  await turn();
+
+  assert.deepEqual(statuses, [
+    { state: 'loading' },
+    { state: 'error', message: 'Open map could not load.' },
+  ]);
+  assert.equal(adapter.sources.size, 0);
+  lifecycle.dispose();
+});
+
+test('a cluster result cannot move the camera after its presentation epoch is gone', async () => {
+  let releaseCluster = (_zoom: number) => {};
+  const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
+  const adapter = new TestMapAdapter();
+  adapter.clusterZoom = new Promise<number>((resolve) => {
+    releaseCluster = resolve;
+  });
+  const cleanup = lifecycle.present({
+    kind: 'coverage',
+    visible: true,
+    interactive: false,
+    segments: [],
+    apartments: [],
+    selectedSegmentId: null,
+    selectionSource: null,
+    showApartmentMarkers: true,
+    fitOnFirstShow: false,
+    onSelectSegment() {},
+  });
+  lifecycle.attach(adapter);
+  await turn();
+  adapter.emit('click', 'streetlight-apartment-clusters', {
+    features: [
+      {
+        geometry: { type: 'Point', coordinates: [-117.1, 33.5] },
+        properties: { cluster_id: 27 },
+      },
+    ],
+  });
+  cleanup();
+  releaseCluster(15);
+  await turn();
+
+  assert.deepEqual(adapter.eases, []);
+  lifecycle.dispose();
+});
+
+test('progress intent publishes completion data and hides its stable layers on cleanup', async () => {
+  const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
+  const adapter = new TestMapAdapter();
+  const workspace: CoverageWorkspace = {
+    id: 'territory-one',
+    churchName: 'Test church',
+    name: 'Test territory',
+    center: [-117.1, 33.5],
+    asOf: '2026-08-25',
+    activePackets: 0,
+    latestBatch: null,
+    thresholds: { yellowAfterDays: 90, orangeAfterDays: 180, redAfterDays: 365 },
+    legend: [],
+    dataMode: 'canonical',
+    qualityWarnings: [],
+    apartmentComplexes: [],
+    segments: [
+      {
+        id: 'segment-one',
+        roadGroupId: 'road-one',
+        streetName: 'Main Street',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [-117.1, 33.5],
+            [-117.09, 33.5],
+          ],
+        },
+        estimatedHomes: 10,
+        eligible: true,
+        excludedReason: null,
+        lastCoveredOn: '2026-01-02',
+        coverageClass: 'green',
+        roots: [],
+      },
+    ],
+    totals: { eligibleHomes: 10 },
+  };
+  const cleanup = lifecycle.present({
+    kind: 'progress',
+    visible: true,
+    progress: {
+      year: 2026,
+      dates: ['2026-01-02'],
+      events: [],
+      units: [
+        {
+          id: 'segment-one',
+          kind: 'street',
+          completedOn: '2026-01-02',
+          estimatedHomes: 10,
+          geometry: workspace.segments[0].geometry,
+        },
+      ],
+    },
+    through: '2026-01-02',
+    workspace,
+  });
+  lifecycle.attach(adapter);
+  await turn();
+
+  const progress = adapter.sources.get('streetlightProgress') as {
+    features: Array<{ properties: { completed: boolean } }>;
+  };
+  assert.equal(progress.features[0]?.properties.completed, true);
+  assert.equal(adapter.layers.get('streetlight-progress-lines')?.visible, true);
+  cleanup();
+  assert.equal(adapter.layers.get('streetlight-progress-lines')?.visible, false);
+  lifecycle.dispose();
+});
+
+test('proposal and reconciliation focus keys do not repeat camera work', async () => {
+  const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
+  const adapter = new TestMapAdapter();
+  lifecycle.attach(adapter);
+  await turn();
+  const proposal: PacketProposal = {
+    targetHomes: 12,
+    estimatedHomes: 10,
+    coverageClass: 'red' as const,
+    segments: [
+      {
+        id: 'segment-one',
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: [
+            [-117.1, 33.5],
+            [-117.09, 33.5],
+          ],
+        },
+        estimatedHomes: 10,
+      },
+    ],
+    start: { address: '1 Main Street', position: [-117.1, 33.5] as [number, number] },
+    streetNames: ['Main Street'],
+  };
+  lifecycle.present({ kind: 'proposals', visible: true, proposals: [proposal], selectedIndex: 0 });
+  const batch: ReconciliationBatch = {
+    id: 'batch-one',
+    name: 'Batch one',
+    status: 'finalized' as const,
+    finalizedAt: '2026-01-01T00:00:00Z',
+    packets: [
+      {
+        id: 'packet-one',
+        code: 'A1',
+        kind: 'street' as const,
+        status: 'active' as const,
+        estimatedTracts: 10,
+        start: proposal.start,
+        segments: proposal.segments,
+        apartment: null,
+        completedOn: null,
+        history: [],
+      },
+    ],
+    counts: { active: 1, completed: 0, cancelled: 0 },
+  };
+  lifecycle.present({
+    kind: 'reconciliation',
+    visible: true,
+    batch,
+    history: false,
+    presentIds: new Set(['packet-one']),
+    cancelIds: new Set(),
+    selectedPacketId: 'packet-one',
+  });
+  await turn();
+  const focusCount = adapter.fits.length;
+  lifecycle.present({
+    kind: 'reconciliation',
+    visible: true,
+    batch,
+    history: false,
+    presentIds: new Set(['packet-one']),
+    cancelIds: new Set(),
+    selectedPacketId: 'packet-one',
+  });
+  await turn();
+
+  assert.equal(adapter.layers.has('streetlight-packet-proposals-halo'), true);
+  assert.equal(adapter.layers.has('streetlight-reconciliation-halo'), true);
+  assert.equal(adapter.markers.has('proposal:1 Main Street:-117.1,33.5'), true);
+  assert.equal(adapter.markers.has('reconciliation-start:packet-one'), true);
+  assert.equal(adapter.fits.length, focusCount);
+  lifecycle.dispose();
+});
