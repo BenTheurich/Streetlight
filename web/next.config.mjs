@@ -2,6 +2,7 @@ const googleScriptOrigins = [
   'https://*.googleapis.com',
   'https://*.gstatic.com',
   'https://*.google.com',
+  'https://*.ggpht.com',
   'https://*.googleusercontent.com',
 ];
 const googleImageOrigins = [

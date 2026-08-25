@@ -15,6 +15,7 @@ test('production headers cover the map providers and deny embedding', async () =
   const connections = directiveSources(policy, 'connect-src');
   assert.match(policy, /connect-src[^;]*https:\/\/tiles\.openfreemap\.org/);
   assert.match(policy, /script-src[^;]*blob:[^;]*https:\/\/\*\.googleapis\.com/);
+  assert(scripts.includes('https://*.ggpht.com'));
   assert(scripts.includes('https://*.googleusercontent.com'));
   assert.equal(scripts.includes('https://tiles.openfreemap.org'), false);
   assert(images.includes('https://*.googleusercontent.com'));
