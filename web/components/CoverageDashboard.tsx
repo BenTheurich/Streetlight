@@ -1,6 +1,7 @@
 'use client';
 
 import { type CSSProperties, useEffect, useState } from 'react';
+import type { CoverageWorkspace } from '@/lib/coverage';
 import {
   countEligibleHomesByCoverageClass,
   coverageRoadForSegment,
@@ -10,7 +11,6 @@ import {
   searchCoverageRoads,
   stackCoverageLabelRows,
 } from '@/lib/coverage';
-import type { CoverageWorkspace } from '@/lib/database';
 
 type CoverageDashboardProps = {
   active: boolean;

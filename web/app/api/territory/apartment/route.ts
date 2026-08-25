@@ -1,12 +1,14 @@
 import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
+import { APARTMENTS_ENABLED } from '../../../../lib/product-capabilities.ts';
+import {
+  saveApartmentSiteConfiguration,
+  saveApartmentSiteMembership,
+} from '../../../../lib/territory-persistence.ts';
 import {
   type ApartmentSiteConfigurationInput,
   ApartmentSiteError,
   type ApartmentSiteMembershipInput,
-  saveApartmentSiteConfiguration,
-  saveApartmentSiteMembership,
-} from '../../../../lib/database.ts';
-import { APARTMENTS_ENABLED } from '../../../../lib/product-capabilities.ts';
+} from '../../../../lib/territory-workspace.ts';
 
 export const dynamic = 'force-dynamic';
 

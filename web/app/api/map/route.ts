@@ -1,6 +1,6 @@
 import type { AuthLoader } from '../../../lib/auth.ts';
 import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
-import { getOpenMapData } from '../../../lib/database.ts';
+import { getOpenMapData } from '../../../lib/open-map-persistence.ts';
 import { applyMvpCapabilities } from '../../../lib/product-capabilities.ts';
 
 export function handleMapData(request: Request, loadSession?: AuthLoader, filename?: string) {

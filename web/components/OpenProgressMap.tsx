@@ -2,7 +2,7 @@
 
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect } from 'react';
-import type { CoverageWorkspace } from '@/lib/database';
+import type { CoverageWorkspace } from '@/lib/coverage';
 import type { OutreachProgressPeriod } from '@/lib/outreach-progress';
 
 const layerIds = [

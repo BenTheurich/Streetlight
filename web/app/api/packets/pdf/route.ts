@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
-import { getChurchPrintoutSettings, getPacketDownloadSelection } from '../../../../lib/database.ts';
 import { renderOpenPacketMaps } from '../../../../lib/open-map-renderer.ts';
 import type { PacketDownloadSelection } from '../../../../lib/packet-finalization.ts';
 import { renderPacketPdf } from '../../../../lib/packet-pdf.ts';
+import { getPacketDownloadSelection } from '../../../../lib/packet-persistence.ts';
+import { getChurchPrintoutSettings } from '../../../../lib/printout-settings-persistence.ts';
 
 type PacketPdfOptions = {
   renderMaps?: (selection: PacketDownloadSelection) => Promise<Map<string, Uint8Array>>;

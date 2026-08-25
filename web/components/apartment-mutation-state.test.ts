@@ -4,7 +4,7 @@ import type {
   ApartmentSite,
   ApartmentSiteConfigurationInput,
   TerritoryWorkspace,
-} from '../lib/database.ts';
+} from '../lib/territory-workspace.ts';
 import {
   optimisticApartmentConfiguration,
   resolveApartmentMutation,

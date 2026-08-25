@@ -2,7 +2,6 @@
 
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
-import type { OpenMapData } from '@/lib/database';
 import { loadGoogleMaps, type StreetlightMapType } from '@/lib/google-maps-browser';
 import {
   forwardMapCameraChange,
@@ -14,6 +13,7 @@ import {
   workspaceMapTransition,
 } from '@/lib/map-camera';
 import baseStyleJson from '@/lib/open-map-base-style.json';
+import type { OpenMapData } from '@/lib/open-map-data';
 import { buildWorkspaceMapStyle, type OpenMapStyle } from '@/lib/open-map-style';
 import { mapPinDataUrl } from '@/lib/territory-map-style';
 

@@ -1,6 +1,6 @@
-import type { ApartmentSite, TerritorySegment, TerritoryWorkspace } from './database.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import { lineInsideTerritoryBoundary, type Position } from './territory-geometry.ts';
+import type { ApartmentSite, TerritorySegment, TerritoryWorkspace } from './territory-workspace.ts';
 
 export function apartmentSiteReady(
   site: Pick<ApartmentSite, 'address' | 'tractCount' | 'accessStatus'>,

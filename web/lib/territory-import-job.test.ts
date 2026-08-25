@@ -6,7 +6,6 @@ import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
 import { TEMECULA_TEST_WORKSPACE, withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
-import { getTerritoryWorkspace } from './database.ts';
 import { territoryDraftFromWorkspace } from './territory-client.ts';
 import {
   createOrReuseTerritoryImportJob,
@@ -17,6 +16,7 @@ import {
   startTerritoryImportJob,
   updateTerritoryImportStage,
 } from './territory-import-job.ts';
+import { getTerritoryWorkspace } from './territory-persistence.ts';
 
 test('a separate route instance does not interrupt a fresh running import', () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-import-job-'));

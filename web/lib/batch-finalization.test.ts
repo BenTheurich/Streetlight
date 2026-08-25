@@ -5,20 +5,22 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
+import { insertCoverageCompletionFixture } from '../test/persistence-fixtures.ts';
 import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
-import {
-  finalizePacketBatch,
-  getCoverageWorkspace,
-  getPacketDownloadSelection,
-  getPacketGenerationWorkspace,
-  getTerritoryWorkspace,
-  recordCoverageCompletion,
-  saveApartmentSiteConfiguration,
-  saveTerritoryDraft,
-} from './database.ts';
+import { getCoverageWorkspace } from './coverage-persistence.ts';
 import type { ImportedTerritoryInput } from './overture-import.ts';
 import { type PacketFinalizationInput, packetProposalFingerprint } from './packet-finalization.ts';
+import {
+  finalizePacketBatch,
+  getPacketDownloadSelection,
+  getPacketGenerationWorkspace,
+} from './packet-persistence.ts';
 import { generatePacketProposals } from './packet-selection.ts';
+import {
+  getTerritoryWorkspace,
+  replaceTerritoryFromImport,
+  saveApartmentSiteConfiguration,
+} from './territory-persistence.ts';
 
 function withDatabase(run: (filename: string) => void): void {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-finalization-'));
@@ -126,7 +128,7 @@ function preparePacketGraph(filename: string, includeApartment = false): void {
         ]
       : [],
   };
-  saveTerritoryDraft(
+  replaceTerritoryFromImport(
     {
       originAddress: workspace.originAddress,
       center: workspace.center,
@@ -135,7 +137,8 @@ function preparePacketGraph(filename: string, includeApartment = false): void {
       activatedSegmentIds: [],
       excludedSegmentIds: [],
     },
-    { filename, imported },
+    imported,
+    { filename },
   );
   if (includeApartment) {
     saveApartmentSiteConfiguration(
@@ -152,7 +155,8 @@ function preparePacketGraph(filename: string, includeApartment = false): void {
       filename,
     );
   }
-  for (const segment of segments) recordCoverageCompletion(segment.id, '2025-01-01', filename);
+  for (const segment of segments)
+    insertCoverageCompletionFixture(segment.id, '2025-01-01', filename);
 }
 
 test('configured apartment sites finalize and reserve as separate atomic packets', () => {

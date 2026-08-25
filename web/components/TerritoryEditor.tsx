@@ -4,12 +4,6 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { coverageRoads } from '@/lib/coverage';
-import type {
-  ApartmentSite,
-  ApartmentSiteConfigurationInput,
-  ApartmentSiteMembershipInput,
-  TerritoryWorkspace,
-} from '@/lib/database';
 import { loadGoogleMaps } from '@/lib/google-maps-browser';
 import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 import {
@@ -29,6 +23,12 @@ import {
   apartmentReviewOptions,
   createApartmentSelection,
 } from '@/lib/territory-map-style';
+import type {
+  ApartmentSite,
+  ApartmentSiteConfigurationInput,
+  ApartmentSiteMembershipInput,
+  TerritoryWorkspace,
+} from '@/lib/territory-workspace';
 import {
   type ApartmentSaveFailure,
   optimisticApartmentConfiguration,

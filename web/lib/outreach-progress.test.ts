@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { CoverageWorkspace } from './database.ts';
+import type { CoverageWorkspace } from './coverage.ts';
 import {
   buildOutreachProgress,
   outreachProgressSnapshot,

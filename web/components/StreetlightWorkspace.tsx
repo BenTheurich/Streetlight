@@ -3,10 +3,11 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { CoverageWorkspace } from '@/lib/coverage';
 import { retainCoverageSelection } from '@/lib/coverage';
-import type { CoverageWorkspace, OpenMapData, TerritoryWorkspace } from '@/lib/database';
 import type { StreetlightMapType } from '@/lib/google-maps-browser';
 import type { CoverageSelectionSource, MapCamera } from '@/lib/map-camera';
+import type { OpenMapData } from '@/lib/open-map-data';
 import {
   buildOutreachProgress,
   outreachProgressSnapshot,
@@ -16,6 +17,7 @@ import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 import type { ReconciliationHistoryTarget } from '@/lib/reconciliation';
 import type { ChurchPrintoutSettings } from '@/lib/settings';
 import { refreshTerritoryViews, territoryMapMode } from '@/lib/territory-client';
+import type { TerritoryWorkspace } from '@/lib/territory-workspace';
 import { AdministratorAccount } from './AdministratorAccount';
 import { CoverageDashboard } from './CoverageDashboard';
 import { HeatmapSettingsOverlay } from './HeatmapSettingsOverlay';

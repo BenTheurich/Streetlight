@@ -1,5 +1,4 @@
-import type { CoverageRoot } from './coverage.ts';
-import type { CoverageWorkspace } from './database.ts';
+import type { CoverageRoot, CoverageWorkspace } from './coverage.ts';
 import type { LineString, Position } from './territory-geometry.ts';
 
 type ProgressEvent = { date: string; packetId: string | null };

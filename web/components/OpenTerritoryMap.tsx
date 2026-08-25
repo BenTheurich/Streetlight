@@ -2,7 +2,6 @@
 
 import type { GeoJSONSource, MapLayerMouseEvent, Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
-import type { ApartmentSite, TerritorySegment } from '@/lib/database';
 import { coverageSelectionCameraOptions, segmentSelectionBounds } from '@/lib/map-camera';
 import { type BoundaryShape, type Position, territoryBoundary } from '@/lib/territory-geometry';
 import {
@@ -19,6 +18,7 @@ import {
   segmentVisibleOnMap,
   territoryBoundaryStyle,
 } from '@/lib/territory-map-style';
+import type { ApartmentSite, TerritorySegment } from '@/lib/territory-workspace';
 
 type OpenTerritoryMapProps = {
   visible: boolean;

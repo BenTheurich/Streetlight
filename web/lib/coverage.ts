@@ -1,3 +1,6 @@
+import type { Position } from './territory-geometry.ts';
+import type { ApartmentSite, TerritorySegment } from './territory-workspace.ts';
+
 export type CoverageClass = 'red' | 'orange' | 'yellow' | 'green';
 
 export type CoverageThresholds = {
@@ -36,6 +39,49 @@ export type CoverageRoot = {
   originalCoveredOn: string;
   effectiveCoveredOn: string | null;
   corrections: CoverageCorrection[];
+};
+
+export type CoverageWorkspaceSegment = Pick<
+  TerritorySegment,
+  | 'id'
+  | 'roadGroupId'
+  | 'streetName'
+  | 'geometry'
+  | 'estimatedHomes'
+  | 'eligible'
+  | 'excludedReason'
+> & {
+  lastCoveredOn: string | null;
+  coverageClass: CoverageClass;
+  roots: CoverageRoot[];
+};
+
+export type CoverageWorkspaceApartment = ApartmentSite & {
+  lastCoveredOn: string | null;
+  coverageClass: CoverageClass;
+  roots: CoverageRoot[];
+};
+
+export type CoverageWorkspace = {
+  id: string;
+  churchName: string;
+  name: string;
+  center: Position;
+  asOf: string;
+  activePackets: number;
+  latestBatch: {
+    id: string;
+    name: string;
+    packetCount: number;
+    estimatedHomes: number;
+  } | null;
+  thresholds: CoverageThresholds;
+  legend: CoverageLegendItem[];
+  dataMode: 'canonical' | 'demo';
+  qualityWarnings: string[];
+  apartmentComplexes: CoverageWorkspaceApartment[];
+  segments: CoverageWorkspaceSegment[];
+  totals: { eligibleHomes: number };
 };
 
 export type CoverageSegmentInput = {

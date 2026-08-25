@@ -7,8 +7,8 @@ import type {
   Map as MapLibreMap,
 } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
+import type { CoverageWorkspaceApartment, CoverageWorkspaceSegment } from '@/lib/coverage';
 import { type CoverageLegendItem, coverageRoadForSegment } from '@/lib/coverage';
-import type { CoverageWorkspaceApartment, CoverageWorkspaceSegment } from '@/lib/database';
 import {
   type CoverageSelectionSource,
   coverageSelectionCameraOptions,

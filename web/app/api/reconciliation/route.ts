@@ -1,16 +1,16 @@
 import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
 import {
-  correctPacketCompletion,
-  getReconciliationWorkspace,
-  reconcilePacketBatch,
-} from '../../../lib/database.ts';
-import {
   type PacketCompletionCorrectionInput,
   parsePacketCompletionCorrection,
   parseReconciliationInput,
   ReconciliationConflictError,
   type ReconciliationInput,
 } from '../../../lib/reconciliation.ts';
+import {
+  correctPacketCompletion,
+  getReconciliationWorkspace,
+  reconcilePacketBatch,
+} from '../../../lib/reconciliation-persistence.ts';
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status });

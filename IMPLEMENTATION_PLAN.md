@@ -1115,6 +1115,19 @@ Deploy the founder-church pilot and prove that its data can be recovered.
 - Document and test the restore command.
 - Add one production smoke check for application health.
 - Run the core workflow in a real browser against the deployed application.
+- Resolve the public pilot-request rate-control blocker before public deployment. Railway documents
+  `X-Real-IP` as the client remote IP for proxied requests, but its Edge Rules do not provide a
+  per-route request-count action. Railway's service-wide connection and HTTP request-rate limits
+  are unrelated, and its WAF / Under Attack Mode guidance is incident response rather than this
+  application policy. Ben must approve the
+  count, fixed-window duration, and direct use of Railway's `X-Real-IP` header. Then implement
+  bounded SQLite fixed-window state with expired-window cleanup and deterministic route tests:
+  duplicates remain neutral below the limit, requests above it return `429` with `Retry-After`, and
+  deployed verification sends limit plus one requests while proving spoofed `X-Forwarded-For` is
+  ignored. Phase 12 cannot complete until this control and deployment check pass. See Railway's
+  [public networking specifications](https://docs.railway.com/networking/public-networking/specs-and-limits),
+  [Edge Rules](https://docs.railway.com/networking/edge-rules), and
+  [production lockdown guidance](https://docs.railway.com/guides/lock-down-production-project).
 
 Do not add payments, public signup, analytics suites, or multi-region infrastructure.
 

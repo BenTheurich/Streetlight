@@ -4,7 +4,7 @@ import {
   appendCoverageCorrection,
   getCoverageWorkspace,
   saveCoverageThresholds,
-} from '../../../lib/database.ts';
+} from '../../../lib/coverage-persistence.ts';
 import { applyMvpCapabilities } from '../../../lib/product-capabilities.ts';
 
 function json(body: unknown, status = 200): Response {
@@ -26,8 +26,9 @@ export async function correctCoverage(request: Request): Promise<Response> {
   try {
     const workspace = applyMvpCapabilities(getCoverageWorkspace());
     const correction = parseCorrectionRequest(body, workspace.asOf);
-    appendCoverageCorrection(correction.eventId, correction.coveredOn);
-    return json(applyMvpCapabilities(getCoverageWorkspace()));
+    return json(
+      applyMvpCapabilities(appendCoverageCorrection(correction.eventId, correction.coveredOn)),
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     if (message === 'Coverage event not found') {
@@ -46,8 +47,7 @@ export async function updateCoverageRanges(request: Request): Promise<Response> 
   }
 
   try {
-    saveCoverageThresholds(parseCoverageThresholds(body));
-    return json(applyMvpCapabilities(getCoverageWorkspace()));
+    return json(applyMvpCapabilities(saveCoverageThresholds(parseCoverageThresholds(body))));
   } catch {
     return json({ error: 'Invalid heatmap ranges' }, 400);
   }

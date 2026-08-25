@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { OpenMapData } from './database.ts';
+import type { OpenMapData } from './open-map-data.ts';
 import {
   buildOpenMapStyle,
   buildWorkspaceMapStyle,

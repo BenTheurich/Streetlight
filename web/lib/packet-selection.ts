@@ -33,6 +33,12 @@ export type ApartmentPacketCandidate = {
   lastCoveredOn: string | null;
 };
 
+export type PacketGenerationWorkspace = {
+  center: Position;
+  segments: PacketSelectionSegment[];
+  apartmentComplexes: ApartmentPacketCandidate[];
+};
+
 export type PacketSizeRequest = {
   quantity: number;
   targetHomes: number;

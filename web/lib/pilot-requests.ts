@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
-import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
+import { openSqliteDatabase } from './sqlite-persistence.ts';
 
 export type PilotRequestStatus = 'pending' | 'declined' | 'provisioning' | 'approved';
 
@@ -43,21 +42,6 @@ type PilotRequestRow = {
   updated_at: string;
   decided_at: string | null;
 };
-
-function databaseFilename(filename?: string): string {
-  return (
-    filename ??
-    process.env.STREETLIGHT_DATABASE_PATH ??
-    path.join(process.cwd(), 'data', 'streetlight.db')
-  );
-}
-
-function openDatabase(filename: string): DatabaseSync {
-  if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
-  const database = new DatabaseSync(filename);
-  database.exec('PRAGMA foreign_keys = ON');
-  return database;
-}
 
 function text(value: unknown, label: string, maximum: number): string {
   if (typeof value !== 'string') throw new Error(`Enter ${label.toLowerCase()}`);
@@ -133,7 +117,7 @@ export function submitPilotRequest(
   input: PilotRequestInput,
   filename?: string,
 ): { requestId: string; email: string; created: boolean } {
-  const database = openDatabase(databaseFilename(filename));
+  const database = openSqliteDatabase(filename);
   try {
     const id = `pilot-request-${randomUUID()}`;
     const inserted = database
@@ -171,7 +155,7 @@ export function submitPilotRequest(
 }
 
 export function listPilotRequests(filename?: string): PilotRequest[] {
-  const database = openDatabase(databaseFilename(filename));
+  const database = openSqliteDatabase(filename);
   try {
     return (
       database
@@ -196,7 +180,7 @@ export function listPilotRequests(filename?: string): PilotRequest[] {
 }
 
 export function declinePilotRequest(id: string, filename?: string): PilotRequest {
-  const database = openDatabase(databaseFilename(filename));
+  const database = openSqliteDatabase(filename);
   try {
     const current = getRequest(database, id);
     if (current.status === 'approved' || current.status === 'provisioning') {
@@ -222,7 +206,7 @@ export function beginPilotProvisioning(
 ): PilotRequest {
   const churchName = text(corrections.churchName, 'Church name', 160);
   const inviteEmail = email(corrections.email);
-  const database = openDatabase(databaseFilename(filename));
+  const database = openSqliteDatabase(filename);
   database.exec('BEGIN IMMEDIATE');
   try {
     const current = getRequest(database, id);
@@ -264,7 +248,7 @@ export function recordPilotOrganization(
   filename?: string,
 ): PilotRequest {
   if (!organizationId) throw new Error('WorkOS organization is required');
-  const database = openDatabase(databaseFilename(filename));
+  const database = openSqliteDatabase(filename);
   database.exec('BEGIN IMMEDIATE');
   try {
     const current = getRequest(database, id);
@@ -306,7 +290,7 @@ export function recordPilotInvitation(
   filename?: string,
 ): PilotRequest {
   if (!invitationId) throw new Error('WorkOS invitation is required');
-  const database = openDatabase(databaseFilename(filename));
+  const database = openSqliteDatabase(filename);
   try {
     const current = getRequest(database, id);
     if (!current.authOrganizationId) throw new Error('WorkOS organization is not ready');
