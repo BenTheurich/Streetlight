@@ -169,10 +169,10 @@ export function focusFinalizationConfirmation(
 }
 
 export function restoreFinalizationTrigger(
-  trigger: FocusTarget,
+  trigger: () => FocusTarget,
   schedule: (callback: () => void) => unknown = (callback) => requestAnimationFrame(callback),
 ): void {
-  schedule(() => trigger?.focus());
+  schedule(() => trigger()?.focus());
 }
 
 type PacketOperationState = {

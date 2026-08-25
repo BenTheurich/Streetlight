@@ -182,11 +182,19 @@ test('partial mutation payloads require reload verification', async (context) =>
 test('packet confirmation transfers focus in and restores its trigger on cancel', () => {
   const focused: string[] = [];
   const confirmation = { focus: () => focused.push('confirmation') };
-  const trigger = { focus: () => focused.push('trigger') };
+  let trigger: { focus(): void } | null = null;
+  let restoreTrigger = () => {};
 
   focusFinalizationConfirmation(false, confirmation);
   focusFinalizationConfirmation(true, confirmation);
-  restoreFinalizationTrigger(trigger, (callback) => callback());
+  restoreFinalizationTrigger(
+    () => trigger,
+    (callback) => {
+      restoreTrigger = callback;
+    },
+  );
+  trigger = { focus: () => focused.push('trigger') };
+  restoreTrigger();
 
   assert.deepEqual(focused, ['confirmation', 'trigger']);
 });

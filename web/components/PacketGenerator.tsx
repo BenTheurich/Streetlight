@@ -74,7 +74,7 @@ export function PacketGenerator({
 
   function cancelFinalization(): void {
     setConfirming(false);
-    restoreFinalizationTrigger(finalizationTriggerRef.current);
+    restoreFinalizationTrigger(() => finalizationTriggerRef.current);
   }
 
   function discardResult(): void {
