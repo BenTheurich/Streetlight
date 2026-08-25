@@ -11,6 +11,7 @@ import {
   getTerritoryWorkspace,
   replaceTerritoryFromImport,
   saveTerritoryDraft,
+  TerritoryImportActiveError,
 } from './territory-persistence.ts';
 import type { TerritoryWorkspace } from './territory-workspace.ts';
 import { requireWorkspaceScope, runInWorkspace, type WorkspaceScope } from './workspace-scope.ts';
@@ -19,6 +20,7 @@ const HEARTBEAT_INTERVAL_MS = 10_000;
 const STALE_AFTER_MS = 60_000;
 const SAFE_FAILURE =
   'Street data preparation failed. Your previous saved territory is still active.';
+const ACTIVE_IMPORT_CONFLICT = 'Another street data refresh is already running';
 
 export type TerritoryImportStage =
   | 'queued'
@@ -185,7 +187,7 @@ export function createTerritoryImportLifecycle(
         database.exec('COMMIT');
         return active.draft_fingerprint === draftFingerprint
           ? fromRow(active)
-          : { conflict: 'Another street data refresh is already running' };
+          : { conflict: ACTIVE_IMPORT_CONFLICT };
       }
 
       const id = randomUUID();
@@ -399,10 +401,17 @@ export function createTerritoryImportLifecycle(
     const normalizedDraft = parseTerritoryDraft(draft);
     const workspace = getTerritoryWorkspace(filename);
     if (!needsTerritoryImport(workspace.import, normalizedDraft)) {
-      return {
-        kind: 'saved',
-        workspace: saveTerritoryDraft(normalizedDraft, { filename }),
-      };
+      try {
+        return {
+          kind: 'saved',
+          workspace: saveTerritoryDraft(normalizedDraft, { filename }),
+        };
+      } catch (error) {
+        if (error instanceof TerritoryImportActiveError) {
+          return { kind: 'conflict', error: ACTIVE_IMPORT_CONFLICT };
+        }
+        throw error;
+      }
     }
 
     const created = createOrReuseJob(normalizedDraft, scope);

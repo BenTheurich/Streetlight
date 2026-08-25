@@ -7,7 +7,7 @@ import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
 import { TEMECULA_TEST_WORKSPACE, withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
-import type { ImportedTerritoryInput } from './overture-import.ts';
+import type { ImportedTerritoryInput, OvertureImportStage } from './overture-import.ts';
 import { applyMvpCapabilities } from './product-capabilities.ts';
 import { territoryDraftFromWorkspace } from './territory-client.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
@@ -196,25 +196,72 @@ test('the lifecycle saves a contained draft without starting another importer', 
   });
 });
 
-test('matching submissions share one claimed process and stages never move backward', async () => {
+test('an active import blocks a contained save and remains the only commit', async () => {
+  await withDatabase(async (filename) => {
+    const initialLifecycle = createTerritoryImportLifecycle({
+      filename,
+      runImport: async (center, radiusMiles) => importedTerritory({ center, radiusMiles }),
+    });
+    initialLifecycle.save(importDraft(filename));
+    await waitForStatus(initialLifecycle, 'succeeded');
+
+    const before = getTerritoryWorkspace(filename);
+    const importA = territoryDraftFromWorkspace(before);
+    importA.center = [importA.center[0] + 0.01, importA.center[1]];
+    const delayed = deferred<ImportedTerritoryInput>();
+    let imports = 0;
+    const lifecycle = createTerritoryImportLifecycle({
+      filename,
+      runImport: async () => {
+        imports += 1;
+        return delayed.promise;
+      },
+    });
+
+    const started = lifecycle.save(importA);
+    assert.equal(started.kind, 'importing');
+    await nextTurn();
+    assert.equal(imports, 1);
+
+    const containedB = territoryDraftFromWorkspace(before);
+    containedB.radiusMiles -= 0.1;
+    containedB.originAddress = 'Contained Draft B';
+    assert.deepEqual(lifecycle.save(containedB), {
+      kind: 'conflict',
+      error: 'Another street data refresh is already running',
+    });
+    assert.deepEqual(getTerritoryWorkspace(filename), before);
+
+    delayed.resolve(importedTerritory(importA));
+    const completed = await waitForStatus(lifecycle, 'succeeded');
+    assert.deepEqual(completed.workspace?.center, importA.center);
+    assert.equal(completed.workspace?.originAddress, importA.originAddress);
+    assert.notEqual(completed.workspace?.originAddress, containedB.originAddress);
+  });
+});
+
+test('separate lifecycle instances share one claimed process and stages never move backward', async () => {
   await withDatabase(async (filename) => {
     const draft = importDraft(filename);
     const result = deferred<ImportedTerritoryInput>();
     let imports = 0;
-    const lifecycle = createTerritoryImportLifecycle({
-      filename,
-      runImport: async (_center, _radius, onStage) => {
-        imports += 1;
-        onStage?.('matching');
-        onStage?.('downloading_buildings');
-        onStage?.('preparing');
-        return result.promise;
-      },
-    });
+    const runImport = async (
+      _center: TerritoryDraftInput['center'],
+      _radiusMiles: number,
+      onStage?: (stage: OvertureImportStage) => void,
+    ) => {
+      imports += 1;
+      onStage?.('matching');
+      onStage?.('downloading_buildings');
+      onStage?.('preparing');
+      return result.promise;
+    };
+    const firstLifecycle = createTerritoryImportLifecycle({ filename, runImport });
+    const replayLifecycle = createTerritoryImportLifecycle({ filename, runImport });
 
     const [first, replay] = await Promise.all([
-      Promise.resolve().then(() => lifecycle.save(draft)),
-      Promise.resolve().then(() => lifecycle.save(structuredClone(draft))),
+      Promise.resolve().then(() => firstLifecycle.save(draft)),
+      Promise.resolve().then(() => replayLifecycle.save(structuredClone(draft))),
     ]);
     assert.equal(first.kind, 'importing');
     assert.equal(replay.kind, 'importing');
@@ -223,10 +270,10 @@ test('matching submissions share one claimed process and stages never move backw
 
     await nextTurn();
     assert.equal(imports, 1);
-    assert.equal(lifecycle.observe().job?.stage, 'preparing');
+    assert.equal(firstLifecycle.observe().job?.stage, 'preparing');
 
     const conflictingDraft = { ...draft, originAddress: 'Different Church Address' };
-    assert.deepEqual(lifecycle.save(conflictingDraft), {
+    assert.deepEqual(firstLifecycle.save(conflictingDraft), {
       kind: 'conflict',
       error: 'Another street data refresh is already running',
     });
@@ -240,7 +287,7 @@ test('matching submissions share one claimed process and stages never move backw
     assert.equal(freshProcess.observe().job?.status, 'running');
 
     result.resolve(importedTerritory(draft));
-    const completed = await waitForStatus(lifecycle, 'succeeded');
+    const completed = await waitForStatus(firstLifecycle, 'succeeded');
     assert.equal(completed.workspace?.radiusMiles, draft.radiusMiles);
   });
 });

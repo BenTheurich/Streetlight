@@ -323,12 +323,25 @@ type PersistTerritoryOptions = {
   importJobId?: string;
 };
 
+export class TerritoryImportActiveError extends Error {}
+
 function persistTerritoryDraft(draft: TerritoryDraftInput, options: PersistTerritoryOptions): void {
   const database = openSqliteDatabase(options.filename);
   const activatedSegmentIds = new Set(draft.activatedSegmentIds);
   const excludedSegmentIds = new Set(draft.excludedSegmentIds ?? []);
   database.exec('BEGIN IMMEDIATE');
   try {
+    if (
+      !options.importJobId &&
+      database
+        .prepare(
+          `SELECT 1 FROM territory_import_jobs
+          WHERE church_id = ? AND territory_id = ? AND status IN ('queued', 'running')`,
+        )
+        .get(workspaceChurchId(), workspaceTerritoryId())
+    ) {
+      throw new TerritoryImportActiveError();
+    }
     const result = database
       .prepare(
         `UPDATE territories
