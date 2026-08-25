@@ -616,6 +616,51 @@ test('transient polling recovers, but a missing tracked job requires reload', as
   stop();
 });
 
+test('initial observation retries before discovering a persisted running job', async () => {
+  const scheduler = manualScheduler();
+  const observations: Array<() => Promise<Response>> = [
+    async () => {
+      throw new Error('temporary');
+    },
+    async () => json({ job: importJob('running', 'preparing'), workspace: null }),
+  ];
+  const workflow = createRegionSetupWorkflow({
+    initialSetup: false,
+    transport: {
+      loadTerritory: async () => json(workspace),
+      saveTerritory: async () => json(workspace),
+      observeImport: async () =>
+        (observations.shift() ?? (() => Promise.resolve(json({ job: null }))))(),
+      resolveAddress: async () => json({}),
+      saveApartmentConfiguration: async () => json(workspace),
+      saveApartmentMembership: async () => json(workspace),
+    },
+    scheduler,
+    reload: () => assert.fail('reload is not expected'),
+    onAccepted: async () => undefined,
+    onLeaveReady: () => undefined,
+  });
+  const stop = workflow.start();
+  await settle();
+  assert.equal(scheduler.pending, 1);
+  assert.equal(scheduler.delays.at(-1), 3_000);
+
+  scheduler.runNext();
+  await settle();
+  const current = workflow.getSnapshot();
+  assert.equal(current.kind, 'ready');
+  assert.equal(current.accepted.radiusMiles, 2);
+  assert.equal(current.draft.radiusMiles, 4);
+  assert.deepEqual(current.operation, {
+    kind: 'importing',
+    stage: 'preparing',
+    placement: 'global',
+  });
+  assert.equal(scheduler.pending, 1);
+  assert.equal(scheduler.delays.at(-1), 1_500);
+  stop();
+});
+
 test('a host refresh failure never rolls back an accepted save', async () => {
   const workflow = createRegionSetupWorkflow({
     initialSetup: false,

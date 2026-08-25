@@ -636,7 +636,7 @@ export function createRegionSetupWorkflow(options: WorkflowOptions): RegionSetup
       );
     } catch {
       if (!started || activeGeneration !== generation) return;
-      if (trackedJobId) scheduleObservation(TRANSIENT_POLL_MS, activeGeneration);
+      scheduleObservation(TRANSIENT_POLL_MS, activeGeneration);
     }
   }
 
