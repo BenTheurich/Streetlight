@@ -13,7 +13,14 @@ import {
 } from '@/lib/reconciliation';
 import { OpenReconciliationOverlay } from './OpenReconciliationOverlay';
 import { OperationStatus } from './OperationStatus';
-import { isReconciliationWorkspacePayload, readMutationResult } from './operation-state';
+import {
+  type CorrectionAttempt,
+  correctionControlForPacket,
+  isReconciliationWorkspacePayload,
+  type ReconciliationCorrectionFeedback,
+  readMutationResult,
+  reconciliationMutationControlsDisabled,
+} from './operation-state';
 import { StreetlightSelect } from './StreetlightSelect';
 import { packetToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
@@ -52,11 +59,6 @@ function historyBatchOptionLabel(batch: ReconciliationBatch): string {
   );
 }
 
-type CorrectionAttempt = {
-  packetId: string;
-  coveredOn: string | null;
-};
-
 type ReconciliationOperation =
   | { kind: 'confirm' }
   | { kind: 'correction'; attempt: CorrectionAttempt };
@@ -70,10 +72,7 @@ type ReconciliationFeedbackBase = {
 
 type ReconciliationFeedback =
   | (ReconciliationFeedbackBase & { operation: 'load' | 'confirm' })
-  | (ReconciliationFeedbackBase & {
-      operation: 'correction';
-      attempt: CorrectionAttempt;
-    });
+  | ReconciliationCorrectionFeedback;
 
 export function ReconciliationTool({
   active,
@@ -105,8 +104,7 @@ export function ReconciliationTool({
   const requestedRef = useRef(false);
   const selectedPacketRef = useRef<HTMLElement | null>(null);
   const busy = operation !== null;
-  const verificationRequired = feedback?.recovery === 'reload';
-  const mutationControlsDisabled = busy || verificationRequired;
+  const mutationControlsDisabled = reconciliationMutationControlsDisabled(busy, feedback?.recovery);
 
   const load = useCallback(async () => {
     requestedRef.current = true;
@@ -307,16 +305,15 @@ export function ReconciliationTool({
     setOperation(null);
   }
 
-  async function correct(packet: ReconciliationPacket, coveredOn: string | null): Promise<void> {
-    const attempt: CorrectionAttempt = { packetId: packet.id, coveredOn };
-    setOperation({ kind: 'correction', attempt: { packetId: packet.id, coveredOn } });
+  async function correct(attempt: CorrectionAttempt): Promise<void> {
+    setOperation({ kind: 'correction', attempt });
     setFeedback(null);
     const outcome = await readMutationResult(
       () =>
         fetch('/api/reconciliation', {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ packetId: packet.id, coveredOn }),
+          body: JSON.stringify(attempt),
         }),
       isReconciliationWorkspacePayload,
     );
@@ -346,7 +343,8 @@ export function ReconciliationTool({
     }
 
     replaceWorkspace(outcome.value);
-    const detail = coveredOn === null ? 'Packet completion was undone.' : 'Packet date changed.';
+    const detail =
+      attempt.coveredOn === null ? 'Packet completion was undone.' : 'Packet date changed.';
     try {
       await onChanged();
       setFeedback({
@@ -369,13 +367,15 @@ export function ReconciliationTool({
   }
 
   function correctionStatus(packet: ReconciliationPacket) {
-    const correcting = operation?.kind === 'correction' && operation.attempt.packetId === packet.id;
-    const correctionFeedback =
-      feedback && 'attempt' in feedback && feedback.attempt.packetId === packet.id
-        ? feedback
-        : null;
+    const control = correctionControlForPacket(
+      packet.id,
+      operation?.kind === 'correction' ? operation.attempt : null,
+      feedback?.operation === 'correction' ? feedback : null,
+    );
+    const correctionFeedback = control.feedback;
+    const retryAttempt = control.action?.kind === 'retry' ? control.action.attempt : null;
 
-    if (correcting) {
+    if (control.busy) {
       return (
         <OperationStatus
           detail="Streetlight is updating this whole packet while keeping its history."
@@ -389,18 +389,13 @@ export function ReconciliationTool({
     return (
       <OperationStatus
         action={
-          correctionFeedback.recovery === 'reload' ? (
+          control.action?.kind === 'reload' ? (
             <button onClick={() => window.location.reload()} type="button">
               Reload to verify
             </button>
-          ) : correctionFeedback.tone === 'error' ? (
-            <button
-              onClick={() => void correct(packet, correctionFeedback.attempt.coveredOn)}
-              type="button"
-            >
-              {correctionFeedback.attempt.coveredOn === null
-                ? 'Try undo again'
-                : 'Try date change again'}
+          ) : retryAttempt ? (
+            <button onClick={() => void correct(retryAttempt)} type="button">
+              {retryAttempt.coveredOn === null ? 'Try undo again' : 'Try date change again'}
             </button>
           ) : undefined
         }
@@ -690,7 +685,7 @@ export function ReconciliationTool({
                                   'coveredOn',
                                 );
                                 if (typeof coveredOn === 'string' && coveredOn) {
-                                  void correct(packet, coveredOn);
+                                  void correct({ packetId: packet.id, coveredOn });
                                 }
                               }}
                             >
@@ -718,7 +713,7 @@ export function ReconciliationTool({
                                         'Undo this whole packet completion and restore its reservation?',
                                       )
                                     ) {
-                                      void correct(packet, null);
+                                      void correct({ packetId: packet.id, coveredOn: null });
                                     }
                                   }}
                                   type="button"

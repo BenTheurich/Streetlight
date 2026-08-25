@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  correctionControlForPacket,
+  focusFinalizationConfirmation,
   isFinalizedBatchPayload,
   isReconciliationWorkspacePayload,
-  packetRequestControlsDisabled,
+  packetOperationControls,
   readMutationResult,
+  reconciliationMutationControlsDisabled,
+  restoreFinalizationTrigger,
 } from './operation-state.ts';
 
 const line = {
@@ -175,7 +179,19 @@ test('partial mutation payloads require reload verification', async (context) =>
   }
 });
 
-test('packet operation controls lock for every active operation and verification', () => {
+test('packet confirmation transfers focus in and restores its trigger on cancel', () => {
+  const focused: string[] = [];
+  const confirmation = { focus: () => focused.push('confirmation') };
+  const trigger = { focus: () => focused.push('trigger') };
+
+  focusFinalizationConfirmation(false, confirmation);
+  focusFinalizationConfirmation(true, confirmation);
+  restoreFinalizationTrigger(trigger, (callback) => callback());
+
+  assert.deepEqual(focused, ['confirmation', 'trigger']);
+});
+
+test('one packet operation control projection locks every mutation and PDF entry point', () => {
   for (const state of [
     {
       downloading: null,
@@ -202,15 +218,79 @@ test('packet operation controls lock for every active operation and verification
       verificationRequired: true,
     },
   ]) {
-    assert.equal(packetRequestControlsDisabled(state), true);
+    assert.deepEqual(packetOperationControls(state, 3), {
+      activePdfDisabled: true,
+      busy: true,
+      finalizationDisabled: true,
+      newestPdfDisabled: true,
+      proposalDisabled: true,
+      requestDisabled: true,
+    });
   }
+  assert.deepEqual(
+    packetOperationControls(
+      {
+        downloading: null,
+        finalizing: false,
+        generating: false,
+        verificationRequired: false,
+      },
+      0,
+    ),
+    {
+      activePdfDisabled: true,
+      busy: false,
+      finalizationDisabled: false,
+      newestPdfDisabled: false,
+      proposalDisabled: false,
+      requestDisabled: false,
+    },
+  );
   assert.equal(
-    packetRequestControlsDisabled({
-      downloading: null,
-      finalizing: false,
-      generating: false,
-      verificationRequired: false,
-    }),
+    packetOperationControls(
+      { downloading: null, finalizing: false, generating: false, verificationRequired: false },
+      3,
+    ).activePdfDisabled,
     false,
   );
+});
+
+test('correction recovery stays with one packet and retries the exact attempt', () => {
+  const attempt = { packetId: 'packet-a', coveredOn: '2026-07-20' };
+  const rejected = {
+    attempt,
+    detail: 'Date rejected',
+    headline: 'Packet history was not changed',
+    operation: 'correction' as const,
+    recovery: 'retry' as const,
+    tone: 'error' as const,
+  };
+
+  assert.deepEqual(correctionControlForPacket('packet-a', null, rejected), {
+    action: { kind: 'retry', attempt },
+    busy: false,
+    feedback: rejected,
+  });
+  assert.deepEqual(correctionControlForPacket('packet-b', null, rejected), {
+    action: null,
+    busy: false,
+    feedback: null,
+  });
+  assert.equal(reconciliationMutationControlsDisabled(false, 'retry'), false);
+
+  const uncertain = { ...rejected, recovery: 'reload' as const };
+  assert.deepEqual(correctionControlForPacket('packet-a', null, uncertain), {
+    action: { kind: 'reload' },
+    busy: false,
+    feedback: uncertain,
+  });
+  assert.deepEqual(correctionControlForPacket('packet-b', null, uncertain), {
+    action: null,
+    busy: false,
+    feedback: null,
+  });
+  assert.equal(reconciliationMutationControlsDisabled(false, 'reload'), true);
+  assert.equal(reconciliationMutationControlsDisabled(true, undefined), true);
+  assert.equal(correctionControlForPacket('packet-a', attempt, null).busy, true);
+  assert.equal(reconciliationMutationControlsDisabled(false, undefined), false);
 });
