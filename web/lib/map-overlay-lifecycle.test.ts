@@ -250,25 +250,96 @@ test('publishes, updates, hides, and cleans one coverage overlay without duplica
   assert.equal(adapter.markers.size, 0);
 });
 
+test('presentation and adapter cleanup permit React-style ownership replay', async () => {
+  const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
+  const firstAdapter = new TestMapAdapter();
+  const releaseFirstBase = lifecycle.present(base());
+  const detachFirst = lifecycle.attach(firstAdapter);
+  await turn();
+
+  releaseFirstBase();
+  detachFirst();
+  assert.equal(firstAdapter.sources.size, 0);
+  assert.equal(firstAdapter.layers.size, 0);
+  assert.equal(firstAdapter.listeners.size, 0);
+  assert.equal(firstAdapter.markers.size, 0);
+
+  const secondAdapter = new TestMapAdapter();
+  const releaseSecondBase = lifecycle.present(base());
+  const detachSecond = lifecycle.attach(secondAdapter);
+  await turn();
+
+  assert.equal(secondAdapter.sources.has('streetlightBoundary'), true);
+  detachSecond();
+  releaseSecondBase();
+  lifecycle.dispose();
+});
+
 test('serializes style replacement, applies only the latest base, and republishes once', async () => {
   const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
   const adapter = new TestMapAdapter();
+  let selections = 0;
   lifecycle.present(base());
+  lifecycle.present({
+    kind: 'coverage',
+    visible: true,
+    interactive: true,
+    segments: [
+      {
+        id: 'segment-one',
+        roadGroupId: 'road-one',
+        streetName: 'Main Street',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [-117.1, 33.5],
+            [-117.09, 33.5],
+          ],
+        },
+        estimatedHomes: 10,
+        eligible: true,
+        excludedReason: null,
+        lastCoveredOn: null,
+        coverageClass: 'red',
+        roots: [],
+      },
+    ],
+    apartments: [],
+    selectedSegmentId: null,
+    selectionSource: null,
+    showApartmentMarkers: false,
+    fitOnFirstShow: false,
+    onSelectSegment: () => {
+      selections += 1;
+    },
+  });
   lifecycle.attach(adapter);
   await turn();
+  assert.equal(adapter.sources.has('streetlightCoverage'), true);
+  assert.equal(adapter.listeners.get('click:streetlight-coverage')?.size, 1);
 
   lifecycle.present(base('satellite'));
   lifecycle.present({ ...base('roadmap'), data: { ...emptyData, importGeneration: 2 } });
   await turn();
   assert.equal(adapter.styleReplacements, 1);
+  assert.equal(adapter.sources.size, 0);
+  assert.equal(adapter.listeners.get('click:streetlight-coverage')?.size ?? 0, 0);
 
   adapter.styleRequests[0]?.complete();
   await turn();
   assert.equal(adapter.styleReplacements, 2);
+  assert.equal(adapter.sources.size, 0);
+  assert.equal(adapter.listeners.get('click:streetlight-coverage')?.size ?? 0, 0);
 
   adapter.styleRequests[1]?.complete();
   await turn();
   assert.equal(adapter.styleReplacements, 2);
+  assert.equal(adapter.sources.has('streetlightCoverage'), true);
+  assert.equal(adapter.listeners.get('click:streetlight-coverage')?.size, 1);
+  adapter.emit('click', 'streetlight-coverage', {
+    features: [{ geometry: { type: 'LineString' }, properties: { id: 'segment-one' } }],
+  });
+  assert.equal(selections, 1);
   lifecycle.dispose();
 });
 

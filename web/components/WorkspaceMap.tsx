@@ -60,7 +60,6 @@ export function WorkspaceMap({
     onLifecycleChangeRef.current(lifecycle);
     return () => {
       onLifecycleChangeRef.current(null);
-      lifecycle.dispose();
     };
   }, [lifecycle]);
 
