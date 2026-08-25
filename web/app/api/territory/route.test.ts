@@ -6,9 +6,9 @@ import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../db/migrate.mjs';
 import { seedDatabase } from '../../../db/seed.mjs';
 import { territoryDraftFromWorkspace } from '../../../lib/territory-client.ts';
-import { getLatestTerritoryImportJob } from '../../../lib/territory-import-job.ts';
 import { getTerritoryWorkspace } from '../../../lib/territory-persistence.ts';
 import { withTemeculaWorkspace } from '../../../test/workspace-fixtures.ts';
+import { getTerritoryImport } from './import/route.ts';
 import { updateTerritory } from './route.ts';
 
 test('an import-requiring save returns immediately and failure leaves saved territory unchanged', async () => {
@@ -41,11 +41,14 @@ test('an import-requiring save returns immediately and failure leaves saved terr
       const payload = (await response.json()) as { job: { id: string } };
       assert.ok(payload.job.id);
       assert.deepEqual(getTerritoryWorkspace(filename), before);
+      let status = '';
       for (let attempt = 0; attempt < 50; attempt += 1) {
-        if (getLatestTerritoryImportJob(filename)?.status === 'failed') break;
+        const poll = (await getTerritoryImport().json()) as { job: { status: string } | null };
+        status = poll.job?.status ?? '';
+        if (status === 'failed') break;
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
-      assert.equal(getLatestTerritoryImportJob(filename)?.status, 'failed');
+      assert.equal(status, 'failed');
       assert.deepEqual(getTerritoryWorkspace(filename), before);
     });
   } finally {

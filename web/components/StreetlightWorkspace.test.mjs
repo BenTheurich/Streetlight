@@ -71,7 +71,7 @@ test('the MVP keeps apartments behind one disabled product capability', () => {
   assert.match(settings, /APARTMENTS_ENABLED && \(/);
   assert.match(progress, /APARTMENTS_ENABLED && \(/);
   assert.match(packets, /APARTMENTS_ENABLED \? ' and apartment complexes' : ''/);
-  assert.match(importRoute, /applyMvpCapabilities\(getTerritoryWorkspace\(\)\)/);
+  assert.match(importRoute, /workspace: workspace \? applyMvpCapabilities\(workspace\) : null/);
 });
 
 test('the shared coverage map expands apartment clusters and removes its click handler', () => {
