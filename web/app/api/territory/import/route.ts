@@ -1,24 +1,14 @@
 import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
 import { applyMvpCapabilities } from '../../../../lib/product-capabilities.ts';
-import {
-  ensureTerritoryImportJobRunning,
-  getLatestTerritoryImportJob,
-  getTerritoryImportJob,
-} from '../../../../lib/territory-import-job.ts';
-import { getTerritoryWorkspace } from '../../../../lib/territory-persistence.ts';
-import { requireWorkspaceScope } from '../../../../lib/workspace-scope.ts';
+import { territoryImportLifecycle } from '../../../../lib/territory-import-job.ts';
 
 export const dynamic = 'force-dynamic';
 
 export function getTerritoryImport() {
-  let job = getLatestTerritoryImportJob();
-  if (job) {
-    ensureTerritoryImportJobRunning(job, requireWorkspaceScope());
-    job = getTerritoryImportJob(job.id);
-  }
+  const { job, workspace } = territoryImportLifecycle.observe();
   return Response.json({
     job,
-    workspace: job?.status === 'succeeded' ? applyMvpCapabilities(getTerritoryWorkspace()) : null,
+    workspace: workspace ? applyMvpCapabilities(workspace) : null,
   });
 }
 
