@@ -5,7 +5,6 @@ import {
   apartmentSiteReady,
   apartmentSiteSummary,
   deriveTerritory,
-  refreshTerritoryViews,
   setSegmentsExcluded,
   territoryDraftFromWorkspace,
   territoryMapMode,
@@ -227,37 +226,6 @@ test('batch exclusion helpers preserve unrelated selections', () => {
   );
 });
 
-test('ordinary territory saves refresh overlays without rebuilding the base map', async () => {
-  const refreshed: string[] = [];
-
-  await refreshTerritoryViews(
-    false,
-    async () => {
-      refreshed.push('coverage');
-    },
-    async () => {
-      refreshed.push('map');
-    },
-  );
-
-  assert.deepEqual(refreshed, ['coverage']);
-});
-
-test('completed territory imports refresh overlays and base map data', async () => {
-  const refreshed: string[] = [];
-
-  await refreshTerritoryViews(
-    true,
-    async () => {
-      refreshed.push('coverage');
-    },
-    async () => {
-      refreshed.push('map');
-    },
-  );
-
-  assert.deepEqual(refreshed, ['coverage', 'map']);
-});
 test('setup keeps the region map visible while editing only in the Region view', () => {
   assert.deepEqual(territoryMapMode('setup', 'territory'), {
     visible: true,

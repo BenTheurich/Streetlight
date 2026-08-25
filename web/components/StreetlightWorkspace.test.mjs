@@ -3,13 +3,6 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { chromium } from 'playwright';
 
-test('new churches see only territory setup until the first save succeeds', () => {
-  const source = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
-  assert.match(source, /setupOnly/);
-  assert.match(source, /!setupRequired &&/);
-  assert.match(source, /setSetupOnly\(false\)/);
-});
-
 test('the workspace uses one branded header without a duplicate current-tool label', () => {
   const source = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
 
@@ -24,7 +17,6 @@ test('tool sidebars begin with task content instead of repeating the selected to
     './PacketGenerator.tsx',
     './ReconciliationTool.tsx',
     './StreetlightWorkspace.tsx',
-    './TerritoryEditor.tsx',
   ]) {
     const source = readFileSync(new URL(filename, import.meta.url), 'utf8');
     assert.doesNotMatch(source, /sidebar-title/);
@@ -56,7 +48,6 @@ test('the MVP keeps apartments behind one disabled product capability', () => {
     new URL('../lib/product-capabilities.ts', import.meta.url),
     'utf8',
   );
-  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
   const settings = readFileSync(new URL('./HeatmapSettingsOverlay.tsx', import.meta.url), 'utf8');
   const progress = readFileSync(new URL('./OutreachProgress.tsx', import.meta.url), 'utf8');
   const packets = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
@@ -66,8 +57,6 @@ test('the MVP keeps apartments behind one disabled product capability', () => {
   );
 
   assert.match(capability, /export const APARTMENTS_ENABLED = false/);
-  assert.match(territory, /hidden={!APARTMENTS_ENABLED}/);
-  assert.match(territory, /<small className="review-disclosure-meta">Coming later<\/small>/);
   assert.match(settings, /APARTMENTS_ENABLED && \(/);
   assert.match(progress, /APARTMENTS_ENABLED && \(/);
   assert.match(packets, /APARTMENTS_ENABLED \? ' and apartment complexes' : ''/);
@@ -135,173 +124,6 @@ test('one packet operation lock owns every mutation and PDF entry point', () => 
   assert.equal(source.match(/disabled={packetOperationBusy}/g)?.length, 11);
   assert.match(source, /disabled={packetOperationBusy \|\| activePackets === 0}/);
   assert.equal(source.match(/if \(packetOperationBusy\) return;/g)?.length, 3);
-});
-
-test('territory church location reuses onboarding place search with a manual fallback', () => {
-  const workspace = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
-  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
-
-  assert.match(territory, /PlaceAutocompleteElement/);
-  assert.match(territory, /Search for your church or address/);
-  assert.match(territory, /placeSearchFailed/);
-  assert.match(workspace, /mapsApiKey={mapsApiKey}/);
-});
-
-test('expanded region settings use flat rows instead of nested cards', () => {
-  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
-  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
-
-  assert.equal(territory.match(/className="region-settings-row/g)?.length, 3);
-  assert.match(styles, /\.region-settings-row \{[^}]*border-top: 1px solid var\(--line\);/s);
-  assert.doesNotMatch(styles, /\.region-settings-disclosure \{[^}]*background:/s);
-  assert.doesNotMatch(styles, /\.region-settings-disclosure:not\(\[open\]\)/);
-  assert.doesNotMatch(styles, /\.region-settings-disclosure > summary:hover \{[^}]*background:/s);
-  assert.match(styles, /\.radius-control\.region-settings-row \{[^}]*border-top: 0;/s);
-});
-
-test('territory review coordinates dense sections without a redundant introduction', () => {
-  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
-  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
-
-  assert.doesNotMatch(territory, /Review region data/);
-  assert.doesNotMatch(territory, /Correct apartment status/);
-  assert.match(territory, /const \[openReviewSection, setOpenReviewSection\]/);
-  assert.match(territory, /<details\s+className="review-disclosure apartment-section"/);
-  assert.match(
-    territory,
-    /<summary[\s\S]*?Apartments[\s\S]*?apartmentSummary\.siteCount[\s\S]*?'site' : 'sites'[\s\S]*?apartmentSummary\.includedCount[\s\S]*?included[\s\S]*?<\/summary>/,
-  );
-  assert.doesNotMatch(territory, /apartmentSummary\.ungrouped.*building/s);
-  assert.match(territory, /const \[apartmentSearch, setApartmentSearch\]/);
-  assert.match(territory, /apartmentReviewOptions\(/);
-  assert.match(territory, /Find an apartment site/);
-  assert.match(territory, /className="apartment-search-results"/);
-  assert.doesNotMatch(territory, /<StreetlightSelect[\s\S]*?ariaLabel="Apartment complex"/);
-  assert.match(
-    territory,
-    /<details\s+className="review-disclosure road-selection-section"[\s\S]*open=\{openReviewSection === 'roads'\}/,
-  );
-  assert.match(territory, /eligibleSegments\.toLocaleString\('en-US'\)/);
-  assert.match(territory, /eligibleHomes\.toLocaleString\('en-US'\)/);
-  assert.match(territory, /<details\s+className="review-disclosure territory-data-quality"/);
-  assert.match(territory, /warnings\.length} warning/);
-  assert.match(territory, /Some streets need a quick map review before packet generation/);
-  assert.match(territory, /Technical details/);
-  assert.doesNotMatch(territory, /inferred road\(s\)/);
-  assert.match(territory, /has-pending-changes/);
-  assert.match(
-    styles,
-    /\.review-disclosure-title \{[^}]*font-size: 0\.9rem;[^}]*text-transform: none;/s,
-  );
-  assert.match(styles, /\.region-settings-summary-copy strong \{[^}]*font-size: 0\.9rem;/s);
-  assert.doesNotMatch(styles, /\.review-disclosure\[open\] \.review-disclosure-title/);
-  assert.match(styles, /\.review-disclosure-meta \{[^}]*font-size: 0\.72rem;/s);
-  assert.match(styles, /\.section-help \{[^}]*font-size: 0\.78rem;/s);
-  assert.match(
-    styles,
-    /\.apartment-card \{[^}]*border: 1px solid var\(--selected\);[^}]*background: var\(--selected-surface\);/s,
-  );
-  assert.match(styles, /\.road-selection-tray \.text-button \{[^}]*min-height: 44px;/s);
-  assert.match(
-    styles,
-    /\.road-search-results button\[aria-pressed="true"\] \{[^}]*background: var\(--selected-surface\);/s,
-  );
-  assert.match(styles, /\.apartment-search-results \{/);
-  assert.match(
-    styles,
-    /\.territory-sidebar:not\(\.has-pending-changes\) \.sidebar-actions button:disabled/,
-  );
-  assert.match(styles, /\.road-selection-tray \{[^}]*position: sticky;[^}]*top:/s);
-});
-
-test('territory disclosures animate as joined sections with dividers between them', () => {
-  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
-  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
-
-  assert.doesNotMatch(styles, /\.review-disclosure > summary \{[^}]*border-bottom:/s);
-  assert.match(styles, /\.territory-review-tools \{[^}]*border-top: 1px solid var\(--line\);/s);
-  assert.match(
-    styles,
-    /\.territory-review-tools > \.review-disclosure \+ \.review-disclosure \{[^}]*border-top: 1px solid var\(--line\);/s,
-  );
-  assert.match(styles, /\.review-disclosure::details-content[\s\S]*block-size: 0;/);
-  assert.match(styles, /\.review-disclosure\[open\]::details-content[\s\S]*block-size: auto;/);
-  assert.match(styles, /\.review-disclosure-body \{[^}]*padding: 1rem 0 1\.5rem;/s);
-  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
-  assert.match(territory, /const REVIEW_SECTION_CLOSE_MS = 150;/);
-  assert.match(territory, /const transitionReviewSection = useCallback/);
-  assert.match(
-    territory,
-    /setOpenReviewSection\(null\);[\s\S]*window\.setTimeout\([\s\S]*REVIEW_SECTION_CLOSE_MS/,
-  );
-  assert.match(territory, /transitionReviewSection\('roads'\)/);
-  assert.match(territory, /transitionReviewSection\('apartments'\)/);
-  assert.doesNotMatch(territory, /onToggle=/);
-  assert.equal(territory.match(/onKeyDown=\{/g)?.length, 4);
-  assert.equal(territory.match(/event\.key === 'Enter' \|\| event\.key === ' '/g)?.length, 4);
-});
-
-test('Setup first-pass polish keeps apartment review reversible and road search task-first', () => {
-  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
-  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
-
-  assert.match(
-    territory,
-    /className="reconciliation-back-link"[\s\S]*setApartmentSelection\(null\)[\s\S]*M20 11H7\.83[\s\S]*Back to list[\s\S]*className="apartment-card apartment-site-card"/,
-  );
-  assert.doesNotMatch(styles, /\.apartment-card-back/);
-  assert.match(styles, /\.road-section-tools \{[^}]*justify-content: flex-start;/s);
-
-  const searchIndex = territory.indexOf('className="road-segment-search"');
-  const instructionsIndex = territory.indexOf(
-    'Search by street name, or select roads directly on the map.',
-  );
-  const hiddenRoadsIndex = territory.indexOf('className="road-section-tools"');
-  assert.ok(searchIndex >= 0 && searchIndex < instructionsIndex);
-  assert.ok(instructionsIndex < hiddenRoadsIndex);
-});
-
-test('apartment inclusion uses one choice after the three packet facts', () => {
-  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
-  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
-  const databaseImport =
-    territory.match(/import \{([\s\S]*?)\} from '@\/lib\/database';/)?.[1] ?? '';
-
-  assert.doesNotMatch(databaseImport, /apartmentSiteReady/);
-  assert.match(territory, /Include in packet generation/);
-  assert.match(territory, /type="checkbox"/);
-  assert.match(territory, /fetch\('\/api\/territory\/apartment'/);
-  assert.match(territory, /readMutationResult/);
-  assert.match(territory, /optimisticApartmentConfiguration/);
-  assert.match(territory, /resolveApartmentMutation/);
-  assert.match(territory, /Primary entrance or address/);
-  assert.match(territory, /Tract quantity/);
-  assert.match(territory, /<option value="open">Open<\/option>/);
-  assert.match(territory, /<option value="restricted">Restricted<\/option>/);
-  assert.match(territory, /Include in packet generation/);
-  assert.match(territory, /Edit buildings/);
-  assert.doesNotMatch(territory, /Complex name/);
-  assert.doesNotMatch(territory, /Building grouping confirmed/);
-  assert.doesNotMatch(territory, /Primary entrance confirmed/);
-  assert.doesNotMatch(territory, /Needs setup/);
-  assert.doesNotMatch(territory, /Packet ready/);
-  assert.match(territory, /Group apartment buildings/);
-  assert.match(territory, /method: 'POST'/);
-  assert.match(territory, /Try again/);
-  assert.match(territory, /Reload to verify/);
-  assert.doesNotMatch(
-    territory,
-    /Outreach status|Needs review|Deferred|estimated tracts|footprint estimate/,
-  );
-  assert.doesNotMatch(territory, /apartmentStatuses:/);
-  assert.match(styles, /\.apartment-inclusion-control \{[^}]*min-height: 44px;/s);
-  assert.match(styles, /\.apartment-site-heading > span\.included \{/);
-  assert.doesNotMatch(styles, /\.apartment-readiness-checks/);
-  assert.match(
-    styles,
-    /\.apartment-configuration-fields label:first-child \{[^}]*grid-column: 1 \/ -1;/s,
-  );
-  assert.doesNotMatch(styles, /\.apartment-card fieldset/);
 });
 
 test('Setup disclosure controls stay inside both horizontal clipping edges', async (t) => {
@@ -468,72 +290,9 @@ test('workspace scrollbars keep their themed gutter before content overflows', a
   assert.equal(scrollbarStyle.thumb, 'rgb(148, 141, 131)');
 });
 
-test('territory selection and long imports stay in the approved workflow', () => {
-  const source = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
-
-  assert.doesNotMatch(source, />\s*Pan\s*</);
-  assert.match(source, /placement={operationPlacement}/);
-  assert.match(source, /Your saved region remains active/);
-  assert.match(source, /!backgroundImportComplete/);
-  assert.doesNotMatch(source, /territory-import-banner/);
-});
-
-test('territory verification keeps global tool navigation available without unmounting the draft', () => {
-  const workspace = readFileSync(new URL('./StreetlightWorkspace.tsx', import.meta.url), 'utf8');
-  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
-  const printouts = readFileSync(new URL('./PrintoutSettings.tsx', import.meta.url), 'utf8');
-
-  assert.match(territory, /onImportingChange\(leaveControlsDisabled\)/);
-  assert.match(workspace, /territoryDirty && !territorySaving/);
-  assert.match(workspace, /setupView === 'printouts' && printoutDirty/);
-  assert.match(printouts, /Save printout changes before leaving\?/);
-  assert.match(workspace, /\{territory && \(\s*<TerritoryEditor/);
-});
-
-test('region footer waits for apartment mutations while preserving its draft gates', () => {
-  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
-
-  assert.match(
-    territory,
-    /className="secondary"\s+disabled=\{!hasUnsavedChanges \|\| leaveControlsDisabled\}[\s\S]*?>\s*Cancel\s*<\/button>/,
-  );
-  assert.match(
-    territory,
-    /disabled=\{!canSave \|\| leaveControlsDisabled \|\| Boolean\(radiusError\)\}[\s\S]*?>[\s\S]*?'Save changes'\}[\s\S]*?<\/button>/,
-  );
-});
-
-test('apartment recovery stays reachable outside the inert region editor', () => {
-  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
-  const scrollStart = territory.indexOf('<div className="sidebar-scroll" inert=');
-  const actionsStart = territory.indexOf('<div className="sidebar-actions">');
-  const recoveryStart = territory.indexOf('{apartmentSaveFailure && (');
-  const regionStatusStart = territory.indexOf("{operationPlacement === 'surface' && saveStatus}");
-
-  assert.ok(scrollStart >= 0 && scrollStart < actionsStart);
-  assert.ok(recoveryStart > actionsStart && recoveryStart < regionStatusStart);
-  assert.equal(territory.match(/\{apartmentSaveFailure && \(/g)?.length, 1);
-  assert.doesNotMatch(territory.slice(scrollStart, actionsStart), /apartmentSaveFailure &&/);
-  const recovery = territory.slice(recoveryStart, regionStatusStart);
-  const reloadStart = recovery.indexOf('<button onClick={() => window.location.reload()}');
-  const reloadEnd = recovery.indexOf('</button>', reloadStart);
-  const reloadAction = recovery.slice(reloadStart, reloadEnd);
-  const retryStart = recovery.indexOf('<button', reloadEnd);
-  const retryAction = recovery.slice(retryStart, recovery.indexOf('</button>', retryStart));
-
-  assert.ok(reloadStart >= 0 && retryStart > reloadStart);
-  assert.doesNotMatch(reloadAction, /disabled=/);
-  assert.match(reloadAction, /window\.location\.reload\(\)/);
-  assert.match(recovery, /Reload to verify/);
-  assert.match(retryAction, /disabled=\{leaveControlsDisabled\}/);
-  assert.match(retryAction, /retryApartmentMutation\(apartmentSaveFailure\)/);
-  assert.match(recovery, /Try again/);
-});
-
 test('workflow surfaces use one atomic operation status without duplicate live copy', () => {
   const packets = readFileSync(new URL('./PacketGenerator.tsx', import.meta.url), 'utf8');
   const reconciliation = readFileSync(new URL('./ReconciliationTool.tsx', import.meta.url), 'utf8');
-  const territory = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
 
   assert.match(packets, /<OperationStatus/);
   assert.match(packets, /downloadProgress\.headline/);
@@ -541,36 +300,19 @@ test('workflow surfaces use one atomic operation status without duplicate live c
 
   assert.match(reconciliation, /<OperationStatus/);
   assert.doesNotMatch(reconciliation, /<p aria-live="polite">{notice}<\/p>/);
-
-  assert.match(territory, /<OperationStatus/);
-  assert.doesNotMatch(territory, /territory-import-banner/);
 });
 
 test('territory editing keeps shared overlays and selects exact segments directly', () => {
   const source = readFileSync(new URL('./OpenTerritoryMap.tsx', import.meta.url), 'utf8');
-  const editor = readFileSync(new URL('./TerritoryEditor.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /getSource\('streetlightCoverage'\)/);
   assert.match(source, /selectedIds\.has\(segment\.id\)/);
   assert.match(source, /queryRenderedFeatures\(bounds/);
   assert.match(source, /event\.originalEvent\.shiftKey/);
   assert.match(source, /boxSelectionArmed/);
-  assert.match(editor, /mutationLocked={leaveControlsDisabled}/);
-  assert.match(editor, /roadFocusRequest={roadFocusRequest}/);
-  assert.match(editor, /coverageRoads/);
-  assert.match(editor, /road\.segments\.map\(\(\{ id \}\) => id\)/);
   assert.match(source, /segmentSelectionBounds/);
   assert.match(source, /map\.fitBounds\(bounds, options\)/);
-  assert.match(editor, /setSegmentsExcluded/);
-  assert.match(editor, /activateSegments/);
-  assert.match(editor, /Select road area/);
-  assert.match(editor, /Shift-drag selects road segments/);
-  assert.match(
-    editor,
-    /setBoxSelectionArmed\(\(armed\) => !armed\);[\s\S]*transitionReviewSection\('roads'\)/,
-  );
   assert.doesNotMatch(source, /territory-exclusions|territory-drawing/);
-  assert.doesNotMatch(editor, /Draw exclusion area|finishDrawing|selectedExclusionId/);
 });
 
 test('basemap changes republish the map after the replacement style has committed', () => {
