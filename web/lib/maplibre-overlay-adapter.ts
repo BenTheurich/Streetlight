@@ -29,16 +29,11 @@ export function createMapLibreOverlayAdapter(
     return new Promise((resolve, reject) => {
       const cleanup = () => {
         map.off(event, loaded);
-        map.off('error', failed);
         pending.delete(cancel);
       };
       const loaded = () => {
         cleanup();
         resolve();
-      };
-      const failed = () => {
-        cleanup();
-        reject(new Error('Open map could not load'));
       };
       const cancel = () => {
         cleanup();
@@ -46,7 +41,6 @@ export function createMapLibreOverlayAdapter(
       };
       pending.add(cancel);
       map.once(event, loaded);
-      map.once('error', failed);
       try {
         action?.();
       } catch (error) {

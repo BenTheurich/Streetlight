@@ -199,6 +199,12 @@ const APARTMENT_LAYERS = [
   'streetlight-apartments',
   'streetlight-apartment-labels',
 ] as const;
+const TERRITORY_LAYERS = [
+  'territory-boundary-fill',
+  'territory-boundary-line',
+  'streetlight-apartment-selection-fill',
+  'streetlight-apartment-selection-line',
+] as const;
 const PROGRESS_LAYERS = [
   'streetlight-progress-context',
   'streetlight-progress-glow',
@@ -210,10 +216,7 @@ const OWNED_LAYERS = [
   'streetlight-boundary',
   ...COVERAGE_LAYERS,
   ...APARTMENT_LAYERS,
-  'territory-boundary-fill',
-  'territory-boundary-line',
-  'streetlight-apartment-selection-fill',
-  'streetlight-apartment-selection-line',
+  ...TERRITORY_LAYERS,
   'streetlight-packet-proposals-halo',
   ...PROGRESS_LAYERS,
   'streetlight-reconciliation-halo',
@@ -638,6 +641,11 @@ export function createMapOverlayLifecycle({
         mapMarkerStyle.outlineWidth,
       );
     }
+    for (const layerId of ['streetlight-coverage', 'streetlight-territory-hidden']) {
+      if (current.hasLayer(layerId)) {
+        current.setPaintProperty(layerId, 'line-width', coverageWidth());
+      }
+    }
     setVisible(current, COVERAGE_LAYERS, sharedRoadsVisible());
     setVisible(current, APARTMENT_LAYERS, sharedApartmentsVisible());
   }
@@ -664,16 +672,7 @@ export function createMapOverlayLifecycle({
   ): void {
     ensureCoverageLayers(current);
     if (!value.visible) {
-      setVisible(
-        current,
-        [
-          'territory-boundary-fill',
-          'territory-boundary-line',
-          'streetlight-apartment-selection-fill',
-          'streetlight-apartment-selection-line',
-        ],
-        false,
-      );
+      setVisible(current, TERRITORY_LAYERS, false);
       restoreRoadLayers(current);
       setVisible(current, COVERAGE_LAYERS, sharedRoadsVisible());
       setVisible(current, APARTMENT_LAYERS, sharedApartmentsVisible());
@@ -1281,8 +1280,16 @@ export function createMapOverlayLifecycle({
   function reconcileSharedRoads(): void {
     reconcile('coverage');
     reconcile('territory');
-    if (adapter?.hasLayer('streetlight-boundary')) {
-      adapter.setLayerVisibility('streetlight-boundary', Boolean(coveragePresentation()?.visible));
+    const current = adapter;
+    if (!current) return;
+    setVisible(current, COVERAGE_LAYERS, sharedRoadsVisible());
+    setVisible(current, APARTMENT_LAYERS, sharedApartmentsVisible());
+    if (!territoryPresentation()?.visible) {
+      setVisible(current, TERRITORY_LAYERS, false);
+      restoreRoadLayers(current);
+    }
+    if (current.hasLayer('streetlight-boundary')) {
+      current.setLayerVisibility('streetlight-boundary', Boolean(coveragePresentation()?.visible));
     }
   }
 
@@ -1414,7 +1421,6 @@ export function createMapOverlayLifecycle({
         clearRuntime(value.kind);
         if (adapter && ready && !styleRunning) {
           if (value.kind === 'coverage' || value.kind === 'territory') {
-            if (value.kind === 'territory') restoreRoadLayers(adapter);
             reconcileSafely(reconcileSharedRoads);
           } else if (value.kind === 'proposals') {
             setVisible(adapter, ['streetlight-packet-proposals-halo'], false);

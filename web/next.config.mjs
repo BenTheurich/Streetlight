@@ -1,9 +1,19 @@
-const googleOrigins = [
+const googleScriptOrigins = [
   'https://*.googleapis.com',
   'https://*.gstatic.com',
   'https://*.google.com',
-  'https://*.ggpht.com',
   'https://*.googleusercontent.com',
+];
+const googleImageOrigins = [
+  'https://*.googleapis.com',
+  'https://*.gstatic.com',
+  'https://*.google.com',
+  'https://*.googleusercontent.com',
+];
+const googleConnectionOrigins = [
+  'https://*.googleapis.com',
+  'https://*.gstatic.com',
+  'https://*.google.com',
 ];
 
 export function buildContentSecurityPolicy(development = false) {
@@ -16,9 +26,9 @@ export function buildContentSecurityPolicy(development = false) {
     ['object-src', "'none'"],
     ['form-action', "'self'"],
     ['frame-ancestors', "'none'"],
-    ['script-src', "'self'", "'unsafe-inline'", "'unsafe-eval'", 'blob:', ...googleOrigins],
+    ['script-src', "'self'", "'unsafe-inline'", "'unsafe-eval'", 'blob:', ...googleScriptOrigins],
     ['style-src', "'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-    ['img-src', "'self'", 'data:', 'blob:', 'https://tiles.openfreemap.org', ...googleOrigins],
+    ['img-src', "'self'", 'data:', 'blob:', 'https://tiles.openfreemap.org', ...googleImageOrigins],
     ['font-src', "'self'", 'data:', 'https://fonts.gstatic.com'],
     [
       'connect-src',
@@ -26,7 +36,7 @@ export function buildContentSecurityPolicy(development = false) {
       'data:',
       'blob:',
       'https://tiles.openfreemap.org',
-      ...googleOrigins,
+      ...googleConnectionOrigins,
       ...developmentConnections,
     ],
     ['worker-src', "'self'", 'blob:'],

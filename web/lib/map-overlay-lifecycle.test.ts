@@ -237,21 +237,26 @@ test('publishes, updates, hides, and cleans one coverage overlay without duplica
 
   const second = lifecycle.present({
     kind: 'coverage',
-    visible: false,
+    visible: true,
     interactive: false,
     segments: [],
     apartments: [],
     selectedSegmentId: null,
     selectionSource: null,
-    showApartmentMarkers: false,
+    showApartmentMarkers: true,
     fitOnFirstShow: true,
     onSelectSegment: (id) => selected.push(id),
   });
   await turn();
 
   assert.equal(adapter.listeners.get('click:streetlight-coverage')?.size ?? 0, 0);
-  assert.equal(adapter.layers.get('streetlight-coverage')?.visible, false);
+  assert.equal(adapter.layers.get('streetlight-coverage')?.visible, true);
+  assert.equal(adapter.layers.get('streetlight-apartments')?.visible, true);
   second();
+  assert.equal(adapter.layers.get('streetlight-coverage')?.visible, false);
+  assert.equal(adapter.layers.get('streetlight-apartments')?.visible, false);
+  assert.equal(adapter.listeners.get('click:streetlight-apartment-clusters')?.size ?? 0, 0);
+  assert.equal(adapter.markers.size, 0);
   first();
   detach();
   lifecycle.dispose();
@@ -436,6 +441,18 @@ test('territory intent owns road suppression, direct selection, and box selectio
     },
   ];
   const selected: Array<{ ids: string[]; additive: boolean }> = [];
+  const releaseCoverage = lifecycle.present({
+    kind: 'coverage',
+    visible: true,
+    interactive: false,
+    segments: [],
+    apartments: [],
+    selectedSegmentId: null,
+    selectionSource: null,
+    showApartmentMarkers: false,
+    fitOnFirstShow: false,
+    onSelectSegment() {},
+  });
   const cleanup = lifecycle.present({
     kind: 'territory',
     visible: true,
@@ -516,7 +533,33 @@ test('territory intent owns road suppression, direct selection, and box selectio
 
   cleanup();
   assert.equal(adapter.layers.get('base-road')?.visible, true);
+  assert.equal(adapter.layers.get('streetlight-coverage')?.visible, true);
+  assert.equal(adapter.layers.get('streetlight-apartments')?.visible, false);
+  assert.equal(adapter.layers.get('territory-boundary-fill')?.visible, false);
+  assert.equal(adapter.layers.get('territory-boundary-line')?.visible, false);
+  assert.equal(adapter.layers.get('streetlight-apartment-selection-fill')?.visible, false);
+  assert.equal(adapter.layers.get('streetlight-apartment-selection-line')?.visible, false);
+  assert.deepEqual(adapter.paintProperties.get('streetlight-coverage:line-width'), [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    11,
+    2,
+    14,
+    5,
+  ]);
+  assert.deepEqual(adapter.sources.get('streetlightCoverage'), {
+    type: 'FeatureCollection',
+    features: [],
+  });
   assert.equal(adapter.boxSelection, null);
+  assert.equal(
+    [...adapter.listeners.values()].some((listeners) => listeners.size > 0),
+    false,
+  );
+  assert.equal(adapter.markers.size, 0);
+  releaseCoverage();
+  assert.equal(adapter.layers.get('streetlight-coverage')?.visible, false);
   lifecycle.dispose();
 });
 

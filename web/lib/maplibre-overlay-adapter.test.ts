@@ -27,6 +27,10 @@ class FakeMap extends EventEmitter {
     this.styleReplacements += 1;
     return this;
   }
+
+  emitMapError() {
+    for (const listener of this.listeners('error')) listener({ error: new Error('Tile failed') });
+  }
 }
 
 const base = (mapType: 'roadmap' | 'satellite' = 'roadmap'): WorkspaceMapBasePresentation => ({
@@ -108,6 +112,20 @@ test('initial readiness resolves immediately when the map or style is already lo
   }
 });
 
+test('a recoverable map error does not consume the initial load listener', async () => {
+  const map = new FakeMap();
+  const adapter = adapterFor(map);
+  const readiness = adapter.waitUntilReady();
+
+  map.emitMapError();
+  map.emit('load');
+  await readiness;
+
+  assert.equal(map.listenerCount('load'), 0);
+  assert.equal(map.listenerCount('style.load'), 0);
+  assert.equal(map.listenerCount('error'), 0);
+});
+
 test('style replacement waits for its style load rather than a map load', async () => {
   const map = new FakeMap();
   const adapter = adapterFor(map);
@@ -126,4 +144,18 @@ test('style replacement waits for its style load rather than a map load', async 
   map.emit('style.load');
   await replacement;
   assert.equal(replaced, true);
+});
+
+test('a recoverable map error does not consume the replacement style listener', async () => {
+  const map = new FakeMap();
+  const adapter = adapterFor(map);
+  const replacement = adapter.replaceStyle(base('satellite'));
+
+  map.emitMapError();
+  map.emit('style.load');
+  await replacement;
+
+  assert.equal(map.listenerCount('load'), 0);
+  assert.equal(map.listenerCount('style.load'), 0);
+  assert.equal(map.listenerCount('error'), 0);
 });
