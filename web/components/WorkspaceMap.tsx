@@ -1,6 +1,6 @@
 'use client';
 
-import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
+import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import { loadGoogleMaps, type StreetlightMapType } from '@/lib/google-maps-browser';
 import {
@@ -9,13 +9,12 @@ import {
   isReflectedMapCamera,
   type MapCamera,
   mapLibreZoomToGoogle,
-  mapLoadErrorIsFatal,
-  workspaceMapTransition,
 } from '@/lib/map-camera';
+import { createMapOverlayLifecycle, type MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
+import { createMapLibreOverlayAdapter } from '@/lib/maplibre-overlay-adapter';
 import baseStyleJson from '@/lib/open-map-base-style.json';
 import type { OpenMapData } from '@/lib/open-map-data';
 import { buildWorkspaceMapStyle, type OpenMapStyle } from '@/lib/open-map-style';
-import { mapPinDataUrl } from '@/lib/territory-map-style';
 
 type WorkspaceMapProps = {
   apiKey: string;
@@ -23,7 +22,7 @@ type WorkspaceMapProps = {
   data: OpenMapData | null;
   mapType: StreetlightMapType;
   onCameraChange: (camera: MapCamera) => void;
-  onMapChange: (map: MapLibreMap | null) => void;
+  onLifecycleChange: (lifecycle: MapOverlayLifecycle | null) => void;
 };
 
 export function WorkspaceMap({
@@ -32,22 +31,22 @@ export function WorkspaceMap({
   data,
   mapType,
   onCameraChange,
-  onMapChange,
+  onLifecycleChange,
 }: WorkspaceMapProps) {
   const openElementRef = useRef<HTMLDivElement>(null);
   const satelliteElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const dataRef = useRef(data);
-  const appliedDataRef = useRef<OpenMapData | null>(null);
-  const markerRef = useRef<MapLibreMarker | null>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
   const cameraRef = useRef(camera);
   const publishedCameraRef = useRef<MapCamera | null>(null);
   const mapTypeRef = useRef(mapType);
-  const appliedMapTypeRef = useRef(mapType);
   const onCameraChangeRef = useRef(onCameraChange);
-  const onMapChangeRef = useRef(onMapChange);
+  const onLifecycleChangeRef = useRef(onLifecycleChange);
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [lifecycle] = useState(() =>
+    createMapOverlayLifecycle({ onStatus: ({ state }) => setMapStatus(state) }),
+  );
   const [googleRequested, setGoogleRequested] = useState(mapType === 'satellite');
   const [satelliteError, setSatelliteError] = useState('');
   const mapDataAvailable = data !== null;
@@ -55,18 +54,30 @@ export function WorkspaceMap({
   dataRef.current = data;
   mapTypeRef.current = mapType;
   onCameraChangeRef.current = onCameraChange;
-  onMapChangeRef.current = onMapChange;
+  onLifecycleChangeRef.current = onLifecycleChange;
+
+  useEffect(() => {
+    onLifecycleChangeRef.current(lifecycle);
+    return () => {
+      onLifecycleChangeRef.current(null);
+    };
+  }, [lifecycle]);
+
+  useEffect(() => {
+    if (!data) return;
+    return lifecycle.present({ kind: 'base', data, mapType });
+  }, [data, lifecycle, mapType]);
 
   useEffect(() => {
     if (!mapDataAvailable) return;
     const initialData = dataRef.current;
     if (!initialData || !openElementRef.current) return;
     let disposed = false;
+    let detach = () => {};
     setMapStatus('loading');
     void import('maplibre-gl')
       .then(({ Map: MapLibre, Marker }) => {
         if (disposed || !openElementRef.current) return;
-        let loaded = false;
         const map = new MapLibre({
           attributionControl: false,
           center: cameraRef.current.center,
@@ -79,21 +90,13 @@ export function WorkspaceMap({
           zoom: googleZoomToMapLibre(cameraRef.current.zoom),
         });
         mapRef.current = map;
-        appliedDataRef.current = initialData;
-        appliedMapTypeRef.current = mapTypeRef.current;
-        const markerElement = document.createElement('img');
-        markerElement.alt = '';
-        markerElement.src = mapPinDataUrl('church');
-        markerElement.className = 'workspace-map-pin';
-        markerRef.current = new Marker({ anchor: 'bottom', element: markerElement })
-          .setLngLat(initialData.center)
-          .addTo(map);
-        map.on('load', () => {
-          if (disposed) return;
-          loaded = true;
-          setMapStatus('ready');
-          onMapChangeRef.current(map);
-        });
+        detach = lifecycle.attach(
+          createMapLibreOverlayAdapter(map, Marker, {
+            kind: 'base',
+            data: initialData,
+            mapType: mapTypeRef.current,
+          }),
+        );
         map.on('move', () => {
           const center = map.getCenter();
           googleMapRef.current?.moveCamera({
@@ -118,54 +121,18 @@ export function WorkspaceMap({
           if (nextCamera === currentCamera) return;
           cameraRef.current = nextCamera;
         });
-        map.on('error', (event) => {
-          if (!disposed && event.error && mapLoadErrorIsFatal(loaded)) setMapStatus('error');
-        });
+        if (disposed) detach();
       })
       .catch(() => {
         if (!disposed) setMapStatus('error');
       });
     return () => {
       disposed = true;
-      markerRef.current?.remove();
-      markerRef.current = null;
+      detach();
       mapRef.current?.remove();
       mapRef.current = null;
-      onMapChangeRef.current(null);
     };
-  }, [mapDataAvailable]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!data) return;
-    const transition = workspaceMapTransition(
-      Boolean(map),
-      true,
-      appliedDataRef.current !== data,
-      appliedMapTypeRef.current !== mapType,
-    );
-    if (!map || transition !== 'restyle') return;
-    let frame = 0;
-    const republish = () => {
-      frame = requestAnimationFrame(() => onMapChangeRef.current(map));
-    };
-    appliedMapTypeRef.current = mapType;
-    appliedDataRef.current = data;
-    markerRef.current?.setLngLat(data.center);
-    onMapChangeRef.current(null);
-    map.once('style.load', republish);
-    map.setStyle(
-      buildWorkspaceMapStyle(
-        baseStyleJson as unknown as OpenMapStyle,
-        data,
-        mapType === 'satellite',
-      ) as maplibregl.StyleSpecification,
-    );
-    return () => {
-      map.off('style.load', republish);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [data, mapType]);
+  }, [lifecycle, mapDataAvailable]);
 
   useEffect(() => {
     if (isReflectedMapCamera(publishedCameraRef.current, camera)) {

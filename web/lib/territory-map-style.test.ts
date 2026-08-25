@@ -127,104 +127,6 @@ test('apartment options use packet inclusion and disambiguate anonymous complexe
   );
 });
 
-test('map overlays republish after the basemap style is replaced', async () => {
-  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
-  const keepPublished = module.keepMapOverlayPublished as
-    | ((
-        map: {
-          on: (event: 'style.load', listener: () => void) => void;
-          off: (event: 'style.load', listener: () => void) => void;
-        },
-        publish: () => void,
-      ) => () => void)
-    | undefined;
-  assert.equal(typeof keepPublished, 'function');
-  const listeners = new Set<() => void>();
-  const map = {
-    on(_event: 'style.load', listener: () => void) {
-      listeners.add(listener);
-    },
-    off(_event: 'style.load', listener: () => void) {
-      listeners.delete(listener);
-    },
-  };
-  let publications = 0;
-  const stop = keepPublished?.(map, () => {
-    publications += 1;
-  });
-
-  assert.equal(publications, 1);
-  for (const listener of listeners) listener();
-  assert.equal(publications, 2);
-  stop?.();
-  for (const listener of listeners) listener();
-  assert.equal(publications, 2);
-});
-
-test('map style listeners refresh overlays only after a replacement style loads', async () => {
-  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
-  const listenForStyleLoad = module.listenForMapStyleLoad as
-    | ((
-        map: {
-          on: (event: 'style.load', listener: () => void) => void;
-          off: (event: 'style.load', listener: () => void) => void;
-        },
-        refresh: () => void,
-      ) => () => void)
-    | undefined;
-  assert.equal(typeof listenForStyleLoad, 'function');
-  const listeners = new Set<() => void>();
-  const map = {
-    on(_event: 'style.load', listener: () => void) {
-      listeners.add(listener);
-    },
-    off(_event: 'style.load', listener: () => void) {
-      listeners.delete(listener);
-    },
-  };
-  let refreshes = 0;
-  const stop = listenForStyleLoad?.(map, () => {
-    refreshes += 1;
-  });
-
-  assert.equal(refreshes, 0);
-  for (const listener of listeners) listener();
-  assert.equal(refreshes, 1);
-  stop?.();
-  for (const listener of listeners) listener();
-  assert.equal(refreshes, 1);
-});
-
-test('basemap road suppression keeps street-name symbols and Streetlight overlays', async () => {
-  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
-  const roadGeometryLayerIds = module.basemapRoadGeometryLayerIds as
-    | ((layers: Array<Record<string, unknown>>) => string[])
-    | undefined;
-  const layers = [
-    {
-      id: 'tunnel-road',
-      type: 'line',
-      source: 'openmaptiles',
-      'source-layer': 'transportation',
-    },
-    {
-      id: 'road-area',
-      type: 'fill',
-      source: 'openmaptiles',
-      'source-layer': 'transportation',
-    },
-    {
-      id: 'street-name',
-      type: 'symbol',
-      source: 'openmaptiles',
-      'source-layer': 'transportation_name',
-    },
-    { id: 'streetlight-road', type: 'line', source: 'streetlightCoverage' },
-  ];
-
-  assert.equal(typeof roadGeometryLayerIds, 'function');
-  assert.deepEqual(roadGeometryLayerIds?.(layers), ['tunnel-road', 'road-area']);
-});
 test('church, packet, and apartment markers share one visual system', async () => {
   const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
   const markerStyle = module.mapMarkerStyle as Record<string, unknown> | undefined;
@@ -268,14 +170,6 @@ test('apartment interaction keeps selection origin, camera threshold, and drawin
   const apartmentAllowsDrawingPoint = module.apartmentAllowsDrawingPoint as
     | ((apartmentHit: boolean) => boolean)
     | undefined;
-  const expandCluster = module.expandApartmentCluster as
-    | ((
-        source: { getClusterExpansionZoom: (id: number) => Promise<number> },
-        id: number,
-        center: [number, number],
-        move: (camera: { center: [number, number]; zoom: number }) => void,
-      ) => Promise<void>)
-    | undefined;
 
   assert.equal(typeof optionLabel, 'function');
   assert.equal(
@@ -311,25 +205,6 @@ test('apartment interaction keeps selection origin, camera threshold, and drawin
   assert.equal(typeof apartmentAllowsDrawingPoint, 'function');
   assert.equal(apartmentAllowsDrawingPoint?.(false), true);
   assert.equal(apartmentAllowsDrawingPoint?.(true), false);
-
-  assert.equal(typeof expandCluster, 'function');
-  let requestedId = 0;
-  let camera: { center: [number, number]; zoom: number } | null = null;
-  await expandCluster?.(
-    {
-      getClusterExpansionZoom: async (id) => {
-        requestedId = id;
-        return 14.5;
-      },
-    },
-    27,
-    [-117.1, 33.5],
-    (next) => {
-      camera = next;
-    },
-  );
-  assert.equal(requestedId, 27);
-  assert.deepEqual(camera, { center: [-117.1, 33.5], zoom: 14.5 });
 });
 
 test('square boundary strokes restart on each side instead of crossing corners', () => {

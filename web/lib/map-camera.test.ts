@@ -1,12 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as cameraModule from './map-camera.ts';
-import {
-  forwardMapCameraChange,
-  isReflectedMapCamera,
-  mergeMapCamera,
-  workspaceMapTransition,
-} from './map-camera.ts';
+import { forwardMapCameraChange, isReflectedMapCamera, mergeMapCamera } from './map-camera.ts';
 
 test('camera synchronization ignores reflected updates but accepts real movement', () => {
   const current = { center: [-117.11, 33.54] as [number, number], zoom: 16 };
@@ -46,9 +41,6 @@ test('a camera update emitted by the map is recognized after the map keeps movin
   assert.equal(isReflectedMapCamera(published, { center: [-117.12, 33.55], zoom: 17 }), false);
 });
 
-test('refreshed map data restyles the existing map instead of recreating it', () => {
-  assert.equal(workspaceMapTransition(true, true, true, false), 'restyle');
-});
 test('Google and MapLibre cameras use the same geographic scale', async () => {
   const camera = (await import('./map-camera.ts')) as unknown as {
     googleZoomToMapLibre: (zoom: number) => number;
@@ -132,13 +124,4 @@ test('coverage camera fitting follows both map and search selections and respect
     duration: 0,
   });
   assert.equal(options?.('search', false)?.duration, 220);
-});
-
-test('a recoverable MapLibre error after load does not replace the ready map', async () => {
-  const camera = (await import('./map-camera.ts')) as unknown as {
-    mapLoadErrorIsFatal?: (loaded: boolean) => boolean;
-  };
-
-  assert.equal(camera.mapLoadErrorIsFatal?.(false), true);
-  assert.equal(camera.mapLoadErrorIsFatal?.(true), false);
 });

@@ -1,52 +1,5 @@
 import type { BoundaryShape, Position } from './territory-geometry.ts';
 
-export const apartmentLayerIds = [
-  'streetlight-apartment-clusters',
-  'streetlight-apartment-cluster-count',
-  'streetlight-apartments',
-  'streetlight-apartment-labels',
-] as const;
-
-export function listenForMapStyleLoad(
-  map: {
-    on: (event: 'style.load', listener: () => void) => unknown;
-    off: (event: 'style.load', listener: () => void) => unknown;
-  },
-  listener: () => void,
-): () => void {
-  map.on('style.load', listener);
-  return () => map.off('style.load', listener);
-}
-
-export function keepMapOverlayPublished(
-  map: {
-    on: (event: 'style.load', listener: () => void) => unknown;
-    off: (event: 'style.load', listener: () => void) => unknown;
-  },
-  publish: () => void,
-): () => void {
-  publish();
-  return listenForMapStyleLoad(map, publish);
-}
-
-export function basemapRoadGeometryLayerIds(
-  layers: ReadonlyArray<{
-    id: string;
-    type: string;
-    source?: string;
-    'source-layer'?: string;
-  }>,
-): string[] {
-  return layers
-    .filter(
-      (layer) =>
-        layer.source === 'openmaptiles' &&
-        layer['source-layer'] === 'transportation' &&
-        (layer.type === 'line' || layer.type === 'fill'),
-    )
-    .map(({ id }) => id);
-}
-
 export type ApartmentSelectionSource = 'map' | 'selector';
 
 export function createApartmentSelection(id: string, source: ApartmentSelectionSource) {
@@ -217,15 +170,6 @@ export function apartmentFocusZoom(
 
 export function apartmentAllowsDrawingPoint(apartmentHit: boolean): boolean {
   return !apartmentHit;
-}
-
-export async function expandApartmentCluster(
-  source: { getClusterExpansionZoom: (clusterId: number) => Promise<number> },
-  clusterId: number,
-  center: Position,
-  move: (camera: { center: Position; zoom: number }) => void,
-): Promise<void> {
-  move({ center, zoom: await source.getClusterExpansionZoom(clusterId) });
 }
 
 export function boundaryStrokePaths(ring: Position[], shape: BoundaryShape): Position[][] {

@@ -1,12 +1,12 @@
 'use client';
 
-import type { Map as MapLibreMap } from 'maplibre-gl';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { CoverageWorkspace } from '@/lib/coverage';
 import { retainCoverageSelection } from '@/lib/coverage';
 import type { StreetlightMapType } from '@/lib/google-maps-browser';
 import type { CoverageSelectionSource, MapCamera } from '@/lib/map-camera';
+import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
 import type { OpenMapData } from '@/lib/open-map-data';
 import {
   buildOutreachProgress,
@@ -105,7 +105,7 @@ export function StreetlightWorkspace({
   const [progressDisplayMode, setProgressDisplayMode] = useState<ProgressDisplayMode>('admin');
   const [reducedMotion, setReducedMotion] = useState(false);
   const setupMap = territoryMapMode(tool, setupView);
-  const [map, setMap] = useState<MapLibreMap | null>(null);
+  const [mapLifecycle, setMapLifecycle] = useState<MapOverlayLifecycle | null>(null);
   const [mapData, setMapData] = useState<OpenMapData | null>(null);
   const [mapDataError, setMapDataError] = useState('');
   const [mapType, setMapType] = useState<StreetlightMapType>('roadmap');
@@ -376,7 +376,7 @@ export function StreetlightWorkspace({
             data={mapData}
             mapType={mapType}
             onCameraChange={setMapCamera}
-            onMapChange={setMap}
+            onLifecycleChange={setMapLifecycle}
           />
           {mapDataError && (
             <div className="map-unavailable" role="alert">
@@ -392,7 +392,7 @@ export function StreetlightWorkspace({
             apartmentComplexes={coverage.apartmentComplexes}
             interactive={tool === 'coverage'}
             legend={coverage.legend}
-            map={map}
+            lifecycle={mapLifecycle}
             onOpenMapSettings={() => setHeatmapSettingsOpen(true)}
             onSelectSegment={selectCoverageSegment}
             segments={coverage.segments}
@@ -402,13 +402,13 @@ export function StreetlightWorkspace({
           />
           <PacketProposalMap
             active={tool === 'packets' && packetView === 'generate'}
-            map={map}
+            lifecycle={mapLifecycle}
             proposals={packetResult?.proposals ?? []}
             selectedIndex={selectedPacketIndex}
           />
           <OpenProgressMap
             active={tool === 'progress'}
-            map={map}
+            lifecycle={mapLifecycle}
             progress={progress}
             through={progressThrough}
             workspace={coverage}
@@ -455,7 +455,7 @@ export function StreetlightWorkspace({
         />
         <ReconciliationTool
           active={tool === 'packets' && packetView === 'reconcile'}
-          map={map}
+          lifecycle={mapLifecycle}
           onChanged={refreshCoverage}
           onTargetHandled={() => setReconciliationTarget(null)}
           onViewChange={setPacketView}
@@ -484,7 +484,7 @@ export function StreetlightWorkspace({
         {regionSetup.kind === 'ready' && (
           <TerritoryEditor
             active={setupMap.interactive}
-            map={map}
+            lifecycle={mapLifecycle}
             mapVisible={setupMap.visible}
             mapsApiKey={mapsApiKey}
             onReturnToSetup={() => {
