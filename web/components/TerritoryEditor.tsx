@@ -6,18 +6,10 @@ import { createPortal } from 'react-dom';
 import { coverageRoads } from '@/lib/coverage';
 import { loadGoogleMaps } from '@/lib/google-maps-browser';
 import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
-import {
-  activateSegments,
-  apartmentSiteSummary,
-  deriveTerritory,
-  hasUnsavedTerritoryChanges,
-  setSegmentsExcluded,
-  territoryDraftFromWorkspace,
-} from '@/lib/territory-client';
-import { parseTerritoryDraft } from '@/lib/territory-draft';
+import type { RegionSetupReadyView, RegionSetupWorkflow } from '@/lib/region-setup-workflow';
+import { apartmentSiteSummary } from '@/lib/territory-client';
 import { type Position, pointInsideTerritoryBoundary } from '@/lib/territory-geometry';
-import { needsTerritoryImport } from '@/lib/territory-import';
-import type { TerritoryImportJob, TerritoryImportStage } from '@/lib/territory-import-job';
+import type { TerritoryImportStage } from '@/lib/territory-import-job';
 import {
   type ApartmentSelectionSource,
   apartmentReviewOptions,
@@ -27,31 +19,14 @@ import type {
   ApartmentSite,
   ApartmentSiteConfigurationInput,
   ApartmentSiteMembershipInput,
-  TerritoryWorkspace,
 } from '@/lib/territory-workspace';
-import {
-  type ApartmentSaveFailure,
-  optimisticApartmentConfiguration,
-  resolveApartmentMutation,
-} from './apartment-mutation-state';
 import { OpenTerritoryMap } from './OpenTerritoryMap';
 import { OperationStatus } from './OperationStatus';
-import {
-  isTerritoryWorkspacePayload,
-  readMutationResult,
-  territoryLeaveControlsDisabled,
-} from './operation-state';
 import { setupToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
 type PendingAddress = {
   formattedAddress: string;
   center: Position;
-};
-
-type TerritorySaveFailure = {
-  message: string;
-  recovery: 'retry' | 'reload';
-  willImport: boolean;
 };
 
 type ReviewSection = 'region' | 'apartments' | 'roads' | 'quality';
@@ -84,73 +59,35 @@ const importStageLabels: Record<TerritoryImportStage, string> = {
   saving: 'Saving region',
 };
 
-function readTerritoryImportJob(value: unknown): TerritoryImportJob | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const job = value as Record<string, unknown>;
-  if (
-    typeof job.id !== 'string' ||
-    !['queued', 'running', 'succeeded', 'failed', 'interrupted'].includes(String(job.status)) ||
-    !Object.hasOwn(importStageLabels, String(job.stage)) ||
-    (job.error !== null && typeof job.error !== 'string') ||
-    typeof job.createdAt !== 'string' ||
-    typeof job.updatedAt !== 'string'
-  ) {
-    return null;
-  }
-  try {
-    return {
-      id: job.id,
-      status: job.status as TerritoryImportJob['status'],
-      stage: job.stage as TerritoryImportStage,
-      draft: parseTerritoryDraft(job.draft),
-      error: job.error as string | null,
-      createdAt: job.createdAt,
-      updatedAt: job.updatedAt,
-    };
-  } catch {
-    return null;
-  }
-}
-
 export function TerritoryEditor({
   active,
-  initialData,
   map,
   mapVisible,
   mapsApiKey,
   overlayRoot,
-  onDirtyChange,
-  onDiscardAndLeave,
-  onImportingChange,
   onReturnToSetup,
-  onSaved,
-  onSaveAndLeave,
   onStay,
   onViewChange,
   pendingLeave,
-  setupRequired,
+  view,
+  workflow,
 }: {
   active: boolean;
-  initialData: TerritoryWorkspace;
   map: MapLibreMap | null;
   mapVisible: boolean;
   mapsApiKey: string;
   overlayRoot: HTMLDivElement | null;
-  onDirtyChange: (dirty: boolean) => void;
-  onDiscardAndLeave: () => void;
-  onImportingChange: (importing: boolean) => void;
   onReturnToSetup: () => void;
-  onSaved: (workspace: TerritoryWorkspace, imported: boolean) => Promise<void>;
-  onSaveAndLeave: () => void;
   onStay: () => void;
   onViewChange: (view: 'territory' | 'printouts') => void;
   pendingLeave: boolean;
-  setupRequired: boolean;
+  view: RegionSetupReadyView;
+  workflow: RegionSetupWorkflow;
 }) {
-  const initialDraft = territoryDraftFromWorkspace(initialData);
-  const [savedWorkspace, setSavedWorkspace] = useState(initialData);
-  const [savedDraft, setSavedDraft] = useState(initialDraft);
-  const [draft, setDraft] = useState(initialDraft);
+  const savedWorkspace = view.accepted;
+  const draft = view.draft;
+  const live = view.displayed;
+  const setupRequired = view.setupRequired;
   const [showHiddenRoads, setShowHiddenRoads] = useState(false);
   const [selectedSegmentIds, setSelectedSegmentIds] = useState<string[]>([]);
   const [roadFocusRequest, setRoadFocusRequest] = useState<{
@@ -168,33 +105,35 @@ export function TerritoryEditor({
     siteId: string | null;
     memberIds: string[];
   } | null>(null);
-  const [radiusInput, setRadiusInput] = useState(String(initialDraft.radiusMiles));
+  const [radiusInput, setRadiusInput] = useState(String(draft.radiusMiles));
   const [addressEditing, setAddressEditing] = useState(false);
   const [openReviewSection, setOpenReviewSection] = useState<ReviewSection | null>(
     setupRequired ? 'region' : 'roads',
   );
-  const [addressQuery, setAddressQuery] = useState(initialDraft.originAddress);
-  const [pendingAddress, setPendingAddress] = useState<PendingAddress | null>(null);
+  const [addressQuery, setAddressQuery] = useState(draft.originAddress);
   const [placeSearchFailed, setPlaceSearchFailed] = useState(!mapsApiKey);
-  const [geocoding, setGeocoding] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [importJob, setImportJob] = useState<TerritoryImportJob | null>(null);
-  const [saveFailure, setSaveFailure] = useState<TerritorySaveFailure | null>(null);
-  const [savingApartmentId, setSavingApartmentId] = useState<string | null>(null);
-  const [apartmentSaveFailure, setApartmentSaveFailure] = useState<ApartmentSaveFailure | null>(
-    null,
-  );
-  const [backgroundImportComplete, setBackgroundImportComplete] = useState(false);
-  const [notice, setNotice] = useState('Saved region loaded.');
+  const [notice, setNotice] = useState(view.notice);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const placeSearchRef = useRef<HTMLDivElement>(null);
   const reviewSectionTransitionRef = useRef<number | null>(null);
 
-  const live = useMemo(
-    () => deriveTerritory(savedWorkspace.segments, draft),
-    [draft, savedWorkspace.segments],
-  );
+  const pendingAddress =
+    view.addressLookup.kind === 'candidate' ? view.addressLookup.candidate : null;
+  const geocoding = view.addressLookup.kind === 'looking';
+  const saving = view.operation.kind === 'saving';
+  const importing = view.operation.kind === 'importing';
+  const importStage = view.operation.kind === 'importing' ? view.operation.stage : 'queued';
+  const saveFailure =
+    view.operation.kind === 'failed'
+      ? {
+          message: view.operation.message,
+          recovery: view.operation.recovery,
+          willImport: view.operation.target === 'import',
+        }
+      : null;
+  const backgroundImportComplete = view.operation.kind === 'completed';
+  const savingApartmentId = view.apartment?.savingId ?? null;
+  const apartmentSaveFailure = view.apartment?.failure ?? null;
   const liveApartments = useMemo(
     () =>
       savedWorkspace.apartmentSites.map((apartment) => ({
@@ -211,16 +150,10 @@ export function TerritoryEditor({
   const apartmentSummary = apartmentSiteSummary(
     liveApartments.filter(({ withinBoundary }) => withinBoundary),
   );
-  const hasUnsavedChanges = hasUnsavedTerritoryChanges(savedDraft, draft);
-  const isDirty = hasUnsavedChanges;
-  const importRequired = needsTerritoryImport(savedWorkspace.import, draft);
-  const canSave = isDirty || importRequired;
-  const verificationRequired =
-    saveFailure?.recovery === 'reload' || apartmentSaveFailure?.recovery === 'reload';
-  const leaveControlsDisabled = territoryLeaveControlsDisabled({
-    saving: saving || importing || savingApartmentId !== null,
-    verificationRequired,
-  });
+  const hasUnsavedChanges = view.dirty;
+  const importRequired = view.importRequired;
+  const canSave = view.canSave;
+  const leaveControlsDisabled = view.mutationLocked;
   const radiusError =
     !Number.isFinite(Number(radiusInput)) || Number(radiusInput) < 1 || Number(radiusInput) > 5
       ? 'Enter a boundary distance from 1 to 5 miles.'
@@ -296,30 +229,17 @@ export function TerritoryEditor({
     );
   }, []);
 
-  const acceptSavedWorkspace = useCallback(
-    async (result: TerritoryWorkspace, imported: boolean) => {
-      const nextDraft = territoryDraftFromWorkspace(result);
-      setSavedWorkspace(result);
-      setDraft(nextDraft);
-      setSavedDraft(structuredClone(nextDraft));
-      setRadiusInput(String(nextDraft.radiusMiles));
-      setSelectedSegmentIds([]);
-      setRoadFocusRequest(null);
-      setBoxSelectionArmed(false);
-      setApartmentSearch('');
-      setApartmentSelection(null);
-      setSaving(false);
-      setImporting(false);
-      setBackgroundImportComplete(imported);
-      try {
-        await onSaved(result, imported);
-        setNotice(imported ? 'Street data refreshed.' : 'Region changes saved.');
-      } catch {
-        setNotice('Region saved, but coverage could not refresh. Reload the page to retry.');
-      }
-    },
-    [onSaved],
-  );
+  useEffect(() => {
+    setRadiusInput(String(savedWorkspace.radiusMiles));
+    setAddressQuery(savedWorkspace.originAddress);
+    setSelectedSegmentIds([]);
+    setRoadFocusRequest(null);
+    setBoxSelectionArmed(false);
+    setApartmentSearch('');
+    setApartmentSelection(null);
+  }, [savedWorkspace]);
+
+  useEffect(() => setNotice(view.notice), [view.notice]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -331,13 +251,6 @@ export function TerritoryEditor({
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [hasUnsavedChanges]);
-
-  useEffect(() => onDirtyChange(hasUnsavedChanges), [hasUnsavedChanges, onDirtyChange]);
-
-  useEffect(
-    () => onImportingChange(leaveControlsDisabled),
-    [leaveControlsDisabled, onImportingChange],
-  );
 
   useEffect(() => {
     if (addressEditing) {
@@ -369,7 +282,9 @@ export function TerritoryEditor({
         autocomplete.className = 'territory-place-autocomplete';
         autocomplete.description = 'Search for your church or address';
         autocomplete.placeholder = 'Search for your church or address';
-        autocomplete.addEventListener('input', () => setPendingAddress(null));
+        autocomplete.addEventListener('input', () =>
+          workflow.edit({ kind: 'address-candidate', candidate: null }),
+        );
         autocomplete.addEventListener('gmp-select', async (event) => {
           try {
             const place = (
@@ -384,10 +299,10 @@ export function TerritoryEditor({
               center: [place.location.lng(), place.location.lat()],
             };
             setAddressQuery(nextAddress.formattedAddress);
-            setPendingAddress(nextAddress);
+            workflow.edit({ kind: 'address-candidate', candidate: nextAddress });
             setNotice('Address found. Confirm the new church location.');
           } catch {
-            setPendingAddress(null);
+            workflow.edit({ kind: 'address-candidate', candidate: null });
             setNotice('Could not resolve that address. Try another search.');
           }
         });
@@ -400,7 +315,7 @@ export function TerritoryEditor({
       disposed = true;
       container.replaceChildren();
     };
-  }, [addressEditing, mapsApiKey]);
+  }, [addressEditing, mapsApiKey, workflow]);
 
   const transitionReviewSection = useCallback(
     (nextSection: ReviewSection | null) => {
@@ -466,283 +381,61 @@ export function TerritoryEditor({
   );
 
   function cancelChanges() {
-    setDraft(structuredClone(savedDraft));
-    setRadiusInput(String(savedDraft.radiusMiles));
+    workflow.discard('stay');
+    setRadiusInput(String(savedWorkspace.radiusMiles));
     setSelectedSegmentIds([]);
     setRoadFocusRequest(null);
     setBoxSelectionArmed(false);
     setApartmentSearch('');
     setApartmentSelection(null);
     setAddressEditing(false);
-    setPendingAddress(null);
-    setSaveFailure(null);
-    setBackgroundImportComplete(false);
+    workflow.edit({ kind: 'address-candidate', candidate: null });
     setNotice('Unsaved changes discarded.');
   }
 
   async function lookUpAddress() {
-    setGeocoding(true);
-    setPendingAddress(null);
     setNotice('Looking up address…');
-    try {
-      const response = await fetch('/api/geocode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: addressQuery }),
-      });
-      const result = (await response.json()) as PendingAddress | { error: string };
-      if (!response.ok || 'error' in result) {
-        throw new Error('error' in result ? result.error : 'Could not resolve that address');
-      }
-      setPendingAddress(result);
-      setNotice('Address found. Confirm the new church location.');
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not resolve that address');
-    } finally {
-      setGeocoding(false);
-    }
+    const result = await workflow.resolveAddress(addressQuery);
+    setNotice(result.ok ? 'Address found. Confirm the new church location.' : result.message);
   }
 
   async function saveApartmentConfiguration(input: ApartmentSiteConfigurationInput) {
-    const previousWorkspace = savedWorkspace;
-    const optimistic = optimisticApartmentConfiguration(previousWorkspace, input);
-    if (!optimistic) return;
-    const mutation = { kind: 'configuration' as const, input };
-    setSavedWorkspace(optimistic);
-    setSavingApartmentId(input.id);
-    setApartmentSaveFailure(null);
-
-    const result = await readMutationResult(
-      () =>
-        fetch('/api/territory/apartment', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(input),
-        }),
-      isTerritoryWorkspacePayload,
-    );
-
-    setSavingApartmentId(null);
-    const resolved = resolveApartmentMutation(previousWorkspace, mutation, result);
-    setSavedWorkspace(resolved.workspace);
-    if (result.status === 'success') {
-      try {
-        await onSaved(result.value, false);
-      } catch {
-        setNotice('Apartment inclusion saved, but coverage could not refresh. Reload to retry.');
-      }
-      return;
-    }
-
-    setApartmentSaveFailure(resolved.failure);
+    await workflow.apartments?.saveConfiguration(input);
   }
 
   async function saveApartmentMembership(input: ApartmentSiteMembershipInput) {
-    const previousWorkspace = savedWorkspace;
-    const mutation = { kind: 'membership' as const, input };
-    setSavingApartmentId(input.id ?? 'new');
-    setApartmentSaveFailure(null);
-    const result = await readMutationResult(
-      () =>
-        fetch('/api/territory/apartment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(input),
-        }),
-      isTerritoryWorkspacePayload,
-    );
-    setSavingApartmentId(null);
-    const resolved = resolveApartmentMutation(previousWorkspace, mutation, result);
-    setSavedWorkspace(resolved.workspace);
-    if (result.status === 'success') {
+    const selectedId = await workflow.apartments?.saveMembership(input);
+    if (selectedId) {
       setGroupingApartment(null);
-      const selected = input.id
-        ? result.value.apartmentSites.find(({ id }) => id === input.id)
-        : result.value.apartmentSites.find(
-            (site) =>
-              site.groupingConfirmed &&
-              site.members.length === input.memberIds.length &&
-              site.members.every(({ id }) => input.memberIds.includes(id)),
-          );
-      if (selected) setApartmentSelection(createApartmentSelection(selected.id, 'map'));
-      try {
-        await onSaved(result.value, false);
-      } catch {
-        setNotice('Apartment grouping saved, but coverage could not refresh. Reload to retry.');
-      }
-      return;
+      setApartmentSelection(createApartmentSelection(selectedId, 'map'));
     }
-    setApartmentSaveFailure(resolved.failure);
-  }
-
-  function retryApartmentMutation(failure: ApartmentSaveFailure) {
-    return failure.mutation.kind === 'configuration'
-      ? saveApartmentConfiguration(failure.mutation.input)
-      : saveApartmentMembership(failure.mutation.input);
   }
 
   function confirmAddress() {
     if (!pendingAddress) {
       return;
     }
-    setDraft((current) => ({
-      ...current,
+    workflow.edit({
+      kind: 'location',
       originAddress: pendingAddress.formattedAddress,
       center: pendingAddress.center,
-    }));
+    });
     setAddressQuery(pendingAddress.formattedAddress);
     setAddressEditing(false);
-    setPendingAddress(null);
     setNotice('Church location changed in this draft. Road adjustments stayed in place.');
   }
 
   async function saveChanges(leaveAfterSave = false) {
-    const willImport = needsTerritoryImport(savedWorkspace.import, draft);
-    const leaveWhileImportRuns = leaveAfterSave && willImport && !setupRequired;
-    setSaving(true);
-    setImporting(willImport);
-    setSaveFailure(null);
-    setBackgroundImportComplete(false);
-    if (leaveWhileImportRuns) onSaveAndLeave();
-    setNotice('Saving changes…');
-
-    try {
-      const response = await fetch('/api/territory', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft),
-      });
-      const body: unknown = await response.json();
-      if (response.status === 202) {
-        const job = readTerritoryImportJob(
-          body && typeof body === 'object' && 'job' in body ? body.job : null,
-        );
-        if (!job) throw new Error('Invalid region import response');
-        setImportJob(job);
-        setDraft(job.draft);
-        setRadiusInput(String(job.draft.radiusMiles));
-        setSaving(false);
-        setImporting(true);
-        setNotice('Street data preparation started.');
-        return;
-      }
-      if (!response.ok) {
-        const message =
-          response.status >= 400 &&
-          response.status < 500 &&
-          body &&
-          typeof body === 'object' &&
-          'error' in body &&
-          typeof body.error === 'string'
-            ? body.error
-            : willImport
-              ? 'Streetlight could not confirm whether street data preparation started. Reload to verify before trying again.'
-              : 'Streetlight could not confirm whether the region changes were saved. Reload to verify before trying again.';
-        const recovery = response.status < 500 ? 'retry' : 'reload';
-        setSaveFailure({ message, recovery, willImport });
-        setNotice(message);
-        setSaving(false);
-        setImporting(false);
-        return;
-      }
-      if (!isTerritoryWorkspacePayload(body)) {
-        throw new Error('Invalid saved region response');
-      }
-      await acceptSavedWorkspace(body, false);
-      if (leaveAfterSave && !leaveWhileImportRuns) onSaveAndLeave();
-    } catch {
-      const message = willImport
-        ? 'Streetlight could not confirm whether street data preparation started. Reload to verify before trying again.'
-        : 'Streetlight could not confirm whether the region changes were saved. Reload to verify before trying again.';
-      setSaveFailure({ message, recovery: 'reload', willImport });
-      setNotice(message);
-      setSaving(false);
-      setImporting(false);
-    }
+    await workflow.save(leaveAfterSave ? 'leave' : 'stay');
   }
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const trackedJobId = importJob?.id ?? null;
-
-    async function checkImport() {
-      try {
-        const response = await fetch('/api/territory/import');
-        const body: unknown = await response.json();
-        if (!response.ok || !body || typeof body !== 'object') {
-          throw new Error('Could not load region import');
-        }
-        const job = readTerritoryImportJob('job' in body ? body.job : null);
-        if (cancelled) return;
-        if (!job) {
-          if (trackedJobId) {
-            const message =
-              'Streetlight could not reconnect to street data preparation. Reload to verify before trying again.';
-            setSaveFailure({ message, recovery: 'reload', willImport: true });
-            setImporting(false);
-          }
-          return;
-        }
-        if (!trackedJobId && job.status === 'succeeded') return;
-
-        setImportJob(job);
-        if (job.status === 'queued' || job.status === 'running') {
-          setDraft(job.draft);
-          setAddressQuery(job.draft.originAddress);
-          setRadiusInput(String(job.draft.radiusMiles));
-          setImporting(true);
-          setSaving(false);
-          setSaveFailure(null);
-          timer = setTimeout(checkImport, 1_500);
-          return;
-        }
-        if (job.status === 'succeeded') {
-          const workspace = 'workspace' in body ? body.workspace : null;
-          if (!isTerritoryWorkspacePayload(workspace)) {
-            throw new Error('Saved region is unavailable');
-          }
-          await acceptSavedWorkspace(workspace, true);
-          return;
-        }
-
-        const message =
-          job.error ??
-          (job.status === 'interrupted'
-            ? 'Street data preparation was interrupted. Your previous saved region is still active.'
-            : 'Street data preparation failed. Your previous saved region is still active.');
-        setDraft(job.draft);
-        setAddressQuery(job.draft.originAddress);
-        setRadiusInput(String(job.draft.radiusMiles));
-        setImporting(false);
-        setSaving(false);
-        setBackgroundImportComplete(false);
-        setSaveFailure({ message, recovery: 'retry', willImport: true });
-        setNotice(message);
-      } catch {
-        if (!cancelled && trackedJobId) timer = setTimeout(checkImport, 3_000);
-      }
-    }
-
-    void checkImport();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [acceptSavedWorkspace, importJob?.id]);
-  const operationPlacement =
-    importing || saveFailure?.willImport || backgroundImportComplete
-      ? setupRequired
-        ? 'surface'
-        : 'global'
-      : 'surface';
+  const operationPlacement = 'placement' in view.operation ? view.operation.placement : 'surface';
   const saveStatus =
     saving || importing || saveFailure || backgroundImportComplete ? (
       <OperationStatus
         action={
           saveFailure ? (
             saveFailure.recovery === 'reload' ? (
-              <button onClick={() => window.location.reload()} type="button">
+              <button onClick={() => void workflow.recover()} type="button">
                 Reload to verify
               </button>
             ) : !active && !setupRequired ? (
@@ -751,7 +444,7 @@ export function TerritoryEditor({
               </button>
             ) : undefined
           ) : backgroundImportComplete ? (
-            <button onClick={() => setBackgroundImportComplete(false)} type="button">
+            <button onClick={() => workflow.dismiss()} type="button">
               Dismiss
             </button>
           ) : undefined
@@ -783,7 +476,7 @@ export function TerritoryEditor({
             : backgroundImportComplete
               ? 'Street data refreshed'
               : importing
-                ? importStageLabels[importJob?.stage ?? 'queued']
+                ? importStageLabels[importStage]
                 : 'Saving region changes'
         }
         placement={operationPlacement}
@@ -870,7 +563,7 @@ export function TerritoryEditor({
             value="territory"
           />
         )}
-        <div className="sidebar-scroll" inert={saving || importing || verificationRequired}>
+        <div className="sidebar-scroll" inert={leaveControlsDisabled}>
           <details className="region-settings-disclosure" open={openReviewSection === 'region'}>
             {/* biome-ignore lint/a11y/noStaticElementInteractions: summary is the native disclosure control. */}
             <summary
@@ -906,7 +599,7 @@ export function TerritoryEditor({
                       onClick={() => {
                         setAddressEditing(true);
                         setAddressQuery('');
-                        setPendingAddress(null);
+                        workflow.edit({ kind: 'address-candidate', candidate: null });
                       }}
                       type="button"
                     >
@@ -924,7 +617,7 @@ export function TerritoryEditor({
                         id="church-address"
                         onChange={(event) => {
                           setAddressQuery(event.target.value);
-                          setPendingAddress(null);
+                          workflow.edit({ kind: 'address-candidate', candidate: null });
                         }}
                         placeholder="Search for your church or address"
                         ref={addressInputRef}
@@ -939,7 +632,7 @@ export function TerritoryEditor({
                         onClick={() => {
                           setAddressEditing(false);
                           setAddressQuery(draft.originAddress);
-                          setPendingAddress(null);
+                          workflow.edit({ kind: 'address-candidate', candidate: null });
                         }}
                         type="button"
                       >
@@ -976,7 +669,7 @@ export function TerritoryEditor({
                       aria-pressed={draft.boundaryShape === shape}
                       className={draft.boundaryShape === shape ? 'active' : ''}
                       key={shape}
-                      onClick={() => setDraft((current) => ({ ...current, boundaryShape: shape }))}
+                      onClick={() => workflow.edit({ kind: 'shape', boundaryShape: shape })}
                       type="button"
                     >
                       {shape === 'circle' ? 'Circle' : 'Square'}
@@ -998,7 +691,7 @@ export function TerritoryEditor({
                         setRadiusInput(event.target.value);
                         const value = Number(event.target.value);
                         if (Number.isFinite(value) && value >= 1 && value <= 5) {
-                          setDraft((current) => ({ ...current, radiusMiles: value }));
+                          workflow.edit({ kind: 'radius', radiusMiles: value });
                         }
                       }}
                       step="0.1"
@@ -1015,7 +708,7 @@ export function TerritoryEditor({
                   onChange={(event) => {
                     const value = Number(event.target.value);
                     setRadiusInput(event.target.value);
-                    setDraft((current) => ({ ...current, radiusMiles: value }));
+                    workflow.edit({ kind: 'radius', radiusMiles: value });
                   }}
                   step="0.1"
                   type="range"
@@ -1467,13 +1160,11 @@ export function TerritoryEditor({
                       {includedSelected.length > 0 && (
                         <button
                           onClick={() => {
-                            setDraft((current) =>
-                              setSegmentsExcluded(
-                                current,
-                                includedSelected.map(({ id }) => id),
-                                true,
-                              ),
-                            );
+                            workflow.edit({
+                              kind: 'segments',
+                              disposition: 'exclude',
+                              ids: includedSelected.map(({ id }) => id),
+                            });
                             setNotice(
                               'Selected segments excluded in this draft. Save changes to keep it.',
                             );
@@ -1487,13 +1178,11 @@ export function TerritoryEditor({
                         <button
                           className="secondary"
                           onClick={() => {
-                            setDraft((current) =>
-                              setSegmentsExcluded(
-                                current,
-                                excludedSelected.map(({ id }) => id),
-                                false,
-                              ),
-                            );
+                            workflow.edit({
+                              kind: 'segments',
+                              disposition: 'restore',
+                              ids: excludedSelected.map(({ id }) => id),
+                            });
                             setNotice(
                               'Selected segments restored in this draft. Save changes to keep it.',
                             );
@@ -1506,12 +1195,11 @@ export function TerritoryEditor({
                       {hiddenSelected.length > 0 && (
                         <button
                           onClick={() => {
-                            setDraft((current) =>
-                              activateSegments(
-                                current,
-                                hiddenSelected.map(({ id }) => id),
-                              ),
-                            );
+                            workflow.edit({
+                              kind: 'segments',
+                              disposition: 'activate',
+                              ids: hiddenSelected.map(({ id }) => id),
+                            });
                             setNotice(
                               'Selected hidden segments activated in this draft. Save changes to keep it.',
                             );
@@ -1591,13 +1279,13 @@ export function TerritoryEditor({
             <OperationStatus
               action={
                 apartmentSaveFailure.recovery === 'reload' ? (
-                  <button onClick={() => window.location.reload()} type="button">
+                  <button onClick={() => void workflow.apartments?.retry()} type="button">
                     Reload to verify
                   </button>
                 ) : (
                   <button
                     disabled={leaveControlsDisabled}
-                    onClick={() => void retryApartmentMutation(apartmentSaveFailure)}
+                    onClick={() => void workflow.apartments?.retry()}
                     type="button"
                   >
                     Try again
@@ -1631,8 +1319,8 @@ export function TerritoryEditor({
                   className="secondary"
                   disabled={leaveControlsDisabled}
                   onClick={() => {
-                    cancelChanges();
-                    onDiscardAndLeave();
+                    workflow.discard('leave');
+                    setAddressEditing(false);
                   }}
                   type="button"
                 >

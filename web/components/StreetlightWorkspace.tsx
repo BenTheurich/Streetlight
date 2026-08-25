@@ -2,7 +2,7 @@
 
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { CoverageWorkspace } from '@/lib/coverage';
 import { retainCoverageSelection } from '@/lib/coverage';
 import type { StreetlightMapType } from '@/lib/google-maps-browser';
@@ -15,9 +15,9 @@ import {
 } from '@/lib/outreach-progress';
 import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 import type { ReconciliationHistoryTarget } from '@/lib/reconciliation';
+import { createRegionSetupWorkflow } from '@/lib/region-setup-workflow';
 import type { ChurchPrintoutSettings } from '@/lib/settings';
-import { refreshTerritoryViews, territoryMapMode } from '@/lib/territory-client';
-import type { TerritoryWorkspace } from '@/lib/territory-workspace';
+import { territoryMapMode } from '@/lib/territory-client';
 import { AdministratorAccount } from './AdministratorAccount';
 import { CoverageDashboard } from './CoverageDashboard';
 import { HeatmapSettingsOverlay } from './HeatmapSettingsOverlay';
@@ -92,14 +92,13 @@ export function StreetlightWorkspace({
   const [selectedPacketIndex, setSelectedPacketIndex] = useState<number | null>(null);
   const [reconciliationTarget, setReconciliationTarget] =
     useState<ReconciliationHistoryTarget | null>(null);
-  const [territory, setTerritory] = useState<TerritoryWorkspace | null>(null);
-  const [territoryLoading, setTerritoryLoading] = useState(false);
-  const [territoryError, setTerritoryError] = useState('');
-  const [territoryDirty, setTerritoryDirty] = useState(false);
   const [printoutDirty, setPrintoutDirty] = useState(false);
-  const [territorySaving, setTerritorySaving] = useState(false);
   const [pendingTool, setPendingTool] = useState<WorkspaceTool | null>(null);
   const [pendingSetupView, setPendingSetupView] = useState<SetupView | null>(null);
+  const pendingToolRef = useRef<WorkspaceTool | null>(null);
+  const pendingSetupViewRef = useRef<SetupView | null>(null);
+  pendingToolRef.current = pendingTool;
+  pendingSetupViewRef.current = pendingSetupView;
   const [progressYear, setProgressYear] = useState(initialYears[0]);
   const [progressStep, setProgressStep] = useState<number | null>(null);
   const [progressPlaying, setProgressPlaying] = useState(false);
@@ -146,38 +145,9 @@ export function StreetlightWorkspace({
       setMapDataError(error instanceof Error ? error.message : 'Could not load map data');
     }
   }, []);
-  const loadTerritory = useCallback(async () => {
-    setTerritoryLoading(true);
-    setTerritoryError('');
-    try {
-      const response = await fetch('/api/territory');
-      const result = (await response.json()) as TerritoryWorkspace | { error: string };
-      if (!response.ok || 'error' in result) {
-        throw new Error('error' in result ? result.error : 'Could not load region');
-      }
-      setTerritory(result);
-    } catch (error) {
-      setTerritoryError(error instanceof Error ? error.message : 'Could not load region');
-    } finally {
-      setTerritoryLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     void refreshMapData();
   }, [refreshMapData]);
-
-  useEffect(() => {
-    if (
-      tool === 'setup' &&
-      setupView === 'territory' &&
-      !territory &&
-      !territoryLoading &&
-      !territoryError
-    ) {
-      void loadTerritory();
-    }
-  }, [loadTerritory, setupView, territory, territoryError, territoryLoading, tool]);
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -254,18 +224,47 @@ export function StreetlightWorkspace({
     setSelectedSegmentId((current) => retainCoverageSelection(current, result.segments));
   }, []);
 
-  const refreshAfterTerritorySave = useCallback(
-    async (saved: TerritoryWorkspace, imported: boolean) => {
-      const completingSetup = setupRequired;
-      setTerritory(saved);
+  const finishSetupLeave = useCallback(() => {
+    if (pendingToolRef.current) setTool(pendingToolRef.current);
+    if (pendingSetupViewRef.current) setSetupView(pendingSetupViewRef.current);
+    setPendingTool(null);
+    setPendingSetupView(null);
+  }, []);
+
+  const handleRegionAccepted = useCallback(
+    async ({
+      refreshMapData: mapChanged,
+      completedInitialSetup,
+    }: {
+      refreshMapData: boolean;
+      completedInitialSetup: boolean;
+    }) => {
       setPacketResult(null);
       setSelectedPacketIndex(null);
-      await refreshTerritoryViews(imported, refreshCoverage, refreshMapData);
-      setSetupOnly(false);
-      if (completingSetup) setTool('coverage');
+      const refreshes = [refreshCoverage()];
+      if (mapChanged) refreshes.push(refreshMapData());
+      await Promise.all(refreshes);
+      if (completedInitialSetup) {
+        setSetupOnly(false);
+        setTool('coverage');
+      }
     },
-    [refreshCoverage, refreshMapData, setupRequired],
+    [refreshCoverage, refreshMapData],
   );
+
+  const [regionSetupWorkflow] = useState(() =>
+    createRegionSetupWorkflow({
+      initialSetup: setupOnly,
+      onAccepted: handleRegionAccepted,
+      onLeaveReady: finishSetupLeave,
+    }),
+  );
+  const regionSetup = useSyncExternalStore(
+    regionSetupWorkflow.subscribe,
+    regionSetupWorkflow.getSnapshot,
+    regionSetupWorkflow.getSnapshot,
+  );
+  useEffect(() => regionSetupWorkflow.start(), [regionSetupWorkflow]);
 
   function updateApartmentMarkerPreference(show: boolean): void {
     setShowApartmentMarkers(show);
@@ -276,7 +275,9 @@ export function StreetlightWorkspace({
     if (nextTool === tool) return;
     if (
       tool === 'setup' &&
-      ((setupView === 'territory' && territoryDirty && !territorySaving) ||
+      ((setupView === 'territory' &&
+        regionSetup.kind === 'ready' &&
+        regionSetup.leaveProtection === 'confirm') ||
         (setupView === 'printouts' && printoutDirty))
     ) {
       setPendingTool(nextTool);
@@ -291,20 +292,15 @@ export function StreetlightWorkspace({
   function openSetupView(nextView: SetupView): void {
     if (nextView === setupView) return;
     if (
-      (setupView === 'territory' && territoryDirty && !territorySaving) ||
+      (setupView === 'territory' &&
+        regionSetup.kind === 'ready' &&
+        regionSetup.leaveProtection === 'confirm') ||
       (setupView === 'printouts' && printoutDirty)
     ) {
       setPendingSetupView(nextView);
       return;
     }
     setSetupView(nextView);
-  }
-
-  function finishSetupLeave(): void {
-    if (pendingTool) setTool(pendingTool);
-    if (pendingSetupView) setSetupView(pendingSetupView);
-    setPendingTool(null);
-    setPendingSetupView(null);
   }
 
   function changeProgressYear(year: number): void {
@@ -485,22 +481,16 @@ export function StreetlightWorkspace({
           year={progressYear}
           years={progressYears}
         />
-        {territory && (
+        {regionSetup.kind === 'ready' && (
           <TerritoryEditor
             active={setupMap.interactive}
-            initialData={territory}
             map={map}
             mapVisible={setupMap.visible}
             mapsApiKey={mapsApiKey}
-            onDirtyChange={setTerritoryDirty}
-            onDiscardAndLeave={finishSetupLeave}
-            onImportingChange={setTerritorySaving}
             onReturnToSetup={() => {
               setTool('setup');
               setSetupView('territory');
             }}
-            onSaved={refreshAfterTerritorySave}
-            onSaveAndLeave={finishSetupLeave}
             onStay={() => {
               setPendingTool(null);
               setPendingSetupView(null);
@@ -508,7 +498,8 @@ export function StreetlightWorkspace({
             onViewChange={openSetupView}
             overlayRoot={overlayRoot}
             pendingLeave={pendingTool !== null || pendingSetupView !== null}
-            setupRequired={setupRequired}
+            view={regionSetup}
+            workflow={regionSetupWorkflow}
           />
         )}
         <PrintoutSettings
@@ -525,21 +516,19 @@ export function StreetlightWorkspace({
           pendingLeave={pendingTool !== null || pendingSetupView !== null}
           settings={printoutSettings}
         />
-        {tool === 'setup' && setupView === 'territory' && !territory && (
+        {tool === 'setup' && setupView === 'territory' && regionSetup.kind !== 'ready' && (
           <aside className="territory-sidebar">
             <div className="sidebar-scroll">
               <p
-                className={territoryError ? 'field-error' : 'empty-state'}
-                role={territoryError ? 'alert' : undefined}
+                className={regionSetup.kind === 'unavailable' ? 'field-error' : 'empty-state'}
+                role={regionSetup.kind === 'unavailable' ? 'alert' : undefined}
               >
-                {territoryError ||
-                  (territoryLoading ? 'Loading saved region…' : 'Saved region unavailable.')}
+                {regionSetup.kind === 'unavailable' ? regionSetup.message : 'Loading saved region…'}
               </p>
-              {territoryError && (
+              {regionSetup.kind === 'unavailable' && (
                 <button
                   onClick={() => {
-                    setTerritoryError('');
-                    void loadTerritory();
+                    void regionSetupWorkflow.recover();
                   }}
                   type="button"
                 >
