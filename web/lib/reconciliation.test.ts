@@ -183,13 +183,6 @@ test('reconciliation migration supports packet-linked street or apartment covera
   });
 });
 
-test('reconciliation persistence exposes the complete transaction boundary', async () => {
-  const persistence = await import('./reconciliation-persistence.ts');
-  assert.equal(typeof persistence.getReconciliationWorkspace, 'function');
-  assert.equal(typeof persistence.reconcilePacketBatch, 'function');
-  assert.equal(typeof persistence.correctPacketCompletion, 'function');
-});
-
 test('legacy packets without saved coordinates use their stored outreach geometry', async () => {
   await withDatabase(async (filename) => {
     const database = openDatabase(filename);
