@@ -1,6 +1,6 @@
-import type { TerritoryWorkspace } from '@/lib/database';
 import type { FinalizedBatch } from '@/lib/packet-finalization';
 import type { ReconciliationWorkspace } from '@/lib/reconciliation';
+import type { TerritoryWorkspace } from '@/lib/territory-workspace';
 
 export type MutationResult<T> =
   | { status: 'success'; value: T }

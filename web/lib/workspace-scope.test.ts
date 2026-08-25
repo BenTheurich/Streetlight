@@ -5,7 +5,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
-import * as database from './database.ts';
+import { getOrganizationAccess } from './church-workspace-persistence.ts';
+import { getTerritoryWorkspace } from './territory-persistence.ts';
 import { runInWorkspace } from './workspace-scope.ts';
 
 test('churches store one unique WorkOS organization and their local time zone', () => {
@@ -84,7 +85,7 @@ test('database reads use the current church workspace instead of the pilot churc
         territoryId: 'territory-second-test',
         timeZone: 'America/New_York',
       },
-      () => database.getTerritoryWorkspace(filename),
+      () => getTerritoryWorkspace(filename),
     );
 
     assert.equal(workspace.churchName, 'Second Test Church');
@@ -129,26 +130,15 @@ test('a WorkOS organization resolves to exactly one church workspace', () => {
   }
 
   try {
-    const getWorkspaceForOrganization = (
-      database as typeof database & {
-        getWorkspaceForOrganization?: (
-          organizationId: string,
-          filename?: string,
-        ) => {
-          churchId: string;
-          territoryId: string;
-          timeZone: string;
-        };
-      }
-    ).getWorkspaceForOrganization;
-
-    assert.deepEqual(getWorkspaceForOrganization?.('org_test_second', filename), {
+    assert.deepEqual(getOrganizationAccess('org_test_second', filename), {
       churchId: 'church-second-test',
+      churchName: 'Second Test Church',
       territoryId: 'territory-second-test',
       timeZone: 'America/New_York',
+      onboardingCompleted: false,
     });
-    assert.throws(() => getWorkspaceForOrganization?.('org_missing', filename), /workspace/i);
-    assert.throws(() => database.getTerritoryWorkspace(filename), /workspace scope/i);
+    assert.throws(() => getOrganizationAccess('org_missing', filename), /workspace/i);
+    assert.throws(() => getTerritoryWorkspace(filename), /workspace scope/i);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

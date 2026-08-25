@@ -5,9 +5,9 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../db/migrate.mjs';
 import { seedDatabase } from '../../../db/seed.mjs';
-import { getTerritoryWorkspace } from '../../../lib/database.ts';
 import { territoryDraftFromWorkspace } from '../../../lib/territory-client.ts';
 import { getLatestTerritoryImportJob } from '../../../lib/territory-import-job.ts';
+import { getTerritoryWorkspace } from '../../../lib/territory-persistence.ts';
 import { withTemeculaWorkspace } from '../../../test/workspace-fixtures.ts';
 import { updateTerritory } from './route.ts';
 

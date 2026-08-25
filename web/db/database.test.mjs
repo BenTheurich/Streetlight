@@ -8,15 +8,17 @@ import { countEligibleHomesCovered } from '../lib/coverage.ts';
 import {
   appendCoverageCorrection,
   getCoverageWorkspace,
-  getFoundationSummary,
-  getPacketGenerationWorkspace,
+  saveCoverageThresholds,
+} from '../lib/coverage-persistence.ts';
+import { getPacketGenerationWorkspace } from '../lib/packet-persistence.ts';
+import {
   getTerritoryWorkspace,
-  recordCoverageCompletion,
+  replaceTerritoryFromImport,
   saveApartmentSiteConfiguration,
   saveApartmentSiteMembership,
-  saveCoverageThresholds,
-  saveTerritoryDraft,
-} from '../lib/database.ts';
+  saveTerritoryDraft as saveContainedTerritoryDraft,
+} from '../lib/territory-persistence.ts';
+import { insertCoverageCompletionFixture } from '../test/persistence-fixtures.ts';
 import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
 import { migrateDatabase, openDatabase } from './migrate.mjs';
 import { seedDatabase } from './seed.mjs';
@@ -33,6 +35,13 @@ function withDatabase(run) {
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+}
+
+function saveTerritoryDraft(draft, options = {}) {
+  const { imported, ...persistenceOptions } = options;
+  return imported
+    ? replaceTerritoryFromImport(draft, imported, persistenceOptions)
+    : saveContainedTerritoryDraft(draft, persistenceOptions);
 }
 
 function importedSegment(
@@ -186,13 +195,11 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
 
   try {
     const workspace = withTemeculaWorkspace(() => getTerritoryWorkspace(filename));
-    const summary = withTemeculaWorkspace(() => getFoundationSummary(filename));
     assert.deepEqual(workspace.center, [-117.1164623, 33.5414958]);
     assert.equal(workspace.import.kind, 'proof');
     assert.equal(workspace.import.release, null);
     assert.equal(workspace.import.normalizerVersion, null);
     assert.equal(workspace.import.quality, null);
-    assert.equal(summary.packetCount, 0);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -509,7 +516,6 @@ test('circle and square boundaries control eligibility and coverage-map visibili
       imported: { ...importedTerritory([corner]), radiusMiles: 1 },
     });
     const circle = getTerritoryWorkspace(filename);
-    const circleSummary = getFoundationSummary(filename);
     assert.equal(circle.segments[0].withinBoundary, false);
     assert.equal(circle.segments[0].excludedReason, 'boundary');
     assert.deepEqual(circle.totals, {
@@ -518,8 +524,6 @@ test('circle and square boundaries control eligibility and coverage-map visibili
       allHomes: 0,
       eligibleHomes: 0,
     });
-    assert.equal(circleSummary.segmentCount, 0);
-    assert.equal(circleSummary.estimatedHomes, 0);
     assert.deepEqual(getCoverageWorkspace(filename).segments, []);
 
     saveTerritoryDraft(
@@ -536,7 +540,6 @@ test('circle and square boundaries control eligibility and coverage-map visibili
       },
     );
     const square = getTerritoryWorkspace(filename);
-    const squareSummary = getFoundationSummary(filename);
     assert.equal(square.boundaryShape, 'square');
     assert.equal(square.segments[0].withinBoundary, true);
     assert.equal(square.segments[0].eligible, true);
@@ -546,8 +549,6 @@ test('circle and square boundaries control eligibility and coverage-map visibili
       allHomes: 8,
       eligibleHomes: 8,
     });
-    assert.equal(squareSummary.segmentCount, 1);
-    assert.equal(squareSummary.estimatedHomes, 8);
     assert.deepEqual(
       getCoverageWorkspace(filename).segments.map((segment) => segment.id),
       ['corner'],
@@ -1623,7 +1624,6 @@ test('reimport preserves coverage and finalized packet references to retired seg
     );
 
     const saved = getTerritoryWorkspace(filename);
-    const summary = getFoundationSummary(filename);
     assert.deepEqual(
       saved.segments.map(({ id, streetName, estimatedHomes }) => ({
         id,
@@ -1635,8 +1635,6 @@ test('reimport preserves coverage and finalized packet references to retired seg
         { id: 'one', streetName: 'Updated Residential Road', estimatedHomes: 9 },
       ],
     );
-    assert.equal(summary.segmentCount, 2);
-    assert.equal(summary.estimatedHomes, 14);
 
     const reloaded = openDatabase(filename);
     const coverage = reloaded
@@ -1940,8 +1938,8 @@ test('coverage boundary appends corrections, retains retired logical history, an
     const before = getTerritoryWorkspace(filename);
     const first = before.segments.find((segment) => segment.eligible);
     const second = before.segments.find((segment) => segment.eligible && segment.id !== first.id);
-    const root = recordCoverageCompletion(first.id, '2026-07-01', filename);
-    const otherRoot = recordCoverageCompletion(second.id, '2026-06-01', filename);
+    const root = insertCoverageCompletionFixture(first.id, '2026-07-01', filename);
+    const otherRoot = insertCoverageCompletionFixture(second.id, '2026-06-01', filename);
     appendCoverageCorrection(root, '2026-07-20', filename);
     appendCoverageCorrection(otherRoot, null, filename);
     const afterVoid = openDatabase(filename);
@@ -2072,7 +2070,7 @@ test('coverage thresholds persist per territory without changing coverage totals
     assert.equal(before.dataMode, 'canonical');
     const segment = before.segments.find((candidate) => candidate.eligible);
     assert.ok(segment);
-    recordCoverageCompletion(segment.id, '2026-05-29', filename);
+    insertCoverageCompletionFixture(segment.id, '2026-05-29', filename);
     const beforeThresholdChange = getCoverageWorkspace(filename, '2026-07-28');
     assert.equal(
       beforeThresholdChange.segments.find((candidate) => candidate.id === segment.id).coverageClass,

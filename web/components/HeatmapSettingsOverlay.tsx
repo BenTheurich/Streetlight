@@ -1,8 +1,7 @@
 'use client';
 
 import { type FormEvent, useEffect, useRef, useState } from 'react';
-import type { CoverageThresholds } from '@/lib/coverage';
-import type { CoverageWorkspace } from '@/lib/database';
+import type { CoverageThresholds, CoverageWorkspace } from '@/lib/coverage';
 import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 
 type HeatmapSettingsOverlayProps = {

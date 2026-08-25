@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { TerritorySegment, TerritoryWorkspace } from './database.ts';
 import {
   activateSegments,
   apartmentSiteReady,
@@ -13,6 +12,7 @@ import {
   withApartmentSiteConfiguration,
 } from './territory-client.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
+import type { TerritorySegment, TerritoryWorkspace } from './territory-workspace.ts';
 
 const visible: TerritorySegment = {
   id: 'visible',

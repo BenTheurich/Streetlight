@@ -1,7 +1,7 @@
 'use client';
 
 import { type FormEvent, useEffect, useRef, useState } from 'react';
-import type { CoverageWorkspace } from '@/lib/database';
+import type { CoverageWorkspace } from '@/lib/coverage';
 import type { FinalizedBatch, ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 import { OperationStatus } from './OperationStatus';

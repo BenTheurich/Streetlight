@@ -1,12 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { SQLInputValue } from 'node:sqlite';
-import { openWorkspaceDatabase, saveTerritoryDraft } from './database.ts';
 import {
   type ImportedTerritoryInput,
   type OvertureImportStage,
   runOvertureImport,
 } from './overture-import.ts';
+import { openSqliteDatabase } from './sqlite-persistence.ts';
 import { parseTerritoryDraft, type TerritoryDraftInput } from './territory-draft.ts';
+import { replaceTerritoryFromImport } from './territory-persistence.ts';
 import { requireWorkspaceScope, runInWorkspace, type WorkspaceScope } from './workspace-scope.ts';
 
 export type TerritoryImportStage =
@@ -69,7 +70,7 @@ export function createOrReuseTerritoryImportJob(
   const scope = requireWorkspaceScope();
   const draftJson = JSON.stringify(draft);
   const fingerprint = jobFingerprint(draftJson);
-  const database = openWorkspaceDatabase(filename);
+  const database = openSqliteDatabase(filename);
   database.exec('BEGIN IMMEDIATE');
   try {
     const active = database
@@ -119,7 +120,7 @@ export function createOrReuseTerritoryImportJob(
 
 export function getTerritoryImportJob(id: string, filename?: string): TerritoryImportJob | null {
   const scope = requireWorkspaceScope();
-  const database = openWorkspaceDatabase(filename);
+  const database = openSqliteDatabase(filename);
   try {
     const row = database
       .prepare(
@@ -136,7 +137,7 @@ export function getTerritoryImportJob(id: string, filename?: string): TerritoryI
 
 export function getLatestTerritoryImportJob(filename?: string): TerritoryImportJob | null {
   const scope = requireWorkspaceScope();
-  const database = openWorkspaceDatabase(filename);
+  const database = openSqliteDatabase(filename);
   try {
     const row = database
       .prepare(
@@ -162,7 +163,7 @@ function transitionJob(
   recordedStage?: TerritoryImportStage,
 ): TerritoryImportJob {
   const scope = requireWorkspaceScope();
-  const database = openWorkspaceDatabase(filename);
+  const database = openSqliteDatabase(filename);
   database.exec('BEGIN IMMEDIATE');
   try {
     const result = database.prepare(sql).run(...parameters, id, scope.churchId, scope.territoryId);
@@ -214,7 +215,7 @@ export function updateTerritoryImportStage(
 
 export function touchTerritoryImportJob(id: string, filename?: string): void {
   const scope = requireWorkspaceScope();
-  const database = openWorkspaceDatabase(filename);
+  const database = openSqliteDatabase(filename);
   try {
     database
       .prepare(
@@ -264,7 +265,7 @@ export function finishTerritoryImportJob(
   const job = getTerritoryImportJob(id, filename);
   if (job?.status !== 'running') throw new Error('Territory import job is not running');
   updateTerritoryImportStage(id, 'saving', filename);
-  saveTerritoryDraft(job.draft, { filename, imported, importJobId: id });
+  replaceTerritoryFromImport(job.draft, imported, { filename, importJobId: id });
   const completed = getTerritoryImportJob(id, filename);
   if (!completed) throw new Error('Territory import job was not found');
   return completed;

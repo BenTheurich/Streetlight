@@ -1,4 +1,4 @@
-import type { OpenMapData } from './database.ts';
+import type { OpenMapData } from './open-map-data.ts';
 import type { DownloadPacket, PacketMapGeneration } from './packet-finalization.ts';
 import { endpointMeetsInterior } from './packet-selection.ts';
 import type { LineString, Position } from './territory-geometry.ts';

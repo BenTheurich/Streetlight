@@ -6,9 +6,9 @@ import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
 import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
-import { getTerritoryWorkspace, saveTerritoryDraft } from './database.ts';
 import { territoryDraftFromWorkspace } from './territory-client.ts';
 import { parseTerritoryDraft } from './territory-draft.ts';
+import { getTerritoryWorkspace, saveTerritoryDraft } from './territory-persistence.ts';
 
 function withDatabase(run: (filename: string) => void) {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-territory-'));

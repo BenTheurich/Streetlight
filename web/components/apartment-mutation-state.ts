@@ -1,10 +1,10 @@
+import { apartmentSiteReady, withApartmentSiteConfiguration } from '../lib/territory-client.ts';
 import type {
   ApartmentSite,
   ApartmentSiteConfigurationInput,
   ApartmentSiteMembershipInput,
   TerritoryWorkspace,
-} from '../lib/database.ts';
-import { apartmentSiteReady, withApartmentSiteConfiguration } from '../lib/territory-client.ts';
+} from '../lib/territory-workspace.ts';
 import type { MutationResult } from './operation-state.ts';
 
 export type ApartmentMutation =

@@ -1,5 +1,8 @@
 import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
-import { getChurchPrintoutSettings, saveChurchPrintoutSettings } from '../../../lib/database.ts';
+import {
+  getChurchPrintoutSettings,
+  saveChurchPrintoutSettings,
+} from '../../../lib/printout-settings-persistence.ts';
 
 export function getSettings(): Response {
   return Response.json(getChurchPrintoutSettings());

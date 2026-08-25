@@ -1,6 +1,6 @@
 import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
-import { getPacketGenerationWorkspace } from '../../../lib/database.ts';
 import { withProposalFingerprint } from '../../../lib/packet-finalization.ts';
+import { getPacketGenerationWorkspace } from '../../../lib/packet-persistence.ts';
 import {
   generatePacketProposals,
   type PacketSizeRequest,

@@ -1,11 +1,11 @@
 import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
-import { getTerritoryWorkspace } from '../../../../lib/database.ts';
 import { applyMvpCapabilities } from '../../../../lib/product-capabilities.ts';
 import {
   ensureTerritoryImportJobRunning,
   getLatestTerritoryImportJob,
   getTerritoryImportJob,
 } from '../../../../lib/territory-import-job.ts';
+import { getTerritoryWorkspace } from '../../../../lib/territory-persistence.ts';
 import { requireWorkspaceScope } from '../../../../lib/workspace-scope.ts';
 
 export const dynamic = 'force-dynamic';

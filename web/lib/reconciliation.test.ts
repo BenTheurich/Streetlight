@@ -5,7 +5,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
+import { insertCoverageCompletionFixture } from '../test/persistence-fixtures.ts';
 import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
+import { appendCoverageCorrection, getCoverageWorkspace } from './coverage-persistence.ts';
+import { getPacketGenerationWorkspace } from './packet-persistence.ts';
 import {
   buildReconciliationChoices,
   buildReconciliationPreview,
@@ -180,11 +183,11 @@ test('reconciliation migration supports packet-linked street or apartment covera
   });
 });
 
-test('database exposes the reconciliation transaction boundary', async () => {
-  const databaseModule = await import('./database.ts');
-  assert.equal(typeof databaseModule.getReconciliationWorkspace, 'function');
-  assert.equal(typeof databaseModule.reconcilePacketBatch, 'function');
-  assert.equal(typeof databaseModule.correctPacketCompletion, 'function');
+test('reconciliation persistence exposes the complete transaction boundary', async () => {
+  const persistence = await import('./reconciliation-persistence.ts');
+  assert.equal(typeof persistence.getReconciliationWorkspace, 'function');
+  assert.equal(typeof persistence.reconcilePacketBatch, 'function');
+  assert.equal(typeof persistence.correctPacketCompletion, 'function');
 });
 
 test('legacy packets without saved coordinates use their stored outreach geometry', async () => {
@@ -224,8 +227,8 @@ test('legacy packets without saved coordinates use their stored outreach geometr
       .run(segment.id);
     database.close();
 
-    const databaseModule = await import('./database.ts');
-    const packet = databaseModule
+    const persistence = await import('./reconciliation-persistence.ts');
+    const packet = persistence
       .getReconciliationWorkspace(filename)
       .batches[0]?.packets.find(({ id }) => id === 'legacy-packet');
     assert.deepEqual(packet?.start.position, JSON.parse(segment.geometry_geojson).coordinates[0]);
@@ -416,7 +419,7 @@ test('reconciliation map isolates the selected packet in active and history view
 test('one reconciliation atomically completes missing packets, keeps present, cancels selected, and replays safely', async () => {
   await withDatabase(async (filename) => {
     const prepared = prepareBatch(filename);
-    const databaseModule = await import('./database.ts');
+    const databaseModule = await import('./reconciliation-persistence.ts');
     assert.equal(typeof databaseModule.getReconciliationWorkspace, 'function');
     assert.equal(typeof databaseModule.reconcilePacketBatch, 'function');
     if (
@@ -490,7 +493,7 @@ test('one reconciliation atomically completes missing packets, keeps present, ca
       .get(prepared.streetPacketId) as { id: string };
     database.close();
     assert.throws(
-      () => databaseModule.appendCoverageCorrection(managedRoot.id, '2026-07-20', filename),
+      () => appendCoverageCorrection(managedRoot.id, '2026-07-20', filename),
       /Reconcile packets/,
     );
 
@@ -498,9 +501,10 @@ test('one reconciliation atomically completes missing packets, keeps present, ca
       filename,
       now: new Date('2026-07-29T12:01:00.000Z'),
     });
-    const apartmentCandidate = databaseModule
-      .getPacketGenerationWorkspace(filename, '2026-07-29')
-      .apartmentComplexes.find(({ id }) => id === prepared.apartmentLogicalId);
+    const apartmentCandidate = getPacketGenerationWorkspace(
+      filename,
+      '2026-07-29',
+    ).apartmentComplexes.find(({ id }) => id === prepared.apartmentLogicalId);
     assert.equal(apartmentCandidate?.reserved, false);
     assert.equal(apartmentCandidate?.lastCoveredOn, '2026-07-29');
     assert.equal(apartmentCandidate?.coverageClass, 'green');
@@ -533,7 +537,7 @@ test('one reconciliation atomically completes missing packets, keeps present, ca
 test('whole-packet correction and undo preserve earlier coverage and reject reservation conflicts', async () => {
   await withDatabase(async (filename) => {
     const prepared = prepareBatch(filename);
-    const databaseModule = await import('./database.ts');
+    const databaseModule = await import('./reconciliation-persistence.ts');
     assert.equal(typeof databaseModule.reconcilePacketBatch, 'function');
     assert.equal(typeof databaseModule.correctPacketCompletion, 'function');
     if (
@@ -542,7 +546,7 @@ test('whole-packet correction and undo preserve earlier coverage and reject rese
     ) {
       return;
     }
-    databaseModule.recordCoverageCompletion(prepared.streetLogicalIds[0], '2025-01-01', filename);
+    insertCoverageCompletionFixture(prepared.streetLogicalIds[0], '2025-01-01', filename);
     databaseModule.reconcilePacketBatch(
       {
         batchId: prepared.batchId,
@@ -566,7 +570,7 @@ test('whole-packet correction and undo preserve earlier coverage and reject rese
       { packetId: prepared.streetPacketId, coveredOn: '2026-07-20' },
       { filename, now: new Date('2026-07-29T13:00:00.000Z') },
     );
-    const correctedCoverage = databaseModule.getCoverageWorkspace(filename, '2026-07-29');
+    const correctedCoverage = getCoverageWorkspace(filename, '2026-07-29');
     for (const id of prepared.streetLogicalIds) {
       assert.equal(
         correctedCoverage.segments.find((segment) => segment.id === id)?.lastCoveredOn,
@@ -616,7 +620,7 @@ test('whole-packet correction and undo preserve earlier coverage and reject rese
       { packetId: prepared.streetPacketId, coveredOn: null },
       { filename, now: new Date('2026-07-29T14:00:00.000Z') },
     );
-    const undoneCoverage = databaseModule.getCoverageWorkspace(filename, '2026-07-29');
+    const undoneCoverage = getCoverageWorkspace(filename, '2026-07-29');
     assert.equal(
       undoneCoverage.segments.find(({ id }) => id === prepared.streetLogicalIds[0])?.lastCoveredOn,
       '2025-01-01',
