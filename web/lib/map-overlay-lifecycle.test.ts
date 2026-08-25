@@ -46,7 +46,7 @@ function base(mapType: 'roadmap' | 'satellite' = 'roadmap'): WorkspaceMapBasePre
 }
 
 class TestMapAdapter implements MapOverlayAdapter {
-  readonly initialBase = base();
+  readonly initialBase: WorkspaceMapBasePresentation;
   readonly sources = new Map<string, unknown>();
   readonly sourceOptions = new Map<string, Record<string, unknown> | undefined>();
   readonly layers = new Map<string, MapOverlayLayer>();
@@ -61,15 +61,21 @@ class TestMapAdapter implements MapOverlayAdapter {
     complete: () => void;
     reject: (error: Error) => void;
   }> = [];
+  readonly styleTargets: WorkspaceMapBasePresentation[] = [];
   styleReplacements = 0;
   ready = Promise.resolve();
+
+  constructor(initialBase = base()) {
+    this.initialBase = initialBase;
+  }
 
   waitUntilReady() {
     return this.ready;
   }
 
-  replaceStyle() {
+  replaceStyle(value: WorkspaceMapBasePresentation) {
     this.styleReplacements += 1;
+    this.styleTargets.push(value);
     this.sources.clear();
     this.layers.clear();
     return new Promise<void>((resolve, reject) => {
@@ -275,6 +281,70 @@ test('presentation and adapter cleanup permit React-style ownership replay', asy
   lifecycle.dispose();
 });
 
+test('a same-style base updates current boundary and church data without replacing style', async () => {
+  const statuses: string[] = [];
+  const initial = base();
+  const updated: WorkspaceMapBasePresentation = {
+    ...initial,
+    data: {
+      ...initial.data,
+      center: [-117.3, 33.7],
+      boundary: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-117.4, 33.6],
+            [-117.2, 33.6],
+            [-117.2, 33.8],
+            [-117.4, 33.8],
+            [-117.4, 33.6],
+          ],
+        ],
+      },
+    },
+  };
+  const lifecycle = createMapOverlayLifecycle({ onStatus: ({ state }) => statuses.push(state) });
+  const adapter = new TestMapAdapter(initial);
+  lifecycle.present(initial);
+  lifecycle.attach(adapter);
+  await turn();
+
+  lifecycle.present(updated);
+  await turn();
+
+  assert.equal(adapter.styleReplacements, 0);
+  assert.deepEqual(
+    (adapter.sources.get('streetlightBoundary') as { geometry: unknown }).geometry,
+    updated.data.boundary,
+  );
+  assert.deepEqual(adapter.markers.get('church')?.position, updated.data.center);
+  assert.deepEqual(statuses, ['loading', 'ready']);
+  lifecycle.dispose();
+});
+
+test('an identical provider style received before initial readiness cannot leave loading', async () => {
+  let resolveReady = () => {};
+  const initial = base();
+  const statuses: string[] = [];
+  const lifecycle = createMapOverlayLifecycle({
+    onStatus: ({ state }) => statuses.push(state),
+  });
+  const adapter = new TestMapAdapter(initial);
+  adapter.ready = new Promise<void>((resolve) => {
+    resolveReady = resolve;
+  });
+  lifecycle.present(initial);
+  lifecycle.attach(adapter);
+  lifecycle.present({ ...initial, data: { ...initial.data } });
+
+  resolveReady();
+  await turn();
+
+  assert.equal(adapter.styleReplacements, 0);
+  assert.deepEqual(statuses, ['loading', 'ready']);
+  lifecycle.dispose();
+});
+
 test('serializes style replacement, applies only the latest base, and republishes once', async () => {
   const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
   const adapter = new TestMapAdapter();
@@ -322,12 +392,15 @@ test('serializes style replacement, applies only the latest base, and republishe
   lifecycle.present({ ...base('roadmap'), data: { ...emptyData, importGeneration: 2 } });
   await turn();
   assert.equal(adapter.styleReplacements, 1);
+  assert.equal(adapter.styleTargets[0]?.mapType, 'satellite');
   assert.equal(adapter.sources.size, 0);
   assert.equal(adapter.listeners.get('click:streetlight-coverage')?.size ?? 0, 0);
 
   adapter.styleRequests[0]?.complete();
   await turn();
   assert.equal(adapter.styleReplacements, 2);
+  assert.equal(adapter.styleTargets[1]?.mapType, 'roadmap');
+  assert.equal(adapter.styleTargets[1]?.data.importGeneration, 2);
   assert.equal(adapter.sources.size, 0);
   assert.equal(adapter.listeners.get('click:streetlight-coverage')?.size ?? 0, 0);
 

@@ -233,12 +233,17 @@ const OWNED_SOURCES = [
 
 const emptyCollection = () => ({ type: 'FeatureCollection', features: [] });
 
-function sameBase(
+function sameBaseStyle(
   left: WorkspaceMapBasePresentation | null,
   right: WorkspaceMapBasePresentation | null,
 ): boolean {
+  // Imported buildings and house-number labels are immutable within a territory generation.
   return (
-    left !== null && right !== null && left.data === right.data && left.mapType === right.mapType
+    left !== null &&
+    right !== null &&
+    left.data.territoryId === right.data.territoryId &&
+    left.data.importGeneration === right.data.importGeneration &&
+    left.mapType === right.mapType
   );
 }
 
@@ -1293,7 +1298,8 @@ export function createMapOverlayLifecycle({
   function replaceLatestStyle(): void {
     const current = adapter;
     const desired = basePresentation();
-    if (!current || !ready || styleRunning || !desired || sameBase(appliedBase, desired)) return;
+    if (!current || !ready || styleRunning || !desired || sameBaseStyle(appliedBase, desired))
+      return;
     styleRunning = true;
     status({ state: 'loading' });
     cleanupRuntime();
@@ -1313,7 +1319,7 @@ export function createMapOverlayLifecycle({
         appliedBase = target;
         styleRunning = false;
         const latest = basePresentation();
-        if (latest && !sameBase(latest, appliedBase)) {
+        if (latest && !sameBaseStyle(latest, appliedBase)) {
           replaceLatestStyle();
           return;
         }
@@ -1330,7 +1336,7 @@ export function createMapOverlayLifecycle({
           return;
         styleRunning = false;
         const latest = basePresentation();
-        if (latest && !sameBase(latest, target)) {
+        if (latest && !sameBaseStyle(latest, target)) {
           replaceLatestStyle();
           return;
         }
@@ -1369,7 +1375,7 @@ export function createMapOverlayLifecycle({
           if (disposed || adapter !== current || adapterToken !== token) return;
           ready = true;
           const desired = basePresentation();
-          if (desired && !sameBase(desired, appliedBase)) replaceLatestStyle();
+          if (desired && !sameBaseStyle(desired, appliedBase)) replaceLatestStyle();
           else {
             reconcileAll();
             status({ state: 'ready' });
@@ -1387,8 +1393,13 @@ export function createMapOverlayLifecycle({
       if (disposed) throw new Error('Map overlay lifecycle is disposed');
       const token = ++presentationToken;
       slots.set(value.kind, { token, value });
-      if (value.kind === 'base') replaceLatestStyle();
-      else if (
+      if (value.kind === 'base') {
+        if (adapter && ready && !styleRunning && sameBaseStyle(appliedBase, value)) {
+          reconcileSafely(() => reconcile('base'));
+        } else {
+          replaceLatestStyle();
+        }
+      } else if (
         adapter &&
         ready &&
         !styleRunning &&
