@@ -56,10 +56,19 @@
           "id": "overture-apartment-building:apartment-b",
           "position": [0.001, 0.0001],
           "sourceId": "apartment-b"
+        },
+        {
+          "address": "15 Sample Road",
+          "apartmentBuilding": false,
+          "distinctUnits": 5,
+          "geometry": null,
+          "id": "overture-apartment-address:sample-rd|15|",
+          "position": [0.0006288178224937119, 0.00026949335249730504],
+          "sourceId": "sample-rd|15|"
         }
       ],
       "name": "Sample Apartments",
-      "position": [0.0006288178224937119, 0.00008983111749910166],
+      "position": [0.0006288178224937119, 8.983111749910166e-5],
       "sourceId": "sample-apartments"
     }
   ],
@@ -146,13 +155,13 @@
   ],
   "normalizerVersion": 12,
   "quality": {
-    "assignedAddresses": 1,
+    "assignedAddresses": 2,
     "buildingAddressDisagreements": 0,
     "fallbackBuildings": 1,
     "inferredRoads": 0,
     "populatedUnnamedRoads": 0,
     "spatiallyAssignedAddresses": 0,
-    "totalAddresses": 1,
+    "totalAddresses": 2,
     "totalResidentialBuildings": 1,
     "unmatchedAddresses": 0,
     "unmatchedResidentialBuildings": 0,
@@ -168,12 +177,19 @@
         {
           "locality": "Sample City",
           "number": "30",
-          "position": [0.0026949335249730508, 0.00008983111749910169],
+          "position": [0.0026949335249730508, 8.983111749910169e-5],
           "postcode": "12345",
+          "street": "Sample Road"
+        },
+        {
+          "locality": null,
+          "number": null,
+          "position": [0.003413582464965864, 8.983111749910169e-5],
+          "postcode": null,
           "street": "Sample Road"
         }
       ],
-      "estimatedHomes": 2,
+      "estimatedHomes": 3,
       "geometry": {
         "coordinates": [[0, 0], [0.004, 0]],
         "type": "LineString"

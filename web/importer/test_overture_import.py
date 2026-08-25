@@ -168,6 +168,16 @@ def import_process_contract_sources():
         address("Sample Road", 0.0003, 0.0001, number="10", unit="1"),
         address("Sample Road", 0.0003, 0.0001, number="10", unit="2"),
         address("Sample Road", 0.0010, 0.0001, number="20", unit="1"),
+        *[
+            address(
+                "Sample Road",
+                70 / 111_320,
+                30 / 111_320,
+                number="15",
+                unit=str(unit),
+            )
+            for unit in range(1, 6)
+        ],
         address(
             "Sample Road",
             300 / 111_320,
@@ -177,6 +187,7 @@ def import_process_contract_sources():
             postcode="12345",
             source_id="home-address",
         ),
+        address("Sample Road", 380 / 111_320, 10 / 111_320),
     ]
     buildings = [
         building("apartment-a", "apartments", box(30, 10, 20, 20)),
@@ -225,6 +236,26 @@ class NormalizeFeaturesTest(TestCase):
             .read_text(encoding="utf-8")
         )
 
+        apartment_members = [
+            member
+            for site in payload["apartmentSites"]
+            for member in site["members"]
+        ]
+        self.assertTrue(
+            any(
+                member["apartmentBuilding"] is False and member["geometry"] is None
+                for member in apartment_members
+            )
+        )
+        self.assertTrue(
+            any(
+                item["number"] is None
+                and item["locality"] is None
+                and item["postcode"] is None
+                for segment in payload["segments"]
+                for item in segment["addresses"]
+            )
+        )
         self.assertEqual(payload, fixture)
 
     def test_apartment_land_use_proposes_one_site(self):
