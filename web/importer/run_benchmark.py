@@ -5,11 +5,10 @@ import urllib.request
 from pathlib import Path
 
 from .overture_import import (
-    benchmark_metrics,
+    NormalizedImportResult,
     download_fema_features,
     download_features,
     enclosing_bbox,
-    normalize_features,
     select_map_buildings,
 )
 
@@ -255,7 +254,7 @@ def run_area(name, cache_dir=None):
         radius_miles,
         cache_dir,
     )
-    normalized = normalize_features(roads, addresses, buildings)
+    normalized = NormalizedImportResult.from_sources(roads, addresses, buildings)
     _, building_selection = select_map_buildings(
         addresses,
         buildings,
@@ -273,15 +272,8 @@ def run_area(name, cache_dir=None):
             "residentialBuildings": len(buildings),
             "nadReferenceAddresses": len(reference),
         },
-        "importQuality": normalized["quality"],
-        "apartments": {
-            "complexes": len(normalized["apartmentComplexes"]),
-            "estimatedTracts": sum(
-                item["estimatedTracts"] for item in normalized["apartmentComplexes"]
-            ),
-        },
         "buildingSelection": building_selection,
-        "benchmark": benchmark_metrics(normalized, reference),
+        **normalized.benchmark_projection(reference),
     }
 
 

@@ -16,12 +16,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@next/env": "16.2.11",
+    "@next/env": "16.3.0",
     "@radix-ui/react-select": "^2.3.7",
     "@workos-inc/authkit-nextjs": "^4.3.0",
     "@workos-inc/node": "^10.8.0",
     "maplibre-gl": "^5.24.0",
-    "next": "16.2.11",
+    "next": "16.3.0",
     "pdf-lib": "^1.17.1",
     "playwright": "1.62.0",
     "qrcode": "^1.5.4",

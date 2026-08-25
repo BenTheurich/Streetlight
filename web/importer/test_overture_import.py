@@ -1,7 +1,9 @@
 import json
 import sys
 from contextlib import redirect_stderr, redirect_stdout
+from datetime import datetime, timezone
 from io import StringIO
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
@@ -10,6 +12,7 @@ from urllib.parse import parse_qs, urlparse
 from . import overture_import as importer_module
 from . import run_benchmark as benchmark_module
 from .overture_import import (
+    NormalizedImportResult,
     OVERTURE_RELEASE,
     SpatialIndex,
     canonical_street_name,
@@ -18,7 +21,6 @@ from .overture_import import (
     download_features,
     enclosing_bbox,
     main,
-    normalize_features,
     select_map_buildings,
 )
 
@@ -129,7 +131,102 @@ def fema_building(source_id, coordinates):
     }
 
 
+def normalized_result(roads, addresses, buildings=None, apartment_areas=None):
+    return NormalizedImportResult.from_sources(
+        roads,
+        addresses,
+        buildings,
+        apartment_areas,
+    )
+
+
+def normalize_features(roads, addresses, buildings=None, apartment_areas=None):
+    return normalized_result(
+        roads,
+        addresses,
+        buildings,
+        apartment_areas,
+    ).process_payload(
+        center=(0, 0),
+        radius_miles=1,
+        completed_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        building_mode="overture_only",
+        map_buildings=[],
+    )
+
+
+def import_process_contract_sources():
+    roads = [
+        road(
+            "road-1",
+            "residential",
+            "Sample Road",
+            [[0, 0], [0.004, 0]],
+        )
+    ]
+    addresses = [
+        address("Sample Road", 0.0003, 0.0001, number="10", unit="1"),
+        address("Sample Road", 0.0003, 0.0001, number="10", unit="2"),
+        address("Sample Road", 0.0010, 0.0001, number="20", unit="1"),
+        address(
+            "Sample Road",
+            300 / 111_320,
+            10 / 111_320,
+            number="30",
+            postal_city="Sample City",
+            postcode="12345",
+            source_id="home-address",
+        ),
+    ]
+    buildings = [
+        building("apartment-a", "apartments", box(30, 10, 20, 20)),
+        building("apartment-b", "apartments", box(110, 10, 20, 20)),
+        building("house-building", "house", box(220, 10, 20, 20)),
+    ]
+    apartment_areas = [
+        apartment_area(
+            "sample-apartments",
+            box(70, 10, 180, 80),
+            name="Sample Apartments",
+            address_value="10 Sample Road",
+        )
+    ]
+    fema = [fema_building("fema-home", box(300, 10, 20, 20))]
+    return roads, addresses, buildings, apartment_areas, fema
+
+
 class NormalizeFeaturesTest(TestCase):
+    def test_process_payload_matches_the_shared_contract_fixture(self):
+        roads, addresses, buildings, apartment_areas, fema = (
+            import_process_contract_sources()
+        )
+        result = NormalizedImportResult.from_sources(
+            roads,
+            addresses,
+            buildings,
+            apartment_areas,
+        )
+        payload = result.process_payload(
+            center=(-117.1274, 33.5107),
+            radius_miles=1,
+            completed_at=datetime(2026, 8, 25, 12, 0, tzinfo=timezone.utc),
+            building_mode="overture_fema",
+            map_buildings=select_map_buildings(
+                addresses,
+                buildings,
+                fema,
+                roads,
+            ),
+        )
+        fixture = json.loads(
+            Path(__file__)
+            .with_name("fixtures")
+            .joinpath("import-process-contract-v12.json")
+            .read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(payload, fixture)
+
     def test_apartment_land_use_proposes_one_site(self):
         roads = [road("road-1", "residential", "Sample Road", [[0, 0], [0.002, 0]])]
         addresses = [
@@ -1725,6 +1822,39 @@ class ImportCompletenessTest(TestCase):
 
 
 class BenchmarkMetricsTest(TestCase):
+    def test_run_area_uses_the_real_normalized_projection(self):
+        sources = (
+            [road("oak", "residential", "Oak Road", [[0, 0], [0.001, 0]])],
+            [
+                address(
+                    "Oak Road",
+                    0.0002 + index * 0.0002,
+                    0.00005,
+                    number=str(index + 1),
+                )
+                for index in range(4)
+            ],
+            [],
+        )
+        reference = list(sources[1])
+
+        with (
+            patch.object(benchmark_module, "AREAS", {"fixture-area": (0, 0, 0.1)}),
+            patch.object(benchmark_module, "download_features", return_value=sources),
+            patch.object(
+                benchmark_module,
+                "download_nad_reference",
+                return_value=reference,
+            ),
+            patch.object(benchmark_module, "download_fema_features", return_value=[]),
+        ):
+            result = benchmark_module.run_area("fixture-area")
+
+        self.assertEqual(result["area"], "fixture-area")
+        self.assertNotIn("apartments", result)
+        self.assertEqual(result["importQuality"]["assignedAddresses"], 4)
+        self.assertEqual(result["benchmark"]["classification"], "high_confidence")
+
     def test_building_audit_reports_false_positives_and_false_negatives(self):
         result = benchmark_module.audit_metrics(
             selected_ids={"accepted", "false-positive"},
@@ -1748,11 +1878,7 @@ class BenchmarkMetricsTest(TestCase):
         )
 
     def test_classifies_exact_high_confidence_and_usable_boundaries(self):
-        classify = getattr(
-            importer_module,
-            "benchmark_classification",
-            lambda *_: {},
-        )
+        classify = importer_module._benchmark_classification
 
         self.assertEqual(
             classify(0.95, 0.99, 0.98, 0.9, 0, 100),
@@ -1779,11 +1905,7 @@ class BenchmarkMetricsTest(TestCase):
         )
 
     def test_classifies_every_usable_floor_failure_as_below_usable(self):
-        classify = getattr(
-            importer_module,
-            "benchmark_classification",
-            lambda *_: {},
-        )
+        classify = importer_module._benchmark_classification
         cases = [
             (0.8999, 0.99, 0.9, 0.85, 3, 100),
             (0.9, 0.9899, 0.9, 0.85, 3, 100),
@@ -1804,13 +1926,12 @@ class BenchmarkMetricsTest(TestCase):
             address("West 900 North", 0.0002 + index * 0.0002, 0.00005, number=str(index + 1))
             for index in range(4)
         ]
-        normalized = normalize_features(
+        normalized = normalized_result(
             [road("west", "residential", "W 900 N", [[0, 0], [0.001, 0]])],
             reference,
         )
-        normalized["segments"][0]["streetName"] = "W 900 N"
 
-        result = importer_module.benchmark_metrics(normalized, reference)
+        result = normalized.benchmark_projection(reference)["benchmark"]
 
         self.assertEqual(result["roadNameAccuracy"], 1.0)
         self.assertEqual(result["incorrectRoadNames"], [])
@@ -1826,7 +1947,7 @@ class BenchmarkMetricsTest(TestCase):
             for house in range(5)
             for duplicate in range(50)
         ]
-        normalized = normalize_features(
+        normalized = normalized_result(
             [road("oak", "residential", "Oak Road", [[0, 0], [0.001, 0]])],
             [
                 address(
@@ -1839,7 +1960,7 @@ class BenchmarkMetricsTest(TestCase):
             ],
         )
 
-        result = importer_module.benchmark_metrics(normalized, reference)
+        result = normalized.benchmark_projection(reference)["benchmark"]
 
         self.assertEqual(result["rawReferencePoints"], 250)
         self.assertEqual(result["referenceAddresses"], 5)
@@ -1855,8 +1976,8 @@ class BenchmarkMetricsTest(TestCase):
             address("Oak Road", 0.0004 + index * 0.0001, 0.00005, number=str(20 + index))
             for index in range(3)
         ]
-        normalized = {
-            "segments": [
+        normalized = NormalizedImportResult(
+            _segments=[
                 {
                     "id": "oak",
                     "sourceSegmentId": "source-oak",
@@ -1865,7 +1986,7 @@ class BenchmarkMetricsTest(TestCase):
                     "estimatedHomes": 3,
                 }
             ],
-            "apartmentSites": [
+            _apartment_sites=[
                 {
                     "members": [
                         {
@@ -1875,13 +1996,13 @@ class BenchmarkMetricsTest(TestCase):
                     ],
                 }
             ],
-            "quality": {
+            _quality={
                 "assignedAddresses": 3,
                 "totalAddresses": 3,
             },
-        }
+        )
 
-        result = importer_module.benchmark_metrics(normalized, reference)
+        result = normalized.benchmark_projection(reference)["benchmark"]
 
         self.assertEqual(result["referencePremises"], 4)
         self.assertEqual(result["apartmentReferencePremises"], 1)
@@ -1904,15 +2025,10 @@ class BenchmarkMetricsTest(TestCase):
             for street, latitude in [("Oak Rd", 0.00005), ("Pine Ln", 0.00105)]
             for index in range(4)
         ]
-        normalized = normalize_features(roads, reference)
-        benchmark_metrics = getattr(
-            importer_module,
-            "benchmark_metrics",
-            lambda _normalized, _reference: None,
-        )
+        normalized = normalized_result(roads, reference)
 
         self.assertEqual(
-            benchmark_metrics(normalized, reference),
+            normalized.benchmark_projection(reference)["benchmark"],
             {
                 "referenceAddresses": 8,
                 "referencePremises": 8,
@@ -1944,12 +2060,12 @@ class BenchmarkMetricsTest(TestCase):
             address("Oak Road", 0.0002 + index * 0.0002, 0.00005, number=str(index))
             for index in range(4)
         ]
-        normalized = normalize_features(
+        normalized = normalized_result(
             [road("oak", "residential", "Oak Road", [[0, 0], [0.001, 0]])],
             [],
         )
 
-        result = importer_module.benchmark_metrics(normalized, reference)
+        result = normalized.benchmark_projection(reference)["benchmark"]
 
         self.assertEqual(
             result["highConfidenceFailedMetrics"],

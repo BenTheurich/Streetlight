@@ -1,0 +1,188 @@
+{
+  "apartmentSites": [
+    {
+      "address": "10 Sample Road",
+      "boundary": {
+        "coordinates": [
+          [
+            [-0.00017966223499820333, -0.0002694933524973051],
+            [0.001437297879985627, -0.0002694933524973051],
+            [0.001437297879985627, 0.0004491555874955084],
+            [-0.00017966223499820333, 0.0004491555874955084],
+            [-0.00017966223499820333, -0.0002694933524973051]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "groupingKind": "source_boundary",
+      "id": "overture-apartment-area:sample-apartments",
+      "members": [
+        {
+          "address": "10 Sample Road",
+          "apartmentBuilding": true,
+          "distinctUnits": 2,
+          "geometry": {
+            "coordinates": [
+              [
+                [0.00017966223499820335, 0.0],
+                [0.00035932446999640676, 0.0],
+                [0.00035932446999640676, 0.00017966223499820338],
+                [0.00017966223499820335, 0.00017966223499820338],
+                [0.00017966223499820335, 0.0]
+              ]
+            ],
+            "type": "Polygon"
+          },
+          "id": "overture-apartment-building:apartment-a",
+          "position": [0.0003, 0.0001],
+          "sourceId": "apartment-a"
+        },
+        {
+          "address": "20 Sample Road",
+          "apartmentBuilding": true,
+          "distinctUnits": 1,
+          "geometry": {
+            "coordinates": [
+              [
+                [0.0008983111749910168, 0.0],
+                [0.0010779734099892202, 0.0],
+                [0.0010779734099892202, 0.00017966223499820338],
+                [0.0008983111749910168, 0.00017966223499820338],
+                [0.0008983111749910168, 0.0]
+              ]
+            ],
+            "type": "Polygon"
+          },
+          "id": "overture-apartment-building:apartment-b",
+          "position": [0.001, 0.0001],
+          "sourceId": "apartment-b"
+        }
+      ],
+      "name": "Sample Apartments",
+      "position": [0.0006288178224937119, 0.00008983111749910166],
+      "sourceId": "sample-apartments"
+    }
+  ],
+  "buildingMode": "overture_fema",
+  "center": [-117.1274, 33.5107],
+  "completedAt": "2026-08-25T12:00:00+00:00",
+  "mapBuildings": [
+    {
+      "fema": {
+        "addressSourceId": "home-address",
+        "distanceMeters": 0,
+        "imageDate": null,
+        "occupancy": "Single Family Dwelling",
+        "outbuilding": false,
+        "productDate": null,
+        "source": "FEMA"
+      },
+      "geometry": {
+        "coordinates": [
+          [
+            [0.002605102407473949, 0.0],
+            [0.0027847646424721526, 0.0],
+            [0.0027847646424721526, 0.00017966223499820338],
+            [0.002605102407473949, 0.00017966223499820338],
+            [0.002605102407473949, 0.0]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "source": "fema",
+      "sourceId": "fema-home"
+    },
+    {
+      "fema": null,
+      "geometry": {
+        "coordinates": [
+          [
+            [0.00017966223499820335, 0.0],
+            [0.00035932446999640676, 0.0],
+            [0.00035932446999640676, 0.00017966223499820338],
+            [0.00017966223499820335, 0.00017966223499820338],
+            [0.00017966223499820335, 0.0]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "source": "overture",
+      "sourceId": "apartment-a"
+    },
+    {
+      "fema": null,
+      "geometry": {
+        "coordinates": [
+          [
+            [0.0008983111749910168, 0.0],
+            [0.0010779734099892202, 0.0],
+            [0.0010779734099892202, 0.00017966223499820338],
+            [0.0008983111749910168, 0.00017966223499820338],
+            [0.0008983111749910168, 0.0]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "source": "overture",
+      "sourceId": "apartment-b"
+    },
+    {
+      "fema": null,
+      "geometry": {
+        "coordinates": [
+          [
+            [0.0018864534674811354, 0.0],
+            [0.002066115702479339, 0.0],
+            [0.002066115702479339, 0.00017966223499820338],
+            [0.0018864534674811354, 0.00017966223499820338],
+            [0.0018864534674811354, 0.0]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "source": "overture",
+      "sourceId": "house-building"
+    }
+  ],
+  "normalizerVersion": 12,
+  "quality": {
+    "assignedAddresses": 1,
+    "buildingAddressDisagreements": 0,
+    "fallbackBuildings": 1,
+    "inferredRoads": 0,
+    "populatedUnnamedRoads": 0,
+    "spatiallyAssignedAddresses": 0,
+    "totalAddresses": 1,
+    "totalResidentialBuildings": 1,
+    "unmatchedAddresses": 0,
+    "unmatchedResidentialBuildings": 0,
+    "unresolvedClusters": 0,
+    "warnings": []
+  },
+  "radiusMiles": 1,
+  "release": "2026-06-17.0",
+  "segments": [
+    {
+      "activationKind": "automatic",
+      "addresses": [
+        {
+          "locality": "Sample City",
+          "number": "30",
+          "position": [0.0026949335249730508, 0.00008983111749910169],
+          "postcode": "12345",
+          "street": "Sample Road"
+        }
+      ],
+      "estimatedHomes": 2,
+      "geometry": {
+        "coordinates": [[0, 0], [0.004, 0]],
+        "type": "LineString"
+      },
+      "id": "overture:road-1:0",
+      "roadClass": "residential",
+      "roadGroupId": "road-group:overture:road-1:0",
+      "sourceSegmentId": "road-1",
+      "streetName": "Sample Road"
+    }
+  ]
+}
