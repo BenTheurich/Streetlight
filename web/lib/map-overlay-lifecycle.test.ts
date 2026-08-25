@@ -52,6 +52,7 @@ class TestMapAdapter implements MapOverlayAdapter {
   readonly layers = new Map<string, MapOverlayLayer>();
   readonly listeners = new Map<string, Set<(event: MapOverlayEvent) => void>>();
   readonly markers = new Map<string, MapOverlayMarker>();
+  readonly paintProperties = new Map<string, unknown>();
   readonly fits: Array<{ bounds: unknown; options: unknown }> = [];
   readonly eases: Array<{ center?: [number, number]; zoom?: number }> = [];
   renderedLayers: MapOverlayAdapter['styleLayers'] extends () => infer Result ? Result : never = [];
@@ -121,7 +122,9 @@ class TestMapAdapter implements MapOverlayAdapter {
     this.layers.set(id, { ...layer, visible });
   }
 
-  setPaintProperty() {}
+  setPaintProperty(id: string, property: string, value: unknown) {
+    this.paintProperties.set(`${id}:${property}`, value);
+  }
 
   styleLayers() {
     return this.renderedLayers;
@@ -482,6 +485,20 @@ test('territory intent owns road suppression, direct selection, and box selectio
   await turn();
 
   assert.equal(adapter.layers.get('base-road')?.visible, false);
+  const territoryWidth = [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    11,
+    ['max', 1, ['+', 2, ['get', 'weightOffset']]],
+    14,
+    ['max', 1, ['+', 5, ['get', 'weightOffset']]],
+  ];
+  assert.deepEqual(adapter.paintProperties.get('streetlight-coverage:line-width'), territoryWidth);
+  assert.deepEqual(
+    adapter.paintProperties.get('streetlight-territory-hidden:line-width'),
+    territoryWidth,
+  );
   adapter.emit('click', 'streetlight-coverage', {
     shiftKey: true,
     features: [
@@ -735,6 +752,15 @@ test('proposal and reconciliation focus keys do not repeat camera work', async (
 
   assert.equal(adapter.layers.has('streetlight-packet-proposals-halo'), true);
   assert.equal(adapter.layers.has('streetlight-reconciliation-halo'), true);
+  assert.deepEqual(adapter.layers.get('streetlight-reconciliation-line')?.paint?.['line-width'], [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    11,
+    ['+', 2, ['case', ['get', 'selected'], 2, 0]],
+    14,
+    ['+', 5, ['case', ['get', 'selected'], 2, 0]],
+  ]);
   assert.equal(adapter.markers.has('proposal:1 Main Street:-117.1,33.5'), true);
   assert.equal(adapter.markers.has('reconciliation-start:packet-one'), true);
   assert.equal(adapter.fits.length, focusCount);

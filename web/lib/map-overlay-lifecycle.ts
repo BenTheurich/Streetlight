@@ -251,8 +251,8 @@ function beforeLabels(adapter: MapOverlayAdapter): string | undefined {
   return adapter.hasLayer('highway-name-minor') ? 'highway-name-minor' : undefined;
 }
 
-function coverageWidth(): unknown[] {
-  return ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5];
+function coverageWidth(adjust: (width: number) => unknown = (width) => width): unknown[] {
+  return ['interpolate', ['linear'], ['zoom'], 11, adjust(2), 14, adjust(5)];
 }
 
 function selectionWidth(): unknown[] {
@@ -790,11 +790,11 @@ export function createMapOverlayLifecycle({
     );
     for (const layerId of ['streetlight-coverage', 'streetlight-territory-hidden']) {
       if (current.hasLayer(layerId)) {
-        current.setPaintProperty(layerId, 'line-width', [
-          'max',
-          1,
-          ['+', coverageWidth(), ['get', 'weightOffset']],
-        ]);
+        current.setPaintProperty(
+          layerId,
+          'line-width',
+          coverageWidth((width) => ['max', 1, ['+', width, ['get', 'weightOffset']]]),
+        );
       }
     }
     const apartmentRows = value.groupingMemberIds
@@ -1155,7 +1155,7 @@ export function createMapOverlayLifecycle({
         paint: {
           'line-color': ['get', 'color'],
           'line-opacity': 0.9,
-          'line-width': ['+', coverageWidth(), ['case', ['get', 'selected'], 2, 0]],
+          'line-width': coverageWidth((width) => ['+', width, ['case', ['get', 'selected'], 2, 0]]),
         },
       },
       beforeLabels(current),
