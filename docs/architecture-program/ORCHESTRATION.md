@@ -6,6 +6,8 @@ Run six architecture tasks in order. For each task, use an implementation agent,
 
 The program improves internal architecture without completing the Phase 9 founder-review checkpoint, changing product scope, or enabling apartments.
 
+Final integration review findings are tracked in [`FOLLOWUPS.md`](FOLLOWUPS.md).
+
 ## Invocation prompt
 
 Give the orchestrator this instruction with a link or path to this file:
