@@ -109,8 +109,16 @@ function publicJob(job: ScopedJob): TerritoryImportJob {
   return result;
 }
 
-function fingerprint(draftJson: string): string {
-  return createHash('sha256').update(draftJson).digest('hex');
+function fingerprint(draft: TerritoryDraftInput): string {
+  const semanticDraft = {
+    originAddress: draft.originAddress,
+    center: draft.center,
+    radiusMiles: draft.radiusMiles,
+    boundaryShape: draft.boundaryShape,
+    activatedSegmentIds: [...draft.activatedSegmentIds].sort(),
+    excludedSegmentIds: [...draft.excludedSegmentIds].sort(),
+  };
+  return createHash('sha256').update(JSON.stringify(semanticDraft)).digest('hex');
 }
 
 function jobColumns(): string {
@@ -169,8 +177,9 @@ export function createTerritoryImportLifecycle(
     draft: TerritoryDraftInput,
     scope: WorkspaceScope,
   ): ScopedJob | { conflict: string } {
-    const draftJson = JSON.stringify(parseTerritoryDraft(draft));
-    const draftFingerprint = fingerprint(draftJson);
+    const storedDraft = parseTerritoryDraft(draft);
+    const draftJson = JSON.stringify(storedDraft);
+    const draftFingerprint = fingerprint(storedDraft);
     const database = openSqliteDatabase(filename);
     database.exec('BEGIN IMMEDIATE');
     try {

@@ -53,3 +53,9 @@ test('development CSP permits local HTTP and sockets without upgrading requests'
   assert.match(policy, /ws:\/\/127\.0\.0\.1:\*/);
   assert.doesNotMatch(policy, /upgrade-insecure-requests/);
 });
+
+test('the territory import route explicitly bundles the Python importer', () => {
+  assert.deepEqual(nextConfig.outputFileTracingIncludes, {
+    '/api/territory/import': ['./importer/overture_import.py'],
+  });
+});

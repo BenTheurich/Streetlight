@@ -901,17 +901,21 @@ controls, progress metrics, and new packet candidates are absent.
 
 ### Tracked follow-ups
 
-These items do not block the architecture integration PR. Resolve them or record a founder decision
-to defer them before marking Phase 9 `Complete`.
+These items must be resolved or explicitly deferred before the architecture branch merges back into
+`codex/phase-9-ux-polish` or Phase 9 is marked `Complete`.
 
-- `P9-F01` (Open): Normalize radius-mile values at the persistence or presentation seam. Signed-in
-  acceptance on August 26, 2026 displayed `1.8000000000000003-mile` and
-  `1.6999999999999997-mile` after save and reload. Acceptance requires ordinary decimal labels such
-  as `1.8-mile` and `1.7-mile` without changing the stored meter value or import containment logic.
-- `P9-F02` (Waiting for a nonproduction browser key): Run the live Google labeled-hybrid Satellite
+- `P9-F01` (Resolved in PR #10): Radius labels now use a presentation-only decimal formatter. Stored
+  meters, containment, and importer calculations are unchanged. Signed-in Chrome acceptance on
+  August 26, 2026 saved a 1.8-mile live Overture region, reloaded it, and retained the exact
+  `1.8-mile` label. The same pass found and repaired the failed-import retry input synchronization
+  described as `ARCH-F07`.
+- `P9-F02` (Waiting for external configuration): Run the live Google labeled-hybrid Satellite
   acceptance check with `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` configured outside the repository.
   Confirm lazy first load, synchronized camera state, preserved exact-segment selection, and a clean
-  return to Map. The missing-key fallback passed on August 26, 2026; no credential belongs in Git.
+  return to Map. On August 26, 2026, PR #10 deployed successfully, but Vercel deployment protection
+  prevented automated preview access. The signed-in local branch has no browser key. Its missing-key
+  fallback and clean return to Map passed without application console errors. No credential belongs
+  in Git.
 
 ### Human review
 

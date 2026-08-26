@@ -7,7 +7,7 @@ import { loadGoogleMaps } from '@/lib/google-maps-browser';
 import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
 import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 import type { RegionSetupReadyView, RegionSetupWorkflow } from '@/lib/region-setup-workflow';
-import { apartmentSiteSummary } from '@/lib/territory-client';
+import { apartmentSiteSummary, territoryRadiusMilesText } from '@/lib/territory-client';
 import { type Position, pointInsideTerritoryBoundary } from '@/lib/territory-geometry';
 import type { TerritoryImportStage } from '@/lib/territory-import-job';
 import {
@@ -105,7 +105,7 @@ export function TerritoryEditor({
     siteId: string | null;
     memberIds: string[];
   } | null>(null);
-  const [radiusInput, setRadiusInput] = useState(String(draft.radiusMiles));
+  const [radiusInput, setRadiusInput] = useState(territoryRadiusMilesText(draft.radiusMiles));
   const [addressEditing, setAddressEditing] = useState(false);
   const [openReviewSection, setOpenReviewSection] = useState<ReviewSection | null>(
     setupRequired ? 'region' : 'roads',
@@ -230,7 +230,10 @@ export function TerritoryEditor({
   }, []);
 
   useEffect(() => {
-    setRadiusInput(String(savedWorkspace.radiusMiles));
+    setRadiusInput(territoryRadiusMilesText(draft.radiusMiles));
+  }, [draft.radiusMiles]);
+
+  useEffect(() => {
     setAddressQuery(savedWorkspace.originAddress);
     setSelectedSegmentIds([]);
     setRoadFocusRequest(null);
@@ -382,7 +385,7 @@ export function TerritoryEditor({
 
   function cancelChanges() {
     workflow.discard('stay');
-    setRadiusInput(String(savedWorkspace.radiusMiles));
+    setRadiusInput(territoryRadiusMilesText(savedWorkspace.radiusMiles));
     setSelectedSegmentIds([]);
     setRoadFocusRequest(null);
     setBoxSelectionArmed(false);
@@ -581,8 +584,8 @@ export function TerritoryEditor({
               <span className="region-settings-summary-copy">
                 <strong>Region settings</strong>
                 <span>
-                  {draft.originAddress.split(',')[0]} &middot; {draft.radiusMiles}-mile{' '}
-                  {draft.boundaryShape}
+                  {draft.originAddress.split(',')[0]} &middot;{' '}
+                  {territoryRadiusMilesText(draft.radiusMiles)}-mile {draft.boundaryShape}
                 </span>
               </span>
               <svg aria-hidden="true" viewBox="0 0 24 24">

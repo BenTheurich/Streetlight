@@ -21,6 +21,10 @@ export function territoryMapMode(
   return { visible, interactive: visible && setupView === 'territory' };
 }
 
+export function territoryRadiusMilesText(radiusMiles: number): string {
+  return String(Number(radiusMiles.toFixed(10)));
+}
+
 export function hasUnsavedTerritoryChanges(
   saved: TerritoryDraftInput,
   draft: TerritoryDraftInput,

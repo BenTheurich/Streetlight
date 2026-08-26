@@ -292,6 +292,39 @@ test('separate lifecycle instances share one claimed process and stages never mo
   });
 });
 
+test('equivalent segment sets and legacy apartment statuses reuse one active import', async () => {
+  await withDatabase(async (filename) => {
+    const firstDraft = importDraft(filename);
+    firstDraft.activatedSegmentIds = ['segment:two', 'segment:one'];
+    firstDraft.excludedSegmentIds = ['segment:four', 'segment:three'];
+    firstDraft.apartmentStatuses = [{ id: 'apartment:one', reviewStatus: 'ready' }];
+    const result = deferred<ImportedTerritoryInput>();
+    const lifecycle = createTerritoryImportLifecycle({
+      filename,
+      runImport: async () => result.promise,
+    });
+
+    const first = lifecycle.save(firstDraft);
+    assert.equal(first.kind, 'importing');
+    if (first.kind !== 'importing') return;
+    await nextTurn();
+
+    const equivalentDraft = structuredClone(firstDraft);
+    equivalentDraft.activatedSegmentIds.reverse();
+    equivalentDraft.excludedSegmentIds.reverse();
+    equivalentDraft.apartmentStatuses = [{ id: 'apartment:two', reviewStatus: 'deferred' }];
+    const reused = lifecycle.save(equivalentDraft);
+
+    assert.equal(reused.kind, 'importing');
+    if (reused.kind !== 'importing') return;
+    assert.equal(reused.job.id, first.job.id);
+    assert.deepEqual(reused.job.draft, firstDraft);
+
+    result.resolve(importedTerritory(firstDraft));
+    await waitForStatus(lifecycle, 'succeeded');
+  });
+});
+
 test('observe reclaims a queued crash record and failed work retries with a new ID', async () => {
   await withDatabase(async (filename) => {
     const draft = importDraft(filename);
