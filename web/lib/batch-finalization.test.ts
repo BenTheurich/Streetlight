@@ -64,7 +64,7 @@ function preparePacketGraph(filename: string, includeApartment = false): void {
     ],
   }));
   const imported: ImportedTerritoryInput = {
-    release: '2026-06-17.0',
+    release: '2026-08-19.0',
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',

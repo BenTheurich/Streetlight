@@ -45,7 +45,7 @@ test('proof data and an expanded footprint require imports', () => {
     needsTerritoryImport(
       {
         kind: 'overture',
-        release: '2026-06-17.0',
+        release: '2026-08-19.0',
         center: draft.center,
         radiusMiles: 0.5,
         completedAt: '2026-07-27T12:00:00.000Z',
@@ -63,7 +63,7 @@ test('shape changes, segment edits, and radius reductions reuse a current footpr
     needsTerritoryImport(
       {
         kind: 'overture',
-        release: '2026-06-17.0',
+        release: '2026-08-19.0',
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
@@ -101,7 +101,7 @@ test('a different pinned Overture release requires an import', () => {
 test('shifted drafts reuse only containing imported footprints', () => {
   const imported = {
     kind: 'overture' as const,
-    release: '2026-06-17.0',
+    release: '2026-08-19.0',
     center: draft.center,
     radiusMiles: 2,
     completedAt: '2026-07-27T12:00:00.000Z',
@@ -139,7 +139,7 @@ test('shifted drafts reuse only containing imported footprints', () => {
 test('legacy and mismatched normalizer versions require replacement', () => {
   const current = {
     kind: 'overture' as const,
-    release: '2026-06-17.0',
+    release: '2026-08-19.0',
     center: draft.center,
     radiusMiles: 2,
     completedAt: '2026-07-27T12:00:00.000Z',
