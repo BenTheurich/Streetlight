@@ -1,6 +1,6 @@
 # Streetlight architecture program follow-ups
 
-Status: implementation complete; one external acceptance prerequisite remains, August 26, 2026
+Status: implementation and agent acceptance complete; founder review remains, August 26, 2026
 
 This ledger records residual architecture work found after Tasks 01 through 06 merged into
 `codex/architecture-review`. Phase 9 UI acceptance items remain in
@@ -16,5 +16,6 @@ This ledger records residual architecture work found after Tasks 01 through 06 m
 | `ARCH-F06` | Resolved in PR #10 | The supported Turbopack ignore annotation prevents broad dynamic process tracing, while `next.config.mjs` explicitly includes the importer entry point for the territory import route. | Production build output has no trace warning. Route traces contain 114 to 115 files rather than the whole project, and a live pinned Overture import passed. |
 | `ARCH-F07` | Resolved during PR #10 acceptance | A failed import draft restored its radius from the workflow, but the local input reset to the previously accepted radius. A legacy accepted radius above the current maximum disabled the visible `Try save again` action. | The input now follows workflow draft radius changes. Signed-in Chrome acceptance preserved an exact 1.8-mile failed draft across reload, enabled retry, completed the live import, and retained `1.8-mile` after another reload. |
 
-None of these items reopens apartment work for the MVP. The only remaining program prerequisite is
-the live Google Satellite check tracked as `P9-F02` in `IMPLEMENTATION_PLAN.md`.
+None of these items reopens apartment work for the MVP. The live Google Satellite check tracked as
+`P9-F02` in `IMPLEMENTATION_PLAN.md` passed on the merged architecture head. The architecture
+program has no remaining technical follow-up; final integration still requires founder approval.
