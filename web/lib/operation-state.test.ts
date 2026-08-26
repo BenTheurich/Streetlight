@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  correctionControlForPacket,
   isFinalizedBatchPayload,
   isReconciliationWorkspacePayload,
-  isTerritoryWorkspacePayload,
-  packetRequestControlsDisabled,
+  packetOperationControls,
   readMutationResult,
-  territoryLeaveControlsDisabled,
+  reconciliationMutationControlsDisabled,
 } from './operation-state.ts';
 
 const line = {
@@ -63,76 +63,6 @@ const reconciliationWorkspace = {
     },
   ],
 };
-const apartmentSite = {
-  id: 'apartment-1',
-  sourceId: 'source-apartment-1',
-  name: null,
-  address: '200 Main St',
-  position: [-117.09, 33.51],
-  boundary: null,
-  groupingKind: 'admin_group',
-  groupingConfirmed: true,
-  addressConfirmed: true,
-  tractCount: 24,
-  accessStatus: 'open',
-  includedInPackets: true,
-  packetReady: true,
-  members: [
-    {
-      id: 'building-1',
-      sourceId: 'source-building-1',
-      address: '200 Main St',
-      position: [-117.09, 33.51],
-      geometry: null,
-      apartmentBuilding: true,
-      distinctUnits: 24,
-    },
-  ],
-  estimatedTracts: 24,
-  evidence: { apartmentBuilding: true, distinctUnits: 24 },
-  reviewStatus: 'ready',
-  withinBoundary: true,
-};
-
-const territoryWorkspace = {
-  id: 'territory-1',
-  churchName: 'Grace Church',
-  name: 'Northside',
-  originAddress: '100 Main St',
-  center: [-117.1, 33.5],
-  radiusMiles: 2,
-  boundaryShape: 'circle',
-  import: {
-    kind: 'proof',
-    release: null,
-    center: null,
-    radiusMiles: null,
-    completedAt: null,
-    normalizerVersion: null,
-    quality: null,
-  },
-  apartmentSites: [apartmentSite],
-  apartmentComplexes: [apartmentSite],
-  segments: [
-    {
-      id: 'segment-1',
-      sourceSegmentId: 'source-segment-1',
-      roadGroupId: 'road-1',
-      roadClass: 'residential',
-      streetName: 'Main St',
-      geometry: line,
-      estimatedHomes: 12,
-      activationKind: 'automatic',
-      active: true,
-      withinBoundary: true,
-      manuallyExcluded: false,
-      eligible: true,
-      excludedReason: null,
-    },
-  ],
-  totals: { allSegments: 1, eligibleSegments: 1, allHomes: 12, eligibleHomes: 12 },
-};
-
 type SavedRecord = { id: string };
 
 function isSavedRecord(value: unknown): value is SavedRecord {
@@ -212,7 +142,6 @@ test('complete mutation payloads pass their production validators', async (conte
   for (const [name, payload, validator] of [
     ['finalized batch', finalizedBatch, isFinalizedBatchPayload],
     ['reconciliation workspace', reconciliationWorkspace, isReconciliationWorkspacePayload],
-    ['territory workspace', territoryWorkspace, isTerritoryWorkspacePayload],
   ] as const) {
     await context.test(name, async () => {
       const result = await readValidatedPayload(payload, validator);
@@ -236,15 +165,9 @@ test('partial mutation payloads require reload verification', async (context) =>
       },
     ],
   };
-  const partialTerritoryWorkspace = {
-    ...territoryWorkspace,
-    segments: [{ ...territoryWorkspace.segments[0], geometry: { type: 'LineString' } }],
-  };
-
   for (const [name, payload, validator] of [
     ['finalized batch', partialFinalizedBatch, isFinalizedBatchPayload],
     ['reconciliation workspace', partialReconciliationWorkspace, isReconciliationWorkspacePayload],
-    ['territory workspace', partialTerritoryWorkspace, isTerritoryWorkspacePayload],
   ] as const) {
     await context.test(name, async () => {
       const result = await readValidatedPayload(payload, validator);
@@ -254,7 +177,7 @@ test('partial mutation payloads require reload verification', async (context) =>
   }
 });
 
-test('packet operation controls lock for every active operation and verification', () => {
+test('one packet operation control projection locks every mutation and PDF entry point', () => {
   for (const state of [
     {
       downloading: null,
@@ -281,24 +204,79 @@ test('packet operation controls lock for every active operation and verification
       verificationRequired: true,
     },
   ]) {
-    assert.equal(packetRequestControlsDisabled(state), true);
+    assert.deepEqual(packetOperationControls(state, 3), {
+      activePdfDisabled: true,
+      busy: true,
+      finalizationDisabled: true,
+      newestPdfDisabled: true,
+      proposalDisabled: true,
+      requestDisabled: true,
+    });
   }
+  assert.deepEqual(
+    packetOperationControls(
+      {
+        downloading: null,
+        finalizing: false,
+        generating: false,
+        verificationRequired: false,
+      },
+      0,
+    ),
+    {
+      activePdfDisabled: true,
+      busy: false,
+      finalizationDisabled: false,
+      newestPdfDisabled: false,
+      proposalDisabled: false,
+      requestDisabled: false,
+    },
+  );
   assert.equal(
-    packetRequestControlsDisabled({
-      downloading: null,
-      finalizing: false,
-      generating: false,
-      verificationRequired: false,
-    }),
+    packetOperationControls(
+      { downloading: null, finalizing: false, generating: false, verificationRequired: false },
+      3,
+    ).activePdfDisabled,
     false,
   );
 });
 
-test('pending-leave controls lock while saving or awaiting reload verification', () => {
-  assert.equal(territoryLeaveControlsDisabled({ saving: true, verificationRequired: false }), true);
-  assert.equal(territoryLeaveControlsDisabled({ saving: false, verificationRequired: true }), true);
-  assert.equal(
-    territoryLeaveControlsDisabled({ saving: false, verificationRequired: false }),
-    false,
-  );
+test('correction recovery stays with one packet and retries the exact attempt', () => {
+  const attempt = { packetId: 'packet-a', coveredOn: '2026-07-20' };
+  const rejected = {
+    attempt,
+    detail: 'Date rejected',
+    headline: 'Packet history was not changed',
+    operation: 'correction' as const,
+    recovery: 'retry' as const,
+    tone: 'error' as const,
+  };
+
+  assert.deepEqual(correctionControlForPacket('packet-a', null, rejected), {
+    action: { kind: 'retry', attempt },
+    busy: false,
+    feedback: rejected,
+  });
+  assert.deepEqual(correctionControlForPacket('packet-b', null, rejected), {
+    action: null,
+    busy: false,
+    feedback: null,
+  });
+  assert.equal(reconciliationMutationControlsDisabled(false, 'retry'), false);
+
+  const uncertain = { ...rejected, recovery: 'reload' as const };
+  assert.deepEqual(correctionControlForPacket('packet-a', null, uncertain), {
+    action: { kind: 'reload' },
+    busy: false,
+    feedback: uncertain,
+  });
+  assert.deepEqual(correctionControlForPacket('packet-b', null, uncertain), {
+    action: null,
+    busy: false,
+    feedback: null,
+  });
+  assert.equal(reconciliationMutationControlsDisabled(false, 'reload'), true);
+  assert.equal(reconciliationMutationControlsDisabled(true, undefined), true);
+  assert.equal(correctionControlForPacket('packet-a', attempt, null).busy, true);
+  assert.equal(reconciliationMutationControlsDisabled(false, undefined), false);
 });

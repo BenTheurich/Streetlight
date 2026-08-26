@@ -1,4 +1,4 @@
-import { createInitialTerritory } from './database.ts';
+import { createInitialTerritory } from './church-workspace-persistence.ts';
 import { type GeocodedAddress, geocodeAddress } from './google-maps-server.ts';
 
 export type OnboardingInput = {

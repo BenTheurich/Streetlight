@@ -6,6 +6,7 @@ import sys
 import urllib.parse
 import urllib.request
 from contextlib import redirect_stdout
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 
@@ -36,7 +37,7 @@ FEMA_STRUCTURES_URL = (
 )
 FEMA_PAGE_SIZE = 2000
 MAX_SEGMENT_HOMES = 100
-OVERTURE_RELEASE = "2026-06-17.0"
+OVERTURE_RELEASE = "2026-08-19.0"
 TURN_SPLIT_DEGREES = 85
 EARTH_RADIUS_MILES = 3958.7613
 EARTH_RADIUS_METERS = EARTH_RADIUS_MILES * 1609.344
@@ -54,6 +55,45 @@ SUFFIXES = {
 }
 DISPLAY_SUFFIXES = {value: key.title() for key, value in SUFFIXES.items()}
 STAGE_PREFIX = "STREETLIGHT_STAGE:"
+
+
+@dataclass(frozen=True)
+class NormalizedImportResult:
+    _segments: list
+    _apartment_sites: list
+    _quality: dict
+
+    @classmethod
+    def from_sources(cls, roads, addresses, buildings=None, apartment_areas=None):
+        return _normalize_sources(roads, addresses, buildings, apartment_areas)
+
+    def process_payload(
+        self,
+        *,
+        center,
+        radius_miles,
+        completed_at,
+        building_mode,
+        map_buildings,
+    ):
+        return {
+            "release": OVERTURE_RELEASE,
+            "center": list(center),
+            "radiusMiles": radius_miles,
+            "completedAt": completed_at.isoformat(),
+            "normalizerVersion": 12,
+            "buildingMode": building_mode,
+            "mapBuildings": map_buildings,
+            "segments": self._segments,
+            "apartmentSites": self._apartment_sites,
+            "quality": self._quality,
+        }
+
+    def benchmark_projection(self, reference_addresses):
+        return {
+            "importQuality": self._quality,
+            "benchmark": _benchmark_metrics(self, reference_addresses),
+        }
 
 
 def _report_stage(stage):
@@ -1300,7 +1340,7 @@ def _assign_road_groups(segments):
         segment["road_group_id"] = group_id_by_root[find(index)]
 
 
-def normalize_features(roads, addresses, buildings=None, apartment_areas=None):
+def _normalize_sources(roads, addresses, buildings=None, apartment_areas=None):
     buildings = buildings or []
     segments = []
     candidate_classes = ALWAYS_KEEP | KEEP_WITH_ADDRESS
@@ -1747,10 +1787,10 @@ def normalize_features(roads, addresses, buildings=None, apartment_areas=None):
                 ),
             }
         )
-    return {
-        "segments": result,
-        "apartmentSites": apartment_sites,
-        "quality": {
+    return NormalizedImportResult(
+        _segments=result,
+        _apartment_sites=apartment_sites,
+        _quality={
             "totalAddresses": len(footprint_addresses),
             "assignedAddresses": len(assigned_address_indexes),
             "spatiallyAssignedAddresses": spatially_assigned_addresses,
@@ -1765,10 +1805,10 @@ def normalize_features(roads, addresses, buildings=None, apartment_areas=None):
             "buildingAddressDisagreements": building_address_disagreements,
             "warnings": warnings,
         },
-    }
+    )
 
 
-def benchmark_classification(
+def _benchmark_classification(
     address_assignment_rate,
     road_representation_rate,
     road_name_accuracy,
@@ -1813,7 +1853,7 @@ def benchmark_classification(
     }
 
 
-def benchmark_metrics(normalized, reference_addresses):
+def _benchmark_metrics(normalized, reference_addresses):
     reference_groups = {}
     for item in reference_addresses:
         properties = item["properties"]
@@ -1824,7 +1864,7 @@ def benchmark_metrics(normalized, reference_addresses):
         )
         reference_groups.setdefault(key, []).append(item)
     apartment_premises = set()
-    for site in normalized.get("apartmentSites", []):
+    for site in normalized._apartment_sites:
         for member in site.get("members", []):
             address_value = member.get("address")
             if not address_value:
@@ -1862,7 +1902,7 @@ def benchmark_metrics(normalized, reference_addresses):
             "coordinates": item["geometry"]["coordinates"],
             "estimated_homes": item["estimatedHomes"],
         }
-        for item in normalized["segments"]
+        for item in normalized._segments
     ]
     addresses_by_name = {}
     for item in reference:
@@ -1954,7 +1994,6 @@ def benchmark_metrics(normalized, reference_addresses):
                         }
                     ),
                     "expectedPremises": expected,
-                    "estimatedTracts": actual,
                     "duplicateReferencePoints": sum(
                         detail["duplicate_points"] for detail in details
                     ),
@@ -1963,7 +2002,7 @@ def benchmark_metrics(normalized, reference_addresses):
                 }
             )
 
-    quality = normalized["quality"]
+    quality = normalized._quality
     assignment_rate = (
         quality["assignedAddresses"] / quality["totalAddresses"]
         if quality["totalAddresses"]
@@ -1998,7 +2037,7 @@ def benchmark_metrics(normalized, reference_addresses):
         "roadRepresentationRate": represented_rate,
         "roadNameAccuracy": name_rate,
         "segmentCountAccuracy": segment_accuracy,
-        **benchmark_classification(
+        **_benchmark_classification(
             assignment_rate,
             represented_rate,
             name_rate,
@@ -2319,22 +2358,24 @@ def main(
             fema_buildings,
             roads,
         )
-        normalized = normalize_features(roads, addresses, buildings, apartment_areas)
+        normalized = NormalizedImportResult.from_sources(
+            roads,
+            addresses,
+            buildings,
+            apartment_areas,
+        )
         _report_stage("preparing")
     print(
         json.dumps(
-            {
-                "release": OVERTURE_RELEASE,
-                "center": [args.longitude, args.latitude],
-                "radiusMiles": args.radius_miles,
-                "completedAt": datetime.now(timezone.utc).isoformat(),
-                "normalizerVersion": 12,
-                "buildingMode": (
+            normalized.process_payload(
+                center=(args.longitude, args.latitude),
+                radius_miles=args.radius_miles,
+                completed_at=datetime.now(timezone.utc),
+                building_mode=(
                     "overture_fema" if fema_buildings else "overture_only"
                 ),
-                "mapBuildings": map_buildings,
-                **normalized,
-            },
+                map_buildings=map_buildings,
+            ),
             separators=(",", ":"),
         )
     )

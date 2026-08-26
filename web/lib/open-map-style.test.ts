@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { OpenMapData } from './database.ts';
+import type { OpenMapData } from './open-map-data.ts';
 import {
   buildOpenMapStyle,
   buildWorkspaceMapStyle,
@@ -341,7 +341,7 @@ function openMapData(): OpenMapData {
   };
 }
 
-test('workspace map keeps real buildings and uses the interactive coverage stroke scale', () => {
+test('workspace base style keeps real buildings and leaves interactive overlays to the lifecycle', () => {
   const data = openMapData();
   const base = {
     version: 8,
@@ -368,116 +368,22 @@ test('workspace map keeps real buildings and uses the interactive coverage strok
   const map = buildWorkspaceMapStyle(base, data);
   const overlay = buildWorkspaceMapStyle(base, data, true);
   assert.ok(map.layers.some(({ id }) => id === 'streetlight-buildings'));
-  assert.ok(map.layers.some(({ id }) => id === 'streetlight-coverage'));
+  assert.equal(
+    map.layers.some(({ id }) => id === 'streetlight-coverage'),
+    false,
+  );
   assert.equal(
     overlay.layers.some(({ id }) => id === 'streetlight-buildings'),
     false,
   );
-  assert.ok(overlay.layers.some(({ id }) => id === 'streetlight-coverage'));
+  assert.equal(
+    overlay.layers.some(({ id }) => id === 'streetlight-coverage'),
+    false,
+  );
   assert.equal(overlay.glyphs, base.glyphs);
   assert.equal('openmaptiles' in overlay.sources, false);
-  assert.deepEqual(
-    map.layers.find(({ id }) => id === 'streetlight-coverage')?.paint?.['line-width'],
-    ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5],
-  );
-  assert.equal(
-    map.layers.find(({ id }) => id === 'streetlight-territory-hidden')?.paint?.['line-dasharray'],
-    undefined,
-  );
-  assert.deepEqual(map.layers.find(({ id }) => id === 'streetlight-territory-hidden')?.filter, [
-    '==',
-    ['get', 'hidden'],
-    true,
-  ]);
-});
-
-test('workspace map clusters apartments identically over map and satellite styles', () => {
-  const data = openMapData();
-  data.apartmentComplexes = [
-    {
-      id: 'apartment-one',
-      sourceId: 'source-one',
-      name: null,
-      address: '1 Main Street',
-      position: [0, 0],
-      boundary: null,
-      groupingKind: 'ungrouped',
-      groupingConfirmed: false,
-      addressConfirmed: false,
-      tractCount: null,
-      accessStatus: 'unknown',
-      includedInPackets: false,
-      packetReady: false,
-      members: [
-        {
-          id: 'apartment-one',
-          sourceId: 'source-one',
-          address: '1 Main Street',
-          position: [0, 0],
-          geometry: null,
-          apartmentBuilding: true,
-          distinctUnits: 18,
-        },
-      ],
-      estimatedTracts: 18,
-      evidence: { apartmentBuilding: true, distinctUnits: 18 },
-      reviewStatus: 'needs_review',
-      withinBoundary: true,
-      lastCoveredOn: null,
-      coverageClass: 'red',
-      roots: [],
-    },
-  ];
-  const base = {
-    version: 8,
-    glyphs: 'https://example.com/fonts/{fontstack}/{range}.pbf',
-    sources: { openmaptiles: { type: 'vector' } },
-    layers: [{ id: 'highway-name-minor', type: 'symbol' }],
-  };
-
-  const map = buildWorkspaceMapStyle(base, data);
-  const satellite = buildWorkspaceMapStyle(base, data, true);
-
-  for (const style of [map, satellite]) {
-    const source = style.sources.streetlightApartments as Record<string, unknown>;
-    assert.equal(source.cluster, true);
-    assert.equal(source.clusterRadius, 44);
-    assert.equal(source.clusterMaxZoom, 16);
-
-    const cluster = style.layers.find(({ id }) => id === 'streetlight-apartment-clusters');
-    const count = style.layers.find(({ id }) => id === 'streetlight-apartment-cluster-count');
-    const marker = style.layers.find(({ id }) => id === 'streetlight-apartments');
-    const label = style.layers.find(({ id }) => id === 'streetlight-apartment-labels');
-    assert.deepEqual(cluster?.filter, ['has', 'point_count']);
-    assert.equal(cluster?.paint?.['circle-color'], '#123464');
-    assert.equal(cluster?.paint?.['circle-radius'], 12);
-    assert.equal(cluster?.paint?.['circle-stroke-color'], '#ffffff');
-    assert.equal(cluster?.paint?.['circle-stroke-width'], 2);
-    assert.deepEqual(count?.filter, ['has', 'point_count']);
-    assert.deepEqual(count?.layout?.['text-field'], ['get', 'point_count_abbreviated']);
-    assert.equal(count?.layout?.['text-allow-overlap'], true);
-    assert.deepEqual(marker?.filter, ['!', ['has', 'point_count']]);
-    assert.deepEqual(marker?.paint?.['circle-color'], [
-      'case',
-      ['==', ['get', 'selected'], true],
-      '#2767e9',
-      ['get', 'color'],
-    ]);
-    assert.deepEqual(marker?.paint?.['circle-radius'], [
-      'case',
-      ['==', ['get', 'selected'], true],
-      15,
-      12,
-    ]);
-    assert.deepEqual(label?.filter, ['!', ['has', 'point_count']]);
-    assert.deepEqual(label?.layout?.['text-field'], ['get', 'label']);
-    assert.equal(label?.layout?.['text-size'], 11);
-    assert.equal(label?.layout?.['text-allow-overlap'], true);
-    assert.ok(
-      style.layers.findIndex(({ id }) => id === 'streetlight-apartment-labels') >
-        style.layers.findIndex(({ id }) => id === 'highway-name-minor'),
-    );
-  }
+  assert.equal('streetlightCoverage' in map.sources, false);
+  assert.equal('streetlightApartments' in overlay.sources, false);
 });
 
 test('workspace map presents an accepted FEMA row gap as an ordinary building without audit layers', () => {
@@ -683,7 +589,7 @@ test('workspace map waits until neighborhood zoom to show building footprints', 
   assert.equal(print.layers.find(({ id }) => id === 'streetlight-buildings')?.minzoom, undefined);
 });
 
-test('workspace satellite overlay keeps Streetlight data without another basemap', () => {
+test('workspace satellite base is transparent and leaves overlays to the lifecycle', () => {
   const base = {
     version: 8,
     glyphs: 'https://example.com/fonts/{fontstack}/{range}.pbf',
@@ -699,9 +605,8 @@ test('workspace satellite overlay keeps Streetlight data without another basemap
     style.layers.some(({ id }) => id === 'streetlight-house-numbers'),
     false,
   );
-  assert.ok('streetlightCoverage' in style.sources);
-  assert.ok('streetlightBoundary' in style.sources);
-  assert.ok('streetlightApartments' in style.sources);
+  assert.deepEqual(style.sources, {});
+  assert.deepEqual(style.layers, []);
 });
 
 test('workspace map centers one-address building labels and preserves unmatched positions', () => {

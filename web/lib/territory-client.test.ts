@@ -1,18 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { TerritorySegment, TerritoryWorkspace } from './database.ts';
 import {
   activateSegments,
   apartmentSiteReady,
   apartmentSiteSummary,
   deriveTerritory,
-  refreshTerritoryViews,
   setSegmentsExcluded,
   territoryDraftFromWorkspace,
   territoryMapMode,
+  territoryRadiusMilesText,
   withApartmentSiteConfiguration,
 } from './territory-client.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
+import type { TerritorySegment, TerritoryWorkspace } from './territory-workspace.ts';
 
 const visible: TerritorySegment = {
   id: 'visible',
@@ -227,37 +227,6 @@ test('batch exclusion helpers preserve unrelated selections', () => {
   );
 });
 
-test('ordinary territory saves refresh overlays without rebuilding the base map', async () => {
-  const refreshed: string[] = [];
-
-  await refreshTerritoryViews(
-    false,
-    async () => {
-      refreshed.push('coverage');
-    },
-    async () => {
-      refreshed.push('map');
-    },
-  );
-
-  assert.deepEqual(refreshed, ['coverage']);
-});
-
-test('completed territory imports refresh overlays and base map data', async () => {
-  const refreshed: string[] = [];
-
-  await refreshTerritoryViews(
-    true,
-    async () => {
-      refreshed.push('coverage');
-    },
-    async () => {
-      refreshed.push('map');
-    },
-  );
-
-  assert.deepEqual(refreshed, ['coverage', 'map']);
-});
 test('setup keeps the region map visible while editing only in the Region view', () => {
   assert.deepEqual(territoryMapMode('setup', 'territory'), {
     visible: true,
@@ -271,4 +240,9 @@ test('setup keeps the region map visible while editing only in the Region view',
     visible: false,
     interactive: false,
   });
+});
+
+test('saved decimal boundary distances render without floating-point tails', () => {
+  assert.equal(territoryRadiusMilesText((1.8 * 1609.344) / 1609.344), '1.8');
+  assert.equal(territoryRadiusMilesText((1.7 * 1609.344) / 1609.344), '1.7');
 });

@@ -5,12 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../../db/migrate.mjs';
 import { seedDatabase } from '../../../../db/seed.mjs';
+import type { ImportedTerritoryInput } from '../../../../lib/overture-import.ts';
 import {
   getTerritoryWorkspace,
-  recordCoverageCompletion,
-  saveTerritoryDraft,
-} from '../../../../lib/database.ts';
-import type { ImportedTerritoryInput } from '../../../../lib/overture-import.ts';
+  replaceTerritoryFromImport,
+} from '../../../../lib/territory-persistence.ts';
+import { insertCoverageCompletionFixture } from '../../../../test/persistence-fixtures.ts';
 import { withTemeculaWorkspace } from '../../../../test/workspace-fixtures.ts';
 import { proposePackets as propose } from '../../packet-proposals/route.ts';
 import { finalizePacketBatchRequest as finalize } from './route.ts';
@@ -42,7 +42,7 @@ function jsonRequest(url: string, body: unknown): Request {
 function preparePacketGraph(filename: string): void {
   const workspace = getTerritoryWorkspace(filename);
   const imported: ImportedTerritoryInput = {
-    release: '2026-06-17.0',
+    release: '2026-08-19.0',
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',
@@ -90,7 +90,7 @@ function preparePacketGraph(filename: string): void {
     })),
     apartmentSites: [],
   };
-  saveTerritoryDraft(
+  replaceTerritoryFromImport(
     {
       originAddress: workspace.originAddress,
       center: workspace.center,
@@ -99,10 +99,11 @@ function preparePacketGraph(filename: string): void {
       activatedSegmentIds: [],
       excludedSegmentIds: [],
     },
-    { filename, imported },
+    imported,
+    { filename },
   );
-  recordCoverageCompletion('packet-a', '2025-01-01', filename);
-  recordCoverageCompletion('packet-b', '2025-01-01', filename);
+  insertCoverageCompletionFixture('packet-a', '2025-01-01', filename);
+  insertCoverageCompletionFixture('packet-b', '2025-01-01', filename);
 }
 
 function counts(filename: string): number[] {

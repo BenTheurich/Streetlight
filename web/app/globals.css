@@ -1830,7 +1830,11 @@ button.administrator-account-trigger:not(:disabled):hover {
 }
 
 .apartment-card > strong,
-.apartment-card > span,
+.apartment-card > span {
+  display: block;
+}
+
+/* biome-ignore lint/style/noDescendingSpecificity: This direct card child cannot overlap the earlier nested configuration-label selector. */
 .apartment-card > small {
   display: block;
 }
@@ -1840,8 +1844,9 @@ button.administrator-account-trigger:not(:disabled):hover {
   line-height: 1.35;
 }
 
-.apartment-card > span,
-.apartment-card > small {
+/* biome-ignore lint/style/noDescendingSpecificity: This direct card child cannot overlap the earlier nested configuration-label selector. */
+.apartment-card > small,
+.apartment-card > span {
   color: var(--muted);
   font-size: 0.72rem;
   line-height: 1.45;
@@ -1873,6 +1878,7 @@ button.administrator-account-trigger:not(:disabled):hover {
   font-size: 0.76rem;
 }
 
+/* biome-ignore lint/style/noDescendingSpecificity: This inclusion copy cannot overlap the earlier configuration-label selector. */
 .apartment-inclusion-control small,
 .apartment-inclusion-saving {
   color: var(--muted);
@@ -2476,8 +2482,14 @@ button.administrator-account-trigger:not(:disabled):hover {
   font-size: 0.82rem;
 }
 
-.coverage-search-results span,
+/* biome-ignore lint/style/noDescendingSpecificity: Coverage results cannot overlap the dormant apartment configuration selector. */
 .coverage-search-results small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.coverage-search-results span {
   color: var(--muted);
   font-size: 0.68rem;
   line-height: 1.4;
@@ -2659,6 +2671,7 @@ button.coverage-road-row:not(:disabled):hover {
   font-size: 0.72rem;
 }
 
+/* biome-ignore lint/style/noDescendingSpecificity: Coverage breakdown rows cannot overlap the dormant apartment configuration selector. */
 .coverage-road-breakdown small {
   color: var(--muted);
   font-size: 0.64rem;
@@ -2883,6 +2896,7 @@ button.coverage-road-row:not(:disabled):hover {
   font-weight: 800;
 }
 
+/* biome-ignore lint/style/noDescendingSpecificity: Packet finalization labels cannot overlap the dormant apartment configuration selector. */
 .packet-finalize-label small {
   font-size: inherit;
   font-weight: 400;
@@ -3346,6 +3360,7 @@ button.coverage-road-row:not(:disabled):hover {
   gap: 0.35rem;
 }
 
+/* biome-ignore lint/style/noDescendingSpecificity: Printout labels cannot overlap the dormant apartment configuration selector. */
 .printout-field-label small {
   font-weight: 500;
 }
@@ -3742,6 +3757,7 @@ button.coverage-road-row:not(:disabled):hover {
   color: #f7f2e8;
 }
 
+/* biome-ignore lint/style/noDescendingSpecificity: Onboarding is outside sidebar-scroll, so the compared selectors cannot overlap. */
 .church-onboarding > section {
   width: min(100%, 38rem);
 }

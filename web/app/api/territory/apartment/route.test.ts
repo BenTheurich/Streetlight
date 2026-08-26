@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../../db/migrate.mjs';
 import { seedDatabase } from '../../../../db/seed.mjs';
-import { getTerritoryWorkspace } from '../../../../lib/database.ts';
+import { getTerritoryWorkspace } from '../../../../lib/territory-persistence.ts';
 import { withTemeculaWorkspace } from '../../../../test/workspace-fixtures.ts';
 import { updateApartmentSiteConfiguration, updateApartmentSiteMembership } from './route.ts';
 

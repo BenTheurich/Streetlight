@@ -1,14 +1,8 @@
 import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
-import { getTerritoryWorkspace, saveTerritoryDraft } from '../../../lib/database.ts';
 import { applyMvpCapabilities } from '../../../lib/product-capabilities.ts';
 import { parseTerritoryDraft, type TerritoryDraftInput } from '../../../lib/territory-draft.ts';
-import { needsTerritoryImport } from '../../../lib/territory-import.ts';
-import {
-  createOrReuseTerritoryImportJob,
-  ensureTerritoryImportJobRunning,
-  TerritoryImportConflictError,
-} from '../../../lib/territory-import-job.ts';
-import { requireWorkspaceScope } from '../../../lib/workspace-scope.ts';
+import { territoryImportLifecycle } from '../../../lib/territory-import-job.ts';
+import { getTerritoryWorkspace } from '../../../lib/territory-persistence.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,28 +21,20 @@ export async function updateTerritory(request: Request) {
     );
   }
 
-  const workspace = getTerritoryWorkspace();
-  if (needsTerritoryImport(workspace.import, draft)) {
-    try {
-      const job = createOrReuseTerritoryImportJob(draft);
-      ensureTerritoryImportJobRunning(job, requireWorkspaceScope());
-      return Response.json({ job }, { status: 202 });
-    } catch (error) {
-      if (error instanceof TerritoryImportConflictError) {
-        return Response.json({ error: error.message }, { status: 409 });
-      }
-      return Response.json(
-        { error: 'Could not start street data preparation. No saved changes were replaced.' },
-        { status: 500 },
-      );
-    }
-  }
-
   try {
-    saveTerritoryDraft(draft);
-    return Response.json(applyMvpCapabilities(getTerritoryWorkspace()));
+    const result = territoryImportLifecycle.save(draft);
+    if (result.kind === 'importing') {
+      return Response.json({ job: result.job }, { status: 202 });
+    }
+    if (result.kind === 'conflict') {
+      return Response.json({ error: result.error }, { status: 409 });
+    }
+    return Response.json(applyMvpCapabilities(result.workspace));
   } catch {
-    return Response.json({ error: 'Could not save region changes' }, { status: 500 });
+    return Response.json(
+      { error: 'Could not save region changes. No saved changes were replaced.' },
+      { status: 500 },
+    );
   }
 }
 

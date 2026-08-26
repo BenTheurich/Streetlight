@@ -7,10 +7,11 @@ import {
   requireOrganizationSession,
   SignInRequiredError,
 } from '@/lib/auth';
-import { getChurchPrintoutSettings, getCoverageWorkspace } from '@/lib/database';
+import { getCoverageWorkspace } from '@/lib/coverage-persistence';
 import { isFounderEmail } from '@/lib/founder-auth';
 import { getGoogleMapsBrowserKey } from '@/lib/google-maps-server';
 import { listPilotRequests } from '@/lib/pilot-requests';
+import { getChurchPrintoutSettings } from '@/lib/printout-settings-persistence';
 import { applyMvpCapabilities } from '@/lib/product-capabilities';
 import { runInWorkspace } from '@/lib/workspace-scope';
 

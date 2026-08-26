@@ -899,6 +899,23 @@ controls, progress metrics, and new packet candidates are absent.
   packet proposals and finalization copy, no apartment map setting or progress metric, no horizontal
   overflow, and no browser console errors.
 
+### Tracked follow-ups
+
+These items must be resolved or explicitly deferred before the architecture branch merges back into
+`codex/phase-9-ux-polish` or Phase 9 is marked `Complete`.
+
+- `P9-F01` (Resolved in PR #10): Radius labels now use a presentation-only decimal formatter. Stored
+  meters, containment, and importer calculations are unchanged. Signed-in Chrome acceptance on
+  August 26, 2026 saved a 1.8-mile live Overture region, reloaded it, and retained the exact
+  `1.8-mile` label. The same pass found and repaired the failed-import retry input synchronization
+  described as `ARCH-F07`.
+- `P9-F02` (Resolved on August 26, 2026): Signed-in Chrome acceptance ran against the exact merged
+  architecture head with `GOOGLE_MAPS_BROWSER_API_KEY` configured outside the repository. The
+  initial Map view loaded no Google Maps scripts. Selecting Satellite loaded Google's labeled
+  hybrid renderer at the same camera; returning to Map preserved that camera. One exact Region
+  Setup segment remained selected and highlighted through both map-view changes. The browser
+  recorded no application warnings or errors. No credential belongs in Git.
+
 ### Human review
 
 Phase 9 is at the founder-review checkpoint. The founder:
@@ -1110,11 +1127,44 @@ Deploy the founder-church pilot and prove that its data can be recovered.
 - Deploy one Railway Hobby service containing the application and importer.
 - Store SQLite on one Railway persistent volume and use the generated Railway HTTPS domain.
 - Configure production environment variables without committing secrets.
-- Configure WorkOS production authentication, Railway cost controls, and Google Maps quotas.
+- Configure WorkOS production authentication and Railway cost controls.
+- Before enabling production church-address geocoding, Ben must approve the Geocoding API daily
+  and queries-per-minute quota values plus the Google Cloud monthly budget amount, actual and
+  forecast alert thresholds, and recipients. Configure the approved project quota overrides in
+  **Google Maps Platform > Quotas** and a separate server-only key restricted to the Geocoding API.
+  Add an IP/CIDR application restriction only if Railway supplies stable outbound addresses;
+  otherwise treat the missing safe server-key application restriction as a deployment blocker,
+  never substitute a browser-referrer restriction, and obtain Ben's direction. Provider quotas
+  enforce request limits; Cloud Billing budgets alert but do not enforce a spending cap.
+  Deployment evidence must capture the effective quota overrides, key restriction metadata without
+  key material, and budget scope, amount, thresholds, and recipients. It must also prove that an
+  unauthenticated request and a malformed authenticated request do not reach Google, then complete
+  one valid authenticated lookup through the deployed application and confirm it appears in the
+  Geocoding request metrics. Do not choose quota values in implementation, deliberately exhaust a
+  production quota, or add an application limiter without an approved identity, threshold, reset
+  policy, and user response. See Google's
+  [Geocoding usage and billing](https://developers.google.com/maps/documentation/geocoding/usage-and-billing),
+  [API security guidance](https://developers.google.com/maps/api-security-best-practices),
+  [Cloud quota management](https://cloud.google.com/docs/quotas/view-manage),
+  [Cloud Billing budgets](https://cloud.google.com/billing/docs/how-to/budgets), and
+  [Geocoding reporting and monitoring](https://developers.google.com/maps/documentation/geocoding/report-monitor).
 - Enable Railway volume backups.
 - Document and test the restore command.
 - Add one production smoke check for application health.
 - Run the core workflow in a real browser against the deployed application.
+- Resolve the public pilot-request rate-control blocker before public deployment. Railway documents
+  `X-Real-IP` as the client remote IP for proxied requests, but its Edge Rules do not provide a
+  per-route request-count action. Railway's service-wide connection and HTTP request-rate limits
+  are unrelated, and its WAF / Under Attack Mode guidance is incident response rather than this
+  application policy. Ben must approve the
+  count, fixed-window duration, and direct use of Railway's `X-Real-IP` header. Then implement
+  bounded SQLite fixed-window state with expired-window cleanup and deterministic route tests:
+  duplicates remain neutral below the limit, requests above it return `429` with `Retry-After`, and
+  deployed verification sends limit plus one requests while proving spoofed `X-Forwarded-For` is
+  ignored. Phase 12 cannot complete until this control and deployment check pass. See Railway's
+  [public networking specifications](https://docs.railway.com/networking/public-networking/specs-and-limits),
+  [Edge Rules](https://docs.railway.com/networking/edge-rules), and
+  [production lockdown guidance](https://docs.railway.com/guides/lock-down-production-project).
 
 Do not add payments, public signup, analytics suites, or multi-region infrastructure.
 

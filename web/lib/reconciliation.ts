@@ -1,20 +1,7 @@
-import { validateCoverageDate } from './coverage.ts';
 import type { PacketProposal } from './packet-selection.ts';
 import type { Position } from './territory-geometry.ts';
 
-export type ReconciliationInput = {
-  batchId: string;
-  activePacketIds: string[];
-  presentPacketIds: string[];
-  cancelPacketIds: string[];
-};
-
 export type ReconciliationOutcome = 'still-here' | 'taken' | 'discarded';
-
-export type PacketCompletionCorrectionInput = {
-  packetId: string;
-  coveredOn: string | null;
-};
 
 export type PacketCoverageHistory = {
   completionGroupId: string;
@@ -53,7 +40,51 @@ export type ReconciliationWorkspace = {
 export type ReconciliationView = 'active' | 'history';
 export type ReconciliationHistoryTarget = { packetId: string };
 
-export function reconciliationBatchesForView(
+export type ReconciliationDecision = {
+  packetId: string;
+  outcome: ReconciliationOutcome;
+};
+
+export type ReconciliationSubmission = {
+  batchId: string;
+  decisions: ReconciliationDecision[];
+};
+
+export type ReconciliationDraft = {
+  batchId: string | null;
+  outcomes: ReadonlyMap<string, ReconciliationOutcome>;
+  selectedPacketId: string | null;
+  view: ReconciliationView;
+  historyTarget?: ReconciliationHistoryTarget | null;
+};
+
+export type ReconciliationMapPacket = {
+  packet: ReconciliationPacket;
+  disposition: 'active' | 'complete' | 'cancel';
+  selected: boolean;
+};
+
+export type ReconciliationMapPresentation = {
+  focusKey: string | null;
+  packets: ReconciliationMapPacket[];
+};
+
+export type ReconciliationProjection = {
+  activeBatches: ReconciliationBatch[];
+  historyBatches: ReconciliationBatch[];
+  visibleBatches: ReconciliationBatch[];
+  batch: ReconciliationBatch | null;
+  activePackets: ReconciliationPacket[];
+  historyPackets: ReconciliationPacket[];
+  selectedPacketId: string | null;
+  targetSelection: { batchId: string; packetId: string } | null;
+  view: ReconciliationView;
+  review: { unreviewed: string[]; active: string[]; complete: string[]; cancel: string[] };
+  submission: ReconciliationSubmission | null;
+  map: ReconciliationMapPresentation;
+};
+
+function batchesForView(
   batches: ReconciliationBatch[],
   view: ReconciliationView,
 ): ReconciliationBatch[] {
@@ -64,139 +95,103 @@ export function reconciliationBatchesForView(
   );
 }
 
-export function reconciliationHistorySelection(
+function targetSelection(
   batches: ReconciliationBatch[],
-  packetId: string,
+  target: ReconciliationHistoryTarget | null | undefined,
 ): { batchId: string; packetId: string } | null {
+  if (!target) return null;
   const batch = batches.find(({ packets }) =>
-    packets.some((packet) => packet.id === packetId && packet.status !== 'active'),
+    packets.some((packet) => packet.id === target.packetId && packet.status !== 'active'),
   );
-  return batch ? { batchId: batch.id, packetId } : null;
+  return batch ? { batchId: batch.id, packetId: target.packetId } : null;
 }
-export function reconciliationMapPackets(
-  packets: ReconciliationPacket[],
-  view: ReconciliationView,
-  selectedPacketId: string | null,
-): ReconciliationPacket[] {
-  const selected = packets.find(({ id }) => id === selectedPacketId);
-  if (selected) return [selected];
-  return packets.filter(({ status }) =>
-    view === 'active' ? status === 'active' : status !== 'active',
+
+function preferredBatchId(
+  batches: ReconciliationBatch[],
+  requested: string | null,
+  fallback: string | null,
+): string | null {
+  if (requested && batches.some(({ id }) => id === requested)) return requested;
+  if (fallback && batches.some(({ id }) => id === fallback)) return fallback;
+  return batches[0]?.id ?? null;
+}
+
+export function projectReconciliation(
+  workspace: ReconciliationWorkspace,
+  draft: ReconciliationDraft,
+): ReconciliationProjection {
+  const activeBatches = batchesForView(workspace.batches, 'active');
+  const historyBatches = batchesForView(workspace.batches, 'history');
+  const target = targetSelection(workspace.batches, draft.historyTarget);
+  const view = target ? 'history' : draft.view;
+  const visibleBatches = view === 'active' ? activeBatches : historyBatches;
+  const batchId = preferredBatchId(
+    visibleBatches,
+    target?.batchId ?? draft.batchId,
+    view === 'active' ? workspace.defaultBatchId : null,
   );
-}
-
-export class ReconciliationConflictError extends Error {}
-
-export function buildReconciliationPreview(
-  activePacketIds: string[],
-  presentPacketIds: string[],
-  cancelPacketIds: string[],
-): { complete: string[]; active: string[]; cancel: string[] } {
-  const active = new Set(activePacketIds);
-  const present = new Set(presentPacketIds);
-  const cancel = new Set(cancelPacketIds);
-  if (
-    presentPacketIds.some((id) => !active.has(id)) ||
-    cancelPacketIds.some((id) => !present.has(id))
-  ) {
-    throw new Error('Invalid reconciliation choices');
-  }
-  return {
-    complete: activePacketIds.filter((id) => !present.has(id)),
-    active: activePacketIds.filter((id) => present.has(id) && !cancel.has(id)),
-    cancel: activePacketIds.filter((id) => cancel.has(id)),
+  const batch = visibleBatches.find(({ id }) => id === batchId) ?? null;
+  const activePackets = batch?.packets.filter(({ status }) => status === 'active') ?? [];
+  const historyPackets = batch?.packets.filter(({ status }) => status !== 'active') ?? [];
+  const selectedCandidate = target?.packetId ?? draft.selectedPacketId;
+  const packetsForView = view === 'active' ? activePackets : historyPackets;
+  const selectedPacketId = packetsForView.some(({ id }) => id === selectedCandidate)
+    ? selectedCandidate
+    : null;
+  const review = {
+    unreviewed: activePackets.filter(({ id }) => !draft.outcomes.has(id)).map(({ id }) => id),
+    active: activePackets
+      .filter(({ id }) => draft.outcomes.get(id) === 'still-here')
+      .map(({ id }) => id),
+    complete: activePackets
+      .filter(({ id }) => draft.outcomes.get(id) === 'taken')
+      .map(({ id }) => id),
+    cancel: activePackets
+      .filter(({ id }) => draft.outcomes.get(id) === 'discarded')
+      .map(({ id }) => id),
   };
-}
+  const submission =
+    view === 'active' && batch && activePackets.length > 0 && review.unreviewed.length === 0
+      ? {
+          batchId: batch.id,
+          decisions: activePackets.map(({ id }) => ({
+            packetId: id,
+            outcome: draft.outcomes.get(id) as ReconciliationOutcome,
+          })),
+        }
+      : null;
+  const visibleMapPackets = selectedPacketId
+    ? packetsForView.filter(({ id }) => id === selectedPacketId)
+    : packetsForView;
+  const mapPackets = visibleMapPackets.map((packet): ReconciliationMapPacket => {
+    const outcome = draft.outcomes.get(packet.id);
+    return {
+      packet,
+      disposition:
+        packet.status === 'cancelled' || outcome === 'discarded'
+          ? 'cancel'
+          : packet.status === 'completed' || outcome === 'taken'
+            ? 'complete'
+            : 'active',
+      selected: packet.id === selectedPacketId,
+    };
+  });
 
-export function buildReconciliationChoices(
-  activePacketIds: string[],
-  outcomes: ReadonlyMap<string, ReconciliationOutcome>,
-): { unreviewed: string[]; active: string[]; complete: string[]; cancel: string[] } {
   return {
-    unreviewed: activePacketIds.filter((id) => !outcomes.has(id)),
-    active: activePacketIds.filter((id) => outcomes.get(id) === 'still-here'),
-    complete: activePacketIds.filter((id) => outcomes.get(id) === 'taken'),
-    cancel: activePacketIds.filter((id) => outcomes.get(id) === 'discarded'),
+    activeBatches,
+    historyBatches,
+    visibleBatches,
+    batch,
+    activePackets,
+    historyPackets,
+    selectedPacketId,
+    targetSelection: target,
+    view,
+    review,
+    submission,
+    map: {
+      focusKey: batch ? `${batch.id}:${selectedPacketId ?? 'all'}` : null,
+      packets: mapPackets,
+    },
   };
-}
-
-function exactStringArray(value: unknown): string[] | null {
-  if (
-    !Array.isArray(value) ||
-    value.some((item) => typeof item !== 'string' || item.length === 0) ||
-    new Set(value).size !== value.length
-  ) {
-    return null;
-  }
-  return value as string[];
-}
-
-export function parseReconciliationInput(value: unknown): ReconciliationInput {
-  if (
-    !value ||
-    typeof value !== 'object' ||
-    Array.isArray(value) ||
-    Object.keys(value).sort().join(',') !==
-      'activePacketIds,batchId,cancelPacketIds,presentPacketIds'
-  ) {
-    throw new Error('Invalid reconciliation request');
-  }
-  const input = value as Record<string, unknown>;
-  const activePacketIds = exactStringArray(input.activePacketIds);
-  const presentPacketIds = exactStringArray(input.presentPacketIds);
-  const cancelPacketIds = exactStringArray(input.cancelPacketIds);
-  if (
-    typeof input.batchId !== 'string' ||
-    input.batchId.length === 0 ||
-    !activePacketIds ||
-    activePacketIds.length === 0 ||
-    !presentPacketIds ||
-    !cancelPacketIds
-  ) {
-    throw new Error('Invalid reconciliation request');
-  }
-  const active = new Set(activePacketIds);
-  const present = new Set(presentPacketIds);
-  if (
-    presentPacketIds.some((id) => !active.has(id)) ||
-    cancelPacketIds.some((id) => !present.has(id))
-  ) {
-    throw new Error('Invalid reconciliation request');
-  }
-  return {
-    batchId: input.batchId,
-    activePacketIds,
-    presentPacketIds,
-    cancelPacketIds,
-  };
-}
-
-export function parsePacketCompletionCorrection(
-  value: unknown,
-  asOf: string,
-): PacketCompletionCorrectionInput {
-  if (
-    !value ||
-    typeof value !== 'object' ||
-    Array.isArray(value) ||
-    Object.keys(value).sort().join(',') !== 'coveredOn,packetId'
-  ) {
-    throw new Error('Invalid packet correction request');
-  }
-  const input = value as Record<string, unknown>;
-  if (
-    typeof input.packetId !== 'string' ||
-    input.packetId.length === 0 ||
-    (input.coveredOn !== null && typeof input.coveredOn !== 'string')
-  ) {
-    throw new Error('Invalid packet correction request');
-  }
-  if (typeof input.coveredOn === 'string') {
-    try {
-      validateCoverageDate(input.coveredOn, asOf);
-    } catch {
-      throw new Error('Invalid packet correction request');
-    }
-  }
-  return { packetId: input.packetId, coveredOn: input.coveredOn as string | null };
 }

@@ -1,6 +1,6 @@
-import type { ApartmentSite, TerritorySegment, TerritoryWorkspace } from './database.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
-import { lineInsideTerritoryBoundary, type Position } from './territory-geometry.ts';
+import { lineInsideTerritoryBoundary } from './territory-geometry.ts';
+import type { ApartmentSite, TerritorySegment, TerritoryWorkspace } from './territory-workspace.ts';
 
 export function apartmentSiteReady(
   site: Pick<ApartmentSite, 'address' | 'tractCount' | 'accessStatus'>,
@@ -21,22 +21,15 @@ export function territoryMapMode(
   return { visible, interactive: visible && setupView === 'territory' };
 }
 
-export async function refreshTerritoryViews(
-  imported: boolean,
-  refreshCoverage: () => Promise<void>,
-  refreshMapData: () => Promise<void>,
-): Promise<void> {
-  const refreshes = [refreshCoverage()];
-  if (imported) refreshes.push(refreshMapData());
-  await Promise.all(refreshes);
+export function territoryRadiusMilesText(radiusMiles: number): string {
+  return String(Number(radiusMiles.toFixed(10)));
 }
 
 export function hasUnsavedTerritoryChanges(
   saved: TerritoryDraftInput,
   draft: TerritoryDraftInput,
-  drawingPoints: Position[] = [],
 ): boolean {
-  return drawingPoints.length > 0 || JSON.stringify(draft) !== JSON.stringify(saved);
+  return JSON.stringify(draft) !== JSON.stringify(saved);
 }
 
 export function setSegmentsExcluded(
@@ -50,14 +43,6 @@ export function setSegmentsExcluded(
     else ids.delete(segmentId);
   }
   return { ...draft, excludedSegmentIds: [...ids].sort() };
-}
-
-export function setSegmentExcluded(
-  draft: TerritoryDraftInput,
-  segmentId: string,
-  excluded: boolean,
-): TerritoryDraftInput {
-  return setSegmentsExcluded(draft, [segmentId], excluded);
 }
 
 export function activateSegments(

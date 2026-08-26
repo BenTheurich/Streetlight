@@ -1,4 +1,3 @@
-import type { TerritoryWorkspace } from '@/lib/database';
 import type { FinalizedBatch } from '@/lib/packet-finalization';
 import type { ReconciliationWorkspace } from '@/lib/reconciliation';
 
@@ -30,14 +29,6 @@ function isLineString(value: unknown): boolean {
     Array.isArray(value.coordinates) &&
     value.coordinates.length >= 2 &&
     value.coordinates.every(isPosition)
-  );
-}
-
-function isAreaGeometry(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    (value.type === 'Polygon' || value.type === 'MultiPolygon') &&
-    Array.isArray(value.coordinates)
   );
 }
 
@@ -142,123 +133,6 @@ export function isReconciliationWorkspacePayload(value: unknown): value is Recon
   );
 }
 
-function isImportQuality(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    isNumber(value.totalAddresses) &&
-    isNumber(value.assignedAddresses) &&
-    isNumber(value.spatiallyAssignedAddresses) &&
-    isNumber(value.inferredRoads) &&
-    isNumber(value.unmatchedAddresses) &&
-    isNumber(value.unresolvedClusters) &&
-    isNumber(value.totalResidentialBuildings) &&
-    isNumber(value.fallbackBuildings) &&
-    isNumber(value.unmatchedResidentialBuildings) &&
-    isNumber(value.populatedUnnamedRoads) &&
-    isNumber(value.buildingAddressDisagreements) &&
-    Array.isArray(value.warnings) &&
-    value.warnings.every((warning) => typeof warning === 'string')
-  );
-}
-
-function isTerritoryImport(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    (value.kind === 'proof' || value.kind === 'overture') &&
-    isNullableString(value.release) &&
-    (value.center === null || isPosition(value.center)) &&
-    (value.radiusMiles === null || isNumber(value.radiusMiles)) &&
-    isNullableString(value.completedAt) &&
-    (value.normalizerVersion === null || isNumber(value.normalizerVersion)) &&
-    (value.quality === null || isImportQuality(value.quality))
-  );
-}
-
-function isApartmentEvidence(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.sourceId === 'string' &&
-    isNullableString(value.address) &&
-    isPosition(value.position) &&
-    (value.geometry === null || isAreaGeometry(value.geometry)) &&
-    typeof value.apartmentBuilding === 'boolean' &&
-    isNumber(value.distinctUnits)
-  );
-}
-
-function isApartmentSite(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.sourceId === 'string' &&
-    isNullableString(value.name) &&
-    isNullableString(value.address) &&
-    isPosition(value.position) &&
-    (value.boundary === null || isAreaGeometry(value.boundary)) &&
-    ['source_boundary', 'ungrouped', 'admin_group'].includes(String(value.groupingKind)) &&
-    typeof value.groupingConfirmed === 'boolean' &&
-    typeof value.addressConfirmed === 'boolean' &&
-    (value.tractCount === null || isNumber(value.tractCount)) &&
-    ['unknown', 'open', 'restricted'].includes(String(value.accessStatus)) &&
-    typeof value.includedInPackets === 'boolean' &&
-    typeof value.packetReady === 'boolean' &&
-    Array.isArray(value.members) &&
-    value.members.every(isApartmentEvidence) &&
-    isNumber(value.estimatedTracts) &&
-    isRecord(value.evidence) &&
-    typeof value.evidence.apartmentBuilding === 'boolean' &&
-    isNumber(value.evidence.distinctUnits) &&
-    ['needs_review', 'ready', 'deferred'].includes(String(value.reviewStatus)) &&
-    typeof value.withinBoundary === 'boolean'
-  );
-}
-
-function isTerritorySegment(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.sourceSegmentId === 'string' &&
-    typeof value.roadGroupId === 'string' &&
-    typeof value.roadClass === 'string' &&
-    typeof value.streetName === 'string' &&
-    isLineString(value.geometry) &&
-    isNumber(value.estimatedHomes) &&
-    ['automatic', 'hidden', 'manual'].includes(String(value.activationKind)) &&
-    typeof value.active === 'boolean' &&
-    typeof value.withinBoundary === 'boolean' &&
-    typeof value.manuallyExcluded === 'boolean' &&
-    typeof value.eligible === 'boolean' &&
-    (value.excludedReason === null ||
-      ['hidden', 'boundary', 'segment'].includes(String(value.excludedReason)))
-  );
-}
-
-export function isTerritoryWorkspacePayload(value: unknown): value is TerritoryWorkspace {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.churchName === 'string' &&
-    typeof value.name === 'string' &&
-    typeof value.originAddress === 'string' &&
-    isPosition(value.center) &&
-    isNumber(value.radiusMiles) &&
-    (value.boundaryShape === 'circle' || value.boundaryShape === 'square') &&
-    isTerritoryImport(value.import) &&
-    Array.isArray(value.apartmentSites) &&
-    value.apartmentSites.every(isApartmentSite) &&
-    Array.isArray(value.apartmentComplexes) &&
-    value.apartmentComplexes.every(isApartmentSite) &&
-    Array.isArray(value.segments) &&
-    value.segments.every(isTerritorySegment) &&
-    isRecord(value.totals) &&
-    isNumber(value.totals.allSegments) &&
-    isNumber(value.totals.eligibleSegments) &&
-    isNumber(value.totals.allHomes) &&
-    isNumber(value.totals.eligibleHomes)
-  );
-}
-
 export async function readMutationResult<T>(
   request: () => Promise<Response>,
   isSuccess: (value: unknown) => value is T,
@@ -285,20 +159,70 @@ export async function readMutationResult<T>(
   }
 }
 
-export function packetRequestControlsDisabled(state: {
+type PacketOperationState = {
   downloading: 'newest' | 'active' | null;
   finalizing: boolean;
   generating: boolean;
   verificationRequired: boolean;
-}): boolean {
-  return (
-    state.generating || state.finalizing || state.downloading !== null || state.verificationRequired
-  );
+};
+
+export function packetOperationControls(state: PacketOperationState, activePackets: number) {
+  const busy =
+    state.generating ||
+    state.finalizing ||
+    state.downloading !== null ||
+    state.verificationRequired;
+  return {
+    activePdfDisabled: busy || activePackets === 0,
+    busy,
+    finalizationDisabled: busy,
+    newestPdfDisabled: busy,
+    proposalDisabled: busy,
+    requestDisabled: busy,
+  };
 }
 
-export function territoryLeaveControlsDisabled(state: {
-  saving: boolean;
-  verificationRequired: boolean;
-}): boolean {
-  return state.saving || state.verificationRequired;
+export type CorrectionAttempt = {
+  packetId: string;
+  coveredOn: string | null;
+};
+
+export type ReconciliationCorrectionFeedback = {
+  attempt: CorrectionAttempt;
+  detail: string;
+  headline: string;
+  operation: 'correction';
+  recovery?: 'retry' | 'reload';
+  tone: 'error' | 'success';
+};
+
+type CorrectionControl = {
+  busy: boolean;
+  feedback: ReconciliationCorrectionFeedback | null;
+  action: { kind: 'reload' } | { kind: 'retry'; attempt: CorrectionAttempt } | null;
+};
+
+export function correctionControlForPacket(
+  packetId: string,
+  activeAttempt: CorrectionAttempt | null,
+  feedback: ReconciliationCorrectionFeedback | null,
+): CorrectionControl {
+  const packetFeedback = feedback?.attempt.packetId === packetId ? feedback : null;
+  return {
+    busy: activeAttempt?.packetId === packetId,
+    feedback: packetFeedback,
+    action:
+      packetFeedback?.recovery === 'reload'
+        ? { kind: 'reload' }
+        : packetFeedback?.tone === 'error'
+          ? { kind: 'retry', attempt: packetFeedback.attempt }
+          : null,
+  };
+}
+
+export function reconciliationMutationControlsDisabled(
+  operationActive: boolean,
+  recovery?: 'retry' | 'reload',
+): boolean {
+  return operationActive || recovery === 'reload';
 }

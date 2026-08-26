@@ -1,15 +1,15 @@
 'use client';
 
 import { type FormEvent, useEffect, useRef, useState } from 'react';
-import type { CoverageWorkspace } from '@/lib/database';
+import type { CoverageWorkspace } from '@/lib/coverage';
+import {
+  isFinalizedBatchPayload,
+  packetOperationControls,
+  readMutationResult,
+} from '@/lib/operation-state';
 import type { FinalizedBatch, ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 import { OperationStatus } from './OperationStatus';
-import {
-  isFinalizedBatchPayload,
-  packetRequestControlsDisabled,
-  readMutationResult,
-} from './operation-state';
 import { packetDownloadProgress } from './packet-download-progress';
 import { packetToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
@@ -270,12 +270,11 @@ export function PacketGenerator({
   const downloadProgress = packetDownloadProgress(downloading, newestPacketCount, activePackets);
   const verificationRequired =
     feedback?.operation === 'finalization' && feedback.recovery === 'reload';
-  const packetOperationBusy = packetRequestControlsDisabled({
-    downloading,
-    finalizing,
-    generating,
-    verificationRequired,
-  });
+  const packetControls = packetOperationControls(
+    { downloading, finalizing, generating, verificationRequired },
+    activePackets,
+  );
+  const packetOperationBusy = packetControls.busy;
 
   return (
     <aside className="territory-sidebar packet-sidebar tool-sidebar" hidden={!active}>
@@ -299,7 +298,7 @@ export function PacketGenerator({
                 <label>
                   Quantity
                   <input
-                    disabled={packetOperationBusy}
+                    disabled={packetControls.requestDisabled}
                     min="1"
                     onChange={(event) => updateRow(index, 'quantity', event.target.value)}
                     required
@@ -311,7 +310,7 @@ export function PacketGenerator({
                 <label>
                   Tracts per packet
                   <input
-                    disabled={packetOperationBusy}
+                    disabled={packetControls.requestDisabled}
                     min="1"
                     onChange={(event) => updateRow(index, 'targetHomes', event.target.value)}
                     required
@@ -324,7 +323,7 @@ export function PacketGenerator({
                   <button
                     aria-label={`Remove packet size ${index + 1}`}
                     className="danger packet-remove"
-                    disabled={packetOperationBusy}
+                    disabled={packetControls.requestDisabled}
                     onClick={() => {
                       setRows((current) => current.filter((_, rowIndex) => rowIndex !== index));
                       discardResult();
@@ -342,7 +341,7 @@ export function PacketGenerator({
             <div className="packet-form-actions">
               <button
                 className="secondary"
-                disabled={packetOperationBusy}
+                disabled={packetControls.requestDisabled}
                 onClick={() => {
                   setRows((current) => [
                     ...current,
@@ -357,7 +356,7 @@ export function PacketGenerator({
               >
                 Add packet size
               </button>
-              <button disabled={packetOperationBusy} type="submit">
+              <button disabled={packetControls.requestDisabled} type="submit">
                 {generating
                   ? 'Generating…'
                   : feedback?.operation === 'generation' && feedback.tone === 'error'
@@ -422,7 +421,7 @@ export function PacketGenerator({
                     <button
                       aria-label={`Delete Packet ${index + 1} proposal`}
                       className="packet-proposal-delete"
-                      disabled={packetOperationBusy}
+                      disabled={packetControls.proposalDisabled}
                       onClick={() => deleteProposal(index)}
                       title={`Delete Packet ${index + 1} proposal`}
                       type="button"
@@ -461,7 +460,7 @@ export function PacketGenerator({
                     Batch name <small>(optional)</small>
                   </span>
                   <input
-                    disabled={packetOperationBusy}
+                    disabled={packetControls.finalizationDisabled}
                     maxLength={80}
                     onChange={(event) => setCustomName(event.target.value)}
                     placeholder="Streetlight will name it automatically"
@@ -470,7 +469,7 @@ export function PacketGenerator({
                 </label>
                 {!confirming ? (
                   <button
-                    disabled={packetOperationBusy}
+                    disabled={packetControls.finalizationDisabled}
                     onClick={() => setConfirming(true)}
                     ref={finalizationTriggerRef}
                     type="button"
@@ -492,14 +491,14 @@ export function PacketGenerator({
                     <div>
                       <button
                         className="secondary"
-                        disabled={packetOperationBusy}
+                        disabled={packetControls.finalizationDisabled}
                         onClick={cancelFinalization}
                         type="button"
                       >
                         Cancel
                       </button>
                       <button
-                        disabled={packetOperationBusy}
+                        disabled={packetControls.finalizationDisabled}
                         form={feedback?.requiresRegeneration ? 'packet-request-form' : undefined}
                         onClick={feedback?.requiresRegeneration ? undefined : () => void finalize()}
                         ref={confirmFinalizationRef}
@@ -561,7 +560,7 @@ export function PacketGenerator({
             )
           )}
           <button
-            disabled={packetOperationBusy}
+            disabled={packetControls.newestPdfDisabled}
             onClick={() => void downloadPacketPdf('newest')}
             type="button"
           >
@@ -575,7 +574,7 @@ export function PacketGenerator({
           </button>
           <button
             className="secondary"
-            disabled={packetOperationBusy || activePackets === 0}
+            disabled={packetControls.activePdfDisabled}
             onClick={() => void downloadPacketPdf('active')}
             type="button"
           >

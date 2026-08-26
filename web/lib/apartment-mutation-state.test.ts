@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type {
-  ApartmentSite,
-  ApartmentSiteConfigurationInput,
-  TerritoryWorkspace,
-} from '../lib/database.ts';
 import {
   optimisticApartmentConfiguration,
   resolveApartmentMutation,
 } from './apartment-mutation-state.ts';
+import type {
+  ApartmentSite,
+  ApartmentSiteConfigurationInput,
+  TerritoryWorkspace,
+} from './territory-workspace.ts';
 
 const configuredSite: ApartmentSite = {
   id: 'apartment-1',

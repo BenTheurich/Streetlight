@@ -1,102 +1,23 @@
 'use client';
 
-import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import { useEffect } from 'react';
-import { positionBounds } from '@/lib/map-camera';
-import { type PacketProposal, proposalsForMap } from '@/lib/packet-selection';
-import { keepMapOverlayPublished, mapPinDataUrl } from '@/lib/territory-map-style';
-
-type PacketProposalMapProps = {
-  active: boolean;
-  map: MapLibreMap | null;
-  proposals: PacketProposal[];
-  selectedIndex: number | null;
-};
+import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
+import type { PacketProposal } from '@/lib/packet-selection';
 
 export function PacketProposalMap({
   active,
-  map,
+  lifecycle,
   proposals,
   selectedIndex,
-}: PacketProposalMapProps) {
+}: {
+  active: boolean;
+  lifecycle: MapOverlayLifecycle | null;
+  proposals: PacketProposal[];
+  selectedIndex: number | null;
+}) {
   useEffect(() => {
-    const visibleProposals = proposalsForMap(proposals, selectedIndex);
-    if (!active || !map || visibleProposals.length === 0) return;
-    let disposed = false;
-    const sourceId = 'streetlight-packet-proposals';
-    const haloId = 'streetlight-packet-proposals-halo';
-    const markers: MapLibreMarker[] = [];
-    const positions = visibleProposals.flatMap((proposal) =>
-      proposal.segments.flatMap(({ geometry }) => geometry.coordinates),
-    );
-    const publish = () => {
-      if (!map.getSource(sourceId)) {
-        map.addSource(sourceId, {
-          type: 'geojson',
-          data: {
-            type: 'FeatureCollection',
-            features: visibleProposals.flatMap((proposal) =>
-              proposal.segments.map((segment) => ({
-                type: 'Feature' as const,
-                geometry: segment.geometry,
-                properties: {},
-              })),
-            ),
-          },
-        });
-      }
-      if (map.getLayer(haloId)) return;
-      const before = map.getLayer('streetlight-coverage')
-        ? 'streetlight-coverage'
-        : map.getLayer('highway-name-minor')
-          ? 'highway-name-minor'
-          : undefined;
-      map.addLayer(
-        {
-          id: haloId,
-          type: 'line',
-          source: sourceId,
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: {
-            'line-color': '#78a9ff',
-            'line-opacity': 1,
-            'line-width': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 13],
-          },
-        },
-        before,
-      );
-    };
-    const stopPublishing = keepMapOverlayPublished(map, publish);
-    const selectedProposal = selectedIndex === null ? null : visibleProposals[0];
-    const markerProposals = visibleProposals.filter(
-      (proposal) => proposal.kind === 'apartment' || proposal === selectedProposal,
-    );
-    void import('maplibre-gl').then(({ Marker }) => {
-      if (disposed) return;
-      for (const proposal of markerProposals) {
-        const markerElement = document.createElement('img');
-        markerElement.alt = '';
-        markerElement.src = mapPinDataUrl('start');
-        markerElement.className = 'workspace-map-pin';
-        const marker = new Marker({ anchor: 'bottom', element: markerElement })
-          .setLngLat(proposal.start.position)
-          .addTo(map);
-        marker.getElement().title =
-          proposal.kind === 'apartment' ? 'Apartment complex' : 'Starting address';
-        markers.push(marker);
-      }
-    });
-    positions.push(...markerProposals.map(({ start }) => start.position));
-    const bounds = positionBounds(positions);
-    if (bounds) map.fitBounds(bounds, { padding: 56 });
-    return () => {
-      disposed = true;
-      stopPublishing();
-      for (const marker of markers) marker.remove();
-      if (map.getLayer(haloId)) map.removeLayer(haloId);
-      if (map.getSource(sourceId)) map.removeSource(sourceId);
-    };
-  }, [active, map, proposals, selectedIndex]);
-
+    if (!lifecycle) return;
+    return lifecycle.present({ kind: 'proposals', visible: active, proposals, selectedIndex });
+  }, [active, lifecycle, proposals, selectedIndex]);
   return null;
 }

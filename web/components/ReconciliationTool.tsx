@@ -1,21 +1,16 @@
 'use client';
 
-import type { Map as MapLibreMap } from 'maplibre-gl';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  buildReconciliationChoices,
-  type ReconciliationBatch,
-  type ReconciliationHistoryTarget,
-  type ReconciliationOutcome,
-  type ReconciliationPacket,
-  type ReconciliationView,
-  type ReconciliationWorkspace,
-  reconciliationBatchesForView,
-  reconciliationHistorySelection,
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
+import { type CorrectionAttempt, correctionControlForPacket } from '@/lib/operation-state';
+import type {
+  ReconciliationBatch,
+  ReconciliationHistoryTarget,
+  ReconciliationPacket,
 } from '@/lib/reconciliation';
+import { createReconciliationWorkflow } from '@/lib/reconciliation-workflow';
 import { OpenReconciliationOverlay } from './OpenReconciliationOverlay';
 import { OperationStatus } from './OperationStatus';
-import { isReconciliationWorkspacePayload, readMutationResult } from './operation-state';
 import { StreetlightSelect } from './StreetlightSelect';
 import { packetToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
@@ -54,109 +49,58 @@ function historyBatchOptionLabel(batch: ReconciliationBatch): string {
   );
 }
 
-function preferredBatchId(batches: ReconciliationBatch[], current: string | null): string | null {
-  return current && batches.some(({ id }) => id === current) ? current : (batches[0]?.id ?? null);
-}
-
-type CorrectionAttempt = {
-  packetId: string;
-  coveredOn: string | null;
-};
-
-type ReconciliationOperation =
-  | { kind: 'confirm' }
-  | { kind: 'correction'; attempt: CorrectionAttempt };
-
-type ReconciliationFeedbackBase = {
-  detail: string;
-  headline: string;
-  recovery?: 'retry' | 'reload';
-  tone: 'error' | 'success';
-};
-
-type ReconciliationFeedback =
-  | (ReconciliationFeedbackBase & { operation: 'load' | 'confirm' })
-  | (ReconciliationFeedbackBase & {
-      operation: 'correction';
-      attempt: CorrectionAttempt;
-    });
-
 export function ReconciliationTool({
   active,
-  map,
+  lifecycle,
   onChanged,
   onTargetHandled,
   onViewChange,
   target,
 }: {
   active: boolean;
-  map: MapLibreMap | null;
+  lifecycle: MapOverlayLifecycle | null;
   onChanged: () => Promise<void>;
   onTargetHandled: () => void;
   onViewChange: (view: 'generate' | 'reconcile') => void;
   target: ReconciliationHistoryTarget | null;
 }) {
-  const [workspace, setWorkspace] = useState<ReconciliationWorkspace | null>(null);
-  const [batchId, setBatchId] = useState<string | null>(null);
-  const [packetOutcomes, setPacketOutcomes] = useState<Map<string, ReconciliationOutcome>>(
-    new Map(),
+  const onChangedRef = useRef(onChanged);
+  onChangedRef.current = onChanged;
+  const [workflow] = useState(() =>
+    createReconciliationWorkflow({
+      onAccepted: () => onChangedRef.current(),
+    }),
   );
-  const [selectedPacketId, setSelectedPacketId] = useState<string | null>(null);
-  const [editingPacketId, setEditingPacketId] = useState<string | null>(null);
-  const [reconciliationView, setReconciliationView] = useState<ReconciliationView>('active');
-  const [reviewing, setReviewing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [operation, setOperation] = useState<ReconciliationOperation | null>(null);
-  const [feedback, setFeedback] = useState<ReconciliationFeedback | null>(null);
-  const requestedRef = useRef(false);
+  const snapshot = useSyncExternalStore(
+    workflow.subscribe,
+    workflow.getSnapshot,
+    workflow.getSnapshot,
+  );
   const selectedPacketRef = useRef<HTMLElement | null>(null);
+  const ready = snapshot.kind === 'ready' ? snapshot : null;
+  const workspace = ready?.accepted ?? null;
+  const projection = ready?.projection ?? null;
+  const batchId = ready?.draft.batchId ?? null;
+  const packetOutcomes = ready?.draft.outcomes ?? new Map();
+  const selectedPacketId = ready?.draft.selectedPacketId ?? null;
+  const editingPacketId = ready?.draft.editingPacketId ?? null;
+  const reconciliationView = ready?.draft.view ?? 'active';
+  const reviewing = ready?.draft.reviewing ?? false;
+  const operation = ready?.operation ?? null;
+  const feedback = ready?.feedback ?? null;
+  const loading = snapshot.kind === 'idle' || snapshot.kind === 'loading';
   const busy = operation !== null;
-  const verificationRequired = feedback?.recovery === 'reload';
-  const mutationControlsDisabled = busy || verificationRequired;
-
-  const load = useCallback(async () => {
-    requestedRef.current = true;
-    setLoading(true);
-    setFeedback(null);
-    try {
-      const response = await fetch('/api/reconciliation');
-      const result = (await response.json()) as ReconciliationWorkspace | { error: string };
-      if (!response.ok || 'error' in result) {
-        throw new Error('error' in result ? result.error : 'Could not load packet reconciliation');
-      }
-      setWorkspace(result);
-      const activeBatches = reconciliationBatchesForView(result.batches, 'active');
-      setBatchId((current) => preferredBatchId(activeBatches, current ?? result.defaultBatchId));
-    } catch (error) {
-      requestedRef.current = false;
-      setFeedback({
-        detail: `${error instanceof Error ? error.message : 'Could not load packet reconciliation'}. No packet records were changed.`,
-        headline: 'Packet batches could not be loaded',
-        operation: 'load',
-        tone: 'error',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const mutationControlsDisabled = ready?.mutationControlsDisabled ?? false;
 
   useEffect(() => {
-    if (active && !requestedRef.current) void load();
-  }, [active, load]);
+    if (active) void workflow.act({ kind: 'load' });
+  }, [active, workflow]);
 
   useEffect(() => {
-    if (!active || !workspace || !target) return;
-    const selection = reconciliationHistorySelection(workspace.batches, target.packetId);
-    if (selection) {
-      setReconciliationView('history');
-      setBatchId(selection.batchId);
-      setPacketOutcomes(new Map());
-      setSelectedPacketId(selection.packetId);
-      setEditingPacketId(null);
-      setReviewing(false);
-    }
+    if (!active || !ready || !target) return;
+    void workflow.act({ kind: 'target', target });
     onTargetHandled();
-  }, [active, onTargetHandled, target, workspace]);
+  }, [active, onTargetHandled, ready, target, workflow]);
 
   useEffect(() => {
     if (!active || reconciliationView !== 'history' || !selectedPacketId) return;
@@ -165,202 +109,43 @@ export function ReconciliationTool({
     );
     return () => cancelAnimationFrame(frame);
   }, [active, reconciliationView, selectedPacketId]);
-  const activeBatches = useMemo(
-    () => reconciliationBatchesForView(workspace?.batches ?? [], 'active'),
-    [workspace],
-  );
-  const historyBatches = useMemo(
-    () => reconciliationBatchesForView(workspace?.batches ?? [], 'history'),
-    [workspace],
-  );
-  const visibleBatches = reconciliationView === 'active' ? activeBatches : historyBatches;
-  const batch = visibleBatches.find(({ id }) => id === batchId) ?? null;
-  const activePackets = useMemo(
-    () => batch?.packets.filter(({ status }) => status === 'active') ?? [],
-    [batch],
-  );
-  const historyPackets = useMemo(
-    () => batch?.packets.filter(({ status }) => status !== 'active') ?? [],
-    [batch],
-  );
-  const activePacketIds = useMemo(() => activePackets.map(({ id }) => id), [activePackets]);
-  const preview = useMemo(
-    () => buildReconciliationChoices(activePacketIds, packetOutcomes),
-    [activePacketIds, packetOutcomes],
-  );
-  const overlayPresentIds = useMemo(
-    () => new Set([...preview.active, ...preview.cancel, ...preview.unreviewed]),
-    [preview],
-  );
-  const overlayCancelIds = useMemo(() => new Set(preview.cancel), [preview.cancel]);
-  const reviewReady = preview.unreviewed.length === 0;
+  const activeBatches = projection?.activeBatches ?? [];
+  const historyBatches = projection?.historyBatches ?? [];
+  const visibleBatches = projection?.visibleBatches ?? [];
+  const batch = projection?.batch ?? null;
+  const activePackets = projection?.activePackets ?? [];
+  const historyPackets = projection?.historyPackets ?? [];
+  const preview = projection?.review ?? {
+    unreviewed: [],
+    active: [],
+    complete: [],
+    cancel: [],
+  };
+  const reviewReady = projection?.submission != null;
   const packetById = new Map(batch?.packets.map((packet) => [packet.id, packet]) ?? []);
 
-  function resetChoices(): void {
-    setPacketOutcomes(new Map());
-    setSelectedPacketId(null);
-    setEditingPacketId(null);
-    setReviewing(false);
-  }
-
-  function showReconciliationView(view: ReconciliationView): void {
-    const candidates = view === 'active' ? activeBatches : historyBatches;
-    setReconciliationView(view);
-    setBatchId((current) => preferredBatchId(candidates, current));
-    resetChoices();
-  }
-
-  function setPacketOutcome(packetId: string, outcome: ReconciliationOutcome): void {
-    setPacketOutcomes((current) => {
-      const next = new Map(current);
-      next.set(packetId, outcome);
-      return next;
-    });
-    setReviewing(false);
-  }
-
-  function replaceWorkspace(next: ReconciliationWorkspace): void {
-    setWorkspace(next);
-    const candidates = reconciliationBatchesForView(next.batches, reconciliationView);
-    setBatchId((current) => preferredBatchId(candidates, current));
-    resetChoices();
-  }
-
   async function confirm(): Promise<void> {
-    if (!batch || !reviewReady) return;
-    setOperation({ kind: 'confirm' });
-    setFeedback(null);
-    const outcome = await readMutationResult(
-      () =>
-        fetch('/api/reconciliation', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            batchId: batch.id,
-            activePacketIds,
-            presentPacketIds: [...preview.active, ...preview.cancel],
-            cancelPacketIds: preview.cancel,
-          }),
-        }),
-      isReconciliationWorkspacePayload,
+    await workflow.act(
+      feedback?.operation === 'confirm' && feedback.tone === 'error'
+        ? { kind: 'recover', operation: 'confirm' }
+        : { kind: 'confirm' },
     );
-    if (outcome.status !== 'success') {
-      setFeedback(
-        outcome.status === 'rejected'
-          ? {
-              detail: `${outcome.message}. Your packet choices are still selected.`,
-              headline: 'Reconciliation was not saved',
-              operation: 'confirm',
-              recovery: outcome.recovery,
-              tone: 'error',
-            }
-          : {
-              detail:
-                'Streetlight could not confirm whether the reconciliation was saved. Your packet choices are still selected. Reload to verify before trying again.',
-              headline: 'Could not confirm reconciliation',
-              operation: 'confirm',
-              recovery: outcome.recovery,
-              tone: 'error',
-            },
-      );
-      setOperation(null);
-      return;
-    }
-
-    const result = outcome.value;
-    replaceWorkspace(result);
-    const detail =
-      preview.complete.length === 0
-        ? 'No missing sheets were recorded as completed.'
-        : `${preview.complete.length} missing packet sheet${preview.complete.length === 1 ? '' : 's'} recorded as completed on ${formatDate(workspace?.asOf ?? result.asOf)}.`;
-    try {
-      await onChanged();
-      setFeedback({
-        detail,
-        headline: 'Reconciliation saved',
-        operation: 'confirm',
-        tone: 'success',
-      });
-    } catch {
-      setFeedback({
-        detail: `${detail} Reload the page to refresh the coverage map.`,
-        headline: 'Reconciliation saved',
-        operation: 'confirm',
-        tone: 'success',
-      });
-    }
-    setOperation(null);
   }
 
-  async function correct(packet: ReconciliationPacket, coveredOn: string | null): Promise<void> {
-    const attempt: CorrectionAttempt = { packetId: packet.id, coveredOn };
-    setOperation({ kind: 'correction', attempt: { packetId: packet.id, coveredOn } });
-    setFeedback(null);
-    const outcome = await readMutationResult(
-      () =>
-        fetch('/api/reconciliation', {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ packetId: packet.id, coveredOn }),
-        }),
-      isReconciliationWorkspacePayload,
-    );
-    if (outcome.status !== 'success') {
-      setFeedback(
-        outcome.status === 'rejected'
-          ? {
-              detail: `${outcome.message}. Saved reconciliation history is unchanged.`,
-              headline: 'Packet history was not changed',
-              attempt,
-              operation: 'correction',
-              recovery: outcome.recovery,
-              tone: 'error',
-            }
-          : {
-              detail:
-                'Streetlight could not confirm whether packet history changed. Reload to verify the saved history before trying again.',
-              headline: 'Could not confirm packet history',
-              attempt,
-              operation: 'correction',
-              recovery: outcome.recovery,
-              tone: 'error',
-            },
-      );
-      setOperation(null);
-      return;
-    }
-
-    replaceWorkspace(outcome.value);
-    const detail = coveredOn === null ? 'Packet completion was undone.' : 'Packet date changed.';
-    try {
-      await onChanged();
-      setFeedback({
-        detail,
-        headline: 'Packet history updated',
-        attempt,
-        operation: 'correction',
-        tone: 'success',
-      });
-    } catch {
-      setFeedback({
-        detail: `${detail} Reload the page to refresh the coverage map.`,
-        headline: 'Packet history updated',
-        attempt,
-        operation: 'correction',
-        tone: 'success',
-      });
-    }
-    setOperation(null);
+  async function correct(attempt: CorrectionAttempt): Promise<void> {
+    await workflow.act({ kind: 'correct', attempt });
   }
 
   function correctionStatus(packet: ReconciliationPacket) {
-    const correcting = operation?.kind === 'correction' && operation.attempt.packetId === packet.id;
-    const correctionFeedback =
-      feedback && 'attempt' in feedback && feedback.attempt.packetId === packet.id
-        ? feedback
-        : null;
+    const control = correctionControlForPacket(
+      packet.id,
+      operation?.kind === 'correction' ? operation.attempt : null,
+      feedback?.operation === 'correction' ? feedback : null,
+    );
+    const correctionFeedback = control.feedback;
+    const retryAttempt = control.action?.kind === 'retry' ? control.action.attempt : null;
 
-    if (correcting) {
+    if (control.busy) {
       return (
         <OperationStatus
           detail="Streetlight is updating this whole packet while keeping its history."
@@ -374,18 +159,31 @@ export function ReconciliationTool({
     return (
       <OperationStatus
         action={
-          correctionFeedback.recovery === 'reload' ? (
-            <button onClick={() => window.location.reload()} type="button">
-              Reload to verify
-            </button>
-          ) : correctionFeedback.tone === 'error' ? (
+          control.action?.kind === 'reload' ? (
             <button
-              onClick={() => void correct(packet, correctionFeedback.attempt.coveredOn)}
+              onClick={() =>
+                void workflow.act({
+                  kind: 'recover',
+                  operation: 'correction',
+                  packetId: packet.id,
+                })
+              }
               type="button"
             >
-              {correctionFeedback.attempt.coveredOn === null
-                ? 'Try undo again'
-                : 'Try date change again'}
+              Reload to verify
+            </button>
+          ) : retryAttempt ? (
+            <button
+              onClick={() =>
+                void workflow.act({
+                  kind: 'recover',
+                  operation: 'correction',
+                  packetId: packet.id,
+                })
+              }
+              type="button"
+            >
+              {retryAttempt.coveredOn === null ? 'Try undo again' : 'Try date change again'}
             </button>
           ) : undefined
         }
@@ -400,12 +198,8 @@ export function ReconciliationTool({
     <>
       <OpenReconciliationOverlay
         active={active}
-        batch={batch}
-        cancelIds={overlayCancelIds}
-        history={reconciliationView === 'history'}
-        map={map}
-        presentIds={overlayPresentIds}
-        selectedPacketId={selectedPacketId}
+        lifecycle={lifecycle}
+        presentation={projection?.map ?? { focusKey: null, packets: [] }}
       />
       <aside className="territory-sidebar reconciliation-sidebar tool-sidebar" hidden={!active}>
         <ToolViewSwitcher
@@ -425,12 +219,20 @@ export function ReconciliationTool({
           {!loading && !workspace && (
             <OperationStatus
               action={
-                <button className="secondary" onClick={() => void load()} type="button">
+                <button
+                  className="secondary"
+                  onClick={() => void workflow.act({ kind: 'recover', operation: 'load' })}
+                  type="button"
+                >
                   Try again
                 </button>
               }
-              detail={feedback?.detail ?? 'No saved packet data was changed.'}
-              headline={feedback?.headline ?? 'Packet batches are unavailable'}
+              detail={
+                snapshot.kind === 'unavailable'
+                  ? `${snapshot.message}. No packet records were changed.`
+                  : 'No saved packet data was changed.'
+              }
+              headline="Packet batches could not be loaded"
               tone="error"
             />
           )}
@@ -443,7 +245,7 @@ export function ReconciliationTool({
                 <>
                   <button
                     className="reconciliation-back-link"
-                    onClick={() => showReconciliationView('active')}
+                    onClick={() => void workflow.act({ kind: 'view', view: 'active' })}
                     type="button"
                   >
                     <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -467,7 +269,7 @@ export function ReconciliationTool({
                       {historyBatches.length > 0 && (
                         <button
                           className="reconciliation-history-link"
-                          onClick={() => showReconciliationView('history')}
+                          onClick={() => void workflow.act({ kind: 'view', view: 'history' })}
                           type="button"
                         >
                           View history
@@ -480,10 +282,7 @@ export function ReconciliationTool({
                       reconciliationView === 'history' ? 'Historical batch' : 'Active batch'
                     }
                     id="reconciliation-batch"
-                    onValueChange={(value) => {
-                      setBatchId(value);
-                      resetChoices();
-                    }}
+                    onValueChange={(value) => void workflow.act({ kind: 'batch', batchId: value })}
                     options={visibleBatches.map((candidate) => ({
                       label:
                         reconciliationView === 'active'
@@ -502,7 +301,7 @@ export function ReconciliationTool({
                   {historyBatches.length > 0 && (
                     <button
                       className="secondary"
-                      onClick={() => showReconciliationView('history')}
+                      onClick={() => void workflow.act({ kind: 'view', view: 'history' })}
                       type="button"
                     >
                       View history
@@ -527,9 +326,7 @@ export function ReconciliationTool({
                             <button
                               className="reconciliation-focus"
                               onClick={() =>
-                                setSelectedPacketId((current) =>
-                                  current === packet.id ? null : packet.id,
-                                )
+                                void workflow.act({ kind: 'select-packet', packetId: packet.id })
                               }
                               type="button"
                             >
@@ -561,7 +358,13 @@ export function ReconciliationTool({
                                 className={`reconciliation-outcome ${value}`}
                                 disabled={mutationControlsDisabled}
                                 key={value}
-                                onClick={() => setPacketOutcome(packet.id, value)}
+                                onClick={() =>
+                                  void workflow.act({
+                                    kind: 'outcome',
+                                    packetId: packet.id,
+                                    outcome: value,
+                                  })
+                                }
                                 type="button"
                               >
                                 {label}
@@ -586,12 +389,9 @@ export function ReconciliationTool({
                     <button
                       className="secondary"
                       disabled={mutationControlsDisabled}
-                      onClick={() => {
-                        setPacketOutcomes(
-                          new Map(activePackets.map(({ id }) => [id, 'still-here'] as const)),
-                        );
-                        setReviewing(false);
-                      }}
+                      onClick={() =>
+                        void workflow.act({ kind: 'all-outcomes', outcome: 'still-here' })
+                      }
                       type="button"
                     >
                       All still here
@@ -599,12 +399,7 @@ export function ReconciliationTool({
                     <button
                       className="secondary"
                       disabled={mutationControlsDisabled}
-                      onClick={() => {
-                        setPacketOutcomes(
-                          new Map(activePackets.map(({ id }) => [id, 'taken'] as const)),
-                        );
-                        setReviewing(false);
-                      }}
+                      onClick={() => void workflow.act({ kind: 'all-outcomes', outcome: 'taken' })}
                       type="button"
                     >
                       All taken
@@ -612,12 +407,9 @@ export function ReconciliationTool({
                     <button
                       className="danger"
                       disabled={mutationControlsDisabled}
-                      onClick={() => {
-                        setPacketOutcomes(
-                          new Map(activePackets.map(({ id }) => [id, 'discarded'] as const)),
-                        );
-                        setReviewing(false);
-                      }}
+                      onClick={() =>
+                        void workflow.act({ kind: 'all-outcomes', outcome: 'discarded' })
+                      }
                       type="button"
                     >
                       All discarded
@@ -640,9 +432,7 @@ export function ReconciliationTool({
                             <button
                               className="reconciliation-focus"
                               onClick={() =>
-                                setSelectedPacketId((current) =>
-                                  current === packet.id ? null : packet.id,
-                                )
+                                void workflow.act({ kind: 'select-packet', packetId: packet.id })
                               }
                               type="button"
                             >
@@ -659,9 +449,7 @@ export function ReconciliationTool({
                                 aria-expanded={editing}
                                 className="secondary reconciliation-history-edit"
                                 onClick={() =>
-                                  setEditingPacketId((current) =>
-                                    current === packet.id ? null : packet.id,
-                                  )
+                                  void workflow.act({ kind: 'edit-packet', packetId: packet.id })
                                 }
                                 type="button"
                               >
@@ -679,7 +467,7 @@ export function ReconciliationTool({
                                   'coveredOn',
                                 );
                                 if (typeof coveredOn === 'string' && coveredOn) {
-                                  void correct(packet, coveredOn);
+                                  void correct({ packetId: packet.id, coveredOn });
                                 }
                               }}
                             >
@@ -707,7 +495,7 @@ export function ReconciliationTool({
                                         'Undo this whole packet completion and restore its reservation?',
                                       )
                                     ) {
-                                      void correct(packet, null);
+                                      void correct({ packetId: packet.id, coveredOn: null });
                                     }
                                   }}
                                   type="button"
@@ -780,7 +568,10 @@ export function ReconciliationTool({
               <OperationStatus
                 action={
                   feedback.recovery === 'reload' ? (
-                    <button onClick={() => window.location.reload()} type="button">
+                    <button
+                      onClick={() => void workflow.act({ kind: 'recover', operation: 'confirm' })}
+                      type="button"
+                    >
                       Reload to verify
                     </button>
                   ) : undefined
@@ -798,7 +589,7 @@ export function ReconciliationTool({
                   <button
                     className="secondary"
                     disabled={mutationControlsDisabled}
-                    onClick={() => setReviewing(false)}
+                    onClick={() => void workflow.act({ kind: 'review', reviewing: false })}
                     type="button"
                   >
                     Back
@@ -818,7 +609,7 @@ export function ReconciliationTool({
               ) : (
                 <button
                   disabled={!reviewReady || mutationControlsDisabled}
-                  onClick={() => setReviewing(true)}
+                  onClick={() => void workflow.act({ kind: 'review', reviewing: true })}
                   type="button"
                 >
                   Review reconciliation
