@@ -73,7 +73,7 @@ function importedSegment(
 
 function importedTerritory(segments) {
   return {
-    release: '2026-06-17.0',
+    release: '2026-08-19.0',
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',

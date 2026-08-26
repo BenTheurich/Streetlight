@@ -23,7 +23,7 @@ function importedTerritory(
 ): ImportedTerritoryInput {
   const sourceToken = `${draft.center[0]}:${draft.center[1]}`;
   return {
-    release: '2026-06-17.0',
+    release: '2026-08-19.0',
     center: draft.center,
     radiusMiles: draft.radiusMiles,
     completedAt: '2026-08-03T12:00:00.000Z',
