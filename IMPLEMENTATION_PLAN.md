@@ -909,13 +909,12 @@ These items must be resolved or explicitly deferred before the architecture bran
   August 26, 2026 saved a 1.8-mile live Overture region, reloaded it, and retained the exact
   `1.8-mile` label. The same pass found and repaired the failed-import retry input synchronization
   described as `ARCH-F07`.
-- `P9-F02` (Waiting for external configuration): Run the live Google labeled-hybrid Satellite
-  acceptance check with `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` configured outside the repository.
-  Confirm lazy first load, synchronized camera state, preserved exact-segment selection, and a clean
-  return to Map. On August 26, 2026, PR #10 deployed successfully, but Vercel deployment protection
-  prevented automated preview access. The signed-in local branch has no browser key. Its missing-key
-  fallback and clean return to Map passed without application console errors. No credential belongs
-  in Git.
+- `P9-F02` (Resolved on August 26, 2026): Signed-in Chrome acceptance ran against the exact merged
+  architecture head with `GOOGLE_MAPS_BROWSER_API_KEY` configured outside the repository. The
+  initial Map view loaded no Google Maps scripts. Selecting Satellite loaded Google's labeled
+  hybrid renderer at the same camera; returning to Map preserved that camera. One exact Region
+  Setup segment remained selected and highlighted through both map-view changes. The browser
+  recorded no application warnings or errors. No credential belongs in Git.
 
 ### Human review
 
