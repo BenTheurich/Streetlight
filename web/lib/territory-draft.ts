@@ -39,24 +39,24 @@ function parseText(
   required: boolean,
 ): string {
   if (typeof value !== 'string') {
-    throw new Error(label + ' is invalid');
+    throw new Error(`${label} is invalid`);
   }
   const text = value.trim();
   if ((required && text.length === 0) || text.length > maximumLength) {
-    throw new Error(label + ' is invalid');
+    throw new Error(`${label} is invalid`);
   }
   return text;
 }
 
 function parseUniqueSegmentIds(value: unknown, label: string): string[] {
   if (!Array.isArray(value) || value.length > 10_000) {
-    throw new Error('Invalid ' + label.toLowerCase() + 's');
+    throw new Error(`Invalid ${label.toLowerCase()}s`);
   }
   const ids = new Set<string>();
   return value.map((candidate) => {
     const id = parseText(candidate, 'Segment ID', 200, true);
     if (ids.has(id)) {
-      throw new Error('Duplicate ' + label.toLowerCase() + ' ID');
+      throw new Error(`Duplicate ${label.toLowerCase()} ID`);
     }
     ids.add(id);
     return id;

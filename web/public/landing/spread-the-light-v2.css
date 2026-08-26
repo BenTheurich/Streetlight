@@ -989,9 +989,11 @@ body.is-daylight .site-header .button-solid:hover,
     height: 32px;
   }
   .brand-logo-white {
+    /* biome-ignore lint/complexity/noImportantStyles: The mobile header must override the scroll-driven logo crossfade state. */
     opacity: 1 !important;
   }
   .brand-logo-navy {
+    /* biome-ignore lint/complexity/noImportantStyles: The mobile header must override the scroll-driven logo crossfade state. */
     opacity: 0 !important;
   }
   .top-actions {
@@ -1003,13 +1005,19 @@ body.is-daylight .site-header .button-solid:hover,
     font-size: 9px;
   }
   .site-header .button-outline {
+    /* biome-ignore lint/complexity/noImportantStyles: The approved mobile header colors override the scroll-state button theme. */
     color: #fff !important;
+    /* biome-ignore lint/complexity/noImportantStyles: The approved mobile header colors override the scroll-state button theme. */
     border-color: rgba(255, 255, 255, 0.72) !important;
+    /* biome-ignore lint/complexity/noImportantStyles: The approved mobile header colors override the scroll-state button theme. */
     background: transparent !important;
   }
   .site-header .button-solid {
+    /* biome-ignore lint/complexity/noImportantStyles: The approved mobile header colors override the scroll-state button theme. */
     color: var(--ink) !important;
+    /* biome-ignore lint/complexity/noImportantStyles: The approved mobile header colors override the scroll-state button theme. */
     border-color: #fff !important;
+    /* biome-ignore lint/complexity/noImportantStyles: The approved mobile header colors override the scroll-state button theme. */
     background: #fff !important;
   }
   body.drawer-open .site-header,
@@ -1028,6 +1036,7 @@ body.is-daylight .site-header .button-solid:hover,
   }
   .drawer-field,
   .drawer-submit {
+    /* biome-ignore lint/complexity/noImportantStyles: The narrow drawer intentionally overrides its desktop grid placement. */
     grid-column: 1 !important;
   }
   .anchor-story {
@@ -1179,6 +1188,7 @@ body.is-daylight .site-header .button-solid:hover,
   }
   .packet-proof {
     width: min(78%, 320px);
+    /* biome-ignore lint/complexity/noImportantStyles: The narrow proof figure intentionally overrides its desktop alignment. */
     margin: 0 auto !important;
   }
   .workflow {
@@ -1233,8 +1243,11 @@ body.is-daylight .site-header .button-solid:hover,
   *,
   *::before,
   *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced-motion accessibility must override every component animation. */
     animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced-motion accessibility must override every component animation. */
     animation-iteration-count: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced-motion accessibility must override every component transition. */
     transition-duration: 0.01ms !important;
   }
   .anchor-story {

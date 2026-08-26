@@ -11,7 +11,7 @@ import {
 } from './map-overlay-lifecycle.ts';
 import type { OpenMapData } from './open-map-data.ts';
 import type { PacketProposal } from './packet-selection.ts';
-import type { ReconciliationBatch } from './reconciliation.ts';
+import { projectReconciliation, type ReconciliationBatch } from './reconciliation.ts';
 
 const emptyData: OpenMapData = {
   churchId: 'church-one',
@@ -43,6 +43,51 @@ const emptyData: OpenMapData = {
 
 function base(mapType: 'roadmap' | 'satellite' = 'roadmap'): WorkspaceMapBasePresentation {
   return { kind: 'base', data: emptyData, mapType };
+}
+
+function selectedReconciliationPresentation() {
+  const batch: ReconciliationBatch = {
+    id: 'batch-style-replacement',
+    name: 'Style replacement batch',
+    status: 'finalized',
+    finalizedAt: '2026-01-01T00:00:00Z',
+    packets: [
+      {
+        id: 'packet-style-replacement',
+        code: 'A1',
+        kind: 'street',
+        status: 'active',
+        estimatedTracts: 10,
+        start: { address: '1 Main Street', position: [-117.1, 33.5] },
+        segments: [
+          {
+            id: 'segment-style-replacement',
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [-117.1, 33.5],
+                [-117.09, 33.5],
+              ],
+            },
+            estimatedHomes: 10,
+          },
+        ],
+        apartment: null,
+        completedOn: null,
+        history: [],
+      },
+    ],
+    counts: { active: 1, completed: 0, cancelled: 0 },
+  };
+  return projectReconciliation(
+    { asOf: '2026-01-01', defaultBatchId: batch.id, batches: [batch] },
+    {
+      batchId: batch.id,
+      outcomes: new Map([[batch.packets[0].id, 'still-here']]),
+      selectedPacketId: batch.packets[0].id,
+      view: 'active',
+    },
+  ).map;
 }
 
 class TestMapAdapter implements MapOverlayAdapter {
@@ -391,9 +436,15 @@ test('serializes style replacement, applies only the latest base, and republishe
       selections += 1;
     },
   });
+  lifecycle.present({
+    kind: 'reconciliation',
+    visible: true,
+    presentation: selectedReconciliationPresentation(),
+  });
   lifecycle.attach(adapter);
   await turn();
   assert.equal(adapter.sources.has('streetlightCoverage'), true);
+  assert.equal(adapter.sources.has('streetlight-reconciliation'), true);
   assert.equal(adapter.listeners.get('click:streetlight-coverage')?.size, 1);
 
   lifecycle.present(base('satellite'));
@@ -416,6 +467,12 @@ test('serializes style replacement, applies only the latest base, and republishe
   await turn();
   assert.equal(adapter.styleReplacements, 2);
   assert.equal(adapter.sources.has('streetlightCoverage'), true);
+  const reconciliation = adapter.sources.get('streetlight-reconciliation') as {
+    features: Array<{ properties: { selected: boolean } }>;
+  };
+  assert.equal(reconciliation.features[0]?.properties.selected, true);
+  assert.equal(adapter.layers.get('streetlight-reconciliation-line')?.visible, true);
+  assert.equal(adapter.markers.has('reconciliation-start:packet-style-replacement'), true);
   assert.equal(adapter.listeners.get('click:streetlight-coverage')?.size, 1);
   adapter.emit('click', 'streetlight-coverage', {
     features: [{ geometry: { type: 'LineString' }, properties: { id: 'segment-one' } }],
@@ -771,25 +828,26 @@ test('proposal and reconciliation focus keys do not repeat camera work', async (
     ],
     counts: { active: 1, completed: 0, cancelled: 0 },
   };
+  const presentation = projectReconciliation(
+    { asOf: '2026-01-01', defaultBatchId: batch.id, batches: [batch] },
+    {
+      batchId: batch.id,
+      outcomes: new Map([['packet-one', 'still-here'] as const]),
+      selectedPacketId: 'packet-one',
+      view: 'active',
+    },
+  ).map;
   lifecycle.present({
     kind: 'reconciliation',
     visible: true,
-    batch,
-    history: false,
-    presentIds: new Set(['packet-one']),
-    cancelIds: new Set(),
-    selectedPacketId: 'packet-one',
+    presentation,
   });
   await turn();
   const focusCount = adapter.fits.length;
   lifecycle.present({
     kind: 'reconciliation',
     visible: true,
-    batch,
-    history: false,
-    presentIds: new Set(['packet-one']),
-    cancelIds: new Set(),
-    selectedPacketId: 'packet-one',
+    presentation,
   });
   await turn();
 

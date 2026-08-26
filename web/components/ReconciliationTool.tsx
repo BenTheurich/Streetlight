@@ -3,19 +3,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
 import {
-  buildReconciliationChoices,
+  projectReconciliation,
   type ReconciliationBatch,
   type ReconciliationHistoryTarget,
   type ReconciliationOutcome,
   type ReconciliationPacket,
   type ReconciliationView,
   type ReconciliationWorkspace,
-  reconciliationBatchesForView,
-  reconciliationHistorySelection,
 } from '@/lib/reconciliation';
 import { OpenReconciliationOverlay } from './OpenReconciliationOverlay';
 import { OperationStatus } from './OperationStatus';
-import { isReconciliationWorkspacePayload, readMutationResult } from './operation-state';
+import {
+  type CorrectionAttempt,
+  correctionControlForPacket,
+  isReconciliationWorkspacePayload,
+  type ReconciliationCorrectionFeedback,
+  readMutationResult,
+  reconciliationMutationControlsDisabled,
+} from './operation-state';
 import { StreetlightSelect } from './StreetlightSelect';
 import { packetToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
@@ -54,15 +59,6 @@ function historyBatchOptionLabel(batch: ReconciliationBatch): string {
   );
 }
 
-function preferredBatchId(batches: ReconciliationBatch[], current: string | null): string | null {
-  return current && batches.some(({ id }) => id === current) ? current : (batches[0]?.id ?? null);
-}
-
-type CorrectionAttempt = {
-  packetId: string;
-  coveredOn: string | null;
-};
-
 type ReconciliationOperation =
   | { kind: 'confirm' }
   | { kind: 'correction'; attempt: CorrectionAttempt };
@@ -76,10 +72,7 @@ type ReconciliationFeedbackBase = {
 
 type ReconciliationFeedback =
   | (ReconciliationFeedbackBase & { operation: 'load' | 'confirm' })
-  | (ReconciliationFeedbackBase & {
-      operation: 'correction';
-      attempt: CorrectionAttempt;
-    });
+  | ReconciliationCorrectionFeedback;
 
 export function ReconciliationTool({
   active,
@@ -111,8 +104,7 @@ export function ReconciliationTool({
   const requestedRef = useRef(false);
   const selectedPacketRef = useRef<HTMLElement | null>(null);
   const busy = operation !== null;
-  const verificationRequired = feedback?.recovery === 'reload';
-  const mutationControlsDisabled = busy || verificationRequired;
+  const mutationControlsDisabled = reconciliationMutationControlsDisabled(busy, feedback?.recovery);
 
   const load = useCallback(async () => {
     requestedRef.current = true;
@@ -125,8 +117,15 @@ export function ReconciliationTool({
         throw new Error('error' in result ? result.error : 'Could not load packet reconciliation');
       }
       setWorkspace(result);
-      const activeBatches = reconciliationBatchesForView(result.batches, 'active');
-      setBatchId((current) => preferredBatchId(activeBatches, current ?? result.defaultBatchId));
+      setBatchId(
+        (current) =>
+          projectReconciliation(result, {
+            batchId: current ?? result.defaultBatchId,
+            outcomes: new Map(),
+            selectedPacketId: null,
+            view: 'active',
+          }).batch?.id ?? null,
+      );
     } catch (error) {
       requestedRef.current = false;
       setFeedback({
@@ -146,7 +145,13 @@ export function ReconciliationTool({
 
   useEffect(() => {
     if (!active || !workspace || !target) return;
-    const selection = reconciliationHistorySelection(workspace.batches, target.packetId);
+    const selection = projectReconciliation(workspace, {
+      batchId: null,
+      historyTarget: target,
+      outcomes: new Map(),
+      selectedPacketId: null,
+      view: 'history',
+    }).targetSelection;
     if (selection) {
       setReconciliationView('history');
       setBatchId(selection.batchId);
@@ -165,35 +170,31 @@ export function ReconciliationTool({
     );
     return () => cancelAnimationFrame(frame);
   }, [active, reconciliationView, selectedPacketId]);
-  const activeBatches = useMemo(
-    () => reconciliationBatchesForView(workspace?.batches ?? [], 'active'),
-    [workspace],
+  const projection = useMemo(
+    () =>
+      workspace
+        ? projectReconciliation(workspace, {
+            batchId,
+            outcomes: packetOutcomes,
+            selectedPacketId,
+            view: reconciliationView,
+          })
+        : null,
+    [batchId, packetOutcomes, reconciliationView, selectedPacketId, workspace],
   );
-  const historyBatches = useMemo(
-    () => reconciliationBatchesForView(workspace?.batches ?? [], 'history'),
-    [workspace],
-  );
-  const visibleBatches = reconciliationView === 'active' ? activeBatches : historyBatches;
-  const batch = visibleBatches.find(({ id }) => id === batchId) ?? null;
-  const activePackets = useMemo(
-    () => batch?.packets.filter(({ status }) => status === 'active') ?? [],
-    [batch],
-  );
-  const historyPackets = useMemo(
-    () => batch?.packets.filter(({ status }) => status !== 'active') ?? [],
-    [batch],
-  );
-  const activePacketIds = useMemo(() => activePackets.map(({ id }) => id), [activePackets]);
-  const preview = useMemo(
-    () => buildReconciliationChoices(activePacketIds, packetOutcomes),
-    [activePacketIds, packetOutcomes],
-  );
-  const overlayPresentIds = useMemo(
-    () => new Set([...preview.active, ...preview.cancel, ...preview.unreviewed]),
-    [preview],
-  );
-  const overlayCancelIds = useMemo(() => new Set(preview.cancel), [preview.cancel]);
-  const reviewReady = preview.unreviewed.length === 0;
+  const activeBatches = projection?.activeBatches ?? [];
+  const historyBatches = projection?.historyBatches ?? [];
+  const visibleBatches = projection?.visibleBatches ?? [];
+  const batch = projection?.batch ?? null;
+  const activePackets = projection?.activePackets ?? [];
+  const historyPackets = projection?.historyPackets ?? [];
+  const preview = projection?.review ?? {
+    unreviewed: [],
+    active: [],
+    complete: [],
+    cancel: [],
+  };
+  const reviewReady = projection?.submission != null;
   const packetById = new Map(batch?.packets.map((packet) => [packet.id, packet]) ?? []);
 
   function resetChoices(): void {
@@ -204,9 +205,17 @@ export function ReconciliationTool({
   }
 
   function showReconciliationView(view: ReconciliationView): void {
-    const candidates = view === 'active' ? activeBatches : historyBatches;
     setReconciliationView(view);
-    setBatchId((current) => preferredBatchId(candidates, current));
+    setBatchId(
+      workspace
+        ? (projectReconciliation(workspace, {
+            batchId,
+            outcomes: new Map(),
+            selectedPacketId: null,
+            view,
+          }).batch?.id ?? null)
+        : null,
+    );
     resetChoices();
   }
 
@@ -221,13 +230,22 @@ export function ReconciliationTool({
 
   function replaceWorkspace(next: ReconciliationWorkspace): void {
     setWorkspace(next);
-    const candidates = reconciliationBatchesForView(next.batches, reconciliationView);
-    setBatchId((current) => preferredBatchId(candidates, current));
+    setBatchId(
+      (current) =>
+        projectReconciliation(next, {
+          batchId: current,
+          outcomes: new Map(),
+          selectedPacketId: null,
+          view: reconciliationView,
+        }).batch?.id ?? null,
+    );
     resetChoices();
   }
 
   async function confirm(): Promise<void> {
-    if (!batch || !reviewReady) return;
+    if (!projection?.submission) return;
+    const submission = projection.submission;
+    const submittedReview = projection.review;
     setOperation({ kind: 'confirm' });
     setFeedback(null);
     const outcome = await readMutationResult(
@@ -235,12 +253,7 @@ export function ReconciliationTool({
         fetch('/api/reconciliation', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            batchId: batch.id,
-            activePacketIds,
-            presentPacketIds: [...preview.active, ...preview.cancel],
-            cancelPacketIds: preview.cancel,
-          }),
+          body: JSON.stringify(submission),
         }),
       isReconciliationWorkspacePayload,
     );
@@ -270,9 +283,9 @@ export function ReconciliationTool({
     const result = outcome.value;
     replaceWorkspace(result);
     const detail =
-      preview.complete.length === 0
+      submittedReview.complete.length === 0
         ? 'No missing sheets were recorded as completed.'
-        : `${preview.complete.length} missing packet sheet${preview.complete.length === 1 ? '' : 's'} recorded as completed on ${formatDate(workspace?.asOf ?? result.asOf)}.`;
+        : `${submittedReview.complete.length} missing packet sheet${submittedReview.complete.length === 1 ? '' : 's'} recorded as completed on ${formatDate(workspace?.asOf ?? result.asOf)}.`;
     try {
       await onChanged();
       setFeedback({
@@ -292,16 +305,15 @@ export function ReconciliationTool({
     setOperation(null);
   }
 
-  async function correct(packet: ReconciliationPacket, coveredOn: string | null): Promise<void> {
-    const attempt: CorrectionAttempt = { packetId: packet.id, coveredOn };
-    setOperation({ kind: 'correction', attempt: { packetId: packet.id, coveredOn } });
+  async function correct(attempt: CorrectionAttempt): Promise<void> {
+    setOperation({ kind: 'correction', attempt });
     setFeedback(null);
     const outcome = await readMutationResult(
       () =>
         fetch('/api/reconciliation', {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ packetId: packet.id, coveredOn }),
+          body: JSON.stringify(attempt),
         }),
       isReconciliationWorkspacePayload,
     );
@@ -331,7 +343,8 @@ export function ReconciliationTool({
     }
 
     replaceWorkspace(outcome.value);
-    const detail = coveredOn === null ? 'Packet completion was undone.' : 'Packet date changed.';
+    const detail =
+      attempt.coveredOn === null ? 'Packet completion was undone.' : 'Packet date changed.';
     try {
       await onChanged();
       setFeedback({
@@ -354,13 +367,15 @@ export function ReconciliationTool({
   }
 
   function correctionStatus(packet: ReconciliationPacket) {
-    const correcting = operation?.kind === 'correction' && operation.attempt.packetId === packet.id;
-    const correctionFeedback =
-      feedback && 'attempt' in feedback && feedback.attempt.packetId === packet.id
-        ? feedback
-        : null;
+    const control = correctionControlForPacket(
+      packet.id,
+      operation?.kind === 'correction' ? operation.attempt : null,
+      feedback?.operation === 'correction' ? feedback : null,
+    );
+    const correctionFeedback = control.feedback;
+    const retryAttempt = control.action?.kind === 'retry' ? control.action.attempt : null;
 
-    if (correcting) {
+    if (control.busy) {
       return (
         <OperationStatus
           detail="Streetlight is updating this whole packet while keeping its history."
@@ -374,18 +389,13 @@ export function ReconciliationTool({
     return (
       <OperationStatus
         action={
-          correctionFeedback.recovery === 'reload' ? (
+          control.action?.kind === 'reload' ? (
             <button onClick={() => window.location.reload()} type="button">
               Reload to verify
             </button>
-          ) : correctionFeedback.tone === 'error' ? (
-            <button
-              onClick={() => void correct(packet, correctionFeedback.attempt.coveredOn)}
-              type="button"
-            >
-              {correctionFeedback.attempt.coveredOn === null
-                ? 'Try undo again'
-                : 'Try date change again'}
+          ) : retryAttempt ? (
+            <button onClick={() => void correct(retryAttempt)} type="button">
+              {retryAttempt.coveredOn === null ? 'Try undo again' : 'Try date change again'}
             </button>
           ) : undefined
         }
@@ -400,12 +410,8 @@ export function ReconciliationTool({
     <>
       <OpenReconciliationOverlay
         active={active}
-        batch={batch}
-        cancelIds={overlayCancelIds}
-        history={reconciliationView === 'history'}
         lifecycle={lifecycle}
-        presentIds={overlayPresentIds}
-        selectedPacketId={selectedPacketId}
+        presentation={projection?.map ?? { focusKey: null, packets: [] }}
       />
       <aside className="territory-sidebar reconciliation-sidebar tool-sidebar" hidden={!active}>
         <ToolViewSwitcher
@@ -679,7 +685,7 @@ export function ReconciliationTool({
                                   'coveredOn',
                                 );
                                 if (typeof coveredOn === 'string' && coveredOn) {
-                                  void correct(packet, coveredOn);
+                                  void correct({ packetId: packet.id, coveredOn });
                                 }
                               }}
                             >
@@ -707,7 +713,7 @@ export function ReconciliationTool({
                                         'Undo this whole packet completion and restore its reservation?',
                                       )
                                     ) {
-                                      void correct(packet, null);
+                                      void correct({ packetId: packet.id, coveredOn: null });
                                     }
                                   }}
                                   type="button"

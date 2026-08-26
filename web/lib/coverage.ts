@@ -20,18 +20,12 @@ export const DEFAULT_COVERAGE_THRESHOLDS: CoverageThresholds = {
   redAfterDays: 365,
 };
 
-export type CoverageEvent = {
+export type CoverageCorrection = {
   id: string;
-  segmentId: string;
-  packetId?: string | null;
   sequence: number;
   coveredOn: string;
-  kind: 'completed' | 'correction';
-  correctsEventId: string | null;
   isVoid: boolean;
 };
-
-export type CoverageCorrection = Pick<CoverageEvent, 'id' | 'sequence' | 'coveredOn' | 'isVoid'>;
 
 export type CoverageRoot = {
   eventId: string;
@@ -234,6 +228,18 @@ export function searchCoverageRoads<T extends CoverageSearchableSegment>(
   };
 }
 
+export function coverageSearchAnnouncement(
+  query: string,
+  result: Pick<ReturnType<typeof searchCoverageRoads>, 'total' | 'hasMore'>,
+): string | null {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) return null;
+  if (result.total === 0) return `No streets match “${normalizedQuery}”.`;
+  return result.hasMore
+    ? `Showing 20 of ${result.total} roads. Refine your search to narrow the list.`
+    : `${result.total} matching ${result.total === 1 ? 'road' : 'roads'}.`;
+}
+
 export function coverageRoadResultContent<T extends CoverageSearchableSegment>(
   road: CoverageRoad<T>,
 ) {
@@ -411,61 +417,6 @@ export function parseCoverageThresholds(value: unknown): CoverageThresholds {
     orangeAfterDays: orangeAfterDays as number,
     redAfterDays: redAfterDays as number,
   };
-}
-
-export function deriveCoverageSegments(
-  events: CoverageEvent[],
-  asOf: string,
-  inputs: CoverageSegmentInput[] = [],
-): CoverageSegment[] {
-  const segments = new Map<string, CoverageSegment>(
-    inputs.map((input) => [input.id, { ...input, lastCoveredOn: null, roots: [] }]),
-  );
-  const roots = new Map<string, CoverageRoot>();
-  for (const event of [...events].sort((first, second) => first.sequence - second.sequence)) {
-    validateCoverageDate(event.coveredOn, asOf);
-    if (!segments.has(event.segmentId)) {
-      segments.set(event.segmentId, {
-        id: event.segmentId,
-        estimatedHomes: 0,
-        eligible: false,
-        lastCoveredOn: null,
-        roots: [],
-      });
-    }
-    const segment = segments.get(event.segmentId) as CoverageSegment;
-    if (event.kind === 'completed') {
-      const root: CoverageRoot = {
-        eventId: event.id,
-        packetId: event.packetId ?? null,
-        originalCoveredOn: event.coveredOn,
-        effectiveCoveredOn: event.coveredOn,
-        corrections: [],
-      };
-      roots.set(event.id, root);
-      segment.roots.push(root);
-      continue;
-    }
-    const root = event.correctsEventId ? roots.get(event.correctsEventId) : undefined;
-    if (!root) throw new Error('Invalid correction root');
-    root.corrections.push({
-      id: event.id,
-      sequence: event.sequence,
-      coveredOn: event.coveredOn,
-      isVoid: event.isVoid,
-    });
-    root.effectiveCoveredOn = event.isVoid ? null : event.coveredOn;
-  }
-  for (const segment of segments.values()) {
-    segment.lastCoveredOn = segment.roots.reduce<string | null>(
-      (latest, root) =>
-        !root.effectiveCoveredOn || (latest && latest >= root.effectiveCoveredOn)
-          ? latest
-          : root.effectiveCoveredOn,
-      null,
-    );
-  }
-  return [...segments.values()];
 }
 
 export function classifyCoverage(

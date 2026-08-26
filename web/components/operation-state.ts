@@ -159,13 +159,86 @@ export async function readMutationResult<T>(
   }
 }
 
-export function packetRequestControlsDisabled(state: {
+type FocusTarget = { focus(): void } | null;
+
+export function focusFinalizationConfirmation(
+  confirming: boolean,
+  confirmation: FocusTarget,
+): void {
+  if (confirming) confirmation?.focus();
+}
+
+export function restoreFinalizationTrigger(
+  trigger: () => FocusTarget,
+  schedule: (callback: () => void) => unknown = (callback) => requestAnimationFrame(callback),
+): void {
+  schedule(() => trigger()?.focus());
+}
+
+type PacketOperationState = {
   downloading: 'newest' | 'active' | null;
   finalizing: boolean;
   generating: boolean;
   verificationRequired: boolean;
-}): boolean {
-  return (
-    state.generating || state.finalizing || state.downloading !== null || state.verificationRequired
-  );
+};
+
+export function packetOperationControls(state: PacketOperationState, activePackets: number) {
+  const busy =
+    state.generating ||
+    state.finalizing ||
+    state.downloading !== null ||
+    state.verificationRequired;
+  return {
+    activePdfDisabled: busy || activePackets === 0,
+    busy,
+    finalizationDisabled: busy,
+    newestPdfDisabled: busy,
+    proposalDisabled: busy,
+    requestDisabled: busy,
+  };
+}
+
+export type CorrectionAttempt = {
+  packetId: string;
+  coveredOn: string | null;
+};
+
+export type ReconciliationCorrectionFeedback = {
+  attempt: CorrectionAttempt;
+  detail: string;
+  headline: string;
+  operation: 'correction';
+  recovery?: 'retry' | 'reload';
+  tone: 'error' | 'success';
+};
+
+type CorrectionControl = {
+  busy: boolean;
+  feedback: ReconciliationCorrectionFeedback | null;
+  action: { kind: 'reload' } | { kind: 'retry'; attempt: CorrectionAttempt } | null;
+};
+
+export function correctionControlForPacket(
+  packetId: string,
+  activeAttempt: CorrectionAttempt | null,
+  feedback: ReconciliationCorrectionFeedback | null,
+): CorrectionControl {
+  const packetFeedback = feedback?.attempt.packetId === packetId ? feedback : null;
+  return {
+    busy: activeAttempt?.packetId === packetId,
+    feedback: packetFeedback,
+    action:
+      packetFeedback?.recovery === 'reload'
+        ? { kind: 'reload' }
+        : packetFeedback?.tone === 'error'
+          ? { kind: 'retry', attempt: packetFeedback.attempt }
+          : null,
+  };
+}
+
+export function reconciliationMutationControlsDisabled(
+  operationActive: boolean,
+  recovery?: 'retry' | 'reload',
+): boolean {
+  return operationActive || recovery === 'reload';
 }

@@ -2,36 +2,24 @@
 
 import { useEffect } from 'react';
 import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
-import type { ReconciliationBatch } from '@/lib/reconciliation';
+import type { ReconciliationMapPresentation } from '@/lib/reconciliation';
 
 export function OpenReconciliationOverlay({
   active,
-  batch,
-  cancelIds,
-  history,
   lifecycle,
-  presentIds,
-  selectedPacketId,
+  presentation,
 }: {
   active: boolean;
-  batch: ReconciliationBatch | null;
-  cancelIds: Set<string>;
-  history: boolean;
   lifecycle: MapOverlayLifecycle | null;
-  presentIds: Set<string>;
-  selectedPacketId: string | null;
+  presentation: ReconciliationMapPresentation;
 }) {
   useEffect(() => {
     if (!lifecycle) return;
     return lifecycle.present({
       kind: 'reconciliation',
       visible: active,
-      batch,
-      history,
-      presentIds,
-      cancelIds,
-      selectedPacketId,
+      presentation,
     });
-  }, [active, batch, cancelIds, history, lifecycle, presentIds, selectedPacketId]);
+  }, [active, lifecycle, presentation]);
   return null;
 }
