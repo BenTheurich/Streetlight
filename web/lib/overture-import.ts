@@ -607,6 +607,10 @@ export function runOvertureImport(
 ): Promise<ImportedTerritoryInput> {
   const executable = process.env.STREETLIGHT_PYTHON ?? 'python';
   const script = path.join(process.cwd(), 'importer', 'overture_import.py');
-  const child = spawn(executable, [script, ...buildImporterArguments(center, radiusMiles)]);
+  // The importer entry point is explicitly included in next.config.mjs.
+  const child = spawn(/*turbopackIgnore: true*/ executable, [
+    script,
+    ...buildImporterArguments(center, radiusMiles),
+  ]);
   return readImporterProcess(child, center, radiusMiles, IMPORT_TIMEOUT_MS, onStage);
 }

@@ -2,8 +2,8 @@ import {
   type ApartmentSaveFailure,
   optimisticApartmentConfiguration,
   resolveApartmentMutation,
-} from '../components/apartment-mutation-state.ts';
-import { readMutationResult } from '../components/operation-state.ts';
+} from './apartment-mutation-state.ts';
+import { readMutationResult } from './operation-state.ts';
 import { APARTMENTS_ENABLED } from './product-capabilities.ts';
 import {
   activateSegments,

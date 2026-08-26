@@ -159,22 +159,6 @@ export async function readMutationResult<T>(
   }
 }
 
-type FocusTarget = { focus(): void } | null;
-
-export function focusFinalizationConfirmation(
-  confirming: boolean,
-  confirmation: FocusTarget,
-): void {
-  if (confirming) confirmation?.focus();
-}
-
-export function restoreFinalizationTrigger(
-  trigger: () => FocusTarget,
-  schedule: (callback: () => void) => unknown = (callback) => requestAnimationFrame(callback),
-): void {
-  schedule(() => trigger()?.focus());
-}
-
 type PacketOperationState = {
   downloading: 'newest' | 'active' | null;
   finalizing: boolean;

@@ -8,6 +8,7 @@ import {
   setSegmentsExcluded,
   territoryDraftFromWorkspace,
   territoryMapMode,
+  territoryRadiusMilesText,
   withApartmentSiteConfiguration,
 } from './territory-client.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
@@ -239,4 +240,9 @@ test('setup keeps the region map visible while editing only in the Region view',
     visible: false,
     interactive: false,
   });
+});
+
+test('saved decimal boundary distances render without floating-point tails', () => {
+  assert.equal(territoryRadiusMilesText((1.8 * 1609.344) / 1609.344), '1.8');
+  assert.equal(territoryRadiusMilesText((1.7 * 1609.344) / 1609.344), '1.7');
 });

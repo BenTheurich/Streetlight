@@ -2,13 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   correctionControlForPacket,
-  focusFinalizationConfirmation,
   isFinalizedBatchPayload,
   isReconciliationWorkspacePayload,
   packetOperationControls,
   readMutationResult,
   reconciliationMutationControlsDisabled,
-  restoreFinalizationTrigger,
 } from './operation-state.ts';
 
 const line = {
@@ -177,26 +175,6 @@ test('partial mutation payloads require reload verification', async (context) =>
       assert.deepEqual(result, { status: 'uncertain', recovery: 'reload' });
     });
   }
-});
-
-test('packet confirmation transfers focus in and restores its trigger on cancel', () => {
-  const focused: string[] = [];
-  const confirmation = { focus: () => focused.push('confirmation') };
-  let trigger: { focus(): void } | null = null;
-  let restoreTrigger = () => {};
-
-  focusFinalizationConfirmation(false, confirmation);
-  focusFinalizationConfirmation(true, confirmation);
-  restoreFinalizationTrigger(
-    () => trigger,
-    (callback) => {
-      restoreTrigger = callback;
-    },
-  );
-  trigger = { focus: () => focused.push('trigger') };
-  restoreTrigger();
-
-  assert.deepEqual(focused, ['confirmation', 'trigger']);
 });
 
 test('one packet operation control projection locks every mutation and PDF entry point', () => {

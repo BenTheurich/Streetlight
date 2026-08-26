@@ -60,6 +60,9 @@ export function buildSecurityHeaders(development = false) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: ['127.0.0.1'],
+  outputFileTracingIncludes: {
+    '/api/territory/import': ['./importer/overture_import.py'],
+  },
   serverExternalPackages: ['playwright'],
   async headers() {
     return [

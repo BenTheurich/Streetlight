@@ -2,16 +2,14 @@
 
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { CoverageWorkspace } from '@/lib/coverage';
-import type { FinalizedBatch, ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
-import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
-import { OperationStatus } from './OperationStatus';
 import {
-  focusFinalizationConfirmation,
   isFinalizedBatchPayload,
   packetOperationControls,
   readMutationResult,
-  restoreFinalizationTrigger,
-} from './operation-state';
+} from '@/lib/operation-state';
+import type { FinalizedBatch, ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
+import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
+import { OperationStatus } from './OperationStatus';
 import { packetDownloadProgress } from './packet-download-progress';
 import { packetToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
@@ -69,12 +67,12 @@ export function PacketGenerator({
   const confirmFinalizationRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    focusFinalizationConfirmation(confirming, confirmFinalizationRef.current);
+    if (confirming) confirmFinalizationRef.current?.focus();
   }, [confirming]);
 
   function cancelFinalization(): void {
     setConfirming(false);
-    restoreFinalizationTrigger(() => finalizationTriggerRef.current);
+    requestAnimationFrame(() => finalizationTriggerRef.current?.focus());
   }
 
   function discardResult(): void {
