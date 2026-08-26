@@ -230,7 +230,10 @@ export function TerritoryEditor({
   }, []);
 
   useEffect(() => {
-    setRadiusInput(territoryRadiusMilesText(savedWorkspace.radiusMiles));
+    setRadiusInput(territoryRadiusMilesText(draft.radiusMiles));
+  }, [draft.radiusMiles]);
+
+  useEffect(() => {
     setAddressQuery(savedWorkspace.originAddress);
     setSelectedSegmentIds([]);
     setRoadFocusRequest(null);

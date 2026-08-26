@@ -1,5 +1,11 @@
 # Streetlight architecture program orchestration
 
+> **Historical program, do not rerun.** Tasks 01 through 06 merged through PRs #3 through #8,
+> the pinned Overture maintenance repair merged through PR #9, and PR #10 closes the final
+> architecture follow-ups. The implementation cycle ended on August 26, 2026. The integration
+> branch remains isolated from `codex/phase-9-ux-polish` until its final signed-in acceptance and
+> explicit founder merge approval.
+
 ## Objective
 
 Run six architecture tasks in order. For each task, use an implementation agent, verify the result, obtain an independent reviewer-agent decision, publish one pull request, and merge only after Ben approves the exact ready head commit.
