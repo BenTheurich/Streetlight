@@ -1,13 +1,11 @@
 # Streetlight repository instructions
 
-Read [PRODUCT.md](PRODUCT.md) before planning or changing product behavior. Treat it as the product authority.
+Treat [PRODUCT.md](PRODUCT.md) as the authority for product behavior. Read it before planning or changing behavior. If code or older design documents conflict with it, follow `PRODUCT.md`; change it only after Ben approves a product decision.
 
-Read [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) before implementation work. If the user requests a numbered phase, verify its dependencies, work only on that phase, update its status and evidence, and stop at the human-review checkpoint.
+Read [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) before implementation. For a numbered phase, verify its dependencies, work only on that phase, update its status and evidence, run its listed checks, and stop at the human-review checkpoint. Begin the next phase only after Ben approves the current one.
 
-The existing `web` and `api` directories are an abandoned scaffold, not a specification. Their frameworks, authentication code, deployment files, and repository layout may be replaced.
+The canonical application is the root [web](web) directory. The `Existing repository status` section in `PRODUCT.md` describes the pre-Phase 1 scaffold and is historical, not a description of the current code. Use [README.md](README.md) and the root `package.json` for the current architecture and commands.
 
-Keep Streetlight deterministic and AI-free. Do not add product scope, providers, abstractions, or compatibility layers for hypothetical future needs.
+Read [ENVIRONMENTS.md](ENVIRONMENTS.md) before changing authentication, maps, the Overture importer, environment variables, deployment, or recovery. Automated tests must not create live WorkOS organizations or send invitations.
 
-Apartment support is implemented but intentionally disabled for the MVP. Preserve its code, data, migrations, and tests; do not re-enable it without a founder decision. See [docs/APARTMENTS_MVP_DEFERRAL.md](docs/APARTMENTS_MVP_DEFERRAL.md).
-
-If code conflicts with `PRODUCT.md`, change the code. Change `PRODUCT.md` only after an explicit founder decision.
+Keep Streetlight deterministic and AI-free. Add no product scope, data providers, deployment services, abstractions, or compatibility layers for hypothetical needs. Prefer the smallest tested solution that satisfies the current product rules.
