@@ -47,8 +47,8 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only region, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
-| 9 | Application UX/UI polish | Phase 8 | Awaiting human review | Apartment workflows are deferred behind one preserved capability seam; automated verification and signed-in desktop/tablet acceptance pass, and founder approval remains |
-| 10 | Outreach progress and presentation | Phase 9 | Pending | Early implementation exists, but formal review and acceptance remain deferred until Phase 9 is approved |
+| 9 | Application UX/UI polish | Phase 8 | Complete | Founder approved the authenticated interface on August 27, 2026; the street workflow remains unchanged and apartments remain absent apart from the quiet Setup placeholder |
+| 10 | Outreach progress and presentation | Phase 9 | In progress | Phase 9 is approved and the early implementation exists; unattended repeat, reduced-motion, print-dialog, and founder acceptance checks remain |
 | 11 | Public trust and access presentation | Phase 10 | Pending | None |
 | 12 | Deployment and recovery | Phase 11 | Pending | None |
 | 13 | Founder-church pilot | Phase 12 | Pending | None |
@@ -906,6 +906,9 @@ controls, progress metrics, and new packet candidates are absent.
   `Cancel` and `Save changes` actions, while active region imports and recoverable failures remain
   visible. Biome, TypeScript, whitespace validation, and the Impeccable detector pass; browser
   verification remains with the founder as requested.
+- On August 27, 2026, the founder reviewed the Phase 9 acceptance checklist and approved the
+  authenticated interface. The existing street workflow remains unchanged, and apartments remain
+  absent apart from the quiet Setup placeholder.
 
 ### Tracked follow-ups
 
@@ -947,10 +950,8 @@ Phase 9 is at the founder-review checkpoint. The founder:
   the automated final-verification environment could build successfully but could not keep a
   background production listener alive long enough for this visual confirmation.
 
-Phase 9 is awaiting founder approval at the review checkpoint. Remaining work is founder-directed
-visual and copy polish; correctness, data integrity, accessibility, and workflow-blocking regressions
-stay inside Phase 9 until resolved. Early Phase 10 implementation remains present but does not change
-the phase order.
+The founder approved Phase 9 on August 27, 2026. Phase 10 may now proceed through its remaining
+verification and review steps.
 
 ### Completion condition
 
@@ -1050,9 +1051,9 @@ full-screen state at desktop and TV-sized widths, and print the static view.
   reduced the founder-approved saved 1.9-mile pilot import to 114.5 seconds with the existing pinned
   Overture/FEMA sources and normalizer v11. The complete Node and 66-check Python importer suites,
   Biome, TypeScript, production build, and whitespace check pass.
-- Phase 10 implementation is present, but formal review remains pending until the founder approves
-  Phase 9. The complete repeat, reduced-motion emulation, and print-dialog inspection remain part of
-  final Phase 10 acceptance.
+- Phase 9 was approved on August 27, 2026, so formal Phase 10 verification may proceed. The complete
+  repeat, reduced-motion emulation, and print-dialog inspection remain part of final Phase 10
+  acceptance.
 
 ### Human review
 
