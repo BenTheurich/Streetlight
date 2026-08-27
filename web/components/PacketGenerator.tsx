@@ -1,8 +1,17 @@
 'use client';
 
-import { type FormEvent, useRef, useState } from 'react';
-import type { CoverageWorkspace } from '@/lib/database';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
+import type { CoverageWorkspace } from '@/lib/coverage';
+import {
+  isFinalizedBatchPayload,
+  packetOperationControls,
+  readMutationResult,
+} from '@/lib/operation-state';
 import type { FinalizedBatch, ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
+import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
+import { OperationStatus } from './OperationStatus';
+import { packetDownloadProgress } from './packet-download-progress';
+import { packetToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
 
 type PacketGeneratorProps = {
   active: boolean;
@@ -10,10 +19,10 @@ type PacketGeneratorProps = {
   selectedIndex: number | null;
   latestBatch: CoverageWorkspace['latestBatch'];
   activePackets: number;
-  qualityWarnings: string[];
   onFinalized: (batch: FinalizedBatch) => Promise<void>;
   onResultChange: (result: ReviewedPacketGenerationResult | null) => void;
   onSelectedIndexChange: (index: number | null) => void;
+  onViewChange: (view: 'generate' | 'reconcile') => void;
 };
 
 type RequestRow = {
@@ -22,16 +31,17 @@ type RequestRow = {
   targetHomes: string;
 };
 
-const initialRow: RequestRow = { id: 0, quantity: '1', targetHomes: '30' };
+type PacketFeedback = {
+  detail: string;
+  headline: string;
+  operation: 'generation' | 'finalization' | 'download';
+  recovery?: 'retry' | 'reload';
+  requiresRegeneration?: boolean;
+  retryScope?: 'newest' | 'active';
+  tone: 'error' | 'success';
+};
 
-function downloadPacketPdf(scope: 'newest' | 'active'): void {
-  const link = document.createElement('a');
-  link.href = `/api/packets/pdf?scope=${scope}`;
-  link.download = '';
-  document.body.append(link);
-  link.click();
-  link.remove();
-}
+const initialRow: RequestRow = { id: 0, quantity: '1', targetHomes: '30' };
 
 export function PacketGenerator({
   active,
@@ -39,19 +49,31 @@ export function PacketGenerator({
   selectedIndex,
   latestBatch,
   activePackets,
-  qualityWarnings,
   onFinalized,
   onResultChange,
   onSelectedIndexChange,
+  onViewChange,
 }: PacketGeneratorProps) {
   const [rows, setRows] = useState<RequestRow[]>([initialRow]);
   const [customName, setCustomName] = useState('');
-  const [notice, setNotice] = useState('');
+  const [feedback, setFeedback] = useState<PacketFeedback | null>(null);
   const [generating, setGenerating] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [downloading, setDownloading] = useState<'newest' | 'active' | null>(null);
   const [finalized, setFinalized] = useState<FinalizedBatch | null>(null);
   const nextRowId = useRef(1);
+  const finalizationTriggerRef = useRef<HTMLButtonElement>(null);
+  const confirmFinalizationRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (confirming) confirmFinalizationRef.current?.focus();
+  }, [confirming]);
+
+  function cancelFinalization(): void {
+    setConfirming(false);
+    requestAnimationFrame(() => finalizationTriggerRef.current?.focus());
+  }
 
   function discardResult(): void {
     onResultChange(null);
@@ -74,8 +96,21 @@ export function PacketGenerator({
     }));
   }
 
+  function deleteProposal(index: number): void {
+    if (packetOperationBusy || !result) return;
+    onResultChange({
+      ...result,
+      proposals: result.proposals.filter((_, proposalIndex) => proposalIndex !== index),
+      proposalIndexes: result.proposalIndexes.filter((_, proposalIndex) => proposalIndex !== index),
+    });
+    onSelectedIndexChange(null);
+    setConfirming(false);
+    setFinalized(null);
+  }
+
   async function generate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (packetOperationBusy) return;
     const packetRequests = requests();
     if (
       packetRequests.some(
@@ -86,14 +121,18 @@ export function PacketGenerator({
           targetHomes <= 0,
       )
     ) {
-      setNotice('Enter positive whole numbers for every packet size.');
+      setFeedback({
+        detail: 'Enter positive whole numbers for every packet size. No request was sent.',
+        headline: 'Check the packet sizes',
+        operation: 'generation',
+        tone: 'error',
+      });
       return;
     }
 
     setGenerating(true);
     setConfirming(false);
-    setFinalized(null);
-    setNotice('');
+    setFeedback(null);
     try {
       const response = await fetch('/api/packet-proposals', {
         method: 'POST',
@@ -106,83 +145,160 @@ export function PacketGenerator({
       }
       onResultChange(next);
       onSelectedIndexChange(null);
-      setNotice(
-        next.warnings[0] ??
-          `Generated ${next.proposals.length} packet proposal${next.proposals.length === 1 ? '' : 's'}.`,
-      );
+      setFinalized(null);
+      setFeedback({
+        detail: `Generated ${next.proposals.length} packet proposal${next.proposals.length === 1 ? '' : 's'} for review.`,
+        headline: 'Packet proposals ready',
+        operation: 'generation',
+        tone: 'success',
+      });
     } catch (error) {
-      onResultChange(null);
-      setNotice(error instanceof Error ? error.message : 'Could not generate packet proposals');
+      setFeedback({
+        detail: `${error instanceof Error ? error.message : 'Could not generate packet proposals'}. ${result ? 'Your previous proposals are still ready to review.' : 'Your packet sizes are still here.'}`,
+        headline: 'Packet proposals could not be generated',
+        operation: 'generation',
+        tone: 'error',
+      });
     } finally {
       setGenerating(false);
     }
   }
 
   async function finalize(): Promise<void> {
+    if (packetOperationBusy) return;
     if (!result) return;
     setFinalizing(true);
-    setNotice('');
-    try {
-      const response = await fetch('/api/batches/finalize', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          requests: requests(),
-          proposalFingerprint: result.proposalFingerprint,
-          customName: customName.trim() || null,
+    setFeedback(null);
+    const outcome = await readMutationResult(
+      () =>
+        fetch('/api/batches/finalize', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            requests: requests(),
+            proposalFingerprint: result.proposalFingerprint,
+            proposalIndexes: result.proposalIndexes,
+            customName: customName.trim() || null,
+          }),
         }),
-      });
-      const batch = (await response.json()) as FinalizedBatch | { error: string };
-      if (!response.ok || 'error' in batch) {
-        throw new Error('error' in batch ? batch.error : 'Could not finalize packet batch');
+      isFinalizedBatchPayload,
+    );
+    if (outcome.status !== 'success') {
+      if (outcome.status === 'rejected') {
+        setFeedback({
+          detail: `${outcome.message}. Your reviewed proposals are still here.`,
+          headline: 'Packet batch was not finalized',
+          operation: 'finalization',
+          recovery: outcome.recovery,
+          requiresRegeneration: outcome.message.includes('Generate proposals again'),
+          tone: 'error',
+        });
+      } else {
+        setFeedback({
+          detail:
+            'Streetlight could not confirm whether the packet batch was finalized. Your reviewed proposals are still here. Reload to verify before taking another action.',
+          headline: 'Could not confirm packet finalization',
+          operation: 'finalization',
+          recovery: outcome.recovery,
+          tone: 'error',
+        });
       }
-      setFinalized(batch);
-      setConfirming(false);
-      setNotice(`${batch.name} finalized. Your PDF download has started.`);
-      downloadPacketPdf('newest');
-      try {
-        await onFinalized(batch);
-      } catch {
-        setNotice(`${batch.name} finalized. Reload the page to refresh the batch totals.`);
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('Generate proposals again')) {
-        discardResult();
-      }
-      setNotice(error instanceof Error ? error.message : 'Could not finalize packet batch');
-    } finally {
       setFinalizing(false);
+      return;
+    }
+
+    const batch = outcome.value;
+    setFinalized(batch);
+    setConfirming(false);
+    let coverageRefreshFailed = false;
+    try {
+      await onFinalized(batch);
+    } catch {
+      coverageRefreshFailed = true;
+    }
+    setFinalizing(false);
+    await downloadPacketPdf(
+      'newest',
+      coverageRefreshFailed ? 'Reload the page to refresh the batch totals.' : '',
+    );
+  }
+
+  async function downloadPacketPdf(scope: 'newest' | 'active', completionNote = ''): Promise<void> {
+    if (packetOperationBusy) return;
+    setDownloading(scope);
+    setFeedback(null);
+    try {
+      const response = await fetch(`/api/packets/pdf?scope=${scope}`);
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(result?.error || 'Could not download the packet PDF');
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = '';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setFeedback({
+        detail:
+          scope === 'newest'
+            ? `The newest finalized batch was downloaded.${completionNote ? ` ${completionNote}` : ''}`
+            : `All active packet sheets were downloaded.${completionNote ? ` ${completionNote}` : ''}`,
+        headline: 'Packet PDF ready',
+        operation: 'download',
+        retryScope: scope,
+        tone: 'success',
+      });
+    } catch (error) {
+      setFeedback({
+        detail: `${error instanceof Error ? error.message : 'Could not download the packet PDF'}. The finalized batch is still saved.${completionNote ? ` ${completionNote}` : ''}`,
+        headline: 'Packet PDF could not be prepared',
+        operation: 'download',
+        retryScope: scope,
+        tone: 'error',
+      });
+    } finally {
+      setDownloading(null);
     }
   }
 
   const proposedHomes =
     result?.proposals.reduce((total, proposal) => total + proposal.estimatedHomes, 0) ?? 0;
+  const newestPacketCount = (finalized ?? latestBatch)?.packetCount ?? 0;
+  const downloadProgress = packetDownloadProgress(downloading, newestPacketCount, activePackets);
+  const verificationRequired =
+    feedback?.operation === 'finalization' && feedback.recovery === 'reload';
+  const packetControls = packetOperationControls(
+    { downloading, finalizing, generating, verificationRequired },
+    activePackets,
+  );
+  const packetOperationBusy = packetControls.busy;
 
   return (
-    <aside className="territory-sidebar packet-sidebar" hidden={!active}>
-      <div className="sidebar-title">
-        <h1>Generate outreach packets</h1>
-        <p>Build, review, and print outreach routes.</p>
-      </div>
+    <aside className="territory-sidebar packet-sidebar tool-sidebar" hidden={!active}>
+      <ToolViewSwitcher
+        label="Packet workflow"
+        onChange={(view) => onViewChange(view as 'generate' | 'reconcile')}
+        options={packetToolViews}
+        value="generate"
+      />
       <div className="sidebar-scroll">
-        {qualityWarnings.length > 0 && (
-          <div className="import-quality-warning" role="alert">
-            <strong>Street data may be incomplete</strong>
-            <ul>
-              {qualityWarnings.map((warning) => (
-                <li key={warning}>{warning}</li>
-              ))}
-            </ul>
-          </div>
-        )}
         <section>
           <h2>Packet sizes</h2>
-          <form className="packet-form" onSubmit={(event) => void generate(event)}>
+          <form
+            aria-busy={generating}
+            className="packet-form"
+            id="packet-request-form"
+            onSubmit={(event) => void generate(event)}
+          >
             {rows.map((row, index) => (
               <div className="packet-request-row" key={row.id}>
                 <label>
                   Quantity
                   <input
+                    disabled={packetControls.requestDisabled}
                     min="1"
                     onChange={(event) => updateRow(index, 'quantity', event.target.value)}
                     required
@@ -194,6 +310,7 @@ export function PacketGenerator({
                 <label>
                   Tracts per packet
                   <input
+                    disabled={packetControls.requestDisabled}
                     min="1"
                     onChange={(event) => updateRow(index, 'targetHomes', event.target.value)}
                     required
@@ -206,13 +323,17 @@ export function PacketGenerator({
                   <button
                     aria-label={`Remove packet size ${index + 1}`}
                     className="danger packet-remove"
+                    disabled={packetControls.requestDisabled}
                     onClick={() => {
                       setRows((current) => current.filter((_, rowIndex) => rowIndex !== index));
                       discardResult();
                     }}
+                    title={`Remove packet size ${index + 1}`}
                     type="button"
                   >
-                    Remove
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
+                    </svg>
                   </button>
                 )}
               </div>
@@ -220,6 +341,7 @@ export function PacketGenerator({
             <div className="packet-form-actions">
               <button
                 className="secondary"
+                disabled={packetControls.requestDisabled}
                 onClick={() => {
                   setRows((current) => [
                     ...current,
@@ -234,77 +356,111 @@ export function PacketGenerator({
               >
                 Add packet size
               </button>
-              <button disabled={generating} type="submit">
-                {generating ? 'Generating…' : 'Generate proposals'}
+              <button disabled={packetControls.requestDisabled} type="submit">
+                {generating
+                  ? 'Generating…'
+                  : feedback?.operation === 'generation' && feedback.tone === 'error'
+                    ? 'Try generation again'
+                    : 'Generate proposals'}
               </button>
             </div>
+            {generating ? (
+              <OperationStatus
+                detail="Streetlight is finding connected, overdue areas."
+                headline="Generating packet proposals"
+                tone="busy"
+              />
+            ) : (
+              feedback?.operation === 'generation' && (
+                <OperationStatus
+                  detail={feedback.detail}
+                  headline={feedback.headline}
+                  tone={feedback.tone}
+                />
+              )
+            )}
           </form>
         </section>
         {result && (
           <section className="packet-results">
             <div className="packet-results-header">
               <h2>Proposals</h2>
-              {selectedIndex !== null && (
-                <button
-                  className="secondary"
-                  onClick={() => onSelectedIndexChange(null)}
-                  type="button"
-                >
-                  Show all
-                </button>
-              )}
+              <span>{result.proposals.length} ready to review</span>
             </div>
-            {result.proposals.map((proposal, index) => {
-              const selected = index === selectedIndex;
-              return (
-                <article
-                  className={`packet-card${selected ? ' selected' : ''}`}
-                  key={
-                    proposal.kind === 'apartment'
-                      ? `apartment:${proposal.apartmentId}`
-                      : proposal.segments.map(({ id }) => id).join('|')
-                  }
-                >
-                  <button
-                    aria-pressed={selected}
-                    className="packet-card-button"
-                    onClick={() => onSelectedIndexChange(index)}
-                    type="button"
+            <div className="packet-proposal-list">
+              {result.proposals.map((proposal, index) => {
+                const selected = index === selectedIndex;
+                return (
+                  <article
+                    className={`packet-card${selected ? ' selected' : ''}`}
+                    key={
+                      proposal.kind === 'apartment'
+                        ? `apartment:${proposal.apartmentId}`
+                        : proposal.segments.map(({ id }) => id).join('|')
+                    }
                   >
-                    <strong>
-                      Packet {index + 1}
-                      {proposal.kind === 'apartment' ? ' · Apartment complex' : ''}
-                    </strong>
-                    <span>Target {proposal.targetHomes} tracts</span>
-                    <span>{proposal.estimatedHomes} estimated tracts</span>
-                  </button>
-                  {selected && (
-                    <div className="packet-card-detail">
+                    <button
+                      aria-expanded={selected}
+                      className="packet-card-button"
+                      onClick={() => onSelectedIndexChange(selected ? null : index)}
+                      type="button"
+                    >
                       <strong>
-                        {proposal.kind === 'apartment' ? 'Complex address' : 'Starting address'}
+                        Packet {index + 1}
+                        {proposal.kind === 'apartment' ? ' · Apartment complex' : ''}
                       </strong>
-                      <p>{proposal.start.address}</p>
-                      {proposal.kind !== 'apartment' && (
-                        <>
-                          <strong>Streets</strong>
-                          <p>{proposal.streetNames.join(', ')}</p>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </article>
-              );
-            })}
+                      <span>
+                        Target {proposal.targetHomes} tract
+                        {proposal.targetHomes === 1 ? '' : 's'}
+                      </span>
+                      <span>
+                        {proposal.estimatedHomes} estimated tract
+                        {proposal.estimatedHomes === 1 ? '' : 's'}
+                      </span>
+                    </button>
+                    <button
+                      aria-label={`Delete Packet ${index + 1} proposal`}
+                      className="packet-proposal-delete"
+                      disabled={packetControls.proposalDisabled}
+                      onClick={() => deleteProposal(index)}
+                      title={`Delete Packet ${index + 1} proposal`}
+                      type="button"
+                    >
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
+                      </svg>
+                    </button>
+                    {selected && (
+                      <div className="packet-card-detail">
+                        <strong>
+                          {proposal.kind === 'apartment' ? 'Complex address' : 'Starting address'}
+                        </strong>
+                        <p>{proposal.start.address}</p>
+                        {proposal.kind !== 'apartment' && (
+                          <>
+                            <strong>Streets</strong>
+                            <p>{proposal.streetNames.join(', ')}</p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
             {result.warnings.map((warning) => (
               <p className="packet-warning" key={warning}>
                 {warning}
               </p>
             ))}
-            {!finalized && (
+            {!finalized && result.proposals.length > 0 && (
               <div className="packet-finalize">
                 <label>
-                  Batch name <span>(optional)</span>
+                  <span className="packet-finalize-label">
+                    Batch name <small>(optional)</small>
+                  </span>
                   <input
+                    disabled={packetControls.finalizationDisabled}
                     maxLength={80}
                     onChange={(event) => setCustomName(event.target.value)}
                     placeholder="Streetlight will name it automatically"
@@ -312,7 +468,12 @@ export function PacketGenerator({
                   />
                 </label>
                 {!confirming ? (
-                  <button onClick={() => setConfirming(true)} type="button">
+                  <button
+                    disabled={packetControls.finalizationDisabled}
+                    onClick={() => setConfirming(true)}
+                    ref={finalizationTriggerRef}
+                    type="button"
+                  >
                     Finalize &amp; download
                   </button>
                 ) : (
@@ -320,53 +481,113 @@ export function PacketGenerator({
                     <strong>Finalize this batch?</strong>
                     <p>
                       {result.proposals.length} packet
-                      {result.proposals.length === 1 ? '' : 's'} · {proposedHomes} estimated tracts
+                      {result.proposals.length === 1 ? '' : 's'} · {proposedHomes} estimated tract
+                      {proposedHomes === 1 ? '' : 's'}
                     </p>
-                    <p>These streets and apartment complexes will be reserved for this outreach.</p>
+                    <p>
+                      These streets{APARTMENTS_ENABLED ? ' and apartment complexes' : ''} will be
+                      reserved for this outreach.
+                    </p>
                     <div>
                       <button
                         className="secondary"
-                        disabled={finalizing}
-                        onClick={() => setConfirming(false)}
+                        disabled={packetControls.finalizationDisabled}
+                        onClick={cancelFinalization}
                         type="button"
                       >
                         Cancel
                       </button>
-                      <button disabled={finalizing} onClick={() => void finalize()} type="button">
-                        {finalizing ? 'Finalizing…' : 'Confirm finalization'}
+                      <button
+                        disabled={packetControls.finalizationDisabled}
+                        form={feedback?.requiresRegeneration ? 'packet-request-form' : undefined}
+                        onClick={feedback?.requiresRegeneration ? undefined : () => void finalize()}
+                        ref={confirmFinalizationRef}
+                        type={feedback?.requiresRegeneration ? 'submit' : 'button'}
+                      >
+                        {finalizing
+                          ? 'Finalizing…'
+                          : feedback?.requiresRegeneration
+                            ? 'Generate proposals again'
+                            : feedback?.operation === 'finalization' && feedback.tone === 'error'
+                              ? 'Try finalization again'
+                              : 'Confirm finalization'}
                       </button>
                     </div>
+                    {finalizing ? (
+                      <OperationStatus
+                        detail="Streetlight is reserving this batch before preparing its PDF."
+                        headline="Finalizing packet batch"
+                        tone="busy"
+                      />
+                    ) : (
+                      feedback?.operation === 'finalization' && (
+                        <OperationStatus
+                          action={
+                            feedback.recovery === 'reload' ? (
+                              <button onClick={() => window.location.reload()} type="button">
+                                Reload to verify
+                              </button>
+                            ) : undefined
+                          }
+                          detail={feedback.detail}
+                          headline={feedback.headline}
+                          tone={feedback.tone}
+                        />
+                      )
+                    )}
                   </div>
                 )}
               </div>
             )}
           </section>
         )}
-        {(latestBatch || finalized) && (
-          <section className="packet-downloads">
-            <h2>Downloads</h2>
-            <p>
-              Newest: {(finalized ?? latestBatch)?.name} · {(finalized ?? latestBatch)?.packetCount}{' '}
-              packet
-              {(finalized ?? latestBatch)?.packetCount === 1 ? '' : 's'}
-            </p>
-            <button onClick={() => downloadPacketPdf('newest')} type="button">
-              Download newest batch
-            </button>
-            <button
-              className="secondary"
-              disabled={activePackets === 0}
-              onClick={() => downloadPacketPdf('active')}
-              type="button"
-            >
-              Download all active packets ({activePackets})
-            </button>
-          </section>
-        )}
       </div>
-      <div className="sidebar-actions">
-        <p aria-live="polite">{notice}</p>
-      </div>
+      {(latestBatch || finalized) && (
+        <div aria-busy={downloadProgress.busy} className="packet-downloads">
+          {downloadProgress.message && downloadProgress.headline ? (
+            <OperationStatus
+              detail={downloadProgress.message}
+              headline={downloadProgress.headline}
+              tone="busy"
+            />
+          ) : (
+            feedback?.operation === 'download' && (
+              <OperationStatus
+                detail={feedback.detail}
+                headline={feedback.headline}
+                tone={feedback.tone}
+              />
+            )
+          )}
+          <button
+            disabled={packetControls.newestPdfDisabled}
+            onClick={() => void downloadPacketPdf('newest')}
+            type="button"
+          >
+            {downloading === 'newest'
+              ? 'Downloading…'
+              : feedback?.operation === 'download' &&
+                  feedback.tone === 'error' &&
+                  feedback.retryScope === 'newest'
+                ? 'Try newest batch again'
+                : 'Download newest batch'}
+          </button>
+          <button
+            className="secondary"
+            disabled={packetControls.activePdfDisabled}
+            onClick={() => void downloadPacketPdf('active')}
+            type="button"
+          >
+            {downloading === 'active'
+              ? 'Downloading…'
+              : feedback?.operation === 'download' &&
+                  feedback.tone === 'error' &&
+                  feedback.retryScope === 'active'
+                ? `Try all active packets again (${activePackets})`
+                : `Download all active packets (${activePackets})`}
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

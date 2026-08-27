@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js 22.13
+      - name: Use Node.js 24.15
         uses: actions/setup-node@v4
         with:
-          node-version: "22.13"
+          node-version: "24.15"
       - name: Use pnpm 10.27
         run: npm install --global pnpm@10.27.0
       - name: Install

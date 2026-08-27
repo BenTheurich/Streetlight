@@ -1,119 +1,27 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { countEligibleHomesCovered } from '../lib/coverage.ts';
 import {
-  appendCoverageCorrection,
-  getCoverageWorkspace,
-  getFoundationSummary,
-  getPacketGenerationWorkspace,
   getTerritoryWorkspace,
-  recordCoverageCompletion,
-  saveCoverageThresholds,
-  saveTerritoryDraft,
-} from '../lib/database.ts';
+  replaceTerritoryFromImport,
+  saveTerritoryDraft as saveContainedTerritoryDraft,
+} from '../lib/territory-persistence.ts';
+import {
+  importedSegmentFixture,
+  importedTerritoryFixture,
+  withSeededTemeculaDatabase,
+} from '../test/persistence-fixtures.ts';
 import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
 import { migrateDatabase, openDatabase } from './migrate.mjs';
 import { seedDatabase } from './seed.mjs';
 
-function withDatabase(run) {
-  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-database-'));
-  const filename = path.join(directory, 'streetlight.db');
-  const database = openDatabase(filename);
-  migrateDatabase(database);
-  seedDatabase(database);
-  database.close();
-  try {
-    withTemeculaWorkspace(() => run(filename));
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-}
-
-function importedSegment(
-  id,
-  streetName,
-  roadClass,
-  estimatedHomes,
-  activationKind = 'automatic',
-  roadGroupId = `road-group:${id}`,
-) {
-  return {
-    id,
-    sourceSegmentId: `source-${id}`,
-    roadGroupId,
-    roadClass,
-    streetName,
-    geometry: {
-      type: 'LineString',
-      coordinates: [
-        [-117.1169, 33.5429],
-        [-117.1168, 33.543],
-      ],
-    },
-    estimatedHomes,
-    addresses: [],
-    activationKind,
-  };
-}
-
-function importedTerritory(segments) {
-  return {
-    release: '2026-06-17.0',
-    center: [-117.116885, 33.54293],
-    radiusMiles: 10,
-    completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 10,
-    buildingMode: 'overture_fema',
-    mapBuildings: [
-      {
-        source: 'overture',
-        sourceId: 'building-one',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [
-            [
-              [-117.117, 33.5429],
-              [-117.1169, 33.5429],
-              [-117.1169, 33.543],
-              [-117.117, 33.5429],
-            ],
-          ],
-        },
-        fema: null,
-      },
-    ],
-    quality: {
-      totalAddresses: 12,
-      assignedAddresses: 10,
-      spatiallyAssignedAddresses: 3,
-      inferredRoads: 1,
-      unmatchedAddresses: 2,
-      unresolvedClusters: 0,
-      totalResidentialBuildings: 9,
-      fallbackBuildings: 2,
-      unmatchedResidentialBuildings: 1,
-      populatedUnnamedRoads: 0,
-      buildingAddressDisagreements: 1,
-      warnings: ['Address matching is below the 95% reliability target (83.3% matched).'],
-    },
-    segments,
-    apartmentComplexes: [],
-  };
-}
-
-function importedApartment(id, address = '10 Sample Road, Temecula CA 92591') {
-  return {
-    id,
-    sourceId: `source-${id}`,
-    address,
-    position: [-117.11685, 33.54295],
-    estimatedTracts: 12,
-    evidence: { apartmentBuilding: true, distinctUnits: 12 },
-  };
+function saveTerritoryDraft(draft, options = {}) {
+  const { imported, ...persistenceOptions } = options;
+  return imported
+    ? replaceTerritoryFromImport(draft, imported, persistenceOptions)
+    : saveContainedTerritoryDraft(draft, persistenceOptions);
 }
 
 test('migration and seed create the church-owned Phase 2 territory graph', () => {
@@ -136,7 +44,6 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
       'batches',
       'packets',
       'packet_segments',
-      'ignore_zones',
       'segment_addresses',
       'apartment_complexes',
     ];
@@ -146,7 +53,6 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
       'batches',
       'packets',
       'packet_segments',
-      'ignore_zones',
       'segment_addresses',
       'apartment_complexes',
     ]);
@@ -174,199 +80,86 @@ test('migration and seed create the church-owned Phase 2 territory graph', () =>
 
   try {
     const workspace = withTemeculaWorkspace(() => getTerritoryWorkspace(filename));
-    const summary = withTemeculaWorkspace(() => getFoundationSummary(filename));
     assert.deepEqual(workspace.center, [-117.1164623, 33.5414958]);
     assert.equal(workspace.import.kind, 'proof');
     assert.equal(workspace.import.release, null);
     assert.equal(workspace.import.normalizerVersion, null);
     assert.equal(workspace.import.quality, null);
-    assert.equal(summary.packetCount, 0);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
 });
 
-test('apartment imports default to review, preserve decisions, and retire missing complexes', () => {
-  withDatabase((filename) => {
-    const initial = getTerritoryWorkspace(filename);
-    const draft = {
-      originAddress: initial.originAddress,
-      center: initial.center,
-      radiusMiles: 1,
-      boundaryShape: 'circle',
-      activatedRoadGroupIds: [],
-      excludedSegmentIds: [],
-      apartmentStatuses: [],
-      exclusions: [],
-    };
-    saveTerritoryDraft(draft, {
-      filename,
-      imported: {
-        ...importedTerritory([importedSegment('road', 'Sample Road', 'residential', 1)]),
-        radiusMiles: 1,
-        apartmentComplexes: [
-          importedApartment('apartments-10'),
-          importedApartment('units-20'),
-          importedApartment('missing-address', null),
-        ],
-      },
-    });
+test('migration 027 turns legacy apartment rows into unconfigured sites without breaking packet targets', () => {
+  const database = openDatabase(':memory:');
+  try {
+    database.exec(`
+      CREATE TABLE apartment_complexes (
+        id TEXT PRIMARY KEY,
+        church_id TEXT NOT NULL,
+        territory_id TEXT NOT NULL,
+        import_complex_id TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        address TEXT,
+        longitude REAL NOT NULL,
+        latitude REAL NOT NULL,
+        estimated_tracts INTEGER NOT NULL,
+        apartment_building INTEGER NOT NULL,
+        distinct_units INTEGER NOT NULL,
+        review_status TEXT NOT NULL,
+        import_generation INTEGER NOT NULL,
+        is_current INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) STRICT;
+      CREATE TABLE packet_apartment_complexes (
+        church_id TEXT NOT NULL,
+        packet_id TEXT PRIMARY KEY,
+        apartment_complex_id TEXT NOT NULL REFERENCES apartment_complexes(id)
+      ) STRICT;
+      INSERT INTO apartment_complexes VALUES
+        ('legacy-site', 'church', 'territory', 'legacy-import', 'building-1',
+          '10 Sample Road', -117.1, 33.5, 18, 1, 12, 'ready', 1, 1, CURRENT_TIMESTAMP);
+      INSERT INTO packet_apartment_complexes VALUES ('church', 'packet', 'legacy-site');
+    `);
 
-    const imported = getTerritoryWorkspace(filename);
-    assert.deepEqual(
-      imported.apartmentComplexes
-        .map(({ id, reviewStatus, estimatedTracts }) => ({
-          id,
-          reviewStatus,
-          estimatedTracts,
-        }))
-        .sort((left, right) => left.id.localeCompare(right.id)),
-      [
-        { id: 'apartments-10', reviewStatus: 'needs_review', estimatedTracts: 12 },
-        { id: 'missing-address', reviewStatus: 'needs_review', estimatedTracts: 12 },
-        { id: 'units-20', reviewStatus: 'needs_review', estimatedTracts: 12 },
-      ],
-    );
-    assert.throws(
-      () =>
-        saveTerritoryDraft(
-          {
-            ...draft,
-            apartmentStatuses: [{ id: 'missing-address', reviewStatus: 'ready' }],
-          },
-          { filename },
-        ),
-      /not ready for outreach/,
+    database.exec(
+      readFileSync(
+        path.join(import.meta.dirname, 'migrations', '027_apartment_site_model.sql'),
+        'utf8',
+      ),
     );
 
-    saveTerritoryDraft(
+    const site = database.prepare('SELECT * FROM apartment_complexes').get();
+    assert.equal(site.grouping_kind, 'ungrouped');
+    assert.equal(site.grouping_confirmed, 0);
+    assert.equal(site.address_confirmed, 0);
+    assert.equal(site.confirmed_tracts, null);
+    assert.equal(site.access_status, 'unknown');
+    assert.equal(site.included_in_packets, 0);
+    assert.deepEqual(JSON.parse(site.members_json), [
       {
-        ...draft,
-        apartmentStatuses: [
-          { id: 'apartments-10', reviewStatus: 'ready' },
-          { id: 'units-20', reviewStatus: 'deferred' },
-        ],
+        id: 'legacy-import',
+        sourceId: 'building-1',
+        address: '10 Sample Road',
+        position: [-117.1, 33.5],
+        geometry: null,
+        apartmentBuilding: true,
+        distinctUnits: 12,
       },
-      { filename },
+    ]);
+    assert.equal(
+      database
+        .prepare(
+          `SELECT a.import_complex_id
+          FROM packet_apartment_complexes p
+          JOIN apartment_complexes a ON a.id = p.apartment_complex_id`,
+        )
+        .get().import_complex_id,
+      'legacy-import',
     );
-    saveTerritoryDraft(
-      {
-        ...draft,
-        apartmentStatuses: [
-          { id: 'apartments-10', reviewStatus: 'ready' },
-          { id: 'units-20', reviewStatus: 'deferred' },
-        ],
-      },
-      {
-        filename,
-        imported: {
-          ...importedTerritory([importedSegment('road', 'Sample Road', 'residential', 1)]),
-          radiusMiles: 1,
-          apartmentComplexes: [importedApartment('apartments-10')],
-        },
-      },
-    );
-
-    const reimported = getTerritoryWorkspace(filename);
-    assert.deepEqual(
-      reimported.apartmentComplexes.map(({ id, reviewStatus }) => ({ id, reviewStatus })),
-      [{ id: 'apartments-10', reviewStatus: 'ready' }],
-    );
-    const database = openDatabase(filename);
-    try {
-      assert.deepEqual(
-        database
-          .prepare(
-            'SELECT import_complex_id, is_current FROM apartment_complexes ORDER BY import_complex_id, import_generation',
-          )
-          .all()
-          .map((row) => ({ ...row })),
-        [
-          { import_complex_id: 'apartments-10', is_current: 0 },
-          { import_complex_id: 'apartments-10', is_current: 1 },
-          { import_complex_id: 'missing-address', is_current: 0 },
-          { import_complex_id: 'units-20', is_current: 0 },
-        ],
-      );
-    } finally {
-      database.close();
-    }
-  });
-});
-
-test('circle and square boundaries control eligibility and coverage-map visibility', () => {
-  withDatabase((filename) => {
-    const initial = getTerritoryWorkspace(filename);
-    assert.equal(initial.boundaryShape, 'circle');
-    const corner = {
-      ...importedSegment('corner', 'Corner Road', 'residential', 8),
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [initial.center[0] + 0.012, initial.center[1] + 0.012],
-          [initial.center[0] + 0.013, initial.center[1] + 0.013],
-        ],
-      },
-    };
-    const baseDraft = {
-      originAddress: initial.originAddress,
-      center: initial.center,
-      radiusMiles: 1,
-      boundaryShape: 'circle',
-      activatedRoadGroupIds: [],
-      excludedSegmentIds: [],
-      exclusions: [],
-    };
-
-    saveTerritoryDraft(baseDraft, {
-      filename,
-      imported: { ...importedTerritory([corner]), radiusMiles: 1 },
-    });
-    const circle = getTerritoryWorkspace(filename);
-    const circleSummary = getFoundationSummary(filename);
-    assert.equal(circle.segments[0].withinBoundary, false);
-    assert.equal(circle.segments[0].excludedReason, 'boundary');
-    assert.deepEqual(circle.totals, {
-      allSegments: 0,
-      eligibleSegments: 0,
-      allHomes: 0,
-      eligibleHomes: 0,
-    });
-    assert.equal(circleSummary.segmentCount, 0);
-    assert.equal(circleSummary.estimatedHomes, 0);
-    assert.deepEqual(getCoverageWorkspace(filename).segments, []);
-
-    saveTerritoryDraft(
-      { ...baseDraft, boundaryShape: 'square' },
-      {
-        filename,
-        imported: {
-          ...importedTerritory([
-            corner,
-            { ...corner, id: 'hidden', streetName: 'Hidden Road', activationKind: 'hidden' },
-          ]),
-          radiusMiles: 1,
-        },
-      },
-    );
-    const square = getTerritoryWorkspace(filename);
-    const squareSummary = getFoundationSummary(filename);
-    assert.equal(square.boundaryShape, 'square');
-    assert.equal(square.segments[0].withinBoundary, true);
-    assert.equal(square.segments[0].eligible, true);
-    assert.deepEqual(square.totals, {
-      allSegments: 1,
-      eligibleSegments: 1,
-      allHomes: 8,
-      eligibleHomes: 8,
-    });
-    assert.equal(squareSummary.segmentCount, 1);
-    assert.equal(squareSummary.estimatedHomes, 8);
-    assert.deepEqual(
-      getCoverageWorkspace(filename).segments.map((segment) => segment.id),
-      ['corner'],
-    );
-  });
+  } finally {
+    database.close();
+  }
 });
 
 test('migration 011 upgrades an existing migration 010 database with current-state void validation', () => {
@@ -590,896 +383,88 @@ test('migration 022 advances only finalized street batches with identical map ge
   }
 });
 
-test('exclusion rows default to enabled and reject invalid states', () => {
-  withDatabase((filename) => {
-    const database = openDatabase(filename);
-    try {
+test('migration 023 persists the approved legacy FEMA row gaps', () => {
+  const database = openDatabase(':memory:');
+  try {
+    migrateDatabase(database);
+    database.exec(`
+      INSERT INTO churches (id, name)
+      VALUES ('church-temecula-pilot', 'Temecula Pilot');
+      INSERT INTO territories
+        (id, church_id, name, center_latitude, center_longitude, radius_meters,
+          boundary_geojson, import_generation, import_release, import_completed_at)
+      VALUES
+        ('territory-temecula-pilot', 'church-temecula-pilot', 'Pilot', 33.54, -117.12,
+          1609.344, '{}', 9, '2026-06-17.0', '2026-07-30T00:00:00.000Z');
+    `);
+
+    database.exec(
+      readFileSync(
+        path.join(import.meta.dirname, 'migrations', '023_persist_legacy_fema_row_gaps.sql'),
+        'utf8',
+      ),
+    );
+
+    assert.equal(
       database
         .prepare(
-          `INSERT INTO ignore_zones
-            (id, church_id, territory_id, name, geometry_geojson)
-          VALUES (?, ?, ?, ?, ?)`,
+          `SELECT COUNT(*) AS count FROM map_buildings
+          WHERE church_id = 'church-temecula-pilot'
+            AND territory_id = 'territory-temecula-pilot'
+            AND import_generation = 9
+            AND source = 'fema'`,
         )
-        .run(
-          'default-enabled',
-          'church-temecula-pilot',
-          'territory-temecula-pilot',
-          'Default enabled',
-          '{"type":"Polygon","coordinates":[[[0,0],[1,0],[0,1],[0,0]]]}',
-        );
-      assert.equal(
-        database.prepare('SELECT enabled FROM ignore_zones WHERE id = ?').get('default-enabled')
-          .enabled,
-        1,
-      );
-      database.prepare('UPDATE ignore_zones SET enabled = 0 WHERE id = ?').run('default-enabled');
-      assert.throws(
-        () =>
-          database
-            .prepare('UPDATE ignore_zones SET enabled = 2 WHERE id = ?')
-            .run('default-enabled'),
-        /CHECK constraint failed/,
-      );
-    } finally {
-      database.close();
-    }
-  });
-});
-
-test('an imported save atomically replaces proof segments and records its footprint', () => {
-  withDatabase((filename) => {
-    const workspace = getTerritoryWorkspace(filename);
-    const imported = importedTerritory([
-      importedSegment('one', 'Residential Road', 'residential', 8),
-      importedSegment('two', 'Calle Medusa', 'tertiary', 3),
-    ]);
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: workspace.exclusions,
-      },
-      { filename, imported },
+        .get().count,
+      11,
     );
-    const [one, two] = imported.segments.map(({ addresses: _addresses, ...segment }) => segment);
-
-    const saved = getTerritoryWorkspace(filename);
-    assert.deepEqual(saved.import, {
-      kind: 'overture',
-      release: imported.release,
-      center: imported.center,
-      radiusMiles: imported.radiusMiles,
-      completedAt: imported.completedAt,
-      normalizerVersion: imported.normalizerVersion,
-      quality: imported.quality,
-    });
     assert.deepEqual(
-      saved.segments.map(
-        ({
-          id,
-          sourceSegmentId,
-          roadGroupId,
-          roadClass,
-          streetName,
-          geometry,
-          estimatedHomes,
-          activationKind,
-          active,
-          eligible,
-          excludedReason,
-        }) => ({
-          id,
-          sourceSegmentId,
-          roadGroupId,
-          roadClass,
-          streetName,
-          geometry,
-          estimatedHomes,
-          activationKind,
-          active,
-          eligible,
-          excludedReason,
-        }),
-      ),
-      [
-        {
-          ...two,
-          active: true,
-          eligible: true,
-          excludedReason: null,
-        },
-        {
-          ...one,
-          active: true,
-          eligible: true,
-          excludedReason: null,
-        },
-      ],
-    );
-    const database = openDatabase(filename);
-    try {
-      assert.deepEqual(
-        {
-          ...database
-            .prepare(
-              `SELECT source, source_feature_id, import_generation, geometry_geojson
-              FROM map_buildings`,
-            )
-            .get(),
-        },
-        {
-          source: 'overture',
-          source_feature_id: 'building-one',
-          import_generation: 1,
-          geometry_geojson: JSON.stringify(imported.mapBuildings[0].geometry),
-        },
-      );
-      assert.equal(
+      JSON.parse(
         database
           .prepare(
-            `SELECT import_building_mode
-            FROM territories WHERE id = 'territory-temecula-pilot'`,
+            `SELECT geometry_geojson FROM map_buildings
+            WHERE source_feature_id = '6027521'`,
           )
-          .get().import_building_mode,
-        'overture_fema',
-      );
-    } finally {
-      database.close();
-    }
-  });
-});
-
-test('coverage workspace exposes concrete import warnings to packet generation', () => {
-  withDatabase((filename) => {
-    const workspace = getTerritoryWorkspace(filename);
-    const imported = importedTerritory([
-      importedSegment('one', 'Residential Road', 'residential', 8),
-    ]);
-    saveTerritoryDraft(
+          .get().geometry_geojson,
+      ),
       {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: workspace.exclusions,
-      },
-      { filename, imported },
-    );
-
-    assert.deepEqual(getCoverageWorkspace(filename).qualityWarnings, imported.quality.warnings);
-
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: workspace.exclusions,
-      },
-      {
-        filename,
-        imported: {
-          ...imported,
-          quality: {
-            ...imported.quality,
-            totalAddresses: 10,
-            assignedAddresses: 10,
-            unmatchedAddresses: 0,
-            warnings: [],
-          },
-        },
-      },
-    );
-    assert.deepEqual(getCoverageWorkspace(filename).qualityWarnings, []);
-  });
-});
-
-test('reimport retains assigned addresses for imported and preserved manual segments', () => {
-  withDatabase((filename) => {
-    const workspace = getTerritoryWorkspace(filename);
-    const approvedGroup = 'road-group:approved';
-    const approved = {
-      ...importedSegment('approved', 'Diego Drive', 'service', 6, 'hidden', approvedGroup),
-      addresses: [
-        {
-          number: '39483',
-          street: 'Diego Drive',
-          locality: 'Temecula',
-          postcode: '92591',
-          position: [-117.1157, 33.5435],
-        },
-        {
-          number: null,
-          street: 'Diego Drive',
-          locality: null,
-          postcode: null,
-          position: [-117.1158, 33.5434],
-        },
-      ],
-    };
-    const draft = {
-      originAddress: workspace.originAddress,
-      center: workspace.center,
-      radiusMiles: workspace.radiusMiles,
-      boundaryShape: workspace.boundaryShape,
-      exclusions: [],
-      activatedRoadGroupIds: [approvedGroup],
-    };
-
-    saveTerritoryDraft(draft, {
-      filename,
-      imported: importedTerritory([approved]),
-    });
-
-    const firstDatabase = openDatabase(filename);
-    const firstRows = firstDatabase
-      .prepare(
-        `SELECT s.id AS segment_id, a.house_number, a.street, a.locality, a.postcode,
-          a.longitude, a.latitude
-        FROM street_segments s
-        JOIN segment_addresses a ON a.street_segment_id = s.id
-        WHERE s.import_segment_id = ? AND s.is_current = 1
-        ORDER BY a.id`,
-      )
-      .all('approved');
-    firstDatabase.close();
-    assert.deepEqual(
-      firstRows.map((row) => ({ ...row })),
-      [
-        {
-          segment_id: 'approved@1',
-          house_number: '39483',
-          street: 'Diego Drive',
-          locality: 'Temecula',
-          postcode: '92591',
-          longitude: -117.1157,
-          latitude: 33.5435,
-        },
-        {
-          segment_id: 'approved@1',
-          house_number: null,
-          street: 'Diego Drive',
-          locality: null,
-          postcode: null,
-          longitude: -117.1158,
-          latitude: 33.5434,
-        },
-      ],
-    );
-
-    saveTerritoryDraft(draft, {
-      filename,
-      imported: importedTerritory([importedSegment('new-road', 'New Road', 'residential', 3)]),
-    });
-
-    const secondDatabase = openDatabase(filename);
-    const secondRows = secondDatabase
-      .prepare(
-        `SELECT s.id AS segment_id, a.house_number, a.street, a.locality, a.postcode,
-          a.longitude, a.latitude
-        FROM street_segments s
-        JOIN segment_addresses a ON a.street_segment_id = s.id
-        WHERE s.import_segment_id = ? AND s.is_current = 1
-        ORDER BY a.id`,
-      )
-      .all('approved');
-    secondDatabase.close();
-    assert.deepEqual(
-      secondRows.map((row) => ({ ...row })),
-      [
-        {
-          segment_id: 'approved@2',
-          house_number: '39483',
-          street: 'Diego Drive',
-          locality: 'Temecula',
-          postcode: '92591',
-          longitude: -117.1157,
-          latitude: 33.5435,
-        },
-        {
-          segment_id: 'approved@2',
-          house_number: null,
-          street: 'Diego Drive',
-          locality: null,
-          postcode: null,
-          longitude: -117.1158,
-          latitude: 33.5434,
-        },
-      ],
-    );
-  });
-});
-
-test('packet generation workspace joins current addresses, eligibility, heatmap, and logical reservations', () => {
-  withDatabase((filename) => {
-    const workspace = getTerritoryWorkspace(filename);
-    const draft = {
-      originAddress: workspace.originAddress,
-      center: workspace.center,
-      radiusMiles: workspace.radiusMiles,
-      boundaryShape: workspace.boundaryShape,
-      exclusions: [],
-      activatedRoadGroupIds: [],
-      excludedSegmentIds: ['excluded'],
-    };
-    const address = {
-      number: '10',
-      street: 'Current Road',
-      locality: 'Temecula',
-      postcode: '92591',
-      position: [-117.1169, 33.5429],
-    };
-    saveTerritoryDraft(draft, {
-      filename,
-      imported: importedTerritory([
-        { ...importedSegment('current', 'Current Road', 'residential', 8), addresses: [address] },
-        importedSegment('excluded', 'Excluded Road', 'residential', 5),
-        importedSegment('hidden', 'Hidden Road', 'service', 4, 'hidden'),
-      ]),
-    });
-
-    const database = openDatabase(filename);
-    const oldPhysicalId = database
-      .prepare(
-        `SELECT id FROM street_segments
-        WHERE import_segment_id = 'current' AND is_current = 1`,
-      )
-      .get().id;
-    database
-      .prepare(
-        `INSERT INTO batches (id, church_id, name, status, finalized_at)
-        VALUES ('reserved-batch', 'church-temecula-pilot', 'Reserved', 'finalized', CURRENT_TIMESTAMP)`,
-      )
-      .run();
-    database
-      .prepare(
-        `INSERT INTO packets
-          (id, church_id, batch_id, packet_code, start_address, estimated_homes, status)
-        VALUES
-          ('reserved-packet', 'church-temecula-pilot', 'reserved-batch', 'RES-001',
-            '10 Current Road', 8, 'active')`,
-      )
-      .run();
-    database
-      .prepare(
-        `INSERT INTO packet_segments
-          (church_id, packet_id, street_segment_id, sequence_number)
-        VALUES ('church-temecula-pilot', 'reserved-packet', ?, 0)`,
-      )
-      .run(oldPhysicalId);
-    database.close();
-
-    saveTerritoryDraft(draft, {
-      filename,
-      imported: importedTerritory([
-        {
-          ...importedSegment('current', 'Current Road', 'residential', 8),
-          addresses: [
-            { ...address, number: '20' },
-            { ...address, number: null },
-          ],
-        },
-        importedSegment('excluded', 'Excluded Road', 'residential', 5),
-        importedSegment('hidden', 'Hidden Road', 'service', 4, 'hidden'),
-      ]),
-    });
-
-    const packetWorkspace = getPacketGenerationWorkspace(filename, '2026-07-28');
-    const current = packetWorkspace.segments.find((segment) => segment.id === 'current');
-    assert.deepEqual(current, {
-      id: 'current',
-      streetName: 'Current Road',
-      geometry: importedSegment('current', 'Current Road', 'residential', 8).geometry,
-      estimatedHomes: 8,
-      eligible: true,
-      reserved: true,
-      coverageClass: 'red',
-      lastCoveredOn: null,
-      addresses: [
-        { ...address, number: '20' },
-        { ...address, number: null },
-      ],
-    });
-    assert.equal(
-      packetWorkspace.segments.find((segment) => segment.id === 'excluded').eligible,
-      false,
-    );
-    assert.equal(
-      packetWorkspace.segments.some((segment) => segment.id === 'hidden'),
-      false,
-    );
-
-    const statusDatabase = openDatabase(filename);
-    statusDatabase
-      .prepare("UPDATE packets SET status = 'completed' WHERE id = 'reserved-packet'")
-      .run();
-    statusDatabase.close();
-    assert.equal(
-      getPacketGenerationWorkspace(filename, '2026-07-28').segments.find(
-        (segment) => segment.id === 'current',
-      ).reserved,
-      false,
-    );
-  });
-});
-
-test('hidden road groups stay out of totals until the saved draft activates them', () => {
-  withDatabase((filename) => {
-    const workspace = getTerritoryWorkspace(filename);
-    const hiddenGroup = 'road-group:hidden-road';
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
-      },
-      {
-        filename,
-        imported: importedTerritory([
-          importedSegment('hidden-a', 'Hidden Road', 'service', 4, 'hidden', hiddenGroup),
-          importedSegment('hidden-b', 'Hidden Road', 'service', 5, 'hidden', hiddenGroup),
-        ]),
-      },
-    );
-
-    const hidden = getTerritoryWorkspace(filename);
-    assert.deepEqual(
-      hidden.segments.map((segment) => ({
-        id: segment.id,
-        activationKind: segment.activationKind,
-        active: segment.active,
-        eligible: segment.eligible,
-      })),
-      [
-        { id: 'hidden-a', activationKind: 'hidden', active: false, eligible: false },
-        { id: 'hidden-b', activationKind: 'hidden', active: false, eligible: false },
-      ],
-    );
-    assert.deepEqual(hidden.totals, {
-      allSegments: 0,
-      eligibleSegments: 0,
-      allHomes: 0,
-      eligibleHomes: 0,
-    });
-
-    saveTerritoryDraft(
-      {
-        originAddress: hidden.originAddress,
-        center: hidden.center,
-        radiusMiles: hidden.radiusMiles,
-        boundaryShape: hidden.boundaryShape,
-        exclusions: hidden.exclusions,
-        activatedRoadGroupIds: [hiddenGroup],
-      },
-      { filename },
-    );
-
-    const activated = getTerritoryWorkspace(filename);
-    assert.equal(
-      activated.segments.every((segment) => segment.activationKind === 'manual'),
-      true,
-    );
-    assert.equal(
-      activated.segments.every((segment) => segment.active && segment.eligible),
-      true,
-    );
-    assert.deepEqual(activated.totals, {
-      allSegments: 2,
-      eligibleSegments: 2,
-      allHomes: 9,
-      eligibleHomes: 9,
-    });
-  });
-});
-
-test('saving a segment exclusion persists only the exact selected segment', () => {
-  withDatabase((filename) => {
-    const workspace = getTerritoryWorkspace(filename);
-    const sharedGroup = 'road-group:shared';
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: [],
-      },
-      {
-        filename,
-        imported: importedTerritory([
-          importedSegment('one', 'Shared Road', 'residential', 4, 'automatic', sharedGroup),
-          importedSegment('two', 'Shared Road', 'residential', 5, 'automatic', sharedGroup),
-        ]),
-      },
-    );
-
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: ['one'],
-      },
-      { filename },
-    );
-
-    const saved = getTerritoryWorkspace(filename);
-    assert.deepEqual(
-      saved.segments.map(({ id, manuallyExcluded, eligible, excludedReason }) => ({
-        id,
-        manuallyExcluded,
-        eligible,
-        excludedReason,
-      })),
-      [
-        { id: 'one', manuallyExcluded: true, eligible: false, excludedReason: 'segment' },
-        { id: 'two', manuallyExcluded: false, eligible: true, excludedReason: null },
-      ],
-    );
-    assert.deepEqual(saved.totals, {
-      allSegments: 2,
-      eligibleSegments: 1,
-      allHomes: 9,
-      eligibleHomes: 5,
-    });
-  });
-});
-
-test('reimport preserves an exclusion only while the exact segment geometry remains', () => {
-  withDatabase((filename) => {
-    const workspace = getTerritoryWorkspace(filename);
-    const original = importedSegment('one', 'Exact Road', 'residential', 4);
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: [],
-      },
-      { filename, imported: importedTerritory([original]) },
-    );
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: ['one'],
-      },
-      { filename },
-    );
-
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: ['one'],
-      },
-      {
-        filename,
-        imported: importedTerritory([{ ...original, estimatedHomes: 5, activationKind: 'hidden' }]),
-      },
-    );
-    const hidden = getTerritoryWorkspace(filename).segments[0];
-    assert.equal(hidden.manuallyExcluded, true);
-    assert.equal(hidden.active, false);
-
-    const changedGeometry = {
-      ...original,
-      geometry: {
-        type: 'LineString',
+        type: 'Polygon',
         coordinates: [
-          [-117.1169, 33.5429],
-          [-117.1167, 33.5431],
+          [
+            [-117.0974739, 33.518515],
+            [-117.097551, 33.5184975],
+            [-117.0975754, 33.5185729],
+            [-117.0974082, 33.5186108],
+            [-117.097349, 33.5184277],
+            [-117.097439, 33.5184073],
+            [-117.0974739, 33.518515],
+          ],
         ],
       },
-    };
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: ['one'],
-      },
-      { filename, imported: importedTerritory([changedGeometry]) },
     );
-
-    const replacement = getTerritoryWorkspace(filename).segments[0];
-    assert.equal(replacement.manuallyExcluded, false);
-    assert.equal(replacement.eligible, true);
-    assert.equal(replacement.excludedReason, null);
-  });
-});
-
-test('reimport keeps an administrator-approved source active when its group identity changes', () => {
-  withDatabase((filename) => {
-    const workspace = getTerritoryWorkspace(filename);
-    const originalGroup = 'road-group:original';
-    const replacementGroup = 'road-group:replacement';
-    const firstImport = importedTerritory([
-      importedSegment('candidate', 'Candidate Road', 'service', 7, 'hidden', originalGroup),
-    ]);
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [originalGroup],
-      },
-      { filename, imported: firstImport },
-    );
-    assert.equal(getTerritoryWorkspace(filename).segments[0].activationKind, 'manual');
-
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [originalGroup],
-      },
-      {
-        filename,
-        imported: importedTerritory([
-          importedSegment('candidate', 'Candidate Road', 'service', 8, 'hidden', replacementGroup),
-        ]),
-      },
-    );
-
-    const reimported = getTerritoryWorkspace(filename).segments;
-    assert.deepEqual(
-      reimported.map(({ roadGroupId, activationKind, estimatedHomes }) => ({
-        roadGroupId,
-        activationKind,
-        estimatedHomes,
-      })),
-      [{ roadGroupId: replacementGroup, activationKind: 'manual', estimatedHomes: 8 }],
-    );
-  });
-});
-
-test('reimport preserves the last approved geometry when Overture drops its source road', () => {
-  withDatabase((filename) => {
-    const workspace = getTerritoryWorkspace(filename);
-    const approvedGroup = 'road-group:approved';
-    const approved = importedSegment(
-      'approved',
-      'Approved Road',
-      'service',
-      6,
-      'hidden',
-      approvedGroup,
-    );
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [approvedGroup],
-      },
-      { filename, imported: importedTerritory([approved]) },
-    );
-
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [approvedGroup],
-      },
-      {
-        filename,
-        imported: importedTerritory([importedSegment('new-road', 'New Road', 'residential', 3)]),
-      },
-    );
-
-    const reimported = getTerritoryWorkspace(filename).segments;
-    assert.deepEqual(
-      reimported.map(({ id, streetName, activationKind, estimatedHomes }) => ({
-        id,
-        streetName,
-        activationKind,
-        estimatedHomes,
-      })),
-      [
-        {
-          id: 'approved',
-          streetName: 'Approved Road',
-          activationKind: 'manual',
-          estimatedHomes: 6,
-        },
-        {
-          id: 'new-road',
-          streetName: 'New Road',
-          activationKind: 'automatic',
-          estimatedHomes: 3,
-        },
-      ],
-    );
-  });
-});
-
-test('reimport preserves coverage and finalized packet references to retired segments', () => {
-  withDatabase((filename) => {
-    const workspace = getTerritoryWorkspace(filename);
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: workspace.exclusions,
-      },
-      {
-        filename,
-        imported: importedTerritory([
-          importedSegment('one', 'Old Residential Road', 'residential', 8),
-          importedSegment('two', 'Removed Road', 'residential', 4),
-        ]),
-      },
-    );
-
-    const database = openDatabase(filename);
-    const oldSegmentId = database
-      .prepare(
-        `SELECT id FROM street_segments
-        WHERE church_id = ? AND territory_id = ? AND import_segment_id = ? AND is_current = 1`,
-      )
-      .get('church-temecula-pilot', 'territory-temecula-pilot', 'one').id;
-    database
-      .prepare(
-        `INSERT INTO coverage_events
-          (id, church_id, street_segment_id, covered_on, kind)
-        VALUES (?, ?, ?, ?, ?)`,
-      )
-      .run(
-        'coverage-reimport-regression',
-        'church-temecula-pilot',
-        oldSegmentId,
-        '2026-07-26',
-        'completed',
-      );
-    database
-      .prepare(
-        `INSERT INTO batches (id, church_id, name, status, finalized_at)
-        VALUES (?, ?, ?, ?, ?)`,
-      )
-      .run(
-        'batch-reimport-regression',
-        'church-temecula-pilot',
-        'Finalized batch',
-        'finalized',
-        '2026-07-26T12:00:00.000Z',
-      );
-    database
-      .prepare(
-        `INSERT INTO packets
-          (id, church_id, batch_id, packet_code, start_address, estimated_homes, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        'packet-reimport-regression',
-        'church-temecula-pilot',
-        'batch-reimport-regression',
-        'FINAL-001',
-        '1 Old Residential Road',
-        8,
-        'active',
-      );
-    database
-      .prepare(
-        `INSERT INTO packet_segments
-          (church_id, packet_id, street_segment_id, sequence_number)
-        VALUES (?, ?, ?, ?)`,
-      )
-      .run('church-temecula-pilot', 'packet-reimport-regression', oldSegmentId, 0);
+  } finally {
     database.close();
+  }
+});
 
-    saveTerritoryDraft(
-      {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: workspace.exclusions,
-      },
-      {
-        filename,
-        imported: {
-          ...importedTerritory([
-            importedSegment('one', 'Updated Residential Road', 'residential', 9),
-            importedSegment('three', 'New Road', 'living_street', 5),
-          ]),
-          completedAt: '2026-07-27T13:00:00.000Z',
-        },
-      },
+test('coverage threshold columns enforce ascending values', () => {
+  withSeededTemeculaDatabase((filename) => {
+    const database = openDatabase(filename);
+    assert.throws(
+      () =>
+        database
+          .prepare(
+            `UPDATE territories
+            SET coverage_yellow_after_days = 60, coverage_orange_after_days = 60`,
+          )
+          .run(),
+      /CHECK constraint failed/,
     );
-
-    const saved = getTerritoryWorkspace(filename);
-    const summary = getFoundationSummary(filename);
-    assert.deepEqual(
-      saved.segments.map(({ id, streetName, estimatedHomes }) => ({
-        id,
-        streetName,
-        estimatedHomes,
-      })),
-      [
-        { id: 'three', streetName: 'New Road', estimatedHomes: 5 },
-        { id: 'one', streetName: 'Updated Residential Road', estimatedHomes: 9 },
-      ],
-    );
-    assert.equal(summary.segmentCount, 2);
-    assert.equal(summary.estimatedHomes, 14);
-
-    const reloaded = openDatabase(filename);
-    const coverage = reloaded
-      .prepare(
-        `SELECT ce.street_segment_id, s.import_segment_id, s.is_current
-        FROM coverage_events ce
-        JOIN street_segments s ON s.id = ce.street_segment_id
-        WHERE ce.id = ?`,
-      )
-      .get('coverage-reimport-regression');
-    const packet = reloaded
-      .prepare(
-        `SELECT ps.street_segment_id, s.import_segment_id, s.is_current
-        FROM packet_segments ps
-        JOIN street_segments s ON s.id = ps.street_segment_id
-        WHERE ps.packet_id = ?`,
-      )
-      .get('packet-reimport-regression');
-    const current = reloaded
-      .prepare(
-        `SELECT id, import_segment_id, is_current
-        FROM street_segments
-        WHERE church_id = ? AND territory_id = ? AND import_segment_id = ? AND is_current = 1`,
-      )
-      .get('church-temecula-pilot', 'territory-temecula-pilot', 'one');
-    assert.deepEqual(
-      { ...coverage },
-      { street_segment_id: oldSegmentId, import_segment_id: 'one', is_current: 0 },
-    );
-    assert.deepEqual(
-      { ...packet },
-      { street_segment_id: oldSegmentId, import_segment_id: 'one', is_current: 0 },
-    );
-    assert.notEqual(current.id, oldSegmentId);
-    assert.equal(current.is_current, 1);
-    reloaded.close();
+    database.close();
   });
 });
 
 test('a replacement failure preserves the complete saved workspace', () => {
-  withDatabase((filename) => {
+  withSeededTemeculaDatabase((filename) => {
     const initial = getTerritoryWorkspace(filename);
     saveTerritoryDraft(
       {
@@ -1487,15 +472,16 @@ test('a replacement failure preserves the complete saved workspace', () => {
         center: initial.center,
         radiusMiles: initial.radiusMiles,
         boundaryShape: initial.boundaryShape,
-        exclusions: initial.exclusions,
       },
       {
         filename,
-        imported: importedTerritory([importedSegment('prior', 'Prior Road', 'residential', 4)]),
+        imported: importedTerritoryFixture([
+          importedSegmentFixture('prior', 'Prior Road', 'residential', 4),
+        ]),
       },
     );
     const before = getTerritoryWorkspace(filename);
-    assert.deepEqual(before.import.quality, importedTerritory([]).quality);
+    assert.deepEqual(before.import.quality, importedTerritoryFixture([]).quality);
     assert.throws(
       () =>
         saveTerritoryDraft(
@@ -1504,29 +490,12 @@ test('a replacement failure preserves the complete saved workspace', () => {
             center: [-117.2, 33.6],
             radiusMiles: 5,
             boundaryShape: 'circle',
-            exclusions: [
-              {
-                id: 'rollback-exclusion',
-                name: 'Rollback exclusion',
-                geometry: {
-                  type: 'Polygon',
-                  coordinates: [
-                    [
-                      [-117.21, 33.59],
-                      [-117.19, 33.59],
-                      [-117.19, 33.61],
-                      [-117.21, 33.59],
-                    ],
-                  ],
-                },
-              },
-            ],
           },
           {
             filename,
-            imported: importedTerritory([
-              importedSegment('duplicate', 'A Street', 'residential', 1),
-              importedSegment('duplicate', 'B Street', 'residential', 1),
+            imported: importedTerritoryFixture([
+              importedSegmentFixture('duplicate', 'A Street', 'residential', 1),
+              importedSegmentFixture('duplicate', 'B Street', 'residential', 1),
             ]),
           },
         ),
@@ -1538,7 +507,7 @@ test('a replacement failure preserves the complete saved workspace', () => {
 });
 
 test('coverage events are append-only and only valid same-segment completed roots can be corrected', () => {
-  withDatabase((filename) => {
+  withSeededTemeculaDatabase((filename) => {
     const database = openDatabase(filename);
     const segmentId = database
       .prepare('SELECT id FROM street_segments WHERE church_id = ? ORDER BY id LIMIT 1')
@@ -1753,386 +722,4 @@ test('coverage events are append-only and only valid same-segment completed root
     );
     database.close();
   });
-});
-
-test('coverage boundary appends corrections, retains retired logical history, and totals eligible homes once', () => {
-  withDatabase((filename) => {
-    const before = getTerritoryWorkspace(filename);
-    const first = before.segments.find((segment) => segment.eligible);
-    const second = before.segments.find((segment) => segment.eligible && segment.id !== first.id);
-    const root = recordCoverageCompletion(first.id, '2026-07-01', filename);
-    const otherRoot = recordCoverageCompletion(second.id, '2026-06-01', filename);
-    appendCoverageCorrection(root, '2026-07-20', filename);
-    appendCoverageCorrection(otherRoot, null, filename);
-    const afterVoid = openDatabase(filename);
-    const afterVoidCount = afterVoid
-      .prepare('SELECT COUNT(*) AS count FROM coverage_events')
-      .get().count;
-    afterVoid.close();
-    assert.throws(
-      () => appendCoverageCorrection(otherRoot, null, filename),
-      /Coverage event is already void/,
-    );
-    const afterSecondVoid = openDatabase(filename);
-    assert.equal(
-      afterSecondVoid.prepare('SELECT COUNT(*) AS count FROM coverage_events').get().count,
-      afterVoidCount,
-    );
-    afterSecondVoid.close();
-    appendCoverageCorrection(otherRoot, '2026-07-25', filename);
-    const packets = openDatabase(filename);
-    packets
-      .prepare('INSERT INTO batches (id, church_id, name, status) VALUES (?, ?, ?, ?)')
-      .run('coverage-batch', 'church-temecula-pilot', 'Coverage batch', 'finalized');
-    packets
-      .prepare(
-        `INSERT INTO packets
-          (id, church_id, batch_id, packet_code, start_address, estimated_homes, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        'coverage-packet',
-        'church-temecula-pilot',
-        'coverage-batch',
-        'COVERAGE-001',
-        '1 Main St',
-        1,
-        'active',
-      );
-    packets.close();
-
-    const workspace = getCoverageWorkspace(filename, '2026-07-28');
-    assert.equal(workspace.activePackets, 1);
-    assert.equal(workspace.totals.eligibleHomes, before.totals.eligibleHomes);
-    assert.equal(
-      workspace.segments.find((segment) => segment.id === first.id).lastCoveredOn,
-      '2026-07-20',
-    );
-    assert.equal(
-      workspace.segments.find((segment) => segment.id === second.id).lastCoveredOn,
-      '2026-07-25',
-    );
-    assert.equal(
-      workspace.segments.find((segment) => segment.id === first.id).roots[0].corrections.length,
-      1,
-    );
-
-    const countDatabase = openDatabase(filename);
-    const count = countDatabase
-      .prepare('SELECT COUNT(*) AS count FROM coverage_events')
-      .get().count;
-    countDatabase.close();
-    assert.throws(
-      () => appendCoverageCorrection('missing', '2026-07-26', filename),
-      /Coverage event not found/,
-    );
-    assert.throws(
-      () => appendCoverageCorrection(root, '2099-01-01', filename),
-      /Invalid coverage date/,
-    );
-    const afterFailures = openDatabase(filename);
-    assert.equal(
-      afterFailures.prepare('SELECT COUNT(*) AS count FROM coverage_events').get().count,
-      count,
-    );
-    afterFailures.close();
-
-    saveTerritoryDraft(
-      {
-        originAddress: before.originAddress,
-        center: before.center,
-        radiusMiles: before.radiusMiles,
-        boundaryShape: before.boundaryShape,
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: [first.id],
-        exclusions: before.exclusions,
-      },
-      { filename },
-    );
-    const excluded = getCoverageWorkspace(filename, '2026-07-28').segments.find(
-      (segment) => segment.id === first.id,
-    );
-    assert.equal(excluded?.eligible, false);
-    assert.equal(excluded?.excludedReason, 'segment');
-    assert.equal(excluded?.roots[0].eventId, root);
-
-    saveTerritoryDraft(
-      {
-        originAddress: before.originAddress,
-        center: before.center,
-        radiusMiles: before.radiusMiles,
-        boundaryShape: before.boundaryShape,
-        activatedRoadGroupIds: before.segments
-          .filter((segment) => segment.activationKind === 'manual')
-          .map((segment) => segment.roadGroupId),
-        excludedSegmentIds: before.segments
-          .filter((segment) => segment.manuallyExcluded)
-          .map((segment) => segment.id),
-        exclusions: before.exclusions,
-      },
-      {
-        filename,
-        imported: importedTerritory([
-          importedSegment(first.id, 'Replacement Road', 'residential', 9),
-        ]),
-      },
-    );
-    const reimported = getCoverageWorkspace(filename, '2026-07-28');
-    assert.equal(reimported.segments[0].id, first.id);
-    assert.equal(reimported.segments[0].lastCoveredOn, '2026-07-20');
-  });
-});
-
-test('coverage thresholds persist per territory without changing coverage totals', () => {
-  withDatabase((filename) => {
-    const before = getCoverageWorkspace(filename, '2026-07-28');
-    assert.deepEqual(before.thresholds, {
-      yellowAfterDays: 90,
-      orangeAfterDays: 180,
-      redAfterDays: 365,
-    });
-    assert.equal(before.dataMode, 'canonical');
-    const segment = before.segments.find((candidate) => candidate.eligible);
-    assert.ok(segment);
-    recordCoverageCompletion(segment.id, '2026-05-29', filename);
-    const beforeThresholdChange = getCoverageWorkspace(filename, '2026-07-28');
-    assert.equal(
-      beforeThresholdChange.segments.find((candidate) => candidate.id === segment.id).coverageClass,
-      'green',
-    );
-    const coveredHomes = countEligibleHomesCovered(
-      beforeThresholdChange.segments,
-      beforeThresholdChange.asOf,
-      90,
-    );
-
-    saveCoverageThresholds(
-      { yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 90 },
-      filename,
-    );
-    const after = getCoverageWorkspace(filename, '2026-07-28');
-    assert.deepEqual(after.thresholds, {
-      yellowAfterDays: 30,
-      orangeAfterDays: 60,
-      redAfterDays: 90,
-    });
-    assert.deepEqual(
-      after.legend.map(({ label }) => label),
-      ['0-29 days', '30-59 days', '60-89 days', '90+ days or never', 'Excluded'],
-    );
-    assert.equal(
-      after.segments.find((candidate) => candidate.id === segment.id).coverageClass,
-      'orange',
-    );
-    assert.equal(after.totals.eligibleHomes, before.totals.eligibleHomes);
-    assert.equal(countEligibleHomesCovered(after.segments, after.asOf, 90), coveredHomes);
-
-    const database = openDatabase(filename);
-    assert.throws(
-      () =>
-        database
-          .prepare(
-            `UPDATE territories
-            SET coverage_yellow_after_days = 60, coverage_orange_after_days = 60`,
-          )
-          .run(),
-      /CHECK constraint failed/,
-    );
-    database.close();
-  });
-});
-
-test('coverage demo recreates only its isolated database with stable representative review data', async () => {
-  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-coverage-demo-'));
-  const filename = path.join(directory, 'coverage-demo.db');
-  const asOf = '2026-07-28';
-  try {
-    const { seedCoverageDemo } = await import('./seed-coverage-demo.mjs');
-    assert.throws(
-      () => seedCoverageDemo(path.join(directory, 'not-the-demo.db'), asOf),
-      /must be named coverage-demo\.db/,
-    );
-    seedCoverageDemo(filename, asOf);
-    const first = openDatabase(filename);
-    const firstCounts = ['coverage_events', 'batches', 'packets', 'packet_segments'].map(
-      (table) => first.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
-    );
-    first.close();
-
-    const workspace = withTemeculaWorkspace(() => getCoverageWorkspace(filename, asOf));
-    assert.equal(workspace.dataMode, 'demo');
-    assert.deepEqual(
-      [...new Set(workspace.segments.map((segment) => segment.coverageClass))].sort(),
-      ['green', 'orange', 'red', 'yellow'],
-    );
-    assert.equal(
-      workspace.segments.filter((segment) => segment.lastCoveredOn === null).length >= 2,
-      true,
-    );
-    assert.equal(workspace.activePackets, 1);
-    assert.deepEqual(
-      [30, 90, 180, 365].map((period) =>
-        countEligibleHomesCovered(workspace.segments, workspace.asOf, period),
-      ),
-      [5, 21, 27, 28],
-    );
-    const corrected = workspace.segments
-      .flatMap((segment) => segment.roots)
-      .find((root) => root.eventId === 'coverage-demo-corrected-root');
-    const voided = workspace.segments
-      .flatMap((segment) => segment.roots)
-      .find((root) => root.eventId === 'coverage-demo-voided-root');
-    assert.deepEqual(corrected, {
-      eventId: 'coverage-demo-corrected-root',
-      packetId: null,
-      originalCoveredOn: '2025-03-15',
-      effectiveCoveredOn: '2026-07-08',
-      corrections: [
-        {
-          id: 'coverage-demo-corrected-date',
-          sequence: 6,
-          coveredOn: '2026-07-08',
-          isVoid: false,
-        },
-      ],
-    });
-    assert.deepEqual(
-      voided?.corrections.map(({ id, coveredOn, isVoid }) => ({ id, coveredOn, isVoid })),
-      [{ id: 'coverage-demo-voided-undo', coveredOn: '2025-03-15', isVoid: true }],
-    );
-    assert.equal(voided?.effectiveCoveredOn, null);
-
-    seedCoverageDemo(filename, asOf);
-    const second = openDatabase(filename);
-    assert.deepEqual(
-      ['coverage_events', 'batches', 'packets', 'packet_segments'].map(
-        (table) => second.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
-      ),
-      firstCounts,
-    );
-    second.close();
-
-    const founderFilename = path.join(directory, 'streetlight.db');
-    const founder = openDatabase(founderFilename);
-    migrateDatabase(founder);
-    seedDatabase(founder);
-    assert.deepEqual(
-      ['coverage_events', 'batches', 'packets', 'packet_segments'].map(
-        (table) => founder.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
-      ),
-      [0, 0, 0, 0],
-    );
-    founder.close();
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
-
-test('coverage demo can copy the full empty-history territory into geographic age bands', async () => {
-  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-full-coverage-demo-'));
-  const sourceFilename = path.join(directory, 'streetlight.db');
-  const demoFilename = path.join(directory, 'coverage-demo.db');
-  const asOf = '2026-07-28';
-  try {
-    const source = openDatabase(sourceFilename);
-    migrateDatabase(source);
-    seedDatabase(source);
-    source.prepare('UPDATE territories SET name = ?').run('Full territory source');
-    source.close();
-    const sourceBefore = readFileSync(sourceFilename);
-
-    const { seedCoverageDemo } = await import('./seed-coverage-demo.mjs');
-    seedCoverageDemo(demoFilename, asOf, sourceFilename);
-
-    assert.deepEqual(readFileSync(sourceFilename), sourceBefore);
-    const demo = openDatabase(demoFilename);
-    const copiedName = demo.prepare('SELECT name FROM territories').get().name;
-    const eventCount = demo.prepare('SELECT COUNT(*) AS count FROM coverage_events').get().count;
-    demo.close();
-    assert.equal(copiedName, 'Full territory source');
-    assert.equal(eventCount > 20, true);
-
-    const workspace = withTemeculaWorkspace(() => getCoverageWorkspace(demoFilename, asOf));
-    assert.equal(workspace.dataMode, 'demo');
-    assert.deepEqual(
-      [...new Set(workspace.segments.map((segment) => segment.coverageClass))].sort(),
-      ['green', 'orange', 'red', 'yellow'],
-    );
-    assert.equal(
-      workspace.segments.some((segment) => segment.lastCoveredOn === null),
-      true,
-    );
-    assert.deepEqual(
-      [
-        ...new Set(
-          workspace.segments
-            .map((segment) => segment.lastCoveredOn)
-            .filter((coveredOn) => coveredOn !== null),
-        ),
-      ].sort(),
-      ['2025-03-15', '2025-11-30', '2026-03-30', '2026-06-28'],
-    );
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
-
-test('coverage demo refuses to mix fake bands with source outreach history', async () => {
-  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-covered-demo-source-'));
-  const sourceFilename = path.join(directory, 'streetlight.db');
-  const demoFilename = path.join(directory, 'coverage-demo.db');
-  try {
-    const source = openDatabase(sourceFilename);
-    migrateDatabase(source);
-    seedDatabase(source);
-    const segment = source.prepare('SELECT id FROM street_segments ORDER BY id LIMIT 1').get();
-    source
-      .prepare(
-        `INSERT INTO coverage_events
-          (id, church_id, street_segment_id, covered_on, kind, corrects_event_id, is_void)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run('real-history', 'church-temecula-pilot', segment.id, '2026-07-01', 'completed', null, 0);
-    source.close();
-
-    const { seedCoverageDemo } = await import('./seed-coverage-demo.mjs');
-    assert.throws(
-      () => seedCoverageDemo(demoFilename, '2026-07-28', sourceFilename),
-      /empty coverage history/i,
-    );
-    const after = openDatabase(sourceFilename);
-    assert.equal(after.prepare('SELECT COUNT(*) AS count FROM coverage_events').get().count, 1);
-    after.close();
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
-
-test('coverage demo CLI seeds an explicit guarded path and preserves a rejected target', () => {
-  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-coverage-demo-cli-'));
-  const filename = path.join(directory, 'coverage-demo.db');
-  const rejected = path.join(directory, 'not-the-demo.db');
-  const command = path.join(import.meta.dirname, 'seed-coverage-demo.mjs');
-  try {
-    for (let run = 0; run < 2; run += 1) {
-      const result = spawnSync(process.execPath, [command, filename], { encoding: 'utf8' });
-      assert.equal(result.status, 0, result.stderr);
-      const database = openDatabase(filename);
-      assert.deepEqual(
-        ['coverage_events', 'batches', 'packets', 'packet_segments'].map(
-          (table) => database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
-        ),
-        [8, 1, 1, 1],
-      );
-      database.close();
-    }
-
-    writeFileSync(rejected, 'do not delete');
-    const result = spawnSync(process.execPath, [command, rejected], { encoding: 'utf8' });
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /must be named coverage-demo\.db/);
-    assert.equal(readFileSync(rejected, 'utf8'), 'do not delete');
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
 });

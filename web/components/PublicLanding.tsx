@@ -12,6 +12,7 @@ export function PublicLanding() {
       <header className="site-header">
         <a className="site-brand" href="#top" aria-label="Streetlight home">
           <span className="brand-logo" aria-hidden="true">
+            {/* biome-ignore lint/performance/noImgElement: The approved logo crossfade targets this raw asset markup and requires browser comparison before conversion. */}
             <img
               className="brand-logo-white"
               src="/landing/streetlight-logo-white-v2.webp"
@@ -19,6 +20,7 @@ export function PublicLanding() {
               height="173"
               alt=""
             />
+            {/* biome-ignore lint/performance/noImgElement: The approved logo crossfade targets this raw asset markup and requires browser comparison before conversion. */}
             <img
               className="brand-logo-navy"
               src="/landing/streetlight-logo-mark-v2.webp"
@@ -56,6 +58,7 @@ export function PublicLanding() {
             <div className="anchor-daylight" />
             <div className="anchor-aura" />
             <div className="anchor-map real-map">
+              {/* biome-ignore lint/performance/noImgElement: The approved scroll composition targets this exact raw asset and requires browser comparison before conversion. */}
               <img
                 src="/landing/neighborhood-map-frosted-v2.webp"
                 width="1536"
@@ -74,6 +77,7 @@ export function PublicLanding() {
               </div>
             </div>
             <div className="anchor-lamp">
+              {/* biome-ignore lint/performance/noImgElement: The approved lamp crossfade targets this raw asset markup and requires browser comparison before conversion. */}
               <img
                 className="lamp-dark"
                 src="/landing/streetlamp-dark-v2.webp"
@@ -81,6 +85,7 @@ export function PublicLanding() {
                 height="1152"
                 alt=""
               />
+              {/* biome-ignore lint/performance/noImgElement: The approved lamp crossfade targets this raw asset markup and requires browser comparison before conversion. */}
               <img
                 className="lamp-lit"
                 src="/landing/streetlamp-v2.webp"
@@ -89,6 +94,7 @@ export function PublicLanding() {
                 alt=""
               />
             </div>
+            {/* biome-ignore lint/performance/noImgElement: The approved scroll composition targets this exact raw asset and requires browser comparison before conversion. */}
             <img
               className="anchor-paper real-packet"
               src="/landing/packet-page-v2.webp"
@@ -179,6 +185,7 @@ export function PublicLanding() {
 
         <section className="compact-story" aria-label="Streetlight overview">
           <div className="compact-hero">
+            {/* biome-ignore lint/performance/noImgElement: The approved compact composition relies on this asset's exact intrinsic sizing and requires browser comparison before conversion. */}
             <img src="/landing/streetlamp-dark-v2.webp" width="768" height="1152" alt="" />
             <div>
               <h1>
@@ -211,6 +218,7 @@ export function PublicLanding() {
             </CompactBeat>
             <article className="compact-beat compact-beat-packet">
               <figure>
+                {/* biome-ignore lint/performance/noImgElement: The approved compact composition relies on this asset's exact intrinsic sizing and requires browser comparison before conversion. */}
                 <img
                   src="/landing/packet-page-v2.webp"
                   width="748"
@@ -241,6 +249,7 @@ export function PublicLanding() {
           </header>
           <div className="proof-composition">
             <figure className="coverage-proof">
+              {/* biome-ignore lint/performance/noImgElement: The approved proof composition relies on this asset's exact sizing and requires browser comparison before conversion. */}
               <img
                 src="/landing/coverage-map-v2.webp"
                 width="768"
@@ -260,6 +269,7 @@ export function PublicLanding() {
               </figcaption>
             </figure>
             <figure className="packet-proof">
+              {/* biome-ignore lint/performance/noImgElement: The approved proof composition relies on this asset's exact sizing and requires browser comparison before conversion. */}
               <img
                 src="/landing/packet-page-v2.webp"
                 width="748"
@@ -311,7 +321,9 @@ export function PublicLanding() {
 
       <footer className="site-footer">
         <span>STREETLIGHT</span>
-        <p>Territory planning for faithful neighborhood outreach.</p>
+        <p className="site-footer-verse">
+          Ye are the light of the world. <cite>Matthew 5:14</cite>
+        </p>
       </footer>
 
       <dialog className="pilot-drawer" id="pilot-dialog" aria-labelledby="pilot-dialog-title">
@@ -379,7 +391,7 @@ export function PublicLanding() {
             <h2>Request received.</h2>
             <p data-pilot-message />
             <button type="button" data-pilot-close>
-              Return to Streetlight
+              Back to Streetlight
             </button>
           </div>
         </div>

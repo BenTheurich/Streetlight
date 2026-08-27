@@ -1,7 +1,9 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { loadGoogleMaps } from '@/lib/google-maps-browser';
+import { StreetlightSelect } from './StreetlightSelect';
 
 export function ChurchOnboarding({
   churchName,
@@ -60,6 +62,13 @@ export function ChurchOnboarding({
 
   return (
     <main className="church-onboarding">
+      <header className="onboarding-header">
+        <div className="onboarding-brand">
+          <Image alt="" height="40" src="/landing/streetlight-logo-white-v2.webp" width="24" />
+          <span>Streetlight</span>
+        </div>
+        <a href="/logout">Sign out</a>
+      </header>
       <section>
         <p>WELCOME TO STREETLIGHT</p>
         <h1>Begin with your church.</h1>
@@ -116,28 +125,27 @@ export function ChurchOnboarding({
             )}
             <input name="address" value={address} type="hidden" readOnly />
           </div>
-          <label>
+          <label htmlFor="church-time-zone">
             Time zone
-            <select
+            <StreetlightSelect
+              ariaLabel="Time zone"
+              id="church-time-zone"
               name="timeZone"
-              value={timeZone}
-              onChange={(event) => setTimeZone(event.target.value)}
+              onValueChange={setTimeZone}
+              options={timeZones.map((zone) => ({
+                label: zone.replaceAll('_', ' '),
+                value: zone,
+              }))}
               required
-            >
-              {timeZones.map((zone) => (
-                <option key={zone} value={zone}>
-                  {zone.replaceAll('_', ' ')}
-                </option>
-              ))}
-            </select>
+              value={timeZone}
+            />
           </label>
           {error && <p className="field-error">{error}</p>}
           <button type="submit" disabled={busy}>
-            {busy ? 'Finding your church…' : 'Continue to territory setup'}
+            {busy ? 'Finding your church…' : 'Continue to Region Setup'}
           </button>
         </form>
       </section>
-      <a href="/logout">Sign out</a>
     </main>
   );
 }

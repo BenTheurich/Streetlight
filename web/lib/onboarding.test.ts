@@ -4,8 +4,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
-import { getOrganizationAccess, saveTerritoryDraft } from './database.ts';
+import { getOrganizationAccess } from './church-workspace-persistence.ts';
 import { onboardChurch, parseOnboardingInput } from './onboarding.ts';
+import { saveTerritoryDraft } from './territory-persistence.ts';
 import { runInWorkspace } from './workspace-scope.ts';
 
 test('onboarding validates exact church input and creates an empty one-mile circle', async () => {
@@ -111,9 +112,8 @@ test('onboarding validates exact church input and creates an empty one-mile circ
             center: result.center,
             radiusMiles: 1,
             boundaryShape: 'circle',
-            activatedRoadGroupIds: [],
+            activatedSegmentIds: [],
             excludedSegmentIds: [],
-            exclusions: [],
           },
           { filename },
         ),

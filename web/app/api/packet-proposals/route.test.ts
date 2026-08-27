@@ -5,12 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../db/migrate.mjs';
 import { seedDatabase } from '../../../db/seed.mjs';
+import type { ImportedTerritoryInput } from '../../../lib/overture-import.ts';
 import {
   getTerritoryWorkspace,
-  recordCoverageCompletion,
-  saveTerritoryDraft,
-} from '../../../lib/database.ts';
-import type { ImportedTerritoryInput } from '../../../lib/overture-import.ts';
+  replaceTerritoryFromImport,
+} from '../../../lib/territory-persistence.ts';
+import { insertCoverageCompletionFixture } from '../../../test/persistence-fixtures.ts';
 import { withTemeculaWorkspace } from '../../../test/workspace-fixtures.ts';
 import { proposePackets as POST } from './route.ts';
 
@@ -57,11 +57,11 @@ function counts(filename: string): number[] {
 function preparePacketGraph(filename: string): void {
   const workspace = getTerritoryWorkspace(filename);
   const imported: ImportedTerritoryInput = {
-    release: '2026-06-17.0',
+    release: '2026-08-19.0',
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',
-    normalizerVersion: 10,
+    normalizerVersion: 12,
     buildingMode: 'overture_fema',
     mapBuildings: [],
     quality: {
@@ -130,22 +130,22 @@ function preparePacketGraph(filename: string): void {
         ],
       },
     ],
-    apartmentComplexes: [],
+    apartmentSites: [],
   };
-  saveTerritoryDraft(
+  replaceTerritoryFromImport(
     {
       originAddress: workspace.originAddress,
       center: workspace.center,
       radiusMiles: workspace.radiusMiles,
       boundaryShape: workspace.boundaryShape,
-      exclusions: [],
-      activatedRoadGroupIds: [],
+      activatedSegmentIds: [],
       excludedSegmentIds: [],
     },
-    { filename, imported },
+    imported,
+    { filename },
   );
-  recordCoverageCompletion('packet-a', '2025-01-01', filename);
-  recordCoverageCompletion('packet-b', '2025-01-01', filename);
+  insertCoverageCompletionFixture('packet-a', '2025-01-01', filename);
+  insertCoverageCompletionFixture('packet-b', '2025-01-01', filename);
 }
 
 test('POST returns deterministic read-only packet proposals', async () => {

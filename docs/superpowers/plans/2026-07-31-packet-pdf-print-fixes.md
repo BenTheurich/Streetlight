@@ -4,7 +4,7 @@
 
 **Goal:** Make production packet PDFs use the finalized open-map data and styling, fit each route tightly, preserve native road labels, show the starting house number, and remain legible when printed in grayscale.
 
-**Architecture:** Reuse the existing Map Lab building/address matching in the packet renderer instead of creating a second matcher. Extend the immutable packet-generation snapshot with the accepted FEMA row gaps and source house numbers, then derive one display position that drives the camera, pin, and starting-number label. Advance a legacy batch to a building-bearing generation only through an exact segment/address parity migration.
+**Architecture:** Reuse the existing open-map building/address matching in the packet renderer instead of creating a second matcher. Extend the immutable packet-generation snapshot with the accepted FEMA row gaps and source house numbers, then derive one display position that drives the camera, pin, and starting-number label. Advance a legacy batch to a building-bearing generation only through an exact segment/address parity migration.
 
 **Tech Stack:** TypeScript, Node test runner, SQLite, MapLibre GL JS, Playwright, pdf-lib, Poppler.
 
@@ -30,7 +30,7 @@
 
 **Interfaces:**
 - Produces: `PacketMapGeneration.houseNumbers` and accepted row-gap FEMA buildings for its recorded generation.
-- Produces: `positionedHouseNumbers({ buildings, houseNumbers })` for both Map Lab and packet rendering.
+- Produces: `positionedHouseNumbers({ buildings, houseNumbers })` for both workspace and packet rendering.
 
 - [x] **Step 1: Write failing tests**
 

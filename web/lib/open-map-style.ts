@@ -1,8 +1,7 @@
-import type { MapLabData } from './database.ts';
+import type { OpenMapData } from './open-map-data.ts';
 import type { DownloadPacket, PacketMapGeneration } from './packet-finalization.ts';
 import { endpointMeetsInterior } from './packet-selection.ts';
 import type { LineString, Position } from './territory-geometry.ts';
-import { coverageColors } from './territory-map-style.ts';
 
 const ZOOM_STOPS = [14, 18, 20] as const;
 const WIDTHS = {
@@ -90,10 +89,6 @@ function routeWidthExpression(): unknown[] {
       ],
     ]),
   ];
-}
-
-function coverageWidthExpression(): unknown[] {
-  return ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 5];
 }
 
 const INTERACTIVE_ROAD_STOPS: Array<[string, unknown[]]> = [
@@ -384,7 +379,7 @@ function addBuildingLayer(
 
 type BuildingPolygon = Position[][];
 
-function buildingPolygons(building: MapLabData['buildings'][number]): BuildingPolygon[] {
+function buildingPolygons(building: OpenMapData['buildings'][number]): BuildingPolygon[] {
   return building.geometry.type === 'Polygon'
     ? [building.geometry.coordinates]
     : building.geometry.coordinates;
@@ -426,7 +421,7 @@ function pointToSegmentDistanceMeters(point: Position, start: Position, end: Pos
 
 function distanceToBuilding(
   point: Position,
-  building: MapLabData['buildings'][number],
+  building: OpenMapData['buildings'][number],
 ): { distance: number; polygon: BuildingPolygon } | null {
   let nearest: { distance: number; polygon: BuildingPolygon } | null = null;
   for (const polygon of buildingPolygons(building)) {
@@ -473,8 +468,8 @@ function buildingLabelPosition(polygon: BuildingPolygon, fallback: Position): Po
 }
 
 export function positionedHouseNumbers(
-  data: Pick<MapLabData, 'buildings' | 'houseNumbers'>,
-): MapLabData['houseNumbers'] {
+  data: Pick<OpenMapData, 'buildings' | 'houseNumbers'>,
+): OpenMapData['houseNumbers'] {
   const gridSize = 0.001;
   const houseNumberGrid = new Map<string, number[]>();
   data.houseNumbers.forEach(({ position }, index) => {
@@ -709,39 +704,15 @@ export function buildOpenMapStyle(
   return style;
 }
 
-export function buildOpenLabStyle(
+export function buildWorkspaceMapStyle(
   base: OpenMapStyle,
-  data: MapLabData,
-  satellite = false,
+  data: OpenMapData,
+  overlay = false,
 ): OpenMapStyle {
-  const style: OpenMapStyle = satellite
-    ? {
-        version: 8,
-        glyphs: base.glyphs,
-        sources: {
-          googleSatellite: {
-            type: 'raster',
-            tiles: ['/api/founder/map-lab/satellite/{z}/{x}/{y}'],
-            tileSize: 256,
-          },
-          openmaptiles: structuredClone(base.sources.openmaptiles),
-        },
-        layers: [
-          {
-            id: 'satellite',
-            type: 'raster',
-            source: 'googleSatellite',
-            layout: { visibility: 'none' },
-          },
-          ...structuredClone(
-            base.layers.filter(
-              ({ id }) => id === 'highway-name-minor' || id === 'highway-name-major',
-            ),
-          ),
-        ],
-      }
+  const style: OpenMapStyle = overlay
+    ? { version: 8, glyphs: base.glyphs, sources: {}, layers: [] }
     : structuredClone(base);
-  if (!satellite) {
+  if (!overlay) {
     styleOpenRoads(style);
     addBuildingLayer(style, data.buildings, 16);
     style.sources.streetlightHouseNumbers = {
@@ -755,112 +726,25 @@ export function buildOpenLabStyle(
         })),
       },
     };
+    insertBefore(style, 'highway-name-minor', [
+      {
+        id: 'streetlight-house-numbers',
+        type: 'symbol',
+        source: 'streetlightHouseNumbers',
+        minzoom: 18,
+        layout: {
+          'text-field': ['get', 'number'],
+          'text-size': 10,
+          'text-font': ['Noto Sans Bold'],
+          'text-allow-overlap': false,
+        },
+        paint: {
+          'text-color': '#7b8794',
+          'text-halo-color': 'rgba(255, 255, 255, 0.72)',
+          'text-halo-width': 0.5,
+        },
+      },
+    ]);
   }
-  style.sources.streetlightCoverage = {
-    type: 'geojson',
-    data: {
-      type: 'FeatureCollection',
-      features: data.segments.map((segment) => ({
-        type: 'Feature',
-        geometry: segment.geometry,
-        properties: {
-          id: segment.id,
-          roadClass: segment.roadClass,
-          color: segment.eligible ? coverageColors[segment.coverageClass] : coverageColors.gray,
-          opacity: segment.eligible ? 0.68 : 0.42,
-        },
-      })),
-    },
-  };
-  style.sources.streetlightBoundary = {
-    type: 'geojson',
-    data: { type: 'Feature', properties: {}, geometry: data.boundary },
-  };
-  style.sources.streetlightApartments = {
-    type: 'geojson',
-    data: {
-      type: 'FeatureCollection',
-      features: data.apartmentComplexes.map((apartment) => ({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: apartment.position },
-        properties: {
-          label: 'A',
-          color:
-            apartment.reviewStatus === 'ready'
-              ? coverageColors[apartment.coverageClass]
-              : apartment.reviewStatus === 'needs_review'
-                ? '#b97916'
-                : coverageColors.gray,
-        },
-      })),
-    },
-  };
-  insertBefore(style, 'highway-name-minor', [
-    ...(!satellite
-      ? [
-          {
-            id: 'streetlight-house-numbers',
-            type: 'symbol',
-            source: 'streetlightHouseNumbers',
-            minzoom: 18,
-            layout: {
-              'text-field': ['get', 'number'],
-              'text-size': 10,
-              'text-font': ['Noto Sans Bold'],
-              'text-allow-overlap': false,
-            },
-            paint: {
-              'text-color': '#7b8794',
-              'text-halo-color': 'rgba(255, 255, 255, 0.72)',
-              'text-halo-width': 0.5,
-            },
-          },
-        ]
-      : []),
-    {
-      id: 'streetlight-boundary',
-      type: 'line',
-      source: 'streetlightBoundary',
-      paint: {
-        'line-color': '#0f7055',
-        'line-opacity': 0.72,
-        'line-width': 2,
-        'line-dasharray': [3, 2],
-      },
-    },
-    {
-      id: 'streetlight-coverage',
-      type: 'line',
-      source: 'streetlightCoverage',
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': ['get', 'color'],
-        'line-opacity': ['get', 'opacity'],
-        'line-width': coverageWidthExpression(),
-      },
-    },
-    {
-      id: 'streetlight-apartments',
-      type: 'circle',
-      source: 'streetlightApartments',
-      paint: {
-        'circle-color': ['get', 'color'],
-        'circle-radius': 10,
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 2,
-      },
-    },
-    {
-      id: 'streetlight-apartment-labels',
-      type: 'symbol',
-      source: 'streetlightApartments',
-      layout: {
-        'text-field': ['get', 'label'],
-        'text-size': 11,
-        'text-font': ['Noto Sans Bold'],
-      },
-      paint: { 'text-color': '#ffffff' },
-    },
-  ]);
   return style;
 }

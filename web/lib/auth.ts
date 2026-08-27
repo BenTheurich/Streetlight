@@ -1,8 +1,5 @@
-import {
-  getOrganizationAccess,
-  getWorkspaceForOrganization,
-  type OrganizationAccess,
-} from './database.ts';
+import { getOrganizationAccess } from './church-workspace-persistence.ts';
+import type { OrganizationAccess } from './organization-access.ts';
 import type { WorkspaceScope } from './workspace-scope.ts';
 
 export type AdministratorUser = {
@@ -53,15 +50,16 @@ export async function requireAdministratorSession(
   filename?: string,
 ): Promise<AdministratorSession> {
   const session = await requireOrganizationSession(loadSession, filename);
-  try {
-    return {
-      user: session.user,
-      workspace: getWorkspaceForOrganization(session.organizationId, filename),
-      onboardingCompleted: session.access.onboardingCompleted,
-    };
-  } catch {
-    throw new ChurchWorkspaceAccessError();
-  }
+  if (!session.access.territoryId) throw new ChurchWorkspaceAccessError();
+  return {
+    user: session.user,
+    workspace: {
+      churchId: session.access.churchId,
+      territoryId: session.access.territoryId,
+      timeZone: session.access.timeZone,
+    },
+    onboardingCompleted: session.access.onboardingCompleted,
+  };
 }
 
 export async function requireOrganizationSession(

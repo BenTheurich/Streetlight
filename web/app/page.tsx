@@ -7,10 +7,12 @@ import {
   requireOrganizationSession,
   SignInRequiredError,
 } from '@/lib/auth';
-import { getCoverageWorkspace } from '@/lib/database';
+import { getCoverageWorkspace } from '@/lib/coverage-persistence';
 import { isFounderEmail } from '@/lib/founder-auth';
 import { getGoogleMapsBrowserKey } from '@/lib/google-maps-server';
 import { listPilotRequests } from '@/lib/pilot-requests';
+import { getChurchPrintoutSettings } from '@/lib/printout-settings-persistence';
+import { applyMvpCapabilities } from '@/lib/product-capabilities';
 import { runInWorkspace } from '@/lib/workspace-scope';
 
 export const dynamic = 'force-dynamic';
@@ -50,7 +52,10 @@ export default async function CoverageDashboardPage() {
     territoryId: session.access.territoryId,
     timeZone: session.access.timeZone,
   };
-  const initialData = runInWorkspace(workspace, () => getCoverageWorkspace());
+  const [initialData, initialPrintoutSettings] = runInWorkspace(workspace, () => [
+    applyMvpCapabilities(getCoverageWorkspace()),
+    getChurchPrintoutSettings(),
+  ]);
   const pendingPilotRequests = isFounderEmail(session.user.email)
     ? listPilotRequests().filter(({ status }) => status === 'pending' || status === 'provisioning')
         .length
@@ -59,6 +64,7 @@ export default async function CoverageDashboardPage() {
     <StreetlightWorkspace
       administratorEmail={session.user.email}
       initialData={initialData}
+      initialPrintoutSettings={initialPrintoutSettings}
       mapsApiKey={getGoogleMapsBrowserKey()}
       pendingPilotRequests={pendingPilotRequests}
       setupOnly={!session.access.onboardingCompleted}

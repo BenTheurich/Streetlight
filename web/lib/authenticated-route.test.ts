@@ -151,9 +151,7 @@ test('a church cannot reconcile another church batch by stable ID', async () => 
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           batchId: 'batch-second-test',
-          activePacketIds: ['packet-second-test'],
-          presentPacketIds: [],
-          cancelPacketIds: [],
+          decisions: [{ packetId: 'packet-second-test', outcome: 'still-here' }],
         }),
       }),
     );

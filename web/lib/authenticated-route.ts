@@ -29,7 +29,7 @@ export function authenticatedRoute(
       return Response.json({ error: 'Could not authenticate request' }, { status: 500 });
     }
     if (!allowIncomplete && !session.onboardingCompleted) {
-      return Response.json({ error: 'Complete territory setup first' }, { status: 403 });
+      return Response.json({ error: 'Complete Region Setup first' }, { status: 403 });
     }
     return runInWorkspace(session.workspace, () => handler(request));
   };

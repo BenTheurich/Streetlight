@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import path from 'node:path';
 import { chromium } from 'playwright';
 import baseStyleJson from './open-map-base-style.json' with { type: 'json' };
 import {
@@ -10,6 +10,7 @@ import {
 } from './open-map-style.ts';
 import type { PacketDownloadSelection } from './packet-finalization.ts';
 import type { Position } from './territory-geometry.ts';
+import { mapPinDataUrl } from './territory-map-style.ts';
 
 export type OpenMapRenderInput = {
   packetId: string;
@@ -53,20 +54,12 @@ export function packetMapDocument(
       ${maplibreCss}
       html, body, #map { width: 1280px; height: 1280px; margin: 0; overflow: hidden; }
       body { background: #f7f8f9; font-family: "Segoe UI", Arial, sans-serif; }
-      .start-marker { position: relative; width: 72px; height: 38px; }
+      .start-marker { position: relative; width: 72px; height: 72px; }
       .start-pin {
-        position: absolute; left: 23px; top: 2px; width: 27px; height: 27px;
-        box-sizing: border-box; border: 3px solid #fff;
-        border-radius: 50% 50% 50% 0; background: #0f7055;
-        box-shadow: -2px 2px 4px rgba(40, 58, 68, .28);
-        transform: rotate(-45deg);
-      }
-      .start-pin::after {
-        content: ""; position: absolute; left: 7px; top: 7px; width: 7px; height: 7px;
-        border-radius: 50%; background: #fff;
+        position: absolute; left: 0; top: 0; width: 72px; height: 72px;
       }
       .start-number {
-        position: absolute; left: 50%; top: 39px; transform: translateX(-50%);
+        position: absolute; left: 50%; top: 71px; transform: translateX(-50%);
         color: #26323b; font-size: 16px; font-weight: 700; line-height: 1;
         white-space: nowrap; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff,
           -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 3px #fff;
@@ -97,7 +90,7 @@ export function packetMapDocument(
       });
       const marker = document.createElement("div");
       marker.className = "start-marker";
-      marker.innerHTML = '<div class="start-pin"></div>';
+      marker.innerHTML = '<img class="start-pin" alt="" src="${mapPinDataUrl('start')}">';
       const number = document.createElement("div");
       number.className = "start-number";
       number.textContent = ${JSON.stringify(input.start.number)};
@@ -174,44 +167,65 @@ export function packetMapDocument(
 </html>`;
 }
 
+export async function captureOpenPacketPages(
+  input: OpenMapRenderInput[],
+  captureOne: (render: OpenMapRenderInput) => Promise<Uint8Array>,
+): Promise<Uint8Array[]> {
+  const images = new Array<Uint8Array>(input.length);
+  let nextIndex = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(3, input.length) }, async () => {
+      while (nextIndex < input.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        images[index] = await captureOne(input[index]);
+      }
+    }),
+  );
+  return images;
+}
+
 async function captureWithPlaywright(input: OpenMapRenderInput[]): Promise<Uint8Array[]> {
-  const require = createRequire(import.meta.url);
+  const maplibreDirectory = path.join(process.cwd(), 'node_modules', 'maplibre-gl', 'dist');
   const [maplibreScript, maplibreCss] = await Promise.all([
-    readFile(require.resolve('maplibre-gl'), 'utf8'),
-    readFile(require.resolve('maplibre-gl/dist/maplibre-gl.css'), 'utf8'),
+    readFile(path.join(maplibreDirectory, 'maplibre-gl.js'), 'utf8'),
+    readFile(path.join(maplibreDirectory, 'maplibre-gl.css'), 'utf8'),
   ]);
   const browser = await chromium.launch({ headless: true });
   try {
-    const images: Uint8Array[] = [];
-    for (const render of input) {
-      const page = await browser.newPage({
-        viewport: { width: 1280, height: 1280 },
-        deviceScaleFactor: 1,
-        ignoreHTTPSErrors: true,
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 1280 },
+      deviceScaleFactor: 1,
+      ignoreHTTPSErrors: true,
+    });
+    try {
+      return await captureOpenPacketPages(input, async (render) => {
+        const page = await context.newPage();
+        try {
+          await page.setContent(packetMapDocument(render, maplibreScript, maplibreCss), {
+            waitUntil: 'domcontentloaded',
+          });
+          await page.waitForFunction(
+            () =>
+              Boolean(
+                (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapReady ||
+                  (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapError,
+              ),
+            undefined,
+            { timeout: 120_000 },
+          );
+          const mapError = await page.evaluate(
+            () => (window as unknown as { __mapError?: string }).__mapError,
+          );
+          if (mapError) throw new Error(mapError);
+          return new Uint8Array(await page.locator('#map').screenshot());
+        } finally {
+          await page.close();
+        }
       });
-      try {
-        await page.setContent(packetMapDocument(render, maplibreScript, maplibreCss), {
-          waitUntil: 'domcontentloaded',
-        });
-        await page.waitForFunction(
-          () =>
-            Boolean(
-              (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapReady ||
-                (window as unknown as { __mapReady?: boolean; __mapError?: string }).__mapError,
-            ),
-          undefined,
-          { timeout: 120_000 },
-        );
-        const mapError = await page.evaluate(
-          () => (window as unknown as { __mapError?: string }).__mapError,
-        );
-        if (mapError) throw new Error(mapError);
-        images.push(new Uint8Array(await page.locator('#map').screenshot()));
-      } finally {
-        await page.close();
-      }
+    } finally {
+      await context.close();
     }
-    return images;
   } finally {
     await browser.close();
   }

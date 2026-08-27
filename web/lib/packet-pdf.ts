@@ -1,6 +1,7 @@
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, type PDFFont, rgb, StandardFonts } from 'pdf-lib';
 import QRCode from 'qrcode';
 import type { DownloadPacket, PacketDownloadSelection } from './packet-finalization.ts';
+import type { ChurchPrintoutSettings } from './settings.ts';
 
 export function googleMapsDirectionsUrl(address: string): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}&travelmode=walking`;
@@ -8,9 +9,19 @@ export function googleMapsDirectionsUrl(address: string): string {
 
 type RenderPacketPdfOptions = {
   logo: Uint8Array;
-  footerVerse: Uint8Array;
+  footer: ChurchPrintoutSettings;
   renderMap: (packet: DownloadPacket) => Promise<Uint8Array>;
 };
+
+function footerLines(message: string, font: PDFFont, size: number, width: number): string[] {
+  const lines: string[] = [];
+  for (const word of message.split(' ')) {
+    const line = lines.at(-1);
+    if (!line || font.widthOfTextAtSize(`${line} ${word}`, size) > width) lines.push(word);
+    else lines[lines.length - 1] = `${line} ${word}`;
+  }
+  return lines.length <= 2 ? lines : [lines[0], lines.slice(1).join(' ')];
+}
 
 export async function renderPacketPdf(
   selection: PacketDownloadSelection,
@@ -24,12 +35,13 @@ export async function renderPacketPdf(
   );
   document.setCreator('Streetlight');
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
+  const italic = await document.embedFont(StandardFonts.TimesRomanItalic);
   const logo = await document.embedPng(options.logo);
-  const footerVerse = await document.embedPng(options.footerVerse);
   const ink = rgb(49 / 255, 44 / 255, 38 / 255);
   const muted = rgb(116 / 255, 109 / 255, 100 / 255);
   const border = rgb(215 / 255, 209 / 255, 200 / 255);
   const panel = rgb(247 / 255, 243 / 255, 236 / 255);
+  const warning = rgb(128 / 255, 82 / 255, 31 / 255);
 
   for (const packet of selection.packets) {
     const mapBytes = await options.renderMap(packet);
@@ -70,6 +82,16 @@ export async function renderPacketPdf(
       font: bold,
       color: ink,
     });
+    if (packet.kind === 'apartment' && packet.accessStatus === 'restricted') {
+      page.drawText('RESTRICTED ACCESS', { x: 22, y: 679, size: 8, font: bold, color: warning });
+      page.drawText('Coordinate access before outreach.', {
+        x: 22,
+        y: 666,
+        size: 7.5,
+        font: bold,
+        color: warning,
+      });
+    }
     page.drawText('STARTING ADDRESS', {
       x: 318,
       y: 752,
@@ -108,7 +130,29 @@ export async function renderPacketPdf(
 
     page.drawImage(logo, { x: 15, y: 24, width: 20, height: 20 });
     page.drawText('STREETLIGHT', { x: 42, y: 31, size: 9, font: bold, color: ink });
-    page.drawImage(footerVerse, { x: 231, y: 17, width: 150, height: 28 });
+    if (options.footer.message) {
+      const lines = footerLines(options.footer.message, italic, 7.5, 180);
+      lines.forEach((line, index) => {
+        const size = Math.min(7.5, 180 / italic.widthOfTextAtSize(line, 1));
+        page.drawText(line, {
+          x: 306 - italic.widthOfTextAtSize(line, size) / 2,
+          y: lines.length === 1 ? 30 : 34 - index * 9,
+          size,
+          font: italic,
+          color: ink,
+        });
+      });
+      if (options.footer.reference) {
+        const size = 6.2;
+        page.drawText(options.footer.reference, {
+          x: 306 - bold.widthOfTextAtSize(options.footer.reference, size) / 2,
+          y: lines.length === 1 ? 20 : 16,
+          size,
+          font: bold,
+          color: muted,
+        });
+      }
+    }
     const codeWidth = bold.widthOfTextAtSize(packet.code, 9.5);
     page.drawText('PACKET', {
       x: 597 - codeWidth - 42,

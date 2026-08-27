@@ -11,11 +11,13 @@ import type { Position } from './territory-geometry.ts';
 export type PacketFinalizationInput = {
   requests: PacketSizeRequest[];
   proposalFingerprint: string;
+  proposalIndexes: number[];
   customName: string | null;
 };
 
 export type ReviewedPacketGenerationResult = PacketGenerationResult & {
   proposalFingerprint: string;
+  proposalIndexes: number[];
 };
 
 export type FinalizedPacket = PacketProposal & {
@@ -35,6 +37,7 @@ export type FinalizedBatch = {
 export type DownloadPacket = {
   kind: 'street' | 'apartment';
   apartmentId: string | null;
+  accessStatus: 'open' | 'restricted' | null;
   id: string;
   code: string;
   batchId: string;
@@ -82,9 +85,18 @@ export function parsePacketFinalizationInput(value: unknown): PacketFinalization
   }
   const input = value as Record<string, unknown>;
   if (
-    Object.keys(input).sort().join(',') !== 'customName,proposalFingerprint,requests' ||
+    Object.keys(input).sort().join(',') !==
+      'customName,proposalFingerprint,proposalIndexes,requests' ||
     typeof input.proposalFingerprint !== 'string' ||
     !/^[a-f0-9]{64}$/.test(input.proposalFingerprint) ||
+    !Array.isArray(input.proposalIndexes) ||
+    input.proposalIndexes.length === 0 ||
+    input.proposalIndexes.some(
+      (index, position, indexes) =>
+        !Number.isSafeInteger(index) ||
+        (index as number) < 0 ||
+        (position > 0 && (index as number) <= (indexes[position - 1] as number)),
+    ) ||
     !(
       input.customName === null ||
       (typeof input.customName === 'string' && input.customName.trim().length <= 80)
@@ -95,6 +107,7 @@ export function parsePacketFinalizationInput(value: unknown): PacketFinalization
   return {
     requests: parsePacketSizeRequests(input.requests),
     proposalFingerprint: input.proposalFingerprint,
+    proposalIndexes: input.proposalIndexes as number[],
     customName: input.customName,
   };
 }
@@ -103,6 +116,7 @@ export function packetProposalFingerprint(proposals: PacketProposal[]): string {
   const stable = proposals.map((proposal) => ({
     kind: proposal.kind ?? 'street',
     apartmentId: proposal.apartmentId ?? null,
+    accessStatus: proposal.accessStatus ?? null,
     targetHomes: proposal.targetHomes,
     estimatedHomes: proposal.estimatedHomes,
     coverageClass: proposal.coverageClass,
@@ -123,5 +137,6 @@ export function withProposalFingerprint(
   return {
     ...result,
     proposalFingerprint: packetProposalFingerprint(result.proposals),
+    proposalIndexes: result.proposals.map((_, index) => index),
   };
 }

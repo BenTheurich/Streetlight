@@ -5,6 +5,13 @@ import { OVERTURE_RELEASE } from './territory-import.ts';
 
 const IMPORT_REQUEST_TOLERANCE = 1e-9;
 const IMPORT_TIMEOUT_MS = 15 * 60_000;
+const IMPORT_STAGE_PREFIX = 'STREETLIGHT_STAGE:';
+
+export type OvertureImportStage =
+  | 'downloading_streets'
+  | 'downloading_buildings'
+  | 'matching'
+  | 'preparing';
 
 export type ImportedSegmentAddress = {
   number: string | null;
@@ -26,16 +33,25 @@ export type ImportedTerritorySegment = {
   addresses: ImportedSegmentAddress[];
 };
 
-export type ImportedApartmentComplex = {
+export type ImportedApartmentEvidence = {
   id: string;
   sourceId: string;
   address: string | null;
   position: Position;
-  estimatedTracts: number;
-  evidence: {
-    apartmentBuilding: boolean;
-    distinctUnits: number;
-  };
+  geometry: ImportedMapBuilding['geometry'] | null;
+  apartmentBuilding: boolean;
+  distinctUnits: number;
+};
+
+export type ImportedApartmentSite = {
+  id: string;
+  sourceId: string;
+  name: string | null;
+  address: string | null;
+  position: Position;
+  boundary: ImportedMapBuilding['geometry'] | null;
+  groupingKind: 'source_boundary' | 'ungrouped';
+  members: ImportedApartmentEvidence[];
 };
 
 export type ImportQuality = {
@@ -78,11 +94,11 @@ export type ImportedTerritoryInput = {
   center: Position;
   radiusMiles: number;
   completedAt: string;
-  normalizerVersion: 10;
+  normalizerVersion: 12;
   buildingMode: 'overture_fema' | 'overture_only';
   mapBuildings: ImportedMapBuilding[];
   quality: ImportQuality;
-  apartmentComplexes: ImportedApartmentComplex[];
+  apartmentSites: ImportedApartmentSite[];
   segments: ImportedTerritorySegment[];
 };
 
@@ -149,6 +165,18 @@ function isPolygonCoordinates(value: unknown): value is Position[][] {
   );
 }
 
+function isAreaGeometry(value: unknown): value is ImportedMapBuilding['geometry'] {
+  return (
+    isRecord(value) &&
+    hasKeys(value, ['coordinates', 'type']) &&
+    ((value.type === 'Polygon' && isPolygonCoordinates(value.coordinates)) ||
+      (value.type === 'MultiPolygon' &&
+        Array.isArray(value.coordinates) &&
+        value.coordinates.length > 0 &&
+        value.coordinates.every(isPolygonCoordinates)))
+  );
+}
+
 function parseMapBuildings(value: unknown, mode: unknown): ImportedMapBuilding[] {
   if ((mode !== 'overture_fema' && mode !== 'overture_only') || !Array.isArray(value)) {
     failImportOutput();
@@ -164,14 +192,7 @@ function parseMapBuildings(value: unknown, mode: unknown): ImportedMapBuilding[]
       ids.has(`${building.source}:${building.sourceId}`) ||
       !isRecord(building.geometry) ||
       !hasKeys(building.geometry, ['coordinates', 'type']) ||
-      !(
-        (building.geometry.type === 'Polygon' &&
-          isPolygonCoordinates(building.geometry.coordinates)) ||
-        (building.geometry.type === 'MultiPolygon' &&
-          Array.isArray(building.geometry.coordinates) &&
-          building.geometry.coordinates.length > 0 &&
-          building.geometry.coordinates.every(isPolygonCoordinates))
-      )
+      !isAreaGeometry(building.geometry)
     ) {
       failImportOutput();
     }
@@ -299,7 +320,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
   if (
     !isRecord(value) ||
     !hasKeys(value, [
-      'apartmentComplexes',
+      'apartmentSites',
       'buildingMode',
       'center',
       'completedAt',
@@ -315,9 +336,9 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     !Number.isFinite(value.radiusMiles) ||
     (value.radiusMiles as number) <= 0 ||
     !isIsoTimestamp(value.completedAt) ||
-    value.normalizerVersion !== 10 ||
+    value.normalizerVersion !== 12 ||
     !isSuccessfulImportQuality(value.quality) ||
-    !Array.isArray(value.apartmentComplexes) ||
+    !Array.isArray(value.apartmentSites) ||
     !Array.isArray(value.segments) ||
     value.segments.length === 0
   ) {
@@ -326,38 +347,84 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
   const mapBuildings = parseMapBuildings(value.mapBuildings, value.buildingMode);
 
   const apartmentIds = new Set<string>();
-  const apartmentComplexes = value.apartmentComplexes.map((complex): ImportedApartmentComplex => {
+  const evidenceIds = new Set<string>();
+  const apartmentSites = value.apartmentSites.map((site): ImportedApartmentSite => {
     if (
-      !isRecord(complex) ||
-      !hasKeys(complex, ['address', 'estimatedTracts', 'evidence', 'id', 'position', 'sourceId']) ||
-      typeof complex.id !== 'string' ||
-      complex.id.trim() === '' ||
-      apartmentIds.has(complex.id) ||
-      typeof complex.sourceId !== 'string' ||
-      complex.sourceId.trim() === '' ||
-      !isNullableString(complex.address) ||
-      !isGeographicPosition(complex.position) ||
-      !Number.isInteger(complex.estimatedTracts) ||
-      (complex.estimatedTracts as number) < 1 ||
-      !isRecord(complex.evidence) ||
-      !hasKeys(complex.evidence, ['apartmentBuilding', 'distinctUnits']) ||
-      typeof complex.evidence.apartmentBuilding !== 'boolean' ||
-      !Number.isInteger(complex.evidence.distinctUnits) ||
-      (complex.evidence.distinctUnits as number) < 0
+      !isRecord(site) ||
+      !hasKeys(site, [
+        'address',
+        'boundary',
+        'groupingKind',
+        'id',
+        'members',
+        'name',
+        'position',
+        'sourceId',
+      ]) ||
+      typeof site.id !== 'string' ||
+      site.id.trim() === '' ||
+      apartmentIds.has(site.id) ||
+      typeof site.sourceId !== 'string' ||
+      site.sourceId.trim() === '' ||
+      !isNullableString(site.name) ||
+      !isNullableString(site.address) ||
+      !isGeographicPosition(site.position) ||
+      (site.groupingKind !== 'source_boundary' && site.groupingKind !== 'ungrouped') ||
+      !Array.isArray(site.members) ||
+      site.members.length === 0 ||
+      (site.groupingKind === 'source_boundary'
+        ? !isAreaGeometry(site.boundary)
+        : site.boundary !== null)
     ) {
       failImportOutput();
     }
-    apartmentIds.add(complex.id);
+    const members = site.members.map((member): ImportedApartmentEvidence => {
+      if (
+        !isRecord(member) ||
+        !hasKeys(member, [
+          'address',
+          'apartmentBuilding',
+          'distinctUnits',
+          'geometry',
+          'id',
+          'position',
+          'sourceId',
+        ]) ||
+        typeof member.id !== 'string' ||
+        member.id.trim() === '' ||
+        evidenceIds.has(member.id) ||
+        typeof member.sourceId !== 'string' ||
+        member.sourceId.trim() === '' ||
+        !isNullableString(member.address) ||
+        !isGeographicPosition(member.position) ||
+        !(member.geometry === null || isAreaGeometry(member.geometry)) ||
+        typeof member.apartmentBuilding !== 'boolean' ||
+        !Number.isInteger(member.distinctUnits) ||
+        (member.distinctUnits as number) < 0
+      ) {
+        failImportOutput();
+      }
+      evidenceIds.add(member.id);
+      return {
+        id: member.id,
+        sourceId: member.sourceId,
+        address: member.address,
+        position: member.position,
+        geometry: member.geometry,
+        apartmentBuilding: member.apartmentBuilding,
+        distinctUnits: member.distinctUnits as number,
+      };
+    });
+    apartmentIds.add(site.id);
     return {
-      id: complex.id,
-      sourceId: complex.sourceId,
-      address: complex.address,
-      position: complex.position,
-      estimatedTracts: complex.estimatedTracts as number,
-      evidence: {
-        apartmentBuilding: complex.evidence.apartmentBuilding,
-        distinctUnits: complex.evidence.distinctUnits as number,
-      },
+      id: site.id,
+      sourceId: site.sourceId,
+      name: site.name,
+      address: site.address,
+      position: site.position,
+      boundary: site.boundary as ImportedApartmentSite['boundary'],
+      groupingKind: site.groupingKind,
+      members,
     };
   });
 
@@ -430,7 +497,7 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
     center: value.center,
     radiusMiles: value.radiusMiles as number,
     completedAt: value.completedAt,
-    normalizerVersion: 10,
+    normalizerVersion: 12,
     buildingMode: value.buildingMode as ImportedTerritoryInput['buildingMode'],
     mapBuildings,
     quality: {
@@ -447,15 +514,20 @@ export function parseOvertureImportOutput(stdout: string): ImportedTerritoryInpu
       buildingAddressDisagreements: value.quality.buildingAddressDisagreements as number,
       warnings: value.quality.warnings as string[],
     },
-    apartmentComplexes,
+    apartmentSites,
     segments,
   };
 }
 
-function readProcess(child: ChildProcessWithoutNullStreams, timeoutMs: number): Promise<string> {
+function readProcess(
+  child: ChildProcessWithoutNullStreams,
+  timeoutMs: number,
+  onStage?: (stage: OvertureImportStage) => void,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     let stdout = '';
     let stderr = '';
+    let stderrLines = '';
     let settled = false;
     const finish = (action: () => void) => {
       if (settled) {
@@ -478,6 +550,22 @@ function readProcess(child: ChildProcessWithoutNullStreams, timeoutMs: number): 
     });
     child.stderr.on('data', (chunk: string) => {
       stderr += chunk;
+      stderrLines += chunk;
+      const lines = stderrLines.split(/\r?\n/);
+      stderrLines = lines.pop() ?? '';
+      for (const line of lines) {
+        const stage = line.startsWith(IMPORT_STAGE_PREFIX)
+          ? line.slice(IMPORT_STAGE_PREFIX.length)
+          : '';
+        if (
+          stage === 'downloading_streets' ||
+          stage === 'downloading_buildings' ||
+          stage === 'matching' ||
+          stage === 'preparing'
+        ) {
+          onStage?.(stage);
+        }
+      }
     });
     child.on('error', (error) => {
       finish(() => reject(error));
@@ -499,8 +587,9 @@ export async function readImporterProcess(
   center: Position,
   radiusMiles: number,
   timeoutMs = IMPORT_TIMEOUT_MS,
+  onStage?: (stage: OvertureImportStage) => void,
 ): Promise<ImportedTerritoryInput> {
-  const imported = parseOvertureImportOutput(await readProcess(child, timeoutMs));
+  const imported = parseOvertureImportOutput(await readProcess(child, timeoutMs, onStage));
   if (
     Math.abs(imported.center[0] - center[0]) > IMPORT_REQUEST_TOLERANCE ||
     Math.abs(imported.center[1] - center[1]) > IMPORT_REQUEST_TOLERANCE ||
@@ -514,9 +603,14 @@ export async function readImporterProcess(
 export function runOvertureImport(
   center: Position,
   radiusMiles: number,
+  onStage?: (stage: OvertureImportStage) => void,
 ): Promise<ImportedTerritoryInput> {
   const executable = process.env.STREETLIGHT_PYTHON ?? 'python';
   const script = path.join(process.cwd(), 'importer', 'overture_import.py');
-  const child = spawn(executable, [script, ...buildImporterArguments(center, radiusMiles)]);
-  return readImporterProcess(child, center, radiusMiles);
+  // The importer entry point is explicitly included in next.config.mjs.
+  const child = spawn(/*turbopackIgnore: true*/ executable, [
+    script,
+    ...buildImporterArguments(center, radiusMiles),
+  ]);
+  return readImporterProcess(child, center, radiusMiles, IMPORT_TIMEOUT_MS, onStage);
 }

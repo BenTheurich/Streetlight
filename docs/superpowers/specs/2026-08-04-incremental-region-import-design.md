@@ -1,6 +1,6 @@
 # Incremental Region Import Design
 
-Status: approved  
+Status: approved
 Approved: 2026-08-04
 
 ## Goal

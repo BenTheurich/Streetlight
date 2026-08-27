@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import {
+  captureOpenPacketPages,
   type OpenMapRenderInput,
   packetMapDocument,
   renderOpenPacketMaps,
 } from './open-map-renderer.ts';
 import type { PacketDownloadSelection } from './packet-finalization.ts';
+import { mapPinDataUrl } from './territory-map-style.ts';
 
 const png = new Uint8Array([1, 2, 3]);
 const selection: PacketDownloadSelection = {
@@ -15,6 +17,7 @@ const selection: PacketDownloadSelection = {
     {
       kind: 'street',
       apartmentId: null,
+      accessStatus: null,
       id: 'packet-one',
       code: 'TEM-001',
       batchId: 'batch-one',
@@ -81,6 +84,29 @@ const selection: PacketDownloadSelection = {
   ],
 };
 
+test('captures at most three packet maps concurrently and preserves packet order', async () => {
+  const inputs = Array.from({ length: 6 }, (_, index) => ({
+    packetId: `packet-${index}`,
+  })) as OpenMapRenderInput[];
+  let active = 0;
+  let maximumActive = 0;
+
+  const images = await captureOpenPacketPages(inputs, async ({ packetId }) => {
+    active += 1;
+    maximumActive = Math.max(maximumActive, active);
+    const index = Number(packetId.slice('packet-'.length));
+    await new Promise((resolve) => setTimeout(resolve, (6 - index) * 2));
+    active -= 1;
+    return new Uint8Array([index]);
+  });
+
+  assert.equal(maximumActive, 3);
+  assert.deepEqual(
+    images.map((image) => image[0]),
+    [0, 1, 2, 3, 4, 5],
+  );
+});
+
 test('renders every packet with its recorded map generation', async () => {
   const received: OpenMapRenderInput[][] = [];
   const images = await renderOpenPacketMaps(selection, async (input) => {
@@ -129,6 +155,9 @@ test('render document labels only the starting house number beneath the pin', ()
   assert.match(html, /width: 1280px; height: 1280px/);
   assert.match(html, /OpenFreeMap · Overture Maps/);
   assert.match(html, /number\.textContent = "40192"/);
+  assert.ok(html.includes(mapPinDataUrl('start')));
+  assert.match(html, /\.start-pin[^}]+width: 72px; height: 72px/s);
+  assert.doesNotMatch(html, /#0f7055|box-shadow/);
   assert.doesNotMatch(html, /1 Main Street|unpkg/);
   assert.match(html, /window\.__mapReady/);
 });

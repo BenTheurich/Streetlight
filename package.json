@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "engines": {
-    "node": ">=22.13"
+    "node": ">=24.15"
   },
   "packageManager": "pnpm@10.27.0",
   "scripts": {
@@ -14,7 +14,7 @@
     "dev": "pnpm --dir web dev",
     "lint": "pnpm --dir web lint",
     "start": "pnpm --dir web start",
-    "test": "pnpm --dir web test && python -m unittest web.importer.test_overture_import",
+    "test": "pnpm --dir web test && node --test scripts/run-python.test.mjs && node scripts/run-python.mjs -m unittest web.importer.test_overture_import",
     "typecheck": "pnpm --dir web typecheck"
   }
 }

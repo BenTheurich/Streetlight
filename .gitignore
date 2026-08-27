@@ -1,4 +1,5 @@
 node_modules
+.venv
 .pnpm-store
 .next
 .swc
@@ -15,8 +16,10 @@ coverage
 tmp
 output
 .superpowers/
+.impeccable/critique/
 .worktrees/
 .playwright-cli/
+debug.log
 __pycache__
 *.pyc
 *.tsbuildinfo

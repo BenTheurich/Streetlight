@@ -68,7 +68,7 @@ function that supplies the map PNG changes. Repeat download remains read-only an
 packet, reservation, or coverage data.
 
 The map renders only the packet's starting house number, beneath the starting pin. The renderer
-reuses Map Lab's deterministic address-to-building positioning rule for both. When the match is
+reuses the interactive open map's deterministic address-to-building positioning rule for both. When the match is
 unambiguous, the pin and number use the building display point; otherwise they remain at the stored
 address coordinate. No other house numbers render.
 
@@ -209,7 +209,7 @@ remain unchanged. Derived display geometry exists only in memory; imported and p
 never rewritten.
 
 Put these style and topology calculations in pure TypeScript functions so the server renderer and
-the later Map Lab can consume the same rules. This is shared product logic, not a provider
+the interactive workspace can consume the same rules. This is shared product logic, not a provider
 abstraction.
 
 ## Server render flow
@@ -334,7 +334,7 @@ Only after those checks does the open renderer replace Google for production PDF
 This PDF project does not by itself:
 
 - implement the separately approved authenticated-workspace migration;
-- build the separate Map Lab;
+- build a separate map comparison tool;
 - change packet selection or routing;
 - show house numbers beyond the starting house;
 - create a separate black-and-white or one-bit PDF;

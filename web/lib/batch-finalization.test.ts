@@ -5,19 +5,22 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
+import { insertCoverageCompletionFixture } from '../test/persistence-fixtures.ts';
 import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
-import {
-  finalizePacketBatch,
-  getCoverageWorkspace,
-  getPacketDownloadSelection,
-  getPacketGenerationWorkspace,
-  getTerritoryWorkspace,
-  recordCoverageCompletion,
-  saveTerritoryDraft,
-} from './database.ts';
+import { getCoverageWorkspace } from './coverage-persistence.ts';
 import type { ImportedTerritoryInput } from './overture-import.ts';
 import { type PacketFinalizationInput, packetProposalFingerprint } from './packet-finalization.ts';
+import {
+  finalizePacketBatch,
+  getPacketDownloadSelection,
+  getPacketGenerationWorkspace,
+} from './packet-persistence.ts';
 import { generatePacketProposals } from './packet-selection.ts';
+import {
+  getTerritoryWorkspace,
+  replaceTerritoryFromImport,
+  saveApartmentSiteConfiguration,
+} from './territory-persistence.ts';
 
 function withDatabase(run: (filename: string) => void): void {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-finalization-'));
@@ -61,11 +64,11 @@ function preparePacketGraph(filename: string, includeApartment = false): void {
     ],
   }));
   const imported: ImportedTerritoryInput = {
-    release: '2026-06-17.0',
+    release: '2026-08-19.0',
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',
-    normalizerVersion: 10,
+    normalizerVersion: 12,
     buildingMode: 'overture_fema',
     mapBuildings: [
       {
@@ -100,50 +103,63 @@ function preparePacketGraph(filename: string, includeApartment = false): void {
       warnings: [],
     },
     segments,
-    apartmentComplexes: includeApartment
+    apartmentSites: includeApartment
       ? [
           {
             id: 'apartment-one',
             sourceId: 'building-one',
+            name: null,
             address: '100 Apartment Way, Temecula CA 92591',
             position: [-117.11685, 33.54295],
-            estimatedTracts: 24,
-            evidence: { apartmentBuilding: true, distinctUnits: 24 },
+            boundary: null,
+            groupingKind: 'ungrouped',
+            members: [
+              {
+                id: 'apartment-one',
+                sourceId: 'building-one',
+                address: '100 Apartment Way, Temecula CA 92591',
+                position: [-117.11685, 33.54295],
+                geometry: null,
+                apartmentBuilding: true,
+                distinctUnits: 24,
+              },
+            ],
           },
         ]
       : [],
   };
-  saveTerritoryDraft(
+  replaceTerritoryFromImport(
     {
       originAddress: workspace.originAddress,
       center: workspace.center,
       radiusMiles: workspace.radiusMiles,
       boundaryShape: workspace.boundaryShape,
-      exclusions: [],
-      activatedRoadGroupIds: [],
+      activatedSegmentIds: [],
       excludedSegmentIds: [],
     },
-    { filename, imported },
+    imported,
+    { filename },
   );
   if (includeApartment) {
-    saveTerritoryDraft(
+    saveApartmentSiteConfiguration(
       {
-        originAddress: workspace.originAddress,
-        center: workspace.center,
-        radiusMiles: workspace.radiusMiles,
-        boundaryShape: workspace.boundaryShape,
-        exclusions: [],
-        activatedRoadGroupIds: [],
-        excludedSegmentIds: [],
-        apartmentStatuses: [{ id: 'apartment-one', reviewStatus: 'ready' }],
+        id: 'apartment-one',
+        name: 'Apartment One',
+        address: '100 Apartment Way, Temecula CA 92591',
+        addressConfirmed: true,
+        tractCount: 24,
+        accessStatus: 'restricted',
+        groupingConfirmed: true,
+        includedInPackets: true,
       },
-      { filename },
+      filename,
     );
   }
-  for (const segment of segments) recordCoverageCompletion(segment.id, '2025-01-01', filename);
+  for (const segment of segments)
+    insertCoverageCompletionFixture(segment.id, '2025-01-01', filename);
 }
 
-test('ready apartment complexes finalize and reserve as separate atomic packets', () => {
+test('configured apartment sites finalize and reserve as separate atomic packets', () => {
   withDatabase((filename) => {
     preparePacketGraph(filename, true);
     const input = reviewedInput(filename);
@@ -158,9 +174,11 @@ test('ready apartment complexes finalize and reserve as separate atomic packets'
       filename,
       now: new Date('2026-07-28T19:30:00.000Z'),
       asOf: '2026-07-28',
+      apartmentsEnabled: true,
     });
     assert.equal(finalized.packetCount, 1);
     assert.equal(finalized.packets[0].apartmentId, 'apartment-one');
+    assert.equal(finalized.packets[0].accessStatus, 'restricted');
 
     const database = openDatabase(filename);
     try {
@@ -182,7 +200,24 @@ test('ready apartment complexes finalize and reserve as separate atomic packets'
     const apartmentDownload = getPacketDownloadSelection('newest', filename).packets[0];
     assert.equal(apartmentDownload.kind, 'apartment');
     assert.equal(apartmentDownload.apartmentId, 'apartment-one');
+    assert.equal(apartmentDownload.accessStatus, 'restricted');
     assert.deepEqual(apartmentDownload.segments, []);
+  });
+});
+
+test('MVP finalization rejects a stale apartment proposal without mutation', () => {
+  withDatabase((filename) => {
+    preparePacketGraph(filename, true);
+
+    assert.throws(
+      () =>
+        finalizePacketBatch(reviewedInput(filename), {
+          filename,
+          now: new Date('2026-07-28T19:30:00.000Z'),
+          asOf: '2026-07-28',
+        }),
+      /Packet proposals changed/,
+    );
   });
 });
 
@@ -195,6 +230,7 @@ function reviewedInput(filename: string, targetHomes = 16): PacketFinalizationIn
   return {
     requests,
     proposalFingerprint: packetProposalFingerprint(result.proposals),
+    proposalIndexes: result.proposals.map((_, index) => index),
     customName: '  Summer Outreach  ',
   };
 }
@@ -381,7 +417,7 @@ test('download scopes return the newest complete batch or all active packets old
   });
 });
 
-test('packet maps include approved FEMA row gaps only for their recorded generation', () => {
+test('packet maps include persisted FEMA row gaps for their recorded generation', () => {
   withDatabase((filename) => {
     preparePacketGraph(filename);
     finalizePacketBatch(reviewedInput(filename), {
@@ -396,6 +432,16 @@ test('packet maps include approved FEMA row gaps only for their recorded generat
         UPDATE street_segments SET import_generation = 9;
         UPDATE map_buildings SET import_generation = 9;
         UPDATE batches SET import_generation = 9;
+        INSERT INTO map_buildings
+          (church_id, territory_id, import_generation, source, source_feature_id,
+            geometry_geojson, overture_release, retrieved_at, fema_address_source_id,
+            fema_distance_meters, fema_occupancy, fema_outbuilding, fema_source)
+        VALUES
+          ('church-temecula-pilot', 'territory-temecula-pilot', 9, 'fema',
+            'persisted-row-gap',
+            '{"type":"Polygon","coordinates":[[[-117.117,33.5429],[-117.1169,33.5429],[-117.1169,33.543],[-117.117,33.5429]]]}',
+            '2026-06-17.0', '2026-07-29T00:00:00.000Z', 'address-row-gap', 0,
+            'Single Family Dwelling', 0, 'FEMA USA Structures');
       `);
     } finally {
       database.close();
@@ -403,7 +449,7 @@ test('packet maps include approved FEMA row gaps only for their recorded generat
 
     const generation = getPacketDownloadSelection('newest', filename).mapGenerations[0];
     assert.equal(generation.importGeneration, 9);
-    assert.ok(generation.buildings.some(({ sourceId }) => sourceId === '6026720'));
-    assert.equal(generation.buildings.filter(({ source }) => source === 'fema').length, 11);
+    assert.ok(generation.buildings.some(({ sourceId }) => sourceId === 'persisted-row-gap'));
+    assert.equal(generation.buildings.filter(({ source }) => source === 'fema').length, 1);
   });
 });
