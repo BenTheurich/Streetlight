@@ -1,6 +1,7 @@
 # Packet download performance design
 
-Status: founder approved  
+Status: founder approved
+
 Date: 2026-07-31
 
 ## Goal

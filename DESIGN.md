@@ -148,7 +148,8 @@ warning and error surfaces use pale paper tints with a non-color cue and explici
 
 ## Typography
 
-**Display Font:** Georgia (with serif fallback)  
+**Display Font:** Georgia (with serif fallback)
+
 **Body Font:** Trebuchet MS (with Arial and sans-serif fallback)
 
 **Character:** Georgia supplies a warm editorial and quietly ecclesial voice. Trebuchet keeps tools

@@ -1,8 +1,11 @@
 # Phase 9 workspace UX design
 
-Status: revised after founder-approved UX critique; awaiting mockup review  
-Date: 2026-07-30  
-Mode: Operate  
+Status: revised after founder-approved UX critique; awaiting mockup review
+
+Date: 2026-07-30
+
+Mode: Operate
+
 Authority: `PRODUCT.md`
 
 ## Job and audience

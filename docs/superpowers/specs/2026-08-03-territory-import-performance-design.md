@@ -1,6 +1,7 @@
 # Territory import performance design
 
-Status: founder approved direction; written-spec review pending  
+Status: founder approved direction; written-spec review pending
+
 Date: 2026-08-03
 
 ## Goal
