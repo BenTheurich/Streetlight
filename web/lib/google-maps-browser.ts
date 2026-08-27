@@ -1,12 +1,6 @@
-import type { Position } from './territory-geometry.ts';
-
 let mapsPromise: Promise<typeof google.maps> | undefined;
 
 export type StreetlightMapType = 'roadmap' | 'satellite';
-
-export function normalizeStreetlightMapType(value: string | null | undefined): StreetlightMapType {
-  return value === 'satellite' ? 'satellite' : 'roadmap';
-}
 
 export function loadGoogleMaps(apiKey: string): Promise<typeof google.maps> {
   if (window.google?.maps) {
@@ -30,8 +24,4 @@ export function loadGoogleMaps(apiKey: string): Promise<typeof google.maps> {
     });
   }
   return mapsPromise;
-}
-
-export function latLng(position: Position): google.maps.LatLngLiteral {
-  return { lat: position[1], lng: position[0] };
 }

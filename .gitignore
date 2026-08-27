@@ -1,10 +1,12 @@
 node_modules
+.venv
 .pnpm-store
 .next
 .swc
 dist
 .env
 .env.local
+.env.*.local
 .vercel
 .idea
 .DS_Store
@@ -14,8 +16,10 @@ coverage
 tmp
 output
 .superpowers/
+.impeccable/critique/
 .worktrees/
 .playwright-cli/
+debug.log
 __pycache__
 *.pyc
 *.tsbuildinfo

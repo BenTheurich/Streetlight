@@ -13,6 +13,7 @@ export function authenticatedRoute(
   handler: RouteHandler,
   loadSession?: AuthLoader,
   filename?: string,
+  allowIncomplete = false,
 ): RouteHandler {
   return async (request) => {
     let session: AdministratorSession;
@@ -26,6 +27,9 @@ export function authenticatedRoute(
         return Response.json({ error: error.message }, { status: 403 });
       }
       return Response.json({ error: 'Could not authenticate request' }, { status: 500 });
+    }
+    if (!allowIncomplete && !session.onboardingCompleted) {
+      return Response.json({ error: 'Complete Region Setup first' }, { status: 403 });
     }
     return runInWorkspace(session.workspace, () => handler(request));
   };

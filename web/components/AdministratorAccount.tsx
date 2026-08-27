@@ -1,4 +1,10 @@
-export function AdministratorAccount({ email }: { email: string }) {
+export function AdministratorAccount({
+  email,
+  pendingPilotRequests = null,
+}: {
+  email: string;
+  pendingPilotRequests?: number | null;
+}) {
   return (
     <div className="administrator-account">
       <button
@@ -13,9 +19,16 @@ export function AdministratorAccount({ email }: { email: string }) {
         <span className="administrator-email" title={email}>
           {email}
         </span>
-        <span aria-hidden="true" className="administrator-account-chevron">
-          ⌄
-        </span>
+        <svg aria-hidden="true" className="administrator-account-chevron" viewBox="0 0 16 16">
+          <path
+            d="m4 6 4 4 4-4"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.6"
+          />
+        </svg>
       </button>
       <div
         className="administrator-account-menu"
@@ -25,6 +38,14 @@ export function AdministratorAccount({ email }: { email: string }) {
       >
         <span>Signed in as</span>
         <strong>{email}</strong>
+        {pendingPilotRequests !== null && (
+          <a href="/pilot-requests" role="menuitem">
+            Pilot requests
+            {pendingPilotRequests > 0 && (
+              <span className="administrator-account-badge">{pendingPilotRequests}</span>
+            )}
+          </a>
+        )}
         <a href="/logout" role="menuitem">
           Sign out
         </a>

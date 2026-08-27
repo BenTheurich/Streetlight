@@ -3,7 +3,10 @@ import json
 import math
 import re
 import sys
+import urllib.parse
+import urllib.request
 from contextlib import redirect_stdout
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 
@@ -17,8 +20,24 @@ GROUP_MATCH_MIN_SPAN_METERS = 20
 GROUP_MATCH_MAX_ANGLE_DEGREES = 30
 ADDRESS_CLUSTER_GAP_METERS = 150
 BUILDING_ADDRESS_DISTANCE_METERS = 15
+MAP_BUILDING_MATCH_METERS = 10
+FEMA_DUPLICATE_METERS = 5
+ROW_GAP_MAX_NEIGHBOR_METERS = 35
+ROW_GAP_MAX_SETBACK_DIFFERENCE_METERS = 12
+ROW_GAP_MIN_AREA_RATIO = 0.55
+ROW_GAP_MAX_AREA_RATIO = 2.5
+ROW_GAP_MIN_COMPACTNESS = 0.45
+ROW_GAP_LOCAL_RADIUS_METERS = 100
+ROW_GAP_MAX_ALONG_METERS = 90
+ROW_GAP_MIN_LOCAL_AREA_SQUARE_METERS = 40
+ROW_GAP_MAX_LOCAL_AREA_SQUARE_METERS = 800
+FEMA_STRUCTURES_URL = (
+    "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/"
+    "USA_Structures_View/FeatureServer/0/query"
+)
+FEMA_PAGE_SIZE = 2000
 MAX_SEGMENT_HOMES = 100
-OVERTURE_RELEASE = "2026-06-17.0"
+OVERTURE_RELEASE = "2026-08-19.0"
 TURN_SPLIT_DEGREES = 85
 EARTH_RADIUS_MILES = 3958.7613
 EARTH_RADIUS_METERS = EARTH_RADIUS_MILES * 1609.344
@@ -35,6 +54,123 @@ SUFFIXES = {
     "parkway": "pkwy",
 }
 DISPLAY_SUFFIXES = {value: key.title() for key, value in SUFFIXES.items()}
+STAGE_PREFIX = "STREETLIGHT_STAGE:"
+
+
+@dataclass(frozen=True)
+class NormalizedImportResult:
+    _segments: list
+    _apartment_sites: list
+    _quality: dict
+
+    @classmethod
+    def from_sources(cls, roads, addresses, buildings=None, apartment_areas=None):
+        return _normalize_sources(roads, addresses, buildings, apartment_areas)
+
+    def process_payload(
+        self,
+        *,
+        center,
+        radius_miles,
+        completed_at,
+        building_mode,
+        map_buildings,
+    ):
+        return {
+            "release": OVERTURE_RELEASE,
+            "center": list(center),
+            "radiusMiles": radius_miles,
+            "completedAt": completed_at.isoformat(),
+            "normalizerVersion": 12,
+            "buildingMode": building_mode,
+            "mapBuildings": map_buildings,
+            "segments": self._segments,
+            "apartmentSites": self._apartment_sites,
+            "quality": self._quality,
+        }
+
+    def benchmark_projection(self, reference_addresses):
+        return {
+            "importQuality": self._quality,
+            "benchmark": _benchmark_metrics(self, reference_addresses),
+        }
+
+
+def _report_stage(stage):
+    print(f"{STAGE_PREFIX}{stage}", file=sys.stderr, flush=True)
+
+
+class SpatialIndex:
+    def __init__(self, features, bbox_getter, cell_meters=50):
+        self._features = list(features)
+        self._bbox_getter = bbox_getter
+        self._cell_meters = cell_meters
+        bounds = [bbox_getter(feature) for feature in self._features]
+        self._latitude = (
+            sum((bbox[1] + bbox[3]) / 2 for bbox in bounds) / len(bounds)
+            if bounds
+            else 0
+        )
+        self._longitude_scale = 111_320 * max(
+            math.cos(math.radians(self._latitude)), 0.01
+        )
+        self._cells = {}
+        for index, bbox in enumerate(bounds):
+            west, south = self._cell(bbox[0], bbox[1])
+            east, north = self._cell(bbox[2], bbox[3])
+            for x in range(west, east + 1):
+                for y in range(south, north + 1):
+                    self._cells.setdefault((x, y), []).append(index)
+
+    def _cell(self, longitude, latitude):
+        return (
+            math.floor(longitude * self._longitude_scale / self._cell_meters),
+            math.floor(latitude * 111_320 / self._cell_meters),
+        )
+
+    def nearby(self, point, radius_meters):
+        longitude_delta = radius_meters / self._longitude_scale
+        latitude_delta = radius_meters / 111_320
+        return self.intersecting(
+            [
+                point[0] - longitude_delta,
+                point[1] - latitude_delta,
+                point[0] + longitude_delta,
+                point[1] + latitude_delta,
+            ]
+        )
+
+    def intersecting(self, bbox, padding_meters=0):
+        longitude_padding = padding_meters / self._longitude_scale
+        latitude_padding = padding_meters / 111_320
+        west = bbox[0] - longitude_padding
+        south = bbox[1] - latitude_padding
+        east = bbox[2] + longitude_padding
+        north = bbox[3] + latitude_padding
+        west_cell, south_cell = self._cell(west, south)
+        east_cell, north_cell = self._cell(east, north)
+        indexes = set()
+        for x in range(west_cell, east_cell + 1):
+            for y in range(south_cell, north_cell + 1):
+                indexes.update(self._cells.get((x, y), ()))
+        candidates = [
+            self._features[index]
+            for index in indexes
+            if (
+                (bounds := self._bbox_getter(self._features[index]))[0] <= east
+                and bounds[2] >= west
+                and bounds[1] <= north
+                and bounds[3] >= south
+            )
+        ]
+        return sorted(
+            candidates,
+            key=lambda feature: str(
+                feature.get("id") or feature.get("segment_id") or ""
+            ),
+        )
+
+
 DIRECTION_NAMES = {
     "n": "north",
     "north": "north",
@@ -142,6 +278,26 @@ def _lines(geometry):
     if geometry["type"] == "LineString":
         return [geometry["coordinates"]]
     return geometry["coordinates"]
+
+
+def _line_geometry_bbox(geometry):
+    points = [point for line in _lines(geometry) for point in line]
+    return [
+        min(point[0] for point in points),
+        min(point[1] for point in points),
+        max(point[0] for point in points),
+        max(point[1] for point in points),
+    ]
+
+
+def _segment_bbox(segment):
+    coordinates = segment["coordinates"]
+    return [
+        min(point[0] for point in coordinates),
+        min(point[1] for point in coordinates),
+        max(point[0] for point in coordinates),
+        max(point[1] for point in coordinates),
+    ]
 
 
 def _split_turns(coordinates):
@@ -462,13 +618,18 @@ def _point_in_ring(point, ring):
     return inside
 
 
-def _building_has_address(building, point, addresses):
+def _building_has_address(building, point, addresses, address_index=None):
     polygons = (
         [building["geometry"]["coordinates"]]
         if building["geometry"]["type"] == "Polygon"
         else building["geometry"]["coordinates"]
     )
-    for address_item in addresses:
+    candidates = (
+        address_index.nearby(point, BUILDING_ADDRESS_DISTANCE_METERS)
+        if address_index is not None
+        else addresses
+    )
+    for address_item in candidates:
         if any(
             _point_in_ring(address_item["point"], polygon[0])
             for polygon in polygons
@@ -480,6 +641,376 @@ def _building_has_address(building, point, addresses):
         ) <= BUILDING_ADDRESS_DISTANCE_METERS:
             return True
     return False
+
+
+def _geometry_polygons(geometry):
+    return (
+        [geometry["coordinates"]]
+        if geometry["type"] == "Polygon"
+        else geometry["coordinates"]
+    )
+
+
+def _geometry_bbox(geometry):
+    points = [
+        point
+        for polygon in _geometry_polygons(geometry)
+        for ring in polygon
+        for point in ring
+    ]
+    return (
+        min(point[0] for point in points),
+        min(point[1] for point in points),
+        max(point[0] for point in points),
+        max(point[1] for point in points),
+    )
+
+
+def _geometry_distance(point, geometry):
+    distances = []
+    for polygon in _geometry_polygons(geometry):
+        if not polygon or not polygon[0]:
+            continue
+        if _point_in_ring(point, polygon[0]) and not any(
+            _point_in_ring(point, hole) for hole in polygon[1:]
+        ):
+            return 0
+        distances.extend(_distance_to_line(point, ring) for ring in polygon if len(ring) > 1)
+    return min(distances, default=math.inf)
+
+
+def _geometry_area_square_meters(geometry):
+    return sum(
+        max(
+            0,
+            _ring_area_square_meters(polygon[0])
+            - sum(_ring_area_square_meters(hole) for hole in polygon[1:]),
+        )
+        for polygon in _geometry_polygons(geometry)
+        if polygon and polygon[0]
+    )
+
+
+def _ring_perimeter_meters(ring):
+    return sum(
+        math.hypot(*_local_vector(end, start))
+        for start, end in zip(ring, ring[1:])
+    )
+
+
+def _geometry_compactness(geometry):
+    area = _geometry_area_square_meters(geometry)
+    perimeter = sum(
+        _ring_perimeter_meters(ring)
+        for polygon in _geometry_polygons(geometry)
+        for ring in polygon
+    )
+    return 4 * math.pi * area / (perimeter * perimeter) if perimeter else 0
+
+
+def _mutual_centroid_to_footprint_distance(first, second):
+    return min(
+        _geometry_distance(_building_point(first), second),
+        _geometry_distance(_building_point(second), first),
+    )
+
+
+def _local_vector(point, origin):
+    return (
+        (point[0] - origin[0]) * 111_320 * math.cos(math.radians(origin[1])),
+        (point[1] - origin[1]) * 111_320,
+    )
+
+
+def _nearest_named_road_tangent(point, street, roads):
+    best = None
+    for road in roads:
+        name = _display_name(road)
+        if not name or not _street_names_equivalent(name, street):
+            continue
+        for line_index, coordinates in enumerate(_lines(road["geometry"])):
+            for segment_index, (start, end) in enumerate(
+                zip(coordinates, coordinates[1:])
+            ):
+                ax, ay = _local_vector(start, point)
+                bx, by = _local_vector(end, point)
+                dx, dy = bx - ax, by - ay
+                length_squared = dx * dx + dy * dy
+                if not length_squared:
+                    continue
+                amount = max(0, min(1, -(ax * dx + ay * dy) / length_squared))
+                projection = (ax + amount * dx, ay + amount * dy)
+                distance = math.hypot(*projection)
+                key = (distance, road["id"], line_index, segment_index)
+                if best is None or key < best[0]:
+                    length = math.sqrt(length_squared)
+                    best = (key, projection, (dx / length, dy / length))
+    if best is None or best[0][0] > NAME_MATCH_DISTANCE_METERS:
+        return None
+    return best[1], best[2]
+
+
+def _median(values):
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    return (
+        ordered[middle]
+        if len(ordered) % 2
+        else (ordered[middle - 1] + ordered[middle]) / 2
+    )
+
+
+def _is_row_gap_candidate(
+    candidate,
+    address_item,
+    roads,
+    overture_index,
+    addressed_overture_ids,
+):
+    geometry = candidate["geometry"]
+    center = _building_point(geometry)
+    nearby_overture = overture_index.nearby(center, ROW_GAP_LOCAL_RADIUS_METERS)
+    duplicate_overture = overture_index.intersecting(
+        _geometry_bbox(geometry),
+        FEMA_DUPLICATE_METERS,
+    )
+    if min(
+        (
+            _mutual_centroid_to_footprint_distance(
+                geometry,
+                building["geometry"],
+            )
+            for building in duplicate_overture
+        ),
+        default=math.inf,
+    ) <= FEMA_DUPLICATE_METERS:
+        return False
+    road_match = _nearest_named_road_tangent(
+        center,
+        address_item["properties"]["street"],
+        roads,
+    )
+    if road_match is None:
+        return False
+    road_projection, tangent = road_match
+    candidate_side = tangent[0] * -road_projection[1] - tangent[1] * -road_projection[0]
+    if abs(candidate_side) < 1:
+        return False
+    candidate_setback = abs(candidate_side)
+    local = []
+    for building in nearby_overture:
+        building_center = _building_point(building["geometry"])
+        x, y = _local_vector(building_center, center)
+        distance = math.hypot(x, y)
+        along = x * tangent[0] + y * tangent[1]
+        offset_x = x - road_projection[0]
+        offset_y = y - road_projection[1]
+        side = tangent[0] * offset_y - tangent[1] * offset_x
+        area = _geometry_area_square_meters(building["geometry"])
+        if (
+            distance <= ROW_GAP_LOCAL_RADIUS_METERS
+            and abs(along) <= ROW_GAP_MAX_ALONG_METERS
+            and side * candidate_side > 0
+            and ROW_GAP_MIN_LOCAL_AREA_SQUARE_METERS
+            <= area
+            <= ROW_GAP_MAX_LOCAL_AREA_SQUARE_METERS
+        ):
+            local.append(
+                {
+                    "along": along,
+                    "setback_difference": abs(abs(side) - candidate_setback),
+                    "area": area,
+                    "addressed": building["id"] in addressed_overture_ids,
+                }
+            )
+    if not local:
+        return False
+    row_neighbors = [
+        item
+        for item in local
+        if item["addressed"]
+        and item["setback_difference"] <= ROW_GAP_MAX_SETBACK_DIFFERENCE_METERS
+    ]
+    before = [item for item in row_neighbors if item["along"] < 0]
+    after = [item for item in row_neighbors if item["along"] > 0]
+    if not before or not after:
+        return False
+    before_neighbor = max(before, key=lambda item: item["along"])
+    after_neighbor = min(after, key=lambda item: item["along"])
+    if (
+        abs(before_neighbor["along"]) > ROW_GAP_MAX_NEIGHBOR_METERS
+        or after_neighbor["along"] > ROW_GAP_MAX_NEIGHBOR_METERS
+    ):
+        return False
+    local_median = _median([item["area"] for item in local])
+    candidate_area = _geometry_area_square_meters(geometry)
+    return (
+        ROW_GAP_MIN_AREA_RATIO
+        <= candidate_area / local_median
+        <= ROW_GAP_MAX_AREA_RATIO
+        and _geometry_compactness(geometry) >= ROW_GAP_MIN_COMPACTNESS
+    )
+
+
+def _nearby_feature(point, feature_index):
+    candidates = feature_index.nearby(point, MAP_BUILDING_MATCH_METERS)
+    if not candidates:
+        return math.inf, None
+    return min(
+        (
+            (_geometry_distance(point, feature["geometry"]), feature)
+            for feature in candidates
+        ),
+        key=lambda item: (item[0], item[1]["id"]),
+    )
+
+
+def _iso_date(value):
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value / 1000, timezone.utc).isoformat()
+    return value if isinstance(value, str) else None
+
+
+def select_map_buildings(
+    addresses,
+    overture_buildings,
+    fema_buildings,
+    roads=(),
+    include_metrics=False,
+):
+    overture = []
+    seen_overture = set()
+    for building in overture_buildings:
+        if building.get("id") in seen_overture or not building.get("geometry"):
+            continue
+        seen_overture.add(building["id"])
+        overture.append({**building, "_bbox": _geometry_bbox(building["geometry"])})
+    fema = [
+        {**building, "_bbox": _geometry_bbox(building["geometry"])}
+        for building in fema_buildings
+        if building.get("id") and building.get("geometry")
+    ]
+    overture_index = SpatialIndex(overture, lambda item: item["_bbox"])
+    fema_index = SpatialIndex(fema, lambda item: item["_bbox"])
+    roads_by_core = {}
+    for road in roads:
+        name = _display_name(road)
+        if name:
+            roads_by_core.setdefault(_street_name_core(name), []).append(road)
+    fallbacks = {}
+    direct_fallback_ids = set()
+    row_gap_fallback_ids = set()
+    row_gap_candidates = {}
+    addressed_overture_ids = set()
+    for address_item in sorted(
+        (
+            item
+            for item in addresses
+            if item.get("id")
+            and item.get("properties", {}).get("number")
+            and item.get("geometry", {}).get("type") == "Point"
+        ),
+        key=lambda item: item["id"],
+    ):
+        point = address_item["geometry"]["coordinates"]
+        overture_distance, overture_building = _nearby_feature(point, overture_index)
+        if overture_distance <= MAP_BUILDING_MATCH_METERS:
+            if overture_building is not None:
+                addressed_overture_ids.add(overture_building["id"])
+            fema_distance, fema_building = _nearby_feature(point, fema_index)
+            if fema_building is not None and fema_distance <= MAP_BUILDING_MATCH_METERS:
+                row_gap_candidates.setdefault(
+                    fema_building["id"],
+                    (fema_building, address_item, fema_distance),
+                )
+            continue
+        fema_distance, fema_building = _nearby_feature(point, fema_index)
+        if fema_building is None:
+            continue
+        properties = fema_building.get("properties", {})
+        if (
+            fema_distance > MAP_BUILDING_MATCH_METERS
+            or properties.get("PRIM_OCC") != "Single Family Dwelling"
+            or bool(properties.get("OUTBLDG"))
+        ):
+            continue
+        fallbacks.setdefault(
+            fema_building["id"],
+            {
+                "source": "fema",
+                "sourceId": fema_building["id"],
+                "geometry": fema_building["geometry"],
+                "fema": {
+                    "addressSourceId": address_item["id"],
+                    "distanceMeters": round(fema_distance, 3),
+                    "occupancy": "Single Family Dwelling",
+                    "outbuilding": False,
+                    "source": properties.get("SOURCE"),
+                    "productDate": _iso_date(properties.get("PROD_DATE")),
+                    "imageDate": _iso_date(properties.get("IMAGE_DATE")),
+                },
+            },
+        )
+        direct_fallback_ids.add(fema_building["id"])
+    for source_id, (fema_building, address_item, fema_distance) in sorted(
+        row_gap_candidates.items()
+    ):
+        properties = fema_building.get("properties", {})
+        if (
+            source_id in fallbacks
+            or properties.get("PRIM_OCC") != "Single Family Dwelling"
+            or bool(properties.get("OUTBLDG"))
+            or not _is_row_gap_candidate(
+                fema_building,
+                address_item,
+                roads_by_core.get(
+                    _street_name_core(address_item["properties"]["street"]),
+                    (),
+                ),
+                overture_index,
+                addressed_overture_ids,
+            )
+        ):
+            continue
+        fallbacks[source_id] = {
+            "source": "fema",
+            "sourceId": source_id,
+            "geometry": fema_building["geometry"],
+            "fema": {
+                "addressSourceId": address_item["id"],
+                "distanceMeters": round(fema_distance, 3),
+                "occupancy": "Single Family Dwelling",
+                "outbuilding": False,
+                "source": properties.get("SOURCE"),
+                "productDate": _iso_date(properties.get("PROD_DATE")),
+                "imageDate": _iso_date(properties.get("IMAGE_DATE")),
+            },
+        }
+        row_gap_fallback_ids.add(source_id)
+    result = [
+        {
+            "source": "overture",
+            "sourceId": building["id"],
+            "geometry": building["geometry"],
+            "fema": None,
+        }
+        for building in overture
+    ]
+    result.extend(fallbacks.values())
+    result = sorted(result, key=lambda item: (item["source"], item["sourceId"]))
+    if not include_metrics:
+        return result
+    return result, {
+        "rawOvertureBuildings": len(overture),
+        "rawFemaStructures": len(fema),
+        "selectedOvertureBuildings": len(overture),
+        "directFemaGapFills": len(direct_fallback_ids),
+        "rowGapFemaGapFills": len(row_gap_fallback_ids),
+        "femaResolvedBuildings": len(fallbacks),
+        "selectedMapBuildings": len(result),
+    }
 
 
 def _apartment_address(address_item):
@@ -499,7 +1030,7 @@ def _apartment_address(address_item):
     return value or None
 
 
-def _apartment_complexes(addresses, buildings):
+def _apartment_evidence(addresses, buildings, address_index=None):
     apartment_buildings = [
         item
         for item in buildings
@@ -507,16 +1038,21 @@ def _apartment_complexes(addresses, buildings):
         and item["geometry"]["type"] in {"Polygon", "MultiPolygon"}
     ]
     used_indexes = set()
-    complexes = []
+    evidence = []
     for building in apartment_buildings:
         polygons = (
             [building["geometry"]["coordinates"]]
             if building["geometry"]["type"] == "Polygon"
             else building["geometry"]["coordinates"]
         )
+        candidates = (
+            address_index.intersecting(_geometry_bbox(building["geometry"]))
+            if address_index is not None
+            else addresses
+        )
         contained = [
             item
-            for item in addresses
+            for item in candidates
             if any(
                 _point_in_ring(item["point"], polygon[0])
                 for polygon in polygons
@@ -544,21 +1080,15 @@ def _apartment_complexes(addresses, buildings):
             if selected
             else _building_point(building["geometry"])
         )
-        complexes.append(
+        evidence.append(
             {
                 "id": f"overture-apartment-building:{building['id']}",
                 "sourceId": building["id"],
                 "address": _apartment_address(selected[0]) if selected else None,
                 "position": point,
-                "estimatedTracts": (
-                    len(units)
-                    if units
-                    else _apartment_footprint_estimate(building)
-                ),
-                "evidence": {
-                    "apartmentBuilding": True,
-                    "distinctUnits": len(units),
-                },
+                "geometry": building["geometry"],
+                "apartmentBuilding": True,
+                "distinctUnits": len(units),
             }
         )
 
@@ -582,26 +1112,130 @@ def _apartment_complexes(addresses, buildings):
             sum(item["point"][0] for item in group) / len(group),
             sum(item["point"][1] for item in group) / len(group),
         ]
-        complexes.append(
+        evidence.append(
             {
                 "id": f"overture-apartment-address:{source_id}",
                 "sourceId": source_id,
                 "address": _apartment_address(group[0]),
                 "position": point,
-                "estimatedTracts": len(units),
-                "evidence": {
-                    "apartmentBuilding": False,
-                    "distinctUnits": len(units),
-                },
+                "geometry": None,
+                "apartmentBuilding": False,
+                "distinctUnits": len(units),
             }
         )
     return sorted(
-        complexes,
+        evidence,
         key=lambda item: (
-            not item["evidence"]["apartmentBuilding"],
+            not item["apartmentBuilding"],
             item["id"],
         ),
     ), used_indexes
+
+
+def _source_tag_value(source_tags, key):
+    if isinstance(source_tags, dict):
+        value = source_tags.get(key)
+        return value if isinstance(value, str) else None
+    for item in source_tags or []:
+        if not isinstance(item, dict):
+            continue
+        item_key = item.get("key", item.get("k"))
+        if item_key == key:
+            value = item.get("value", item.get("v"))
+            return value if isinstance(value, str) else None
+    return None
+
+
+def _apartment_area_name(properties):
+    names = properties.get("names") or {}
+    primary = names.get("primary") if isinstance(names, dict) else None
+    if isinstance(primary, str) and primary.strip():
+        return primary.strip()
+    if isinstance(primary, dict):
+        value = primary.get("value")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _apartment_area_address(properties):
+    tags = properties.get("source_tags")
+    full = _source_tag_value(tags, "addr:full")
+    if full and full.strip():
+        return full.strip()
+    street = _source_tag_value(tags, "addr:street")
+    number = _source_tag_value(tags, "addr:housenumber")
+    city = _source_tag_value(tags, "addr:city")
+    postcode = _source_tag_value(tags, "addr:postcode")
+    street_line = " ".join(part.strip() for part in [number, street] if part and part.strip())
+    value = ", ".join(part.strip() for part in [street_line, city, postcode] if part and part.strip())
+    return value or None
+
+
+def _geometry_contains_point(geometry, point):
+    polygons = (
+        [geometry["coordinates"]]
+        if geometry["type"] == "Polygon"
+        else geometry["coordinates"]
+    )
+    return any(_point_in_ring(point, polygon[0]) for polygon in polygons)
+
+
+def _apartment_sites(evidence, apartment_areas=None):
+    assigned = set()
+    sites = []
+    for area in sorted(apartment_areas or [], key=lambda item: item["id"]):
+        geometry = area.get("geometry") or {}
+        properties = area.get("properties") or {}
+        if (
+            geometry.get("type") not in {"Polygon", "MultiPolygon"}
+            or (_source_tag_value(properties.get("source_tags"), "residential") or "").casefold()
+            != "apartments"
+        ):
+            continue
+        members = [
+            item
+            for item in evidence
+            if item["id"] not in assigned
+            and _geometry_contains_point(geometry, item["position"])
+        ]
+        if not members:
+            continue
+        assigned.update(item["id"] for item in members)
+        sites.append(
+            {
+                "id": f"overture-apartment-area:{area['id']}",
+                "sourceId": area["id"],
+                "name": _apartment_area_name(properties),
+                "address": _apartment_area_address(properties),
+                "position": _building_point(geometry),
+                "boundary": geometry,
+                "groupingKind": "source_boundary",
+                "members": members,
+            }
+        )
+    sites.extend(
+        {
+            "id": item["id"],
+            "sourceId": item["sourceId"],
+            "name": None,
+            "address": item["address"],
+            "position": item["position"],
+            "boundary": None,
+            "groupingKind": "ungrouped",
+            "members": [item],
+        }
+        for item in evidence
+        if item["id"] not in assigned
+    )
+    return sorted(
+        sites,
+        key=lambda item: (
+            item["groupingKind"] != "source_boundary",
+            not item["members"][0]["apartmentBuilding"],
+            item["id"],
+        ),
+    )
 
 
 def _split_overfull_segment(segment):
@@ -706,7 +1340,7 @@ def _assign_road_groups(segments):
         segment["road_group_id"] = group_id_by_root[find(index)]
 
 
-def normalize_features(roads, addresses, buildings=None):
+def _normalize_sources(roads, addresses, buildings=None, apartment_areas=None):
     buildings = buildings or []
     segments = []
     candidate_classes = ALWAYS_KEEP | KEEP_WITH_ADDRESS
@@ -728,6 +1362,7 @@ def normalize_features(roads, addresses, buildings=None):
         postcode = (properties.get("postcode") or "").strip()
         source_addresses.append(
             {
+                "id": str(index),
                 "index": index,
                 "number": properties.get("number"),
                 "street": properties["street"],
@@ -739,10 +1374,16 @@ def normalize_features(roads, addresses, buildings=None):
                 "point": point,
             }
         )
-    apartment_complexes, apartment_address_indexes = _apartment_complexes(
+    source_address_index = SpatialIndex(
+        source_addresses,
+        lambda item: [*item["point"], *item["point"]],
+    )
+    apartment_evidence, apartment_address_indexes = _apartment_evidence(
         source_addresses,
         buildings,
+        source_address_index,
     )
+    apartment_sites = _apartment_sites(apartment_evidence, apartment_areas)
     footprint_addresses = []
     address_keys = set()
     for item in source_addresses:
@@ -758,6 +1399,10 @@ def normalize_features(roads, addresses, buildings=None):
         if key not in address_keys:
             address_keys.add(key)
             footprint_addresses.append(item)
+    footprint_address_index = SpatialIndex(
+        footprint_addresses,
+        lambda item: [*item["point"], *item["point"]],
+    )
     inferred_roads = 0
 
     for road_feature in roads:
@@ -766,7 +1411,10 @@ def normalize_features(roads, addresses, buildings=None):
         if name is None and road_class in ALWAYS_KEEP:
             nearby = [
                 address_item
-                for address_item in footprint_addresses
+                for address_item in footprint_address_index.intersecting(
+                    _line_geometry_bbox(road_feature["geometry"]),
+                    MAX_ADDRESS_DISTANCE_METERS,
+                )
                 if min(
                     _distance_to_line(address_item["point"], line)
                     for line in _lines(road_feature["geometry"])
@@ -803,6 +1451,20 @@ def normalize_features(roads, addresses, buildings=None):
                 }
             )
 
+    segment_index = SpatialIndex(segments, _segment_bbox)
+    segments_by_name = {}
+    segments_by_core = {}
+    for segment in segments:
+        if (
+            segment["road_class"] not in candidate_classes
+            or not segment["has_name_evidence"]
+        ):
+            continue
+        segments_by_name.setdefault(segment["canonical_name"], []).append(segment)
+        name_core = _street_name_core(segment["street_name"])
+        if name_core:
+            segments_by_core.setdefault(name_core, []).append(segment)
+
     assigned_address_indexes = set()
     spatially_assigned_addresses = 0
 
@@ -822,13 +1484,7 @@ def normalize_features(roads, addresses, buildings=None):
         assigned_address_indexes.add(address_item["index"])
 
     for address_item in footprint_addresses:
-        candidates = [
-            segment
-            for segment in segments
-            if segment["road_class"] in candidate_classes
-            and segment["has_name_evidence"]
-            and segment["canonical_name"] == address_item["canonical_name"]
-        ]
+        candidates = segments_by_name.get(address_item["canonical_name"], ())
         nearest = None
         matched_by_exact_name = False
         if candidates:
@@ -854,10 +1510,8 @@ def normalize_features(roads, addresses, buildings=None):
                     address_item["point"],
                     [
                         segment
-                        for segment in segments
-                        if segment["road_class"] in candidate_classes
-                        and _street_name_core(segment["street_name"]) == name_core
-                        and _directions_compatible(
+                        for segment in segments_by_core.get(name_core, ())
+                        if _directions_compatible(
                             address_item["street"],
                             segment["street_name"],
                         )
@@ -876,17 +1530,25 @@ def normalize_features(roads, addresses, buildings=None):
             unmatched_by_name.setdefault(address_item["canonical_name"], []).append(
                 address_item
             )
-    unnamed_segments = [
-        segment for segment in segments if not segment["has_name_evidence"]
-    ]
+
     for same_named_addresses in unmatched_by_name.values():
         for address_group in _address_clusters(same_named_addresses):
             if len(address_group) < 3:
                 continue
+            group_bbox = [
+                min(item["point"][0] for item in address_group),
+                min(item["point"][1] for item in address_group),
+                max(item["point"][0] for item in address_group),
+                max(item["point"][1] for item in address_group),
+            ]
             aligned_segments = [
                 segment
-                for segment in unnamed_segments
-                if _address_group_aligns_with_segment(address_group, segment)
+                for segment in segment_index.intersecting(
+                    group_bbox,
+                    NAME_MATCH_DISTANCE_METERS,
+                )
+                if not segment["has_name_evidence"]
+                and _address_group_aligns_with_segment(address_group, segment)
             ]
             choices = [
                 (
@@ -920,7 +1582,10 @@ def normalize_features(roads, addresses, buildings=None):
         name_core = _street_name_core(address_item["street"])
         compatible_segments = [
             segment
-            for segment in segments
+            for segment in segment_index.nearby(
+                address_item["point"],
+                MAX_ADDRESS_DISTANCE_METERS,
+            )
             if segment["road_class"] in candidate_classes
             and (
                 not segment["has_name_evidence"]
@@ -981,7 +1646,10 @@ def normalize_features(roads, addresses, buildings=None):
             point,
             [
                 segment
-                for segment in segments
+                for segment in segment_index.nearby(
+                    point,
+                    MAX_ADDRESS_DISTANCE_METERS,
+                )
                 if segment["road_class"] in candidate_classes
             ],
         )
@@ -989,7 +1657,12 @@ def normalize_features(roads, addresses, buildings=None):
             unmatched_residential_buildings += 1
             continue
         nearest["residential_building_count"] += 1
-        if _building_has_address(building, point, footprint_addresses):
+        if _building_has_address(
+            building,
+            point,
+            footprint_addresses,
+            footprint_address_index,
+        ):
             continue
         nearest["address_count"] += 1
         nearest["homes"].append({"position": point, "address": None})
@@ -1114,10 +1787,10 @@ def normalize_features(roads, addresses, buildings=None):
                 ),
             }
         )
-    return {
-        "segments": result,
-        "apartmentComplexes": apartment_complexes,
-        "quality": {
+    return NormalizedImportResult(
+        _segments=result,
+        _apartment_sites=apartment_sites,
+        _quality={
             "totalAddresses": len(footprint_addresses),
             "assignedAddresses": len(assigned_address_indexes),
             "spatiallyAssignedAddresses": spatially_assigned_addresses,
@@ -1132,10 +1805,10 @@ def normalize_features(roads, addresses, buildings=None):
             "buildingAddressDisagreements": building_address_disagreements,
             "warnings": warnings,
         },
-    }
+    )
 
 
-def benchmark_classification(
+def _benchmark_classification(
     address_assignment_rate,
     road_representation_rate,
     road_name_accuracy,
@@ -1180,7 +1853,7 @@ def benchmark_classification(
     }
 
 
-def benchmark_metrics(normalized, reference_addresses):
+def _benchmark_metrics(normalized, reference_addresses):
     reference_groups = {}
     for item in reference_addresses:
         properties = item["properties"]
@@ -1191,15 +1864,16 @@ def benchmark_metrics(normalized, reference_addresses):
         )
         reference_groups.setdefault(key, []).append(item)
     apartment_premises = set()
-    for apartment in normalized.get("apartmentComplexes", []):
-        address_value = apartment.get("address")
-        if not address_value:
-            continue
-        premise = address_value.split(",", 1)[0].strip().split(maxsplit=1)
-        if len(premise) == 2:
-            apartment_premises.add(
-                (canonical_street_name(premise[1]), premise[0].casefold())
-            )
+    for site in normalized._apartment_sites:
+        for member in site.get("members", []):
+            address_value = member.get("address")
+            if not address_value:
+                continue
+            premise = address_value.split(",", 1)[0].strip().split(maxsplit=1)
+            if len(premise) == 2:
+                apartment_premises.add(
+                    (canonical_street_name(premise[1]), premise[0].casefold())
+                )
     all_reference = [
         min(
             group,
@@ -1228,7 +1902,7 @@ def benchmark_metrics(normalized, reference_addresses):
             "coordinates": item["geometry"]["coordinates"],
             "estimated_homes": item["estimatedHomes"],
         }
-        for item in normalized["segments"]
+        for item in normalized._segments
     ]
     addresses_by_name = {}
     for item in reference:
@@ -1320,7 +1994,6 @@ def benchmark_metrics(normalized, reference_addresses):
                         }
                     ),
                     "expectedPremises": expected,
-                    "estimatedTracts": actual,
                     "duplicateReferencePoints": sum(
                         detail["duplicate_points"] for detail in details
                     ),
@@ -1329,7 +2002,7 @@ def benchmark_metrics(normalized, reference_addresses):
                 }
             )
 
-    quality = normalized["quality"]
+    quality = normalized._quality
     assignment_rate = (
         quality["assignedAddresses"] / quality["totalAddresses"]
         if quality["totalAddresses"]
@@ -1364,7 +2037,7 @@ def benchmark_metrics(normalized, reference_addresses):
         "roadRepresentationRate": represented_rate,
         "roadNameAccuracy": name_rate,
         "segmentCountAccuracy": segment_accuracy,
-        **benchmark_classification(
+        **_benchmark_classification(
             assignment_rate,
             represented_rate,
             name_rate,
@@ -1433,17 +2106,11 @@ def query_bbox(connection, path, west, south, east, north):
         ]
 
     if "theme=buildings/type=building/" in path:
-        retained_classes = ", ".join(
-            f"'{value}'"
-            for value in sorted(
-                RESIDENTIAL_BUILDING_CLASSES | APARTMENT_BUILDING_CLASSES
-            )
-        )
         rows = connection.execute(
             f"""
             SELECT id, subtype, class, height, num_floors, ST_AsGeoJSON(geometry)
             FROM read_parquet('{path}', hive_partitioning = true)
-            WHERE class IN ({retained_classes}) AND {bbox_filter}
+            WHERE {bbox_filter}
             """,
             parameters,
         ).fetchall()
@@ -1463,7 +2130,7 @@ def query_bbox(connection, path, west, south, east, north):
 
     rows = connection.execute(
         f"""
-        SELECT number, street, postal_city, postcode, unit, address_levels,
+        SELECT id, number, street, postal_city, postcode, unit, address_levels,
           ST_AsGeoJSON(geometry)
         FROM read_parquet('{path}', hive_partitioning = true)
         WHERE street IS NOT NULL AND {bbox_filter}
@@ -1472,6 +2139,7 @@ def query_bbox(connection, path, west, south, east, north):
     ).fetchall()
     return [
         {
+            "id": source_id,
             "properties": {
                 "number": number,
                 "street": street,
@@ -1483,6 +2151,7 @@ def query_bbox(connection, path, west, south, east, north):
             "geometry": json.loads(geometry),
         }
         for (
+            source_id,
             number,
             street,
             postal_city,
@@ -1523,6 +2192,7 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
             east,
             north,
         )
+        _report_stage("downloading_buildings")
         buildings = query_bbox(
             connection,
             f"s3://overturemaps-us-west-2/release/{OVERTURE_RELEASE}/"
@@ -1535,6 +2205,101 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
         return segments, addresses, buildings
     finally:
         connection.close()
+
+
+def download_apartment_areas(
+    longitude: float,
+    latitude: float,
+    radius_miles: float,
+):
+    import duckdb
+
+    west, south, east, north = enclosing_bbox(longitude, latitude, radius_miles)
+    connection = duckdb.connect()
+    try:
+        connection.execute("INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs")
+        connection.execute("SET s3_region='us-west-2'")
+        connection.execute("SET s3_access_key_id=''")
+        connection.execute("SET s3_secret_access_key=''")
+        connection.execute("SET s3_session_token=''")
+        rows = connection.execute(
+            f"""
+            SELECT id, names, source_tags, ST_AsGeoJSON(geometry)
+            FROM read_parquet(
+              's3://overturemaps-us-west-2/release/{OVERTURE_RELEASE}/theme=base/type=land_use/*',
+              hive_partitioning = true
+            )
+            WHERE class = 'residential'
+              AND lower(CAST(source_tags AS VARCHAR)) LIKE '%apartments%'
+              AND bbox.xmin <= ? AND bbox.xmax >= ?
+              AND bbox.ymin <= ? AND bbox.ymax >= ?
+            """,
+            [east, west, north, south],
+        ).fetchall()
+        return [
+            {
+                "id": source_id,
+                "properties": {"names": names, "source_tags": source_tags},
+                "geometry": json.loads(geometry),
+            }
+            for source_id, names, source_tags, geometry in rows
+            if (_source_tag_value(source_tags, "residential") or "").casefold()
+            == "apartments"
+        ]
+    finally:
+        connection.close()
+
+
+def download_fema_features(
+    longitude: float,
+    latitude: float,
+    radius_miles: float,
+    open_url=urllib.request.urlopen,
+):
+    west, south, east, north = enclosing_bbox(longitude, latitude, radius_miles)
+    result = []
+    offset = 0
+    while True:
+        query = urllib.parse.urlencode(
+            {
+                "where": "1=1",
+                "geometry": f"{west},{south},{east},{north}",
+                "geometryType": "esriGeometryEnvelope",
+                "inSR": "4326",
+                "outSR": "4326",
+                "spatialRel": "esriSpatialRelIntersects",
+                "outFields": (
+                    "BUILD_ID,PRIM_OCC,OUTBLDG,SOURCE,PROD_DATE,IMAGE_DATE"
+                ),
+                "returnGeometry": "true",
+                "resultOffset": str(offset),
+                "resultRecordCount": str(FEMA_PAGE_SIZE),
+                "geometryPrecision": "7",
+                "f": "geojson",
+            }
+        )
+        request = urllib.request.Request(
+            f"{FEMA_STRUCTURES_URL}?{query}",
+            headers={"User-Agent": "Streetlight/1.0 (territory import)"},
+        )
+        with open_url(request, timeout=30) as response:
+            payload = json.loads(response.read())
+        if payload.get("error"):
+            raise RuntimeError(f"FEMA USA Structures query failed: {payload['error']}")
+        page = payload.get("features", [])
+        result.extend(
+            {
+                "id": str(feature["properties"]["BUILD_ID"]),
+                "geometry": feature["geometry"],
+                "properties": feature["properties"],
+            }
+            for feature in page
+            if feature.get("geometry")
+            and feature.get("properties", {}).get("BUILD_ID")
+        )
+        if len(page) < FEMA_PAGE_SIZE:
+            return result
+        offset += FEMA_PAGE_SIZE
 
 
 def _finite_float(value):
@@ -1551,7 +2316,12 @@ def _positive_float(value):
     return number
 
 
-def main(argv=None, download=download_features):
+def main(
+    argv=None,
+    download=download_features,
+    download_areas=download_apartment_areas,
+    download_fema=download_fema_features,
+):
     parser = argparse.ArgumentParser()
     parser.add_argument("--longitude", type=_finite_float, required=True)
     parser.add_argument("--latitude", type=_finite_float, required=True)
@@ -1561,21 +2331,51 @@ def main(argv=None, download=download_features):
         parser.error("coordinates are out of range")
 
     with redirect_stdout(sys.stderr):
+        _report_stage("downloading_streets")
         roads, addresses, buildings = download(
             args.longitude,
             args.latitude,
             args.radius_miles,
         )
+        apartment_areas = download_areas(
+            args.longitude,
+            args.latitude,
+            args.radius_miles,
+        )
+        try:
+            fema_buildings = download_fema(
+                args.longitude,
+                args.latitude,
+                args.radius_miles,
+            )
+        except (OSError, TimeoutError, ValueError, RuntimeError) as error:
+            print(f"FEMA USA Structures unavailable: {error}", file=sys.stderr)
+            fema_buildings = []
+        _report_stage("matching")
+        map_buildings = select_map_buildings(
+            addresses,
+            buildings,
+            fema_buildings,
+            roads,
+        )
+        normalized = NormalizedImportResult.from_sources(
+            roads,
+            addresses,
+            buildings,
+            apartment_areas,
+        )
+        _report_stage("preparing")
     print(
         json.dumps(
-            {
-                "release": OVERTURE_RELEASE,
-                "center": [args.longitude, args.latitude],
-                "radiusMiles": args.radius_miles,
-                "completedAt": datetime.now(timezone.utc).isoformat(),
-                "normalizerVersion": 9,
-                **normalize_features(roads, addresses, buildings),
-            },
+            normalized.process_payload(
+                center=(args.longitude, args.latitude),
+                radius_miles=args.radius_miles,
+                completed_at=datetime.now(timezone.utc),
+                building_mode=(
+                    "overture_fema" if fema_buildings else "overture_only"
+                ),
+                map_buildings=map_buildings,
+            ),
             separators=(",", ":"),
         )
     )

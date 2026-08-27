@@ -5,10 +5,11 @@ import urllib.request
 from pathlib import Path
 
 from .overture_import import (
-    benchmark_metrics,
+    NormalizedImportResult,
+    download_fema_features,
     download_features,
     enclosing_bbox,
-    normalize_features,
+    select_map_buildings,
 )
 
 
@@ -23,7 +24,9 @@ AREAS = {
     "lehi-newer-development": (-111.8710, 40.4060, 0.5),
     "ames-small-city": (-93.6319, 42.0308, 0.5),
 }
-CACHE_VERSION = 3
+CACHE_VERSION = 4
+AUDIT_CACHE_VERSION = 1
+FEMA_AUDIT_PATH = Path(__file__).with_name("benchmark_fema_audit.json")
 
 
 def download_nad_reference(longitude, latitude, radius_miles):
@@ -97,15 +100,27 @@ def load_sources(name, longitude, latitude, radius_miles, cache_dir=None):
             and payload["center"] == [longitude, latitude]
             and payload["radiusMiles"] == radius_miles
         ):
+            if "fema" not in payload:
+                payload["fema"] = download_fema_features(
+                    longitude,
+                    latitude,
+                    radius_miles,
+                )
+                cache_path.write_text(
+                    json.dumps(payload, separators=(",", ":")),
+                    encoding="utf-8",
+                )
             return (
                 payload["roads"],
                 payload["addresses"],
                 payload["buildings"],
                 payload["reference"],
+                payload["fema"],
             )
 
     roads, addresses, buildings = download_features(longitude, latitude, radius_miles)
     reference = download_nad_reference(longitude, latitude, radius_miles)
+    fema = download_fema_features(longitude, latitude, radius_miles)
     if cache_path:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(
@@ -118,24 +133,135 @@ def load_sources(name, longitude, latitude, radius_miles, cache_dir=None):
                     "addresses": addresses,
                     "buildings": buildings,
                     "reference": reference,
+                    "fema": fema,
                 },
                 separators=(",", ":"),
             ),
             encoding="utf-8",
         )
-    return roads, addresses, buildings, reference
+    return roads, addresses, buildings, reference, fema
+
+
+def audit_metrics(selected_ids, expected_ids, reviewed_ids):
+    selected_reviewed = set(selected_ids) & set(reviewed_ids)
+    expected = set(expected_ids)
+    true_positives = selected_reviewed & expected
+    false_positives = selected_reviewed - expected
+    false_negatives = expected - selected_reviewed
+    precision = (
+        len(true_positives) / len(selected_reviewed) if selected_reviewed else 0
+    )
+    recall = len(true_positives) / len(expected) if expected else 1
+    return {
+        "reviewedCandidates": len(reviewed_ids),
+        "expectedAccepted": len(expected),
+        "selectedReviewed": len(selected_reviewed),
+        "truePositives": len(true_positives),
+        "falsePositiveIds": sorted(false_positives),
+        "falseNegativeIds": sorted(false_negatives),
+        "precision": precision,
+        "recall": recall,
+        "passed": not false_positives and not false_negatives,
+    }
+
+
+def load_audit_overture(fixture, cache_dir=None):
+    longitude, latitude = fixture["center"]
+    radius_miles = fixture["radiusMiles"]
+    cache_path = (
+        Path(cache_dir, "temecula-building-audit.json") if cache_dir else None
+    )
+    if cache_path and cache_path.exists():
+        payload = json.loads(cache_path.read_text(encoding="utf-8"))
+        if (
+            payload.get("cacheVersion") in {3, CACHE_VERSION, AUDIT_CACHE_VERSION}
+            and payload.get("center") == fixture["center"]
+            and payload.get("radiusMiles") == radius_miles
+        ):
+            return payload["roads"], payload["addresses"], payload["buildings"]
+
+    roads, addresses, buildings = download_features(
+        longitude,
+        latitude,
+        radius_miles,
+    )
+    if cache_path:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(
+            json.dumps(
+                {
+                    "cacheVersion": AUDIT_CACHE_VERSION,
+                    "center": fixture["center"],
+                    "radiusMiles": radius_miles,
+                    "roads": roads,
+                    "addresses": addresses,
+                    "buildings": buildings,
+                },
+                separators=(",", ":"),
+            ),
+            encoding="utf-8",
+        )
+    return roads, addresses, buildings
+
+
+def run_building_audit(cache_dir=None):
+    fixture = json.loads(FEMA_AUDIT_PATH.read_text(encoding="utf-8"))
+    candidates = fixture["candidates"]
+    expected_ids = {
+        candidate["sourceId"] for candidate in candidates if candidate["accepted"]
+    }
+    reviewed_ids = {candidate["sourceId"] for candidate in candidates}
+    if len(reviewed_ids) != 50 or len(expected_ids) != 11:
+        raise RuntimeError("The founder-reviewed FEMA benchmark fixture is invalid")
+    roads, addresses, buildings = load_audit_overture(fixture, cache_dir)
+    fema = [
+        {
+            "id": candidate["sourceId"],
+            "geometry": candidate["geometry"],
+            "properties": {
+                "PRIM_OCC": "Single Family Dwelling",
+                "OUTBLDG": False,
+                "SOURCE": "FEMA USA Structures founder audit",
+            },
+        }
+        for candidate in candidates
+    ]
+    selected, building_selection = select_map_buildings(
+        addresses,
+        buildings,
+        fema,
+        roads,
+        include_metrics=True,
+    )
+    selected_ids = {
+        building["sourceId"] for building in selected if building["source"] == "fema"
+    }
+    return {
+        "area": "temecula-founder-audit",
+        "center": fixture["center"],
+        "radiusMiles": fixture["radiusMiles"],
+        "buildingSelection": building_selection,
+        **audit_metrics(selected_ids, expected_ids, reviewed_ids),
+    }
 
 
 def run_area(name, cache_dir=None):
     longitude, latitude, radius_miles = AREAS[name]
-    roads, addresses, buildings, reference = load_sources(
+    roads, addresses, buildings, reference, fema = load_sources(
         name,
         longitude,
         latitude,
         radius_miles,
         cache_dir,
     )
-    normalized = normalize_features(roads, addresses, buildings)
+    normalized = NormalizedImportResult.from_sources(roads, addresses, buildings)
+    _, building_selection = select_map_buildings(
+        addresses,
+        buildings,
+        fema,
+        roads,
+        include_metrics=True,
+    )
     return {
         "area": name,
         "center": [longitude, latitude],
@@ -146,14 +272,8 @@ def run_area(name, cache_dir=None):
             "residentialBuildings": len(buildings),
             "nadReferenceAddresses": len(reference),
         },
-        "importQuality": normalized["quality"],
-        "apartments": {
-            "complexes": len(normalized["apartmentComplexes"]),
-            "estimatedTracts": sum(
-                item["estimatedTracts"] for item in normalized["apartmentComplexes"]
-            ),
-        },
-        "benchmark": benchmark_metrics(normalized, reference),
+        "buildingSelection": building_selection,
+        **normalized.benchmark_projection(reference),
     }
 
 
@@ -164,11 +284,15 @@ def main(argv=None):
     args = parser.parse_args(argv)
     names = AREAS if args.area == "all" else [args.area]
     results = [run_area(name, args.cache_dir) for name in names]
-    print(json.dumps({"areas": results}, indent=2, sort_keys=True))
+    building_audit = run_building_audit(args.cache_dir) if args.area == "all" else None
+    output = {"areas": results}
+    if building_audit is not None:
+        output["buildingAudit"] = building_audit
+    print(json.dumps(output, indent=2, sort_keys=True))
     return all(
         result["benchmark"]["classification"] != "below_usable_floor"
         for result in results
-    )
+    ) and (building_audit is None or building_audit["passed"])
 
 
 if __name__ == "__main__":

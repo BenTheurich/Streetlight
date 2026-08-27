@@ -1,118 +1,27 @@
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, type PDFFont, rgb, StandardFonts } from 'pdf-lib';
 import QRCode from 'qrcode';
 import type { DownloadPacket, PacketDownloadSelection } from './packet-finalization.ts';
-import type { Position } from './territory-geometry.ts';
-
-const roadsUrl = 'https://roads.googleapis.com/v1/snapToRoads';
-const staticMapsUrl = 'https://maps.googleapis.com/maps/api/staticmap';
+import type { ChurchPrintoutSettings } from './settings.ts';
 
 export function googleMapsDirectionsUrl(address: string): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}&travelmode=walking`;
 }
 
-function encodePolyline(coordinates: Position[]): string {
-  let previousLatitude = 0;
-  let previousLongitude = 0;
-  let result = '';
-  for (const [longitude, latitude] of coordinates) {
-    const currentLatitude = Math.round(latitude * 100_000);
-    const currentLongitude = Math.round(longitude * 100_000);
-    for (const delta of [
-      currentLatitude - previousLatitude,
-      currentLongitude - previousLongitude,
-    ]) {
-      let value = delta < 0 ? ~(delta << 1) : delta << 1;
-      while (value >= 0x20) {
-        result += String.fromCharCode((0x20 | (value & 0x1f)) + 63);
-        value >>= 5;
-      }
-      result += String.fromCharCode(value + 63);
-    }
-    previousLatitude = currentLatitude;
-    previousLongitude = currentLongitude;
-  }
-  return result;
-}
-
-function coordinateChunks(coordinates: Position[]): Position[][] {
-  if (coordinates.length <= 100) return [coordinates];
-  const chunks: Position[][] = [];
-  for (let start = 0; start < coordinates.length - 1; start += 99) {
-    chunks.push(coordinates.slice(start, Math.min(start + 100, coordinates.length)));
-  }
-  return chunks;
-}
-
-async function snapCoordinates(
-  coordinates: Position[],
-  apiKey: string,
-  fetchMap: typeof fetch,
-): Promise<Position[]> {
-  const snapped: Position[] = [];
-  for (const chunk of coordinateChunks(coordinates)) {
-    const parameters = new URLSearchParams({
-      interpolate: 'true',
-      path: chunk.map(([longitude, latitude]) => `${latitude},${longitude}`).join('|'),
-      key: apiKey,
-    });
-    const response = await fetchMap(`${roadsUrl}?${parameters}`);
-    if (!response.ok) throw new Error('Google Roads could not snap a packet map');
-    const payload = (await response.json()) as {
-      snappedPoints?: Array<{ location?: { longitude?: number; latitude?: number } }>;
-    };
-    const points = (payload.snappedPoints ?? []).flatMap(({ location }) =>
-      typeof location?.longitude === 'number' && typeof location.latitude === 'number'
-        ? ([[location.longitude, location.latitude]] as Position[])
-        : [],
-    );
-    if (points.length < 2) throw new Error('Google Roads returned no usable packet path');
-    snapped.push(...(snapped.length > 0 ? points.slice(1) : points));
-  }
-  return snapped;
-}
-
-export async function renderPacketMap(
-  packet: DownloadPacket,
-  apiKey: string,
-  fetchMap: typeof fetch = fetch,
-): Promise<Uint8Array> {
-  const paths: Position[][] = [];
-  if (packet.kind !== 'apartment') {
-    for (const segment of packet.segments) {
-      paths.push(await snapCoordinates(segment.geometry.coordinates, apiKey, fetchMap));
-    }
-  }
-  const parameters = new URLSearchParams({
-    size: '640x640',
-    scale: '2',
-    format: 'png',
-    maptype: 'roadmap',
-    language: 'en',
-    region: 'us',
-  });
-  if (packet.kind === 'apartment') {
-    parameters.set('center', `${packet.start.position[1]},${packet.start.position[0]}`);
-    parameters.set('zoom', '18');
-  }
-  for (const path of paths) {
-    parameters.append('path', `color:0xef6c3599|weight:6|enc:${encodePolyline(path)}`);
-  }
-  parameters.append(
-    'markers',
-    `${packet.start.position[1].toFixed(7)},${packet.start.position[0].toFixed(7)}`,
-  );
-  parameters.append('key', apiKey);
-  const response = await fetchMap(`${staticMapsUrl}?${parameters}`);
-  if (!response.ok || response.headers.get('content-type')?.startsWith('image/') !== true) {
-    throw new Error('Google Static Maps could not render a packet map');
-  }
-  return new Uint8Array(await response.arrayBuffer());
-}
-
 type RenderPacketPdfOptions = {
   logo: Uint8Array;
+  footer: ChurchPrintoutSettings;
   renderMap: (packet: DownloadPacket) => Promise<Uint8Array>;
 };
+
+function footerLines(message: string, font: PDFFont, size: number, width: number): string[] {
+  const lines: string[] = [];
+  for (const word of message.split(' ')) {
+    const line = lines.at(-1);
+    if (!line || font.widthOfTextAtSize(`${line} ${word}`, size) > width) lines.push(word);
+    else lines[lines.length - 1] = `${line} ${word}`;
+  }
+  return lines.length <= 2 ? lines : [lines[0], lines.slice(1).join(' ')];
+}
 
 export async function renderPacketPdf(
   selection: PacketDownloadSelection,
@@ -126,11 +35,13 @@ export async function renderPacketPdf(
   );
   document.setCreator('Streetlight');
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
+  const italic = await document.embedFont(StandardFonts.TimesRomanItalic);
   const logo = await document.embedPng(options.logo);
   const ink = rgb(49 / 255, 44 / 255, 38 / 255);
   const muted = rgb(116 / 255, 109 / 255, 100 / 255);
   const border = rgb(215 / 255, 209 / 255, 200 / 255);
   const panel = rgb(247 / 255, 243 / 255, 236 / 255);
+  const warning = rgb(128 / 255, 82 / 255, 31 / 255);
 
   for (const packet of selection.packets) {
     const mapBytes = await options.renderMap(packet);
@@ -171,6 +82,16 @@ export async function renderPacketPdf(
       font: bold,
       color: ink,
     });
+    if (packet.kind === 'apartment' && packet.accessStatus === 'restricted') {
+      page.drawText('RESTRICTED ACCESS', { x: 22, y: 679, size: 8, font: bold, color: warning });
+      page.drawText('Coordinate access before outreach.', {
+        x: 22,
+        y: 666,
+        size: 7.5,
+        font: bold,
+        color: warning,
+      });
+    }
     page.drawText('STARTING ADDRESS', {
       x: 318,
       y: 752,
@@ -179,7 +100,13 @@ export async function renderPacketPdf(
       color: muted,
     });
     const [street, ...locality] = packet.start.address.split(', ');
-    page.drawText(street, { x: 318, y: 724, size: 12, font: bold, color: ink });
+    page.drawText(street, {
+      x: 318,
+      y: 724,
+      size: Math.min(12, 169 / bold.widthOfTextAtSize(street, 1)),
+      font: bold,
+      color: ink,
+    });
     page.drawText(locality.join(', '), { x: 318, y: 705, size: 10.5, font: bold, color: ink });
     page.drawRectangle({ x: 497, y: 681, width: 94, height: 94, color: rgb(1, 1, 1) });
     page.drawImage(qr, { x: 501, y: 685, width: 86, height: 86 });
@@ -203,6 +130,29 @@ export async function renderPacketPdf(
 
     page.drawImage(logo, { x: 15, y: 24, width: 20, height: 20 });
     page.drawText('STREETLIGHT', { x: 42, y: 31, size: 9, font: bold, color: ink });
+    if (options.footer.message) {
+      const lines = footerLines(options.footer.message, italic, 7.5, 180);
+      lines.forEach((line, index) => {
+        const size = Math.min(7.5, 180 / italic.widthOfTextAtSize(line, 1));
+        page.drawText(line, {
+          x: 306 - italic.widthOfTextAtSize(line, size) / 2,
+          y: lines.length === 1 ? 30 : 34 - index * 9,
+          size,
+          font: italic,
+          color: ink,
+        });
+      });
+      if (options.footer.reference) {
+        const size = 6.2;
+        page.drawText(options.footer.reference, {
+          x: 306 - bold.widthOfTextAtSize(options.footer.reference, size) / 2,
+          y: lines.length === 1 ? 20 : 16,
+          size,
+          font: bold,
+          color: muted,
+        });
+      }
+    }
     const codeWidth = bold.widthOfTextAtSize(packet.code, 9.5);
     page.drawText('PACKET', {
       x: 597 - codeWidth - 42,

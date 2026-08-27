@@ -2,7 +2,7 @@ import type { ImportQuality } from './overture-import.ts';
 import type { TerritoryDraftInput } from './territory-draft.ts';
 import { type Position, territoryBoundary } from './territory-geometry.ts';
 
-export const OVERTURE_RELEASE = '2026-06-17.0';
+export const OVERTURE_RELEASE = '2026-08-19.0';
 const FOOTPRINT_EPSILON = 1e-9;
 
 export type TerritoryImportMetadata = {
@@ -22,7 +22,7 @@ export function needsTerritoryImport(
   if (
     imported.kind === 'proof' ||
     imported.release !== OVERTURE_RELEASE ||
-    imported.normalizerVersion !== 9 ||
+    imported.normalizerVersion !== 12 ||
     imported.quality == null ||
     imported.center === null ||
     imported.radiusMiles === null

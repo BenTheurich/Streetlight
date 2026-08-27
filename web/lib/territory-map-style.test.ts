@@ -2,46 +2,208 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   apartmentMarkerColor,
-  boundaryStrokePaths,
   segmentMapAppearance,
   segmentStrokeWeight,
   segmentVisibleOnMap,
 } from './territory-map-style.ts';
 
-test('apartment markers distinguish review states', () => {
-  assert.equal(apartmentMarkerColor('needs_review'), '#b97916');
-  assert.equal(apartmentMarkerColor('ready'), '#1769ff');
-  assert.equal(apartmentMarkerColor('deferred'), '#77736c');
+test('apartment markers follow packet inclusion after membership invalidation', () => {
+  const membershipInvalidated = {
+    groupingConfirmed: true,
+    includedInPackets: false,
+  };
+  assert.equal(apartmentMarkerColor(membershipInvalidated), '#8f8a80');
+  assert.equal(
+    apartmentMarkerColor({ ...membershipInvalidated, includedInPackets: true }),
+    '#123464',
+  );
 });
 
-test('square boundary strokes restart on each side instead of crossing corners', () => {
-  const ring = [
-    [-2, -1],
-    [2, -1],
-    [2, 1],
-    [-2, 1],
-    [-2, -1],
-  ] as [number, number][];
+test('apartment options use packet inclusion and disambiguate anonymous complexes by road', async () => {
+  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
+  const reviewOptions = module.apartmentReviewOptions as
+    | ((
+        apartments: Array<{
+          id: string;
+          address: string | null;
+          position: [number, number];
+          name: string | null;
+          includedInPackets: boolean;
+          members: Array<{ apartmentBuilding: boolean }>;
+        }>,
+        segments: Array<{
+          id: string;
+          streetName: string;
+          geometry: { coordinates: Array<[number, number]> };
+        }>,
+        query: string,
+      ) => Array<{
+        apartment: { id: string };
+        label: string;
+        nearbyStreet: string | null;
+        disambiguator: string | null;
+      }>)
+    | undefined;
+  const segments = [
+    {
+      id: 'unnamed',
+      streetName: 'Unnamed road',
+      geometry: {
+        coordinates: [
+          [0.0001, 0],
+          [0.0001, 1],
+        ] as Array<[number, number]>,
+      },
+    },
+    {
+      id: 'main',
+      streetName: 'Main Street',
+      geometry: {
+        coordinates: [
+          [0, 0],
+          [0, 1],
+        ] as Array<[number, number]>,
+      },
+    },
+    {
+      id: 'oak',
+      streetName: 'Oak Road',
+      geometry: {
+        coordinates: [
+          [2, 0],
+          [2, 1],
+        ] as Array<[number, number]>,
+      },
+    },
+  ];
+  const apartments = [
+    {
+      id: 'ready-oak',
+      name: 'Oak Apartments',
+      address: '12 Oak Road',
+      position: [2, 0.5] as [number, number],
+      includedInPackets: true,
+      members: [{ apartmentBuilding: true }],
+    },
+    {
+      id: 'anonymous-b',
+      name: null,
+      address: null,
+      position: [0.0002, 0.6] as [number, number],
+      includedInPackets: false,
+      members: [{ apartmentBuilding: true }],
+    },
+    {
+      id: 'anonymous-a',
+      name: null,
+      address: null,
+      position: [0.0001, 0.4] as [number, number],
+      includedInPackets: false,
+      members: [{ apartmentBuilding: true }],
+    },
+  ];
 
-  assert.deepEqual(boundaryStrokePaths(ring, 'square'), [
-    [
-      [-2, -1],
-      [2, -1],
-    ],
-    [
-      [2, -1],
-      [2, 1],
-    ],
-    [
-      [2, 1],
-      [-2, 1],
-    ],
-    [
-      [-2, 1],
-      [-2, -1],
-    ],
-  ]);
-  assert.deepEqual(boundaryStrokePaths(ring, 'circle'), [ring]);
+  assert.equal(typeof reviewOptions, 'function');
+  const options = reviewOptions?.(apartments, segments, '') ?? [];
+  assert.deepEqual(
+    options.map(({ apartment }) => apartment.id),
+    ['anonymous-a', 'anonymous-b', 'ready-oak'],
+  );
+  assert.equal(options[0]?.nearbyStreet, 'Main Street');
+  assert.equal(options[0]?.disambiguator, 'Building 1');
+  assert.equal(options[1]?.disambiguator, 'Building 2');
+  assert.equal(
+    options[0]?.label,
+    'Address unavailable near Main Street · Not included · Building 1',
+  );
+  assert.equal(
+    options[1]?.label,
+    'Address unavailable near Main Street · Not included · Building 2',
+  );
+  assert.deepEqual(
+    reviewOptions?.(apartments, segments, 'oak').map(({ apartment }) => apartment.id),
+    ['ready-oak'],
+  );
+});
+
+test('church, packet, and apartment markers share one visual system', async () => {
+  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
+  const markerStyle = module.mapMarkerStyle as Record<string, unknown> | undefined;
+  const pinDataUrl = module.mapPinDataUrl as ((symbol: 'church' | 'start') => string) | undefined;
+
+  assert.deepEqual(markerStyle, {
+    fill: '#123464',
+    outline: '#ffffff',
+    outlineWidth: 2,
+    radius: 12,
+    selectedRadius: 15,
+  });
+  assert.equal(typeof pinDataUrl, 'function');
+  const church = decodeURIComponent(pinDataUrl?.('church') ?? '');
+  const start = decodeURIComponent(pinDataUrl?.('start') ?? '');
+  for (const pin of [church, start]) {
+    assert.match(pin, /fill="#123464"/);
+    assert.match(pin, /stroke="#ffffff"/);
+  }
+  assert.match(church, /M20\.8 11\.5h2\.4v4\.7H27v2\.4h-3\.8v7\.9h-2\.4v-7\.9H17v-2\.4h3\.8Z/);
+  assert.doesNotMatch(church, /<circle/);
+  assert.match(start, /<circle cx="22" cy="17\.5" r="4\.6" fill="#ffffff"/);
+});
+
+test('apartment interaction keeps selection origin, camera threshold, and drawing isolation explicit', async () => {
+  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
+  const optionLabel = module.apartmentOptionLabel as
+    | ((apartment: {
+        name: string | null;
+        address: string | null;
+        includedInPackets: boolean;
+        members: Array<{ apartmentBuilding: boolean }>;
+      }) => string)
+    | undefined;
+  const focusZoom = module.apartmentFocusZoom as
+    | ((source: 'map' | 'selector', zoom: number) => number | null)
+    | undefined;
+  const createSelection = module.createApartmentSelection as
+    | ((id: string, source: 'map' | 'selector') => { id: string; source: 'map' | 'selector' })
+    | undefined;
+  const apartmentAllowsDrawingPoint = module.apartmentAllowsDrawingPoint as
+    | ((apartmentHit: boolean) => boolean)
+    | undefined;
+
+  assert.equal(typeof optionLabel, 'function');
+  assert.equal(
+    optionLabel?.({
+      address: null,
+      name: null,
+      includedInPackets: false,
+      members: [{ apartmentBuilding: true }],
+    }),
+    'Address unavailable · Not included',
+  );
+  assert.equal(
+    optionLabel?.({
+      address: '1 Main Street',
+      name: null,
+      includedInPackets: true,
+      members: [{ apartmentBuilding: true }],
+    }),
+    '1 Main Street · Included',
+  );
+  assert.equal(focusZoom?.('map', 11), null);
+  assert.equal(focusZoom?.('selector', 11), 16);
+  assert.equal(focusZoom?.('selector', 17.25), 17.25);
+  assert.equal(typeof createSelection, 'function');
+  assert.deepEqual(createSelection?.('apartment-one', 'map'), {
+    id: 'apartment-one',
+    source: 'map',
+  });
+  assert.deepEqual(createSelection?.('apartment-one', 'selector'), {
+    id: 'apartment-one',
+    source: 'selector',
+  });
+  assert.equal(typeof apartmentAllowsDrawingPoint, 'function');
+  assert.equal(apartmentAllowsDrawingPoint?.(false), true);
+  assert.equal(apartmentAllowsDrawingPoint?.(true), false);
 });
 
 test('segment strokes scale from two to five pixels', () => {
@@ -52,7 +214,7 @@ test('segment strokes scale from two to five pixels', () => {
   assert.equal(segmentStrokeWeight(17), 5);
 });
 
-test('segment map appearance makes only actionable roads selectable and emphasizes selection', () => {
+test('segment map appearance preserves status styling beneath selection', () => {
   const active = {
     id: 'segment:one',
     roadGroupId: 'road:shared',
@@ -60,26 +222,29 @@ test('segment map appearance makes only actionable roads selectable and emphasiz
     eligible: true,
     manuallyExcluded: false,
   };
-  assert.deepEqual(segmentMapAppearance(active, null, null), {
-    strokeColor: '#df6d32',
-    strokeOpacity: 0.65,
+  assert.deepEqual(segmentMapAppearance(active, false), {
+    strokeColor: '#596675',
+    strokeOpacity: 0.8,
     weightOffset: 0,
+    selected: false,
     selectable: true,
     zIndex: 3,
   });
-  assert.deepEqual(segmentMapAppearance(active, active.id, null), {
-    strokeColor: '#9a421f',
+  assert.deepEqual(segmentMapAppearance(active, true), {
+    strokeColor: '#596675',
     strokeOpacity: 0.95,
-    weightOffset: 2,
+    weightOffset: 0,
+    selected: true,
     selectable: true,
     zIndex: 4,
   });
   assert.deepEqual(
-    segmentMapAppearance({ ...active, eligible: false, manuallyExcluded: true }, null, null),
+    segmentMapAppearance({ ...active, eligible: false, manuallyExcluded: true }, false),
     {
-      strokeColor: '#77736c',
-      strokeOpacity: 0.5,
-      weightOffset: 0,
+      strokeColor: '#aaa7a0',
+      strokeOpacity: 0.45,
+      weightOffset: -1,
+      selected: false,
       selectable: true,
       zIndex: 5,
     },
@@ -87,20 +252,27 @@ test('segment map appearance makes only actionable roads selectable and emphasiz
   assert.deepEqual(
     segmentMapAppearance(
       { ...active, active: false, eligible: false, manuallyExcluded: true },
-      active.id,
-      null,
+      true,
     ),
     {
-      strokeColor: '#3f3c37',
-      strokeOpacity: 0.95,
-      weightOffset: 2,
+      strokeColor: '#aaa7a0',
+      strokeOpacity: 0.75,
+      weightOffset: -1,
+      selected: true,
       selectable: true,
       zIndex: 5,
     },
   );
+  assert.deepEqual(segmentMapAppearance({ ...active, active: false, eligible: false }, false), {
+    strokeColor: '#6f8794',
+    strokeOpacity: 0.48,
+    weightOffset: -1,
+    selected: false,
+    selectable: true,
+    zIndex: 1,
+  });
   assert.equal(
-    segmentMapAppearance({ ...active, eligible: false, manuallyExcluded: false }, null, null)
-      .selectable,
+    segmentMapAppearance({ ...active, eligible: false, manuallyExcluded: false }, false).selectable,
     false,
   );
 });

@@ -7,9 +7,8 @@ const draft = {
   center: [-117.1274, 33.5107] as [number, number],
   radiusMiles: 1,
   boundaryShape: 'circle' as const,
-  activatedRoadGroupIds: [],
+  activatedSegmentIds: [],
   excludedSegmentIds: [],
-  exclusions: [],
 };
 const quality = {
   totalAddresses: 12,
@@ -46,11 +45,11 @@ test('proof data and an expanded footprint require imports', () => {
     needsTerritoryImport(
       {
         kind: 'overture',
-        release: '2026-06-17.0',
+        release: '2026-08-19.0',
         center: draft.center,
         radiusMiles: 0.5,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 9,
+        normalizerVersion: 12,
         quality,
       },
       draft,
@@ -59,38 +58,22 @@ test('proof data and an expanded footprint require imports', () => {
   );
 });
 
-test('shape changes, exclusions, and radius reductions reuse a current footprint', () => {
+test('shape changes, segment edits, and radius reductions reuse a current footprint', () => {
   assert.equal(
     needsTerritoryImport(
       {
         kind: 'overture',
-        release: '2026-06-17.0',
+        release: '2026-08-19.0',
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 9,
+        normalizerVersion: 12,
         quality,
       },
       {
         ...draft,
         boundaryShape: 'square',
-        exclusions: [
-          {
-            id: 'x',
-            name: '',
-            enabled: true,
-            geometry: {
-              type: 'Polygon',
-              coordinates: [
-                [
-                  [-117.13, 33.51],
-                  [-117.12, 33.51],
-                  [-117.13, 33.51],
-                ],
-              ],
-            },
-          },
-        ],
+        excludedSegmentIds: ['segment:one'],
       },
     ),
     false,
@@ -106,7 +89,7 @@ test('a different pinned Overture release requires an import', () => {
         center: draft.center,
         radiusMiles: 2,
         completedAt: '2026-07-27T12:00:00.000Z',
-        normalizerVersion: 9,
+        normalizerVersion: 12,
         quality,
       },
       draft,
@@ -118,11 +101,11 @@ test('a different pinned Overture release requires an import', () => {
 test('shifted drafts reuse only containing imported footprints', () => {
   const imported = {
     kind: 'overture' as const,
-    release: '2026-06-17.0',
+    release: '2026-08-19.0',
     center: draft.center,
     radiusMiles: 2,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 9,
+    normalizerVersion: 12,
     quality,
   };
 
@@ -156,11 +139,11 @@ test('shifted drafts reuse only containing imported footprints', () => {
 test('legacy and mismatched normalizer versions require replacement', () => {
   const current = {
     kind: 'overture' as const,
-    release: '2026-06-17.0',
+    release: '2026-08-19.0',
     center: draft.center,
     radiusMiles: 2,
     completedAt: '2026-07-27T12:00:00.000Z',
-    normalizerVersion: 9,
+    normalizerVersion: 12,
     quality,
   };
 
@@ -179,5 +162,9 @@ test('legacy and mismatched normalizer versions require replacement', () => {
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 5 }, draft), true);
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 6 }, draft), true);
   assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 7 }, draft), true);
+  assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 8 }, draft), true);
+  assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 9 }, draft), true);
+  assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 10 }, draft), true);
+  assert.equal(needsTerritoryImport({ ...current, normalizerVersion: 11 }, draft), true);
   assert.equal(needsTerritoryImport(current, draft), false);
 });

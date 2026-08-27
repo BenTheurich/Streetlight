@@ -1,10 +1,10 @@
 import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
-import { finalizePacketBatch } from '../../../../lib/database.ts';
 import {
   type PacketFinalizationInput,
   PacketProposalConflictError,
   parsePacketFinalizationInput,
 } from '../../../../lib/packet-finalization.ts';
+import { finalizePacketBatch } from '../../../../lib/packet-persistence.ts';
 
 export async function finalizePacketBatchRequest(request: Request): Promise<Response> {
   let input: PacketFinalizationInput;

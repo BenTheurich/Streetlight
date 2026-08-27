@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   buildImporterArguments,
@@ -8,76 +9,12 @@ import {
 } from './overture-import.ts';
 
 const requestedCenter: [number, number] = [-117.1274, 33.5107];
-const validOutput = {
-  release: '2026-06-17.0',
-  center: requestedCenter,
-  radiusMiles: 1,
-  completedAt: '2026-07-27T12:00:00.000Z',
-  normalizerVersion: 9,
-  quality: {
-    totalAddresses: 12,
-    assignedAddresses: 10,
-    spatiallyAssignedAddresses: 3,
-    inferredRoads: 1,
-    unmatchedAddresses: 2,
-    unresolvedClusters: 2,
-    totalResidentialBuildings: 9,
-    fallbackBuildings: 2,
-    unmatchedResidentialBuildings: 1,
-    populatedUnnamedRoads: 0,
-    buildingAddressDisagreements: 1,
-    warnings: ['Address matching is below the 95% reliability target (83.3% matched).'],
-  },
-  apartmentComplexes: [
-    {
-      id: 'overture-apartment-building:building-1',
-      sourceId: 'building-1',
-      address: '10 Main Street, Temecula, 92591',
-      position: [-117.129, 33.5101],
-      estimatedTracts: 24,
-      evidence: {
-        apartmentBuilding: true,
-        distinctUnits: 24,
-      },
-    },
-  ],
-  segments: [
-    {
-      id: 'overture:road-1:0',
-      sourceSegmentId: 'road-1',
-      roadGroupId: 'road-group:overture:road-1:0',
-      roadClass: 'residential',
-      streetName: 'Main Street',
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [-117.13, 33.51],
-          [-117.12, 33.51],
-        ],
-      },
-      estimatedHomes: 4,
-      addresses: [
-        {
-          number: '10',
-          street: 'Main Street',
-          locality: 'Temecula',
-          postcode: '92591',
-          position: [-117.129, 33.5101],
-        },
-        {
-          number: null,
-          street: 'Main Street',
-          locality: null,
-          postcode: null,
-          position: [-117.121, 33.5101],
-        },
-      ],
-      activationKind: 'automatic',
-    },
-  ],
-};
-
-const validImportedOutput = validOutput;
+const validOutput = JSON.parse(
+  readFileSync(
+    new URL('../importer/fixtures/import-process-contract-v12.json', import.meta.url),
+    'utf8',
+  ),
+);
 
 function outputProcess(value: unknown) {
   return spawn(process.execPath, [
@@ -103,7 +40,81 @@ test('rejects invalid importer arguments before starting Python', () => {
 });
 
 test('accepts the complete pinned import contract', () => {
-  assert.deepEqual(parseOvertureImportOutput(JSON.stringify(validOutput)), validImportedOutput);
+  assert.deepEqual(parseOvertureImportOutput(JSON.stringify(validOutput)), validOutput);
+});
+
+test('accepts the shared Python contract through the process reader', async () => {
+  assert.deepEqual(
+    await readImporterProcess(outputProcess(validOutput), requestedCenter, 1),
+    validOutput,
+  );
+});
+
+test('rejects malformed apartment sites and legacy complex payloads', () => {
+  const site = validOutput.apartmentSites[0];
+  const member = site.members[0];
+  const duplicateMember = { ...site.members[1], id: member.id };
+  const { apartmentSites: _apartmentSites, ...withoutSites } = validOutput;
+
+  for (const value of [
+    { ...withoutSites, apartmentComplexes: [] },
+    { ...validOutput, apartmentSites: [{ ...site, members: [] }] },
+    { ...validOutput, apartmentSites: [{ ...site, groupingKind: 'clustered' }] },
+    { ...validOutput, apartmentSites: [{ ...site, members: [member, duplicateMember] }] },
+    {
+      ...validOutput,
+      apartmentSites: [
+        {
+          ...site,
+          members: [{ ...member, geometry: { type: 'Point', coordinates: member.position } }],
+        },
+      ],
+    },
+    { ...validOutput, apartmentSites: [{ ...site, extra: true }] },
+  ]) {
+    assert.throws(() => parseOvertureImportOutput(JSON.stringify(value)), /import output/i);
+  }
+});
+
+test('rejects guessed or invalid display buildings', () => {
+  for (const value of [
+    { ...validOutput, buildingMode: 'automatic' },
+    { ...validOutput, mapBuildings: [{ ...validOutput.mapBuildings[0], source: 'guessed' }] },
+    { ...validOutput, mapBuildings: [{ ...validOutput.mapBuildings[0], sourceId: '' }] },
+    {
+      ...validOutput,
+      mapBuildings: [
+        {
+          ...validOutput.mapBuildings[0],
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [-181, 33],
+                [-181, 34],
+                [-181, 33],
+              ],
+            ],
+          },
+        },
+      ],
+    },
+    {
+      ...validOutput,
+      mapBuildings: [
+        {
+          ...validOutput.mapBuildings[0],
+          fema: { ...validOutput.mapBuildings[0].fema, distanceMeters: 10.01 },
+        },
+      ],
+    },
+    {
+      ...validOutput,
+      mapBuildings: [{ ...validOutput.mapBuildings[0], fema: null }],
+    },
+  ]) {
+    assert.throws(() => parseOvertureImportOutput(JSON.stringify(value)), /import output/i);
+  }
 });
 
 test('rejects malformed JSON and every invalid import field', () => {
@@ -284,6 +295,19 @@ test('reports a real importer process failure with stderr', async () => {
   await assert.rejects(readImporterProcess(child, requestedCenter, 1), /download failed/);
 });
 
+test('reports coarse importer stages without mixing them into the final payload', async () => {
+  const stages: string[] = [];
+  const child = spawn(process.execPath, [
+    '-e',
+    `process.stderr.write('STREETLIGHT_STAGE:downloading_buildings\\nSTREETLIGHT_STAGE:matching\\n'); process.stdout.write(${JSON.stringify(
+      JSON.stringify(validOutput),
+    )})`,
+  ]);
+
+  await readImporterProcess(child, requestedCenter, 1, 1_000, (stage) => stages.push(stage));
+
+  assert.deepEqual(stages, ['downloading_buildings', 'matching']);
+});
 test('rejects invalid JSON from a successful real importer process', async () => {
   const child = spawn(process.execPath, ['-e', "process.stdout.write('not json')"]);
 
@@ -307,7 +331,7 @@ test('binds successful importer output to the requested center and radius', asyn
 
   assert.deepEqual(await readImporterProcess(outputProcess(withinTolerance), requestedCenter, 1), {
     ...withinTolerance,
-    quality: validImportedOutput.quality,
+    quality: validOutput.quality,
   });
 });
 

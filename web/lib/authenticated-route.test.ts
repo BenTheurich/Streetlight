@@ -18,6 +18,22 @@ test('authenticated routes reject missing access and run mapped sessions in chur
   try {
     migrateDatabase(database);
     seedDatabase(database, { authOrganizationId: 'org_test_temecula' });
+    database
+      .prepare(
+        `INSERT INTO churches (id, name, auth_organization_id, time_zone)
+        VALUES ('church-setup', 'Setup Church', 'org_setup', 'America/Los_Angeles')`,
+      )
+      .run();
+    database
+      .prepare(
+        `INSERT INTO territories
+          (id, church_id, name, center_latitude, center_longitude, radius_meters,
+            boundary_geojson, origin_address)
+        SELECT 'territory-setup', 'church-setup', 'Outreach territory',
+          center_latitude, center_longitude, radius_meters, boundary_geojson, '1 Setup Street'
+        FROM territories WHERE id = 'territory-temecula-pilot'`,
+      )
+      .run();
   } finally {
     database.close();
   }
@@ -56,6 +72,24 @@ test('authenticated routes reject missing access and run mapped sessions in chur
       territoryId: 'territory-temecula-pilot',
       timeZone: 'America/Los_Angeles',
     });
+
+    const setupRequest = async () => ({ user, organizationId: 'org_setup' });
+    assert.equal(
+      (await authenticatedRoute(() => Response.json({ ok: true }), setupRequest, filename)(request))
+        .status,
+      403,
+    );
+    assert.equal(
+      (
+        await authenticatedRoute(
+          () => Response.json({ ok: true }),
+          setupRequest,
+          filename,
+          true,
+        )(request)
+      ).status,
+      200,
+    );
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -117,9 +151,7 @@ test('a church cannot reconcile another church batch by stable ID', async () => 
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           batchId: 'batch-second-test',
-          activePacketIds: ['packet-second-test'],
-          presentPacketIds: [],
-          cancelPacketIds: [],
+          decisions: [{ packetId: 'packet-second-test', outcome: 'still-here' }],
         }),
       }),
     );

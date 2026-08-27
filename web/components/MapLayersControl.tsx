@@ -1,21 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { normalizeStreetlightMapType, type StreetlightMapType } from '@/lib/google-maps-browser';
+import type { StreetlightMapType } from '@/lib/google-maps-browser';
 
-export function MapLayersControl({ map }: { map: google.maps.Map | null }) {
+export function MapLayersControl({
+  value,
+  onChange,
+}: {
+  value: StreetlightMapType;
+  onChange: (value: StreetlightMapType) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const [mapType, setMapType] = useState<StreetlightMapType>('roadmap');
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!map) return;
-    const update = () => setMapType(normalizeStreetlightMapType(map.getMapTypeId()));
-    update();
-    const listener = map.addListener('maptypeid_changed', update);
-    return () => listener.remove();
-  }, [map]);
 
   useEffect(() => {
     if (!open) return;
@@ -35,11 +32,8 @@ export function MapLayersControl({ map }: { map: google.maps.Map | null }) {
     };
   }, [open]);
 
-  if (!map) return null;
-
   function choose(next: StreetlightMapType) {
-    map?.setMapTypeId(next);
-    setMapType(next);
+    onChange(next);
     setOpen(false);
     triggerRef.current?.focus();
   }
@@ -49,19 +43,19 @@ export function MapLayersControl({ map }: { map: google.maps.Map | null }) {
       {open && (
         <fieldset className="layers-chooser" id="map-layers-chooser">
           <legend className="sr-only">Map view</legend>
-          {(['roadmap', 'satellite'] as const).map((value) => (
+          {(['roadmap', 'satellite'] as const).map((option) => (
             <button
-              aria-pressed={mapType === value}
-              className={mapType === value ? 'active' : ''}
-              key={value}
-              onClick={() => choose(value)}
+              aria-pressed={value === option}
+              className={value === option ? 'active' : ''}
+              key={option}
+              onClick={() => choose(option)}
               type="button"
             >
               <span
                 aria-hidden="true"
-                className={`layers-choice-preview ${value === 'roadmap' ? 'map' : 'satellite'}`}
+                className={`layers-choice-preview ${option === 'roadmap' ? 'map' : 'satellite'}`}
               />
-              <span>{value === 'roadmap' ? 'Map' : 'Satellite'}</span>
+              <span>{option === 'roadmap' ? 'Map' : 'Satellite'}</span>
             </button>
           ))}
         </fieldset>

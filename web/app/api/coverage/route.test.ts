@@ -5,11 +5,9 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../db/migrate.mjs';
 import { seedDatabase } from '../../../db/seed.mjs';
-import {
-  getCoverageWorkspace,
-  getTerritoryWorkspace,
-  recordCoverageCompletion,
-} from '../../../lib/database.ts';
+import { getCoverageWorkspace } from '../../../lib/coverage-persistence.ts';
+import { getTerritoryWorkspace } from '../../../lib/territory-persistence.ts';
+import { insertCoverageCompletionFixture } from '../../../test/persistence-fixtures.ts';
 import { withTemeculaWorkspace } from '../../../test/workspace-fixtures.ts';
 import {
   getCoverage as GET,
@@ -68,9 +66,11 @@ test('GET returns the current coverage workspace without mutation', async () => 
 
     assert.equal(response.status, 200);
     const workspace = (await response.json()) as {
+      apartmentComplexes: unknown[];
       center: [number, number];
       segments: Array<{ id: string }>;
     };
+    assert.deepEqual(workspace.apartmentComplexes, []);
     assert.equal(workspace.center.length, 2);
     assert.ok(workspace.segments.length > 0);
     assert.equal(eventCount(filename), before);
@@ -81,7 +81,7 @@ test('POST correction appends exactly one date correction and returns refreshed 
   await withDatabase(async (filename) => {
     const segment = getTerritoryWorkspace().segments.find((current) => current.eligible);
     assert.ok(segment);
-    const eventId = recordCoverageCompletion(segment.id, '2026-07-01');
+    const eventId = insertCoverageCompletionFixture(segment.id, '2026-07-01', filename);
     const before = eventCount(filename);
 
     const response = await POST(request({ eventId, coveredOn: '2026-07-20' }));
@@ -102,7 +102,7 @@ test('POST correction void appends exactly one correction', async () => {
   await withDatabase(async (filename) => {
     const segment = getTerritoryWorkspace().segments.find((current) => current.eligible);
     assert.ok(segment);
-    const eventId = recordCoverageCompletion(segment.id, '2026-07-01');
+    const eventId = insertCoverageCompletionFixture(segment.id, '2026-07-01', filename);
     const before = eventCount(filename);
 
     const response = await POST(request({ eventId, coveredOn: null }));
@@ -123,7 +123,7 @@ test('POST correction rejects malformed, future, and unknown inputs without muta
   await withDatabase(async (filename) => {
     const segment = getTerritoryWorkspace().segments.find((current) => current.eligible);
     assert.ok(segment);
-    const eventId = recordCoverageCompletion(segment.id, '2026-07-01');
+    const eventId = insertCoverageCompletionFixture(segment.id, '2026-07-01', filename);
     const before = eventCount(filename);
 
     for (const body of [
@@ -142,7 +142,7 @@ test('POST correction rejects any completion-shaped or inexact body without muta
   await withDatabase(async (filename) => {
     const segment = getTerritoryWorkspace().segments.find((current) => current.eligible);
     assert.ok(segment);
-    const eventId = recordCoverageCompletion(segment.id, '2026-07-01');
+    const eventId = insertCoverageCompletionFixture(segment.id, '2026-07-01', filename);
     const before = eventCount(filename);
 
     for (const body of [

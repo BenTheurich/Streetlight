@@ -18,8 +18,19 @@ export function seedDatabase(
   database.exec('BEGIN IMMEDIATE');
   try {
     database
-      .prepare('INSERT OR IGNORE INTO churches (id, name) VALUES (?, ?)')
+      .prepare(
+        `INSERT OR IGNORE INTO churches
+          (id, name, onboarding_completed_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)`,
+      )
       .run(churchId, 'Temecula Pilot Church');
+    database
+      .prepare(
+        `UPDATE churches
+        SET onboarding_completed_at = COALESCE(onboarding_completed_at, CURRENT_TIMESTAMP)
+        WHERE id = ?`,
+      )
+      .run(churchId);
     if (authOrganizationId) {
       database
         .prepare('UPDATE churches SET auth_organization_id = ? WHERE id = ?')
