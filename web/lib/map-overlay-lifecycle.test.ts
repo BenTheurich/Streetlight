@@ -103,6 +103,7 @@ class TestMapAdapter implements MapOverlayAdapter {
   readonly visibilityUpdates: Array<{ id: string; visible: boolean }> = [];
   readonly fits: Array<{ bounds: unknown; options: unknown }> = [];
   readonly eases: Array<{ center?: [number, number]; zoom?: number }> = [];
+  resizes = 0;
   renderedLayers: MapOverlayAdapter['styleLayers'] extends () => infer Result ? Result : never = [];
   boxSelection: ((ids: string[], additive: boolean) => void) | null = null;
   emptyMapClick: (() => void) | null = null;
@@ -203,6 +204,9 @@ class TestMapAdapter implements MapOverlayAdapter {
   }
 
   setCursor() {}
+  resize() {
+    this.resizes += 1;
+  }
   fitBounds(bounds: unknown, options: unknown) {
     this.fits.push({ bounds, options });
   }
@@ -819,6 +823,7 @@ test('progress intent grows active roads and hides its stable layers on cleanup'
   const cleanup = lifecycle.present({
     animated: true,
     cinematic: true,
+    fitForPrint: false,
     kind: 'progress',
     position: 0.245,
     visible: true,
@@ -833,6 +838,7 @@ test('progress intent grows active roads and hides its stable layers on cleanup'
         {
           id: 'segment-one',
           kind: 'street',
+          streetKey: 'main street',
           completedOn: '2026-01-02',
           estimatedHomes: 10,
           geometry: workspace.segments[0].geometry,
@@ -870,6 +876,68 @@ test('progress intent grows active roads and hides its stable layers on cleanup'
   cleanup();
   assert.deepEqual(adapter.progressMasks.at(-1), { visible: false, lines: [] });
   assert.equal(adapter.layers.get('streetlight-progress-lines')?.visible, false);
+  lifecycle.dispose();
+});
+
+test('print progress centers the church and fits every reached street', async () => {
+  const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
+  const adapter = new TestMapAdapter();
+  const presentation = {
+    animated: false,
+    cinematic: false,
+    fitForPrint: true,
+    kind: 'progress',
+    position: 1,
+    visible: true,
+    progress: {
+      mode: 'calendar',
+      year: 2026,
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+      dates: ['2026-01-02'],
+      events: [],
+      units: [
+        {
+          id: 'segment-one',
+          kind: 'street',
+          streetKey: 'main street',
+          completedOn: '2026-01-02',
+          estimatedHomes: 10,
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [-2, -1],
+              [3, 4],
+            ],
+          },
+        },
+      ],
+    },
+    workspace: {
+      center: [0, 0],
+      segments: [],
+      apartmentComplexes: [],
+    } as unknown as CoverageWorkspace,
+  } satisfies WorkspaceMapPresentation;
+  const release = lifecycle.present(presentation);
+  lifecycle.attach(adapter);
+  await turn();
+
+  assert.equal(adapter.resizes, 1);
+  assert.deepEqual(adapter.fits, [
+    {
+      bounds: [
+        [-3, -4],
+        [3, 4],
+      ],
+      options: { duration: 0, maxZoom: 16, padding: 24 },
+    },
+  ]);
+  const releaseAdmin = lifecycle.present({ ...presentation, fitForPrint: false });
+  await turn();
+  assert.equal(adapter.resizes, 2);
+  releaseAdmin();
+  release();
   lifecycle.dispose();
 });
 

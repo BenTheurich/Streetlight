@@ -85,6 +85,7 @@ export type WorkspaceMapPresentation =
   | {
       animated: boolean;
       cinematic: boolean;
+      fitForPrint: boolean;
       kind: 'progress';
       position: number;
       visible: boolean;
@@ -164,6 +165,7 @@ export type MapOverlayAdapter = {
     listener: (event: MapOverlayEvent) => void,
   ) => () => void;
   setCursor: (cursor: '' | 'crosshair' | 'pointer') => void;
+  resize: () => void;
   fitBounds: (bounds: [Position, Position], options: Record<string, unknown>) => void;
   easeTo: (camera: { center?: Position; zoom?: number }) => void;
   getZoom: () => number;
@@ -347,6 +349,7 @@ export function createMapOverlayLifecycle({
   let progressSourceWorkspace: CoverageWorkspace | null = null;
   let progressCompletedKey = '';
   let progressActive = false;
+  let progressPrintFocusKey = '';
   let progressRows: Array<{
     completedOn: string;
     completedStep: number;
@@ -1222,6 +1225,35 @@ export function createMapOverlayLifecycle({
     ];
     for (const layer of layers) ensureLayer(current, layer, before);
     setVisible(current, PROGRESS_LAYERS, value.visible);
+    if (value.fitForPrint) {
+      const center = value.workspace.center;
+      const positions = completedRows.flatMap(({ geometry }) =>
+        geometry.type === 'LineString' ? geometry.coordinates : [geometry.coordinates],
+      );
+      const longitudeRadius = Math.max(
+        0.001,
+        ...positions.map(([longitude]) => Math.abs(longitude - center[0])),
+      );
+      const latitudeRadius = Math.max(
+        0.001,
+        ...positions.map(([, latitude]) => Math.abs(latitude - center[1])),
+      );
+      const focusKey = `${value.progress.startDate}:${value.progress.endDate}:${positions.length}:${center.join(',')}`;
+      if (focusKey !== progressPrintFocusKey) {
+        current.resize();
+        current.fitBounds(
+          [
+            [center[0] - longitudeRadius, center[1] - latitudeRadius],
+            [center[0] + longitudeRadius, center[1] + latitudeRadius],
+          ],
+          { duration: 0, maxZoom: 16, padding: 24 },
+        );
+        progressPrintFocusKey = focusKey;
+      }
+    } else {
+      if (progressPrintFocusKey) current.resize();
+      progressPrintFocusKey = '';
+    }
   }
 
   function reconcileReconciliation(

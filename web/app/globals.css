@@ -3696,6 +3696,33 @@ button.progress-playback-toggle svg {
   transition: transform 80ms linear;
 }
 
+.progress-print .progress-stage-sidebar {
+  border-color: var(--line);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.progress-print .progress-stage-copy h1,
+.progress-print .progress-stage-timeline > strong,
+.progress-print .progress-metrics dd {
+  color: var(--ink);
+}
+
+.progress-print .progress-stage-copy > p,
+.progress-print .progress-metrics dt,
+.progress-print .progress-stage-timeline > span {
+  color: var(--muted);
+}
+
+.progress-print .progress-metrics,
+.progress-print .progress-metrics > div {
+  border-color: var(--line);
+}
+
+.progress-print .progress-stage-timeline > span {
+  margin-top: 0.7rem;
+}
+
 button.secondary.progress-presentation-exit {
   position: absolute;
   top: 1rem;
@@ -4231,21 +4258,54 @@ button.secondary.progress-presentation-exit:is(:hover, :focus-visible) {
   }
 }
 
+@media screen {
+  .progress-print.territory-page {
+    width: 11in;
+    height: 8.5in;
+    min-height: 0;
+    padding: 0.35in;
+    overflow: hidden;
+    background: white;
+  }
+
+  .progress-print .territory-workspace {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) 3.1in;
+    grid-template-rows: 1fr;
+    gap: 0.2in;
+  }
+
+  .progress-print .progress-stage-sidebar {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+
+  .progress-print .progress-stage-copy {
+    padding: 0.35in;
+  }
+}
+
 @media print {
   @page {
     size: landscape;
-    margin: 0.35in;
+    margin: 0;
   }
 
-  .progress-print.territory-page,
-  .progress-print .territory-workspace {
+  .progress-print.territory-page {
     width: 100%;
     height: 100vh;
     min-height: 0;
+    padding: 0.35in;
     overflow: hidden;
+    background: white;
   }
 
   .progress-print .territory-workspace {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
     grid-template-columns: minmax(0, 1fr) 3.1in;
     grid-template-rows: 1fr;
     gap: 0.2in;
@@ -4255,33 +4315,11 @@ button.secondary.progress-presentation-exit:is(:hover, :focus-visible) {
   .progress-print .progress-stage-sidebar {
     border: 1px solid var(--line);
     border-radius: 12px;
-    background: var(--panel);
-    color: var(--ink);
     print-color-adjust: exact;
   }
 
   .progress-print .progress-stage-copy {
     padding: 0.35in;
-  }
-
-  .progress-print .progress-stage-copy h1,
-  .progress-print .progress-stage-timeline > strong {
-    color: var(--ink);
-  }
-
-  .progress-print .progress-stage-copy > p,
-  .progress-print .progress-metrics dt,
-  .progress-print .progress-stage-timeline > span {
-    color: var(--muted);
-  }
-
-  .progress-print .progress-metrics,
-  .progress-print .progress-metrics > div {
-    border-color: var(--line);
-  }
-
-  .progress-print .progress-metrics dd {
-    color: var(--ink);
   }
 
   .progress-print .progress-stage-timeline > div {

@@ -110,6 +110,7 @@ export function StreetlightWorkspace({
   const [progressPlaying, setProgressPlaying] = useState(false);
   const [progressDisplayMode, setProgressDisplayMode] = useState<ProgressDisplayMode>('admin');
   const progressPresentationButtonRef = useRef<HTMLButtonElement>(null);
+  const progressPrintCameraRef = useRef<MapCamera | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
   const setupMap = territoryMapMode(tool, setupView);
   const [mapLifecycle, setMapLifecycle] = useState<MapOverlayLifecycle | null>(null);
@@ -234,11 +235,18 @@ export function StreetlightWorkspace({
     };
   }, [progressDisplayMode, progressStepCount]);
 
-  useEffect(() => {
-    const finishPrint = () => setProgressDisplayMode('admin');
-    window.addEventListener('afterprint', finishPrint);
-    return () => window.removeEventListener('afterprint', finishPrint);
+  const finishProgressPrint = useCallback(() => {
+    setProgressDisplayMode('admin');
+    if (progressPrintCameraRef.current) {
+      setMapCamera(progressPrintCameraRef.current);
+      progressPrintCameraRef.current = null;
+    }
   }, []);
+
+  useEffect(() => {
+    window.addEventListener('afterprint', finishProgressPrint);
+    return () => window.removeEventListener('afterprint', finishProgressPrint);
+  }, [finishProgressPrint]);
 
   const selectCoverageSegment = useCallback((id: string) => {
     setSelectedSegmentId(id);
@@ -386,13 +394,14 @@ export function StreetlightWorkspace({
 
   function printProgress(): void {
     if (progress.dates.length === 0) return;
+    progressPrintCameraRef.current = mapCamera;
     setProgressPlaying(false);
     setProgressPosition(progressStepCount);
     setProgressDisplayMode('print');
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         window.print();
-        setProgressDisplayMode('admin');
+        finishProgressPrint();
       }),
     );
   }
@@ -471,6 +480,7 @@ export function StreetlightWorkspace({
             active={tool === 'progress'}
             animated={!reducedMotion}
             cinematic={progressDisplayMode === 'presentation'}
+            fitForPrint={progressDisplayMode === 'print'}
             lifecycle={mapLifecycle}
             position={resolvedProgressPosition}
             progress={progress}

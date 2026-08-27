@@ -31,8 +31,8 @@ function Metrics({ snapshot }: { snapshot: OutreachProgressSnapshot }) {
         <dd>{snapshot.completedPackets.toLocaleString()}</dd>
       </div>
       <div>
-        <dt>Street sections</dt>
-        <dd>{snapshot.streetSections.toLocaleString()}</dd>
+        <dt>Streets</dt>
+        <dd>{snapshot.streets.toLocaleString()}</dd>
       </div>
       {APARTMENTS_ENABLED && (
         <div>
@@ -108,15 +108,19 @@ export function OutreachProgress({
           <Metrics snapshot={snapshot} />
           <div className="progress-stage-timeline">
             <strong aria-live={playing ? 'off' : 'polite'}>
-              {formatDate(selectedDate, progress)}
+              {displayMode === 'print'
+                ? `Progress through ${formatDate(selectedDate, progress)}`
+                : formatDate(selectedDate, progress)}
             </strong>
             <span>
               {snapshot.outreachDays} outreach {snapshot.outreachDays === 1 ? 'day' : 'days'}{' '}
               recorded
             </span>
-            <div aria-hidden="true">
-              <span style={{ '--progress-completion': completion } as CSSProperties} />
-            </div>
+            {displayMode !== 'print' && (
+              <div aria-hidden="true">
+                <span style={{ '--progress-completion': completion } as CSSProperties} />
+              </div>
+            )}
           </div>
         </div>
       </aside>

@@ -76,6 +76,7 @@ export function WorkspaceMap({
     if (!initialData || !openElementRef.current) return;
     let disposed = false;
     let detach = () => {};
+    let resizeObserver: ResizeObserver | null = null;
     setMapStatus('loading');
     void import('maplibre-gl')
       .then(({ Map: MapLibre, Marker }) => {
@@ -94,6 +95,8 @@ export function WorkspaceMap({
           zoom: googleZoomToMapLibre(creationCamera.zoom),
         });
         mapRef.current = map;
+        resizeObserver = new ResizeObserver(() => map.resize());
+        resizeObserver.observe(openElementRef.current);
         detach = lifecycle.attach(
           createMapLibreOverlayAdapter(map, Marker, {
             kind: 'base',
@@ -132,6 +135,7 @@ export function WorkspaceMap({
       });
     return () => {
       disposed = true;
+      resizeObserver?.disconnect();
       detach();
       mapRef.current?.remove();
       mapRef.current = null;

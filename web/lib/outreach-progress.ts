@@ -8,6 +8,7 @@ export type OutreachProgressMode = 'calendar' | 'rolling';
 export type OutreachProgressUnit = {
   id: string;
   kind: 'street' | 'apartment';
+  streetKey: string | null;
   completedOn: string;
   estimatedHomes: number;
   geometry: LineString | { type: 'Point'; coordinates: Position };
@@ -25,7 +26,7 @@ export type OutreachProgressPeriod = {
 
 export type OutreachProgressSnapshot = {
   completedPackets: number;
-  streetSections: number;
+  streets: number;
   apartmentComplexes: number;
   estimatedHomes: number;
   outreachDays: number;
@@ -124,6 +125,7 @@ export function buildOutreachProgress(
     units.push({
       id: segment.id,
       kind: 'street',
+      streetKey: segment.streetName.trim().toLowerCase() || segment.roadGroupId,
       completedOn: matches.map(({ date }) => date).sort()[0],
       estimatedHomes: segment.estimatedHomes,
       geometry: segment.geometry,
@@ -136,6 +138,7 @@ export function buildOutreachProgress(
     units.push({
       id: apartment.id,
       kind: 'apartment',
+      streetKey: null,
       completedOn: matches.map(({ date }) => date).sort()[0],
       estimatedHomes: apartment.estimatedTracts,
       geometry: { type: 'Point', coordinates: apartment.position },
@@ -163,7 +166,9 @@ export function outreachProgressSnapshot(
   const events = through ? progress.events.filter(({ date }) => date <= through) : [];
   return {
     completedPackets: new Set(events.flatMap(({ packetId }) => (packetId ? [packetId] : []))).size,
-    streetSections: units.filter(({ kind }) => kind === 'street').length,
+    streets: new Set(
+      units.flatMap(({ kind, streetKey }) => (kind === 'street' && streetKey ? [streetKey] : [])),
+    ).size,
     apartmentComplexes: units.filter(({ kind }) => kind === 'apartment').length,
     estimatedHomes: units.reduce((total, unit) => total + unit.estimatedHomes, 0),
     outreachDays: new Set(events.map(({ date }) => date)).size,

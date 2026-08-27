@@ -48,7 +48,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only region, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
 | 9 | Application UX/UI polish | Phase 8 | Complete | Founder approved the authenticated interface on August 27, 2026; the street workflow remains unchanged and apartments remain absent apart from the quiet Setup placeholder |
-| 10 | Outreach progress and presentation | Phase 9 | In progress | Phase 9 is approved and the early implementation exists; unattended repeat, reduced-motion, print-dialog, and founder acceptance checks remain |
+| 10 | Outreach progress and presentation | Phase 9 | Complete | Founder approved the administrator view, unattended presentation loop, and final centered print view on August 27, 2026; the complete repository check passes |
 | 11 | Public trust and access presentation | Phase 10 | Pending | None |
 | 12 | Deployment and recovery | Phase 11 | Pending | None |
 | 13 | Founder-church pilot | Phase 12 | Pending | None |
@@ -976,8 +976,9 @@ without turning the operational workspace into an analytics dashboard.
   Coverage, Generate, Print, and Reconcile cycle.
 - Build an administrator view with a simplified progress map, period selection, factual historical
   metrics, a static print action, and a presentation-mode action.
-- Derive metrics only from existing coverage events, completed packets, street segments, and
-  estimated homes. Do not claim people reached, spiritual outcomes, or volunteer performance.
+- Derive metrics only from existing coverage events, completed packets, unique street names, and
+  estimated homes. Count each unnamed road group separately. Do not claim people reached, spiritual
+  outcomes, or volunteer performance.
 - Add a calm, unattended full-screen presentation mode with no administrative controls.
 - Default its yearly playback to cumulative progress: each street lights up when outreach is
   recorded and remains lit through the end of the playback.
@@ -1010,8 +1011,8 @@ full-screen state at desktop and TV-sized widths, and print the static view.
 
 - The authenticated workspace now has exactly four top-level tools. Generate and Reconcile retain
   their existing stateful workflows inside Packets; Region and Printouts sit inside Setup.
-- Outreach Progress derives yearly dates, cumulative map state, completed packets, covered street
-  sections, and estimated homes from effective append-only coverage records.
+- Outreach Progress derives yearly dates, cumulative map state, completed packets, unique street
+  names reached, and estimated homes from effective append-only coverage records.
   Its administrator, presentation, and print modes reuse one composition and reduced-motion skips
   playback animation.
 - Church-wide packet footer text and its optional reference are persisted, removable, previewed in
@@ -1045,21 +1046,31 @@ full-screen state at desktop and TV-sized widths, and print the static view.
   aligns with the visible slider track. The review seeder now writes only to the guarded
   `outreach-progress-demo.db` copy and leaves the source database unchanged. `pnpm check` passes
   328 Node checks, 71 Python importer checks, Biome, TypeScript, and the production build.
+- The August 27 print-review build reports unique streets rather than road sections, labels the
+  report date as progress through that day, suppresses browser print headers and footers, and fits
+  completed roads symmetrically around the church. MapLibre now resizes with the print column so
+  the centered camera is not clipped, and print preparation uses the PDF's exact paper geometry
+  and light colors before the dialog opens. All 320 Node tests and six rendered contracts pass
+  with Biome and TypeScript.
 - Region Setup now accepts import-required saves as persisted background jobs with reconnectable
   coarse stages, one active job per church, atomic replacement, and safe retry after failure or
   interruption. The radius is constrained to one through five miles. Deterministic spatial indexes
   reduced the founder-approved saved 1.9-mile pilot import to 114.5 seconds with the existing pinned
   Overture/FEMA sources and normalizer v11. The complete Node and 66-check Python importer suites,
   Biome, TypeScript, production build, and whitespace check pass.
-- Phase 9 was approved on August 27, 2026, so formal Phase 10 verification may proceed. The complete
-  repeat, reduced-motion emulation, and print-dialog inspection remain part of final Phase 10
-  acceptance.
+- The final repository check passes Biome, TypeScript, 320 application Node tests, six rendered
+  contracts, four Python-runner Node tests, 71 Python importer tests, and the production build.
+- The founder approved Phase 10 on August 27, 2026 after the complete unattended repeat and final
+  print-dialog inspection. The reduced-motion manual inspection was explicitly skipped; its
+  automated behavior remains covered. Phase 11 has not started.
 
 ### Human review
 
 The founder confirms that the page encourages the church through a truthful view of faithful
 neighborhood outreach rather than measuring marketing performance, and that it can remain calmly
 on a church display without someone operating it.
+
+The founder approved the administrator, presentation, and print views on August 27, 2026.
 
 ### Completion condition
 

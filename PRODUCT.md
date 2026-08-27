@@ -4,7 +4,7 @@
 
 Status: approved founder direction  
 Approved: 2026-07-27
-Updated: 2026-08-21
+Updated: 2026-08-27
 
 ## Platform
 
@@ -475,9 +475,10 @@ It is optional and does not interrupt the recurring Coverage and Packets workflo
 
 The administrator view contains a simplified progress map, a selected time period, factual metrics
 derived from Streetlight's existing records, a static print action, and a control that launches
-presentation mode. Appropriate metrics include completed packets, covered street segments, and
-estimated homes reached. Streetlight does not infer people reached, spiritual outcomes, volunteer
-performance, or other claims it cannot observe.
+presentation mode. Appropriate metrics include completed packets, unique street names reached, and
+estimated homes reached. The interface labels the street-name count as `Streets`; unnamed roads use
+their distinct imported road groups. Streetlight does not infer people reached, spiritual outcomes,
+volunteer performance, or other claims it cannot observe.
 
 Presentation mode is a calm, unattended full-screen composition suitable for leaving on a church
 TV or display. It contains no administrative controls and requires no one to click through a

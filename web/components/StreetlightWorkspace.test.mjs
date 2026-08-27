@@ -19,6 +19,38 @@ test('progress map replaces lifecycle ownership before releasing the previous fr
   assert.match(progressMapSource, /current\.release\(\);\s*releaseRef\.current = null;/);
 });
 
+test('print preparation uses the final paper map dimensions before opening the dialog', async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await browser.newPage({ viewport: { width: 1920, height: 945 } });
+
+  await page.setContent(`
+    <style>${styles}</style>
+    <div class="territory-page progress-stage progress-print">
+      <main class="territory-workspace">
+        <section class="map-panel"></section>
+        <aside class="territory-sidebar progress-stage-sidebar"></aside>
+      </main>
+    </div>
+  `);
+
+  const geometry = await page.locator('.territory-page').evaluate((element) => {
+    const pageRect = element.getBoundingClientRect();
+    const mapRect = element.querySelector('.map-panel').getBoundingClientRect();
+    return {
+      mapHeight: mapRect.height,
+      mapWidth: mapRect.width,
+      pageHeight: pageRect.height,
+      pageWidth: pageRect.width,
+    };
+  });
+
+  assert.equal(geometry.pageHeight, 816);
+  assert.equal(geometry.pageWidth, 1056);
+  assert.ok(Math.abs(geometry.mapHeight - 748.8) < 0.1);
+  assert.ok(Math.abs(geometry.mapWidth - 672) < 0.1);
+});
+
 test('Setup disclosure controls stay inside both horizontal clipping edges', async (t) => {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());

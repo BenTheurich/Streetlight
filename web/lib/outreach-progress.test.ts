@@ -22,6 +22,8 @@ const workspace = {
   segments: [
     {
       id: 'street-a',
+      roadGroupId: 'main-a',
+      streetName: 'Main Street',
       estimatedHomes: 12,
       geometry: {
         type: 'LineString',
@@ -34,6 +36,8 @@ const workspace = {
     },
     {
       id: 'street-b',
+      roadGroupId: 'main-b',
+      streetName: 'main street',
       estimatedHomes: 8,
       geometry: {
         type: 'LineString',
@@ -64,14 +68,14 @@ test('cumulative snapshots never remove earlier outreach', () => {
   const progress = buildOutreachProgress(workspace, 2026);
   assert.deepEqual(outreachProgressSnapshot(progress, '2026-02-01'), {
     completedPackets: 1,
-    streetSections: 1,
+    streets: 1,
     apartmentComplexes: 0,
     estimatedHomes: 12,
     outreachDays: 1,
   });
   assert.deepEqual(outreachProgressSnapshot(progress, '2026-03-01'), {
     completedPackets: 1,
-    streetSections: 2,
+    streets: 1,
     apartmentComplexes: 0,
     estimatedHomes: 20,
     outreachDays: 2,

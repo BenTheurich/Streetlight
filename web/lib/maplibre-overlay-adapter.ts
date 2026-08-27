@@ -242,6 +242,9 @@ export function createMapLibreOverlayAdapter(
       overlayCursor = cursor;
       syncCursor();
     },
+    resize() {
+      map.resize();
+    },
     fitBounds(bounds, options) {
       map.fitBounds(bounds, options);
     },

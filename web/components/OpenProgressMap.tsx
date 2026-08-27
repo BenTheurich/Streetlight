@@ -9,6 +9,7 @@ export function OpenProgressMap({
   active,
   animated,
   cinematic,
+  fitForPrint,
   lifecycle,
   position,
   progress,
@@ -18,6 +19,7 @@ export function OpenProgressMap({
   active: boolean;
   animated: boolean;
   cinematic: boolean;
+  fitForPrint: boolean;
   lifecycle: MapOverlayLifecycle | null;
   position: number;
   progress: OutreachProgressPeriod;
@@ -37,6 +39,7 @@ export function OpenProgressMap({
       release: lifecycle.present({
         animated,
         cinematic,
+        fitForPrint,
         kind: 'progress',
         position,
         visible: active,
@@ -45,7 +48,7 @@ export function OpenProgressMap({
       }),
     };
     previous?.release();
-  }, [active, animated, cinematic, lifecycle, position, progress, workspace]);
+  }, [active, animated, cinematic, fitForPrint, lifecycle, position, progress, workspace]);
 
   useEffect(
     () => () => {
