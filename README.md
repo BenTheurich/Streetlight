@@ -14,7 +14,7 @@ planned phase.
 
 Requirements:
 
-- Node.js 22.15 or newer
+- Node.js 24.15 or newer
 - pnpm 10.27
 - Python 3.12 or newer for the Overture importer
 
