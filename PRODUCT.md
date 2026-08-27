@@ -552,10 +552,17 @@ The founder church receives **Founding church access**. Its account states exact
 >
 > Streetlight is provided to your church at no cost. No payment is required.
 
+The founder may grant **Sponsored access** to another church at personal discretion. Founding and
+sponsored churches receive the same product as paying churches. Streetlight may later publish a
+truthful aggregate sponsored-church count, but it does not identify a recipient, collect its
+membership for this purpose, or claim that one subscriber funds a precise share of another
+church's access.
+
 The public landing page contains no pricing section. Once How it works and Why Streetlight are
 available, navigation links to a separate Pricing page containing the annual and monthly prices,
-trial terms, email-support boundary, FAQs, and a signed founder note with a photograph. Follow the
-approved [`Public site, trial, and subscription experience`](docs/superpowers/specs/2026-08-04-public-site-trial-subscription-design.md).
+trial terms, email-support boundary, sponsored-access explanation, FAQs, and a signed founder note
+with a photograph. Follow the approved
+[`Public site, trial, and subscription experience`](docs/superpowers/specs/2026-08-04-public-site-trial-subscription-design.md).
 
 Pricing and access presentation precede the founder-church handoff. Payment collection,
 subscription automation, trial expiration, and paid access enforcement remain excluded until the

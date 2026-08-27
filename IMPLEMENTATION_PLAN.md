@@ -1103,6 +1103,9 @@ before anyone at that church receives the hosted application.
   local membership model.
 - Mark the founder church as **Founding church access** and show: `Streetlight is provided to your
   church at no cost. No payment is required.`
+- Show the standard annual and monthly prices beneath the founding status so administrators can
+  explain that their access is special and Streetlight is not generally free.
+- Support **Sponsored access** as a separate founder-controlled label for later recipient churches.
 
 Do not add checkout, card collection, subscription webhooks, automatic trial dates, expiration
 enforcement, feature gates, usage limits, or a billing-provider dependency in this phase.
@@ -1122,17 +1125,18 @@ enforcement, feature gates, usage limits, or a billing-provider dependency in th
 - Invitations are idempotent within one church, pending invitations can be revoked, removing an
   administrator removes only that church membership, and self-removal is rejected.
 - An administrator from one church cannot list, invite, revoke, or remove members of another.
-- The founder church sees the exact approved Founding church access wording.
-- An ordinary test church cannot see the founder church's Founding church access label.
+- The founder church sees the exact approved Founding church access wording and the standard price.
+- A sponsored test church sees Sponsored access without gaining cross-church access.
+- An ordinary test church cannot see either no-cost access label.
 - Existing administrator workflow and isolation checks continue to pass.
 - No payment provider or operational access gate is introduced.
 
 ### Browser check
 
 Navigate from the refreshed landing page through How it works, Why Streetlight, and Pricing at
-supported desktop and mobile widths. Sign in as the founder church and an ordinary test church,
-inspect each Account state, invite and remove a second administrator, and run the unchanged core
-workflow.
+supported desktop and mobile widths. Sign in as the founder church, a sponsored test church, and an
+ordinary test church. Inspect each Account state, invite and remove a second administrator, and run
+the unchanged core workflow.
 
 ### Human review
 
@@ -1143,8 +1147,8 @@ clear: their church pays nothing, and Streetlight is normally a paid product.
 
 ### Completion condition
 
-The founder approves every public page, the administrator-management flow, and the founder church's
-access presentation. The founder-church administrator understands the access and pricing
+The founder approves every public page, the administrator-management flow, and the founding and
+sponsored access presentation. The founder-church administrator understands the access and pricing
 distinction without an explanatory conversation. The agent then stops before deployment work.
 
 ## Phase 12: Deployment and recovery

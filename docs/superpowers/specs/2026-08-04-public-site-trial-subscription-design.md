@@ -26,6 +26,7 @@ This document records future direction; it does not add work to Phase 9.
    support costs.
 6. After Phase 13, implement trial timing, payment collection, and paid access enforcement only
    after an explicit founder decision.
+7. Add sponsored-access reporting only after real sponsored and paying churches exist.
 
 The reference price is **$149 per year** or **$15 per month**, with annual billing presented first.
 The founder may revise those amounts after Phase 13 evidence, but the published price remains in
@@ -155,9 +156,10 @@ visual design or wording. It contains:
 
 - one plan with `$149 per year` first and `$15 per month` second;
 - the 90-day free-trial terms and a clear `No credit card required` statement;
-- one feature summary because every paying and founding church receives the same product;
+- one feature summary because every paying, founding, and sponsored church receives the same product;
 - the included support boundary;
 - a founder note with a photograph and signature;
+- a short explanation of sponsored access;
 - frequently asked questions.
 
 Hero and billing choices:
@@ -202,7 +204,8 @@ it positively in the concise FAQ below.
 
 The founder note explains that Streetlight was first built for the founder's church, that reliable
 hosting and maintenance cost real time and money, and that subscriptions keep the service
-dependable. Streetlight does not use ads or sell church data.
+dependable while helping make sponsored access possible. Streetlight does not use ads or sell
+church data.
 
 The FAQ uses short accordion answers:
 
@@ -215,6 +218,7 @@ The FAQ uses short accordion answers:
   who helps manage your outreach at no extra cost!`
 - **What happens when the trial ends?** `Your work stays right where you left it—nothing is lost.
   However, you'll need a subscription to continue using Streetlight.`
+- **Can a church receive sponsored access?** `A limited number may, at the founder's discretion.`
 - **What support is included?** `Email support is included when Streetlight isn't working as
   expected or you need help using it.`
 - **Can I cancel at any time?** `Yes. You'll keep access through the end of your paid period. We'll
@@ -289,14 +293,22 @@ User-facing states are:
 - **Active subscription**: monthly or annual, with the next renewal date and a manage-subscription
   action.
 - **Founding church access**: the founder's church uses Streetlight at no cost and no payment is
-  required.
+  required; the account also shows the standard annual and monthly prices.
+- **Sponsored access**: the church has full access at no cost.
 - **Payment issue**: payment management is needed, without claiming access has ended prematurely.
 - **Subscription ended**: operational access is paused and the church can subscribe again.
+
+`Comped` may be used as an internal implementation term but never appears to a church.
 
 Example founding-church copy:
 
 > **Founding church access**
 > Streetlight is provided to your church at no cost. No payment is required.
+
+Example sponsored-access copy:
+
+> **Sponsored access**
+> Your church has full access to Streetlight at no cost.
 
 ## Support boundary
 
@@ -315,6 +327,26 @@ list every exclusion.
 Do not add a support-ticket platform for launch. A published support email is sufficient until its
 volume proves otherwise.
 
+## Sponsored access
+
+Sponsored and founding churches receive the same features as paying churches. Access state must
+never weaken reservation, reconciliation, correction, isolation, or data-integrity behavior.
+
+Streetlight may later show truthful aggregate language such as:
+
+> Paid subscriptions currently help make Streetlight available to 3 sponsored churches.
+
+That count may appear only when it is derived from real access records. Streetlight does not:
+
+- identify a sponsored church publicly or to another customer;
+- collect or display its membership count for this purpose;
+- claim that one subscriber funds a precise percentage of another church;
+- promise a fixed one-for-ten sponsorship ratio before finances support it;
+- add a donation ledger or per-subscriber allocation system.
+
+Before a real aggregate count exists, use general wording: `Paid subscriptions help make sponsored
+access possible.`
+
 ## Minimal data model
 
 One church has one access state. The existing `churches` record is extended with only the fields
@@ -329,7 +361,7 @@ The selected payment provider remains authoritative for payment processing. Stre
 minimum confirmed state needed to enforce access without making a provider request on every page
 load. Signed provider notifications update that state idempotently.
 
-Founding church access is a founder-controlled church state and requires no fake subscription,
+Founding and sponsored access are founder-controlled church states and require no fake subscription,
 coupon, or payment-provider customer.
 
 ## Access enforcement and safety
@@ -350,14 +382,15 @@ The later implementation leaves focused checks proving:
 - the 90-day trial starts on the first successful region save and cannot be restarted;
 - a trial church has complete workflow access before expiration;
 - an expired church cannot perform operational mutations or generate new output;
-- the founding church bypasses payment without bypassing authentication or isolation;
+- founding and sponsored churches bypass payment without bypassing authentication or isolation;
 - an active subscription works until its confirmed paid-through date;
 - cancellation and provider retries are idempotent;
 - payment-provider failures do not corrupt workflow data;
 - the account page shows the correct plain-language state and action;
 - administrator listing and changes are confined to the authenticated WorkOS organization;
 - duplicate invitations, revocation, removal, and self-removal behave safely;
-- public pages have accessible headings, navigation, links, and responsive layouts.
+- public pages have accessible headings, navigation, links, and responsive layouts;
+- sponsored counts, if displayed, are aggregate and derived from real records.
 
 ## Deliberate exclusions
 
@@ -367,6 +400,9 @@ The later implementation leaves focused checks proving:
 - Feature tiers, usage quotas, or administrator limits
 - A print-only paywall
 - Custom payment forms or subscription-management UI
+- Named sponsorship stories without a separate, explicit founder and recipient decision
+- Per-subscriber sponsorship percentages
+- Membership-count collection
 - Automated CRM, sales sequences, or a support-ticket platform
 - Payment collection, automatic trial timing, or access enforcement during Phases 9 through 13
 
@@ -376,6 +412,7 @@ The workstreams are implemented and reviewed in order:
 
 1. Phase 10: Outreach Progress administrator, presentation, and print views
 2. Phase 11: refreshed landing visuals, How it works, Why Streetlight, Pricing, Account, and
-   Founding church access label
+   founding/sponsored access labels
 3. After Phase 13 and an explicit founder decision: trial timing, hosted checkout, and church-wide
    access enforcement
+4. After real sponsored and paying churches exist: aggregate sponsored-access messaging
