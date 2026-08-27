@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { AdministratorAccount } from './AdministratorAccount.tsx';
 import { ChurchOnboarding } from './ChurchOnboarding.tsx';
 import { CoverageDashboard } from './CoverageDashboard.tsx';
+import { OutreachProgress } from './OutreachProgress.tsx';
 import { PublicLanding } from './PublicLanding.tsx';
 
 let browser;
@@ -122,6 +123,108 @@ test('current progress omits zero-home coverage bands from rendered semantics', 
 
   assert.equal(await page.getByRole('img').getAttribute('aria-label'), 'green: 8 estimated homes');
   assert.equal(await page.locator('.coverage-distribution-segment').count(), 1);
+});
+
+test('empty outreach years cannot be presented or printed', async (t) => {
+  const page = await render(
+    createElement(OutreachProgress, {
+      active: true,
+      churchName: 'Sample Church',
+      day: 0,
+      displayMode: 'admin',
+      endDay: 0,
+      onDayChange() {},
+      onDisplayModeChange() {},
+      onModeChange() {},
+      onPlay() {},
+      onPrint() {},
+      onStepChange() {},
+      onYearChange() {},
+      playing: false,
+      presentationButtonRef: { current: null },
+      progress: {
+        dates: [],
+        endDate: '2026-08-25',
+        events: [],
+        mode: 'calendar',
+        startDate: '2026-01-01',
+        units: [],
+        year: 2026,
+      },
+      position: 0,
+      selectedDate: null,
+      snapshot: {
+        apartmentComplexes: 0,
+        completedPackets: 0,
+        estimatedHomes: 0,
+        outreachDays: 0,
+        streetSections: 0,
+      },
+      stepCount: 0,
+      timelinePosition: 0,
+      year: 2026,
+      years: [2026],
+    }),
+  );
+  t.after(() => page.close());
+
+  await page.getByText('No completed outreach is recorded for this period.').waitFor();
+  for (const name of ['Present full screen', 'Print progress']) {
+    assert.equal(await page.getByRole('button', { name }).isDisabled(), true);
+  }
+  assert.equal(await page.getByRole('button', { name: /playback|Play 2026/ }).count(), 0);
+  assert.equal(await page.getByRole('slider').count(), 0);
+});
+
+test('outreach playback groups transport controls and keeps output actions in task order', async (t) => {
+  const page = await render(
+    createElement(OutreachProgress, {
+      active: true,
+      churchName: 'Sample Church',
+      displayMode: 'admin',
+      onDisplayModeChange() {},
+      onModeChange() {},
+      onPlay() {},
+      onPrint() {},
+      onStepChange() {},
+      onYearChange() {},
+      playing: false,
+      presentationButtonRef: { current: null },
+      progress: {
+        dates: ['2025-10-02'],
+        endDate: '2025-10-02',
+        events: [{ date: '2025-10-02', packetId: 'packet-1' }],
+        mode: 'rolling',
+        startDate: '2024-10-04',
+        units: [],
+        year: 2025,
+      },
+      position: 0,
+      selectedDate: null,
+      snapshot: {
+        apartmentComplexes: 0,
+        completedPackets: 0,
+        estimatedHomes: 0,
+        outreachDays: 0,
+        streetSections: 0,
+      },
+      stepCount: 1,
+      timelinePosition: 0,
+      year: 2025,
+      years: [2025],
+    }),
+  );
+  t.after(() => page.close());
+
+  await page.getByRole('heading', { name: 'Past year', exact: true }).waitFor();
+  const playbackControls = page.locator('.progress-playback-controls');
+  assert.equal(await playbackControls.getByRole('button', { name: 'Play past year' }).count(), 1);
+  assert.equal(await playbackControls.getByRole('slider').count(), 1);
+  assert.equal(await page.getByRole('button', { name: 'Restart' }).count(), 0);
+  assert.deepEqual(await page.locator('.progress-actions button').allTextContents(), [
+    'Present full screen',
+    'Print progress',
+  ]);
 });
 
 test('the public landing renders administrator login and the complete pilot request form', async (t) => {

@@ -112,6 +112,11 @@ class TestMapAdapter implements MapOverlayAdapter {
     reject: (error: Error) => void;
   }> = [];
   readonly styleTargets: WorkspaceMapBasePresentation[] = [];
+  readonly progressMasks: Array<{
+    visible: boolean;
+    lines: Array<Array<[number, number]>>;
+    active?: { lines: Array<Array<[number, number]>>; opacity: number };
+  }> = [];
   styleReplacements = 0;
   ready = Promise.resolve();
 
@@ -175,6 +180,14 @@ class TestMapAdapter implements MapOverlayAdapter {
 
   setPaintProperty(id: string, property: string, value: unknown) {
     this.paintProperties.set(`${id}:${property}`, value);
+  }
+
+  setProgressMask(mask: {
+    visible: boolean;
+    lines: Array<Array<[number, number]>>;
+    active?: { lines: Array<Array<[number, number]>>; opacity: number };
+  }) {
+    this.progressMasks.push(mask);
   }
 
   styleLayers() {
@@ -765,7 +778,7 @@ test('a cluster result cannot move the camera after its presentation epoch is go
   lifecycle.dispose();
 });
 
-test('progress intent publishes completion data and hides its stable layers on cleanup', async () => {
+test('progress intent grows active roads and hides its stable layers on cleanup', async () => {
   const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
   const adapter = new TestMapAdapter();
   const workspace: CoverageWorkspace = {
@@ -804,10 +817,16 @@ test('progress intent publishes completion data and hides its stable layers on c
     totals: { eligibleHomes: 10 },
   };
   const cleanup = lifecycle.present({
+    animated: true,
+    cinematic: true,
     kind: 'progress',
+    position: 0.245,
     visible: true,
     progress: {
+      mode: 'calendar',
       year: 2026,
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
       dates: ['2026-01-02'],
       events: [],
       units: [
@@ -820,18 +839,36 @@ test('progress intent publishes completion data and hides its stable layers on c
         },
       ],
     },
-    through: '2026-01-02',
     workspace,
   });
   lifecycle.attach(adapter);
   await turn();
 
-  const progress = adapter.sources.get('streetlightProgress') as {
-    features: Array<{ properties: { completed: boolean } }>;
+  const progress = adapter.sources.get('streetlightProgress') as { features: unknown[] };
+  const completed = adapter.sources.get('streetlightProgressCompleted') as {
+    features: unknown[];
   };
-  assert.equal(progress.features[0]?.properties.completed, true);
+  const active = adapter.sources.get('streetlightProgressActive') as {
+    features: Array<{ geometry: { coordinates: Array<[number, number]> } }>;
+  };
+  assert.equal(progress.features.length, 1);
+  assert.equal(completed.features.length, 0);
+  assert.equal(active.features.length, 1);
+  const activeCoordinates = active.features[0]?.geometry.coordinates;
+  assert.deepEqual(activeCoordinates?.[0], [-117.1, 33.5]);
+  assert.ok(Math.abs((activeCoordinates?.[1]?.[0] ?? 0) - -117.09925) < 1e-10);
+  const mask = adapter.progressMasks.at(-1);
+  assert.equal(mask?.visible, true);
+  assert.deepEqual(mask?.lines, []);
+  assert.deepEqual(mask?.active?.lines, [activeCoordinates]);
+  assert.ok(Math.abs((mask?.active?.opacity ?? 0) - 0.216) < 1e-10);
+  assert.equal(adapter.layers.has('streetlight-progress-shade'), false);
+  assert.equal(adapter.layers.has('streetlight-progress-clearing'), false);
+  assert.equal(adapter.layers.has('streetlight-progress-glow'), false);
   assert.equal(adapter.layers.get('streetlight-progress-lines')?.visible, true);
+  assert.equal(adapter.layers.get('streetlight-progress-lines-active')?.visible, true);
   cleanup();
+  assert.deepEqual(adapter.progressMasks.at(-1), { visible: false, lines: [] });
   assert.equal(adapter.layers.get('streetlight-progress-lines')?.visible, false);
   lifecycle.dispose();
 });

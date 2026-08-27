@@ -3,7 +3,9 @@ import test from 'node:test';
 import type { CoverageWorkspace } from './coverage.ts';
 import {
   buildOutreachProgress,
+  outreachProgressPlayback,
   outreachProgressSnapshot,
+  outreachProgressStepCount,
   outreachProgressYears,
 } from './outreach-progress.ts';
 
@@ -74,4 +76,44 @@ test('cumulative snapshots never remove earlier outreach', () => {
     estimatedHomes: 20,
     outreachDays: 2,
   });
+});
+
+test('playback advances only through recorded outreach days', () => {
+  const progress = buildOutreachProgress(workspace, 2026);
+
+  assert.equal(outreachProgressStepCount(progress), 2);
+  assert.deepEqual(outreachProgressPlayback(progress, 0.1), {
+    barPosition: 0.5,
+    completedStep: 0,
+    revealDate: '2026-02-01',
+    revealProgress: 0,
+    selectedDate: null,
+    through: null,
+  });
+  assert.deepEqual(outreachProgressPlayback(progress, 0.5), {
+    barPosition: 1,
+    completedStep: 0,
+    revealDate: '2026-02-01',
+    revealProgress: 0.5,
+    selectedDate: '2026-02-01',
+    through: null,
+  });
+  assert.deepEqual(outreachProgressPlayback(progress, 0.9), {
+    barPosition: 1,
+    completedStep: 1,
+    revealDate: '2026-02-01',
+    revealProgress: 1,
+    selectedDate: '2026-02-01',
+    through: '2026-02-01',
+  });
+});
+
+test('rolling progress spans the latest 52 weeks across calendar years', () => {
+  const progress = buildOutreachProgress(workspace, 'rolling');
+
+  assert.equal(progress.mode, 'rolling');
+  assert.equal(progress.startDate, '2025-08-04');
+  assert.equal(progress.endDate, '2026-08-02');
+  assert.equal(outreachProgressStepCount(progress), 3);
+  assert.deepEqual(progress.dates, ['2025-12-01', '2026-02-01', '2026-03-01']);
 });

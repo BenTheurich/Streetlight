@@ -7,15 +7,79 @@ import { createMapLibreOverlayAdapter } from './maplibre-overlay-adapter.ts';
 
 class FakeElement extends EventTarget {
   readonly style: Record<string, string> = { cursor: '' };
+  readonly children: FakeElement[] = [];
   className = '';
+  clientHeight = 600;
+  clientWidth = 800;
+  removed = false;
 
-  append() {}
+  append(child: FakeElement) {
+    this.children.push(child);
+  }
 
   getBoundingClientRect() {
     return { left: 0, top: 0 };
   }
 
-  remove() {}
+  remove() {
+    this.removed = true;
+  }
+}
+
+class FakeCanvasContext {
+  fillStyle = '';
+  filter = 'none';
+  globalAlpha = 1;
+  globalCompositeOperation = 'source-over';
+  lineCap = '';
+  lineJoin = '';
+  lineWidth = 1;
+  strokeStyle = '';
+  readonly fills: Array<{ composite: string; style: string }> = [];
+  readonly images: Array<{ alpha: number; composite: string; filter: string }> = [];
+  readonly strokes: Array<{ alpha: number; composite: string; width: number }> = [];
+
+  beginPath() {}
+
+  clearRect() {}
+
+  fillRect() {
+    this.fills.push({ composite: this.globalCompositeOperation, style: this.fillStyle });
+  }
+
+  drawImage() {
+    this.images.push({
+      alpha: this.globalAlpha,
+      composite: this.globalCompositeOperation,
+      filter: this.filter,
+    });
+  }
+
+  lineTo() {}
+
+  moveTo() {}
+
+  setTransform() {}
+
+  stroke() {
+    this.strokes.push({
+      alpha: this.globalAlpha,
+      composite: this.globalCompositeOperation,
+      width: this.lineWidth,
+    });
+  }
+}
+
+class FakeCanvas extends FakeElement {
+  readonly context = new FakeCanvasContext();
+  ariaHidden = '';
+  height = 0;
+  hidden = false;
+  width = 0;
+
+  getContext() {
+    return this.context;
+  }
 }
 
 class FakeToggle {
@@ -46,12 +110,25 @@ class FakeMap extends EventEmitter {
   styleLoadedValue = false;
   styleReplacements = 0;
 
+  constructor() {
+    super();
+    this.container.clientHeight = 0;
+  }
+
   getCanvas() {
     return this.canvas;
   }
 
   getCanvasContainer() {
     return this.container;
+  }
+
+  getZoom() {
+    return 14;
+  }
+
+  project(coordinate: [number, number]) {
+    return { x: coordinate[0], y: coordinate[1] };
   }
 
   getLayer(id: string) {
@@ -127,7 +204,7 @@ const adapterFor = (map: FakeMap) =>
 
 const turn = () => new Promise<void>((resolve) => setImmediate(resolve));
 
-function installDom() {
+function installDom(createElement: (tagName: string) => FakeElement = () => new FakeElement()) {
   const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
   Object.defineProperty(globalThis, 'window', {
@@ -136,7 +213,7 @@ function installDom() {
   });
   Object.defineProperty(globalThis, 'document', {
     configurable: true,
-    value: { createElement: () => new FakeElement() },
+    value: { createElement },
   });
   return () => {
     if (windowDescriptor) Object.defineProperty(globalThis, 'window', windowDescriptor);
@@ -145,6 +222,55 @@ function installDom() {
     else Reflect.deleteProperty(globalThis, 'document');
   };
 }
+
+test('progress mask unions completed and active roads before erasing the dark overlay', (context) => {
+  const mask = new FakeCanvas();
+  const cutout = new FakeCanvas();
+  const canvases = [mask, cutout];
+  context.after(
+    installDom((tagName) =>
+      tagName === 'canvas' ? (canvases.shift() ?? new FakeCanvas()) : new FakeElement(),
+    ),
+  );
+  const map = new FakeMap();
+  const adapter = adapterFor(map);
+
+  adapter.setProgressMask({
+    visible: true,
+    lines: [
+      [
+        [-117.1, 33.5],
+        [-117.09, 33.5],
+      ],
+    ],
+    active: {
+      lines: [
+        [
+          [-117.08, 33.5],
+          [-117.07, 33.5],
+        ],
+      ],
+      opacity: 0.25,
+    },
+  });
+
+  assert.equal(map.container.children[0], mask);
+  assert.deepEqual(mask.context.fills, [{ composite: 'source-over', style: 'rgb(7 17 31 / 46%)' }]);
+  assert.deepEqual(cutout.context.strokes, [
+    { alpha: 1, composite: 'source-over', width: 38 },
+    { alpha: 0.25, composite: 'source-over', width: 38 },
+  ]);
+  assert.deepEqual(mask.context.images, [
+    { alpha: 1, composite: 'destination-out', filter: 'blur(12px)' },
+  ]);
+
+  adapter.setProgressMask({ visible: false, lines: [] });
+  assert.equal(mask.hidden, true);
+  adapter.dispose();
+  assert.equal(mask.removed, true);
+  assert.equal(map.listenerCount('move'), 0);
+  assert.equal(map.listenerCount('resize'), 0);
+});
 
 function domEvent(type: string, properties: Record<string, unknown>) {
   const event = new Event(type);

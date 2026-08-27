@@ -47,7 +47,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 6 | Reconciliation and corrections | Phase 5 | Complete | Founder approved the reconciliation workflow on July 29, 2026; whole-packet street/apartment reconciliation, append-only correction/undo, and reservation lifecycle pass 135 Node checks, 51 Python checks, Biome, TypeScript, production build, and an isolated real-browser table simulation |
 | 7 | Authentication and church isolation | Phase 6 | Complete | Founder approved live sign-in, sign-out, organization switching, and the reorganized authenticated header on July 29, 2026; WorkOS AuthKit guards every administrator page and API route, and automated two-organization isolation checks pass |
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only region, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
-| 9 | Application UX/UI polish | Phase 8 | Awaiting founder review | Apartment workflows are deferred behind one preserved capability seam; automated verification and signed-in desktop/tablet acceptance pass, and founder approval remains |
+| 9 | Application UX/UI polish | Phase 8 | Awaiting human review | Apartment workflows are deferred behind one preserved capability seam; automated verification and signed-in desktop/tablet acceptance pass, and founder approval remains |
 | 10 | Outreach progress and presentation | Phase 9 | Pending | Early implementation exists, but formal review and acceptance remain deferred until Phase 9 is approved |
 | 11 | Public trust and access presentation | Phase 10 | Pending | None |
 | 12 | Deployment and recovery | Phase 11 | Pending | None |
@@ -1019,6 +1019,31 @@ full-screen state at desktop and TV-sized widths, and print the static view.
   progress, and workspace checks pass 26 of 26; TypeScript passes; and a clean localhost browser
   pass verified all four tools, both internal switchers, cumulative playback, and presentation
   mode without changing Coverage's approved legend or estimated-progress bar.
+- The August 27 founder-directed presentation pass adds real browser full screen, room-scale
+  metrics, calendar-year and rolling-52-week views, recorded-date-only playback, and a calm
+  roughly two-minute 52-step loop. Each step glides to its outreach date, grows that date's roads at a
+  constant rate, rests, and remains lit; presentation removes the legend and uses localized warm
+  light to lift completed roads from a darkened map. Empty periods cannot present or print, and the
+  landscape print view is tuned for office printers and PDF export. The retained local Temecula
+  history now contains exactly 52 weekly dates, 52 completed packets, and 1,489 visible road
+  sections. TypeScript, 15 focused progress/map checks, five rendered contracts, the Impeccable
+  detector, and a clean localhost browser reload pass.
+- An August 27 follow-up replaces the additive presentation light with one canvas alpha mask. The
+  dark overlay is progressively erased around completed and actively growing roads, with the
+  strongest clearing centered on each road and a continuous diffused falloff; overlapping
+  segments cannot become brighter than the unchanged base map. The
+  mask sizes itself from MapLibre's visible canvas rather than its zero-height event container. The
+  active clearing fades in over the first quarter of each road reveal instead of appearing as a
+  full circular cutout on its first frame. Completed and growing roads are composited into one
+  cutout before a broader diffused edge is applied, so the active-to-completed handoff cannot
+  darken overlap patches and does not retain an increasing number of temporary layers. The 21
+  focused map lifecycle and adapter checks, Biome, TypeScript, and the Impeccable detector pass.
+- The August 27 administrator follow-up shortens the rolling-period copy to `Past year`, places
+  Play/Pause beside the playback slider, removes Restart, aligns Present full screen and Print
+  progress as equal actions, and removes the redundant divider below the metrics. The date label
+  aligns with the visible slider track. The review seeder now writes only to the guarded
+  `outreach-progress-demo.db` copy and leaves the source database unchanged. `pnpm check` passes
+  328 Node checks, 71 Python importer checks, Biome, TypeScript, and the production build.
 - Region Setup now accepts import-required saves as persisted background jobs with reconnectable
   coarse stages, one active job per church, atomic replacement, and safe retry after failure or
   interruption. The radius is constrained to one through five miles. Deterministic spatial indexes

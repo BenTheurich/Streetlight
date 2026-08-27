@@ -10,7 +10,10 @@ import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
 import type { OpenMapData } from '@/lib/open-map-data';
 import {
   buildOutreachProgress,
+  type OutreachProgressMode,
+  outreachProgressPlayback,
   outreachProgressSnapshot,
+  outreachProgressStepCount,
   outreachProgressYears,
 } from '@/lib/outreach-progress';
 import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
@@ -44,6 +47,8 @@ const tools: Array<{ id: WorkspaceTool; label: string; shortLabel: string }> = [
 ];
 
 const apartmentMarkerPreferenceKey = 'streetlight:show-apartment-markers';
+const progressMillisecondsPerOutreachDay = 2250;
+const progressRestMilliseconds = 4000;
 
 function readApartmentMarkerPreference(): boolean {
   try {
@@ -100,9 +105,11 @@ export function StreetlightWorkspace({
   pendingToolRef.current = pendingTool;
   pendingSetupViewRef.current = pendingSetupView;
   const [progressYear, setProgressYear] = useState(initialYears[0]);
-  const [progressStep, setProgressStep] = useState<number | null>(null);
+  const [progressMode, setProgressMode] = useState<OutreachProgressMode>('calendar');
+  const [progressPosition, setProgressPosition] = useState<number | null>(null);
   const [progressPlaying, setProgressPlaying] = useState(false);
   const [progressDisplayMode, setProgressDisplayMode] = useState<ProgressDisplayMode>('admin');
+  const progressPresentationButtonRef = useRef<HTMLButtonElement>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
   const setupMap = territoryMapMode(tool, setupView);
   const [mapLifecycle, setMapLifecycle] = useState<MapOverlayLifecycle | null>(null);
@@ -122,12 +129,17 @@ export function StreetlightWorkspace({
 
   const progressYears = useMemo(() => outreachProgressYears(coverage), [coverage]);
   const progress = useMemo(
-    () => buildOutreachProgress(coverage, progressYear),
-    [coverage, progressYear],
+    () => buildOutreachProgress(coverage, progressMode === 'calendar' ? progressYear : 'rolling'),
+    [coverage, progressMode, progressYear],
   );
-  const resolvedProgressStep = progressStep ?? progress.dates.length;
-  const progressThrough =
-    resolvedProgressStep > 0 ? (progress.dates[resolvedProgressStep - 1] ?? null) : null;
+  const progressStepCount = outreachProgressStepCount(progress);
+  const resolvedProgressPosition = progressPosition ?? progressStepCount;
+  const progressPositionRef = useRef(resolvedProgressPosition);
+  progressPositionRef.current = resolvedProgressPosition;
+  const progressHasDates = progress.dates.length > 0;
+  const progressPlayback = outreachProgressPlayback(progress, resolvedProgressPosition);
+  const progressSelectedDate = progressPlayback.selectedDate;
+  const progressThrough = progressPlayback.through;
   const progressSnapshot = useMemo(
     () => outreachProgressSnapshot(progress, progressThrough),
     [progress, progressThrough],
@@ -159,44 +171,68 @@ export function StreetlightWorkspace({
 
   useEffect(() => {
     if (!progressPlaying) return;
-    if (reducedMotion || progress.dates.length === 0) {
-      setProgressStep(progress.dates.length);
+    if (reducedMotion || !progressHasDates) {
+      setProgressPosition(progressStepCount);
       setProgressPlaying(false);
       return;
     }
-    const atEnd = resolvedProgressStep >= progress.dates.length;
-    const timeout = window.setTimeout(
-      () => {
-        if (atEnd) {
-          if (progressDisplayMode === 'presentation') setProgressStep(0);
-          else setProgressPlaying(false);
+    let frame = 0;
+    let currentPosition = progressPositionRef.current;
+    let previousFrame: number | null = null;
+    let restStarted: number | null = null;
+    const tick = (time: number) => {
+      if (previousFrame === null) previousFrame = time;
+      const elapsed = Math.min(time - previousFrame, 100);
+      if (elapsed >= 30) {
+        previousFrame = time;
+        if (currentPosition >= progressStepCount) {
+          if (progressDisplayMode !== 'presentation') {
+            setProgressPlaying(false);
+            return;
+          }
+          restStarted ??= time;
+          if (time - restStarted >= progressRestMilliseconds) {
+            currentPosition = 0;
+            restStarted = null;
+            setProgressPosition(0);
+          }
         } else {
-          setProgressStep(resolvedProgressStep + 1);
+          currentPosition = Math.min(
+            progressStepCount,
+            currentPosition + elapsed / progressMillisecondsPerOutreachDay,
+          );
+          setProgressPosition(currentPosition);
         }
-      },
-      atEnd ? 4000 : 850,
-    );
-    return () => window.clearTimeout(timeout);
-  }, [
-    progress.dates.length,
-    progressDisplayMode,
-    progressPlaying,
-    reducedMotion,
-    resolvedProgressStep,
-  ]);
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [progressDisplayMode, progressHasDates, progressPlaying, progressStepCount, reducedMotion]);
 
   useEffect(() => {
     if (progressDisplayMode !== 'presentation') return;
-    const close = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setProgressDisplayMode('admin');
-        setProgressPlaying(false);
-        setProgressStep(progress.dates.length);
+    const finishPresentation = () => {
+      setProgressDisplayMode('admin');
+      setProgressPlaying(false);
+      setProgressPosition(progressStepCount);
+      requestAnimationFrame(() => progressPresentationButtonRef.current?.focus());
+    };
+    const closeFallback = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !document.fullscreenElement) {
+        finishPresentation();
       }
     };
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
-  }, [progress.dates.length, progressDisplayMode]);
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) finishPresentation();
+    };
+    window.addEventListener('keydown', closeFallback);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      window.removeEventListener('keydown', closeFallback);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [progressDisplayMode, progressStepCount]);
 
   useEffect(() => {
     const finishPrint = () => setProgressDisplayMode('admin');
@@ -306,27 +342,52 @@ export function StreetlightWorkspace({
   function changeProgressYear(year: number): void {
     setProgressYear(year);
     const next = buildOutreachProgress(coverage, year);
-    setProgressStep(next.dates.length);
+    setProgressPosition(outreachProgressStepCount(next));
+    setProgressPlaying(false);
+  }
+
+  function changeProgressMode(mode: OutreachProgressMode): void {
+    setProgressMode(mode);
+    const next = buildOutreachProgress(coverage, mode === 'calendar' ? progressYear : 'rolling');
+    setProgressPosition(outreachProgressStepCount(next));
     setProgressPlaying(false);
   }
 
   function playProgress(): void {
-    setProgressStep(reducedMotion ? progress.dates.length : 0);
-    setProgressPlaying(!reducedMotion && progress.dates.length > 0);
+    if (progressPlaying) {
+      setProgressPlaying(false);
+      return;
+    }
+    if (progress.dates.length === 0) return;
+    if (reducedMotion) {
+      setProgressPosition(progressStepCount);
+      return;
+    }
+    if (resolvedProgressPosition >= progressStepCount) setProgressPosition(0);
+    setProgressPlaying(true);
   }
 
   function changeProgressDisplayMode(mode: ProgressDisplayMode): void {
+    if (mode === 'presentation' && progress.dates.length === 0) return;
     setProgressDisplayMode(mode);
-    if (mode === 'presentation') playProgress();
-    else {
+    if (mode === 'presentation') {
+      setProgressPosition(reducedMotion ? progressStepCount : 0);
+      setProgressPlaying(!reducedMotion);
+      void document.documentElement.requestFullscreen?.().catch(() => undefined);
+    } else {
       setProgressPlaying(false);
-      setProgressStep(progress.dates.length);
+      setProgressPosition(progressStepCount);
+      if (document.fullscreenElement) {
+        void document.exitFullscreen().catch(() => undefined);
+      }
+      requestAnimationFrame(() => progressPresentationButtonRef.current?.focus());
     }
   }
 
   function printProgress(): void {
+    if (progress.dates.length === 0) return;
     setProgressPlaying(false);
-    setProgressStep(progress.dates.length);
+    setProgressPosition(progressStepCount);
     setProgressDisplayMode('print');
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
@@ -408,9 +469,12 @@ export function StreetlightWorkspace({
           />
           <OpenProgressMap
             active={tool === 'progress'}
+            animated={!reducedMotion}
+            cinematic={progressDisplayMode === 'presentation'}
             lifecycle={mapLifecycle}
+            position={resolvedProgressPosition}
             progress={progress}
-            through={progressThrough}
+            showLegend={progressDisplayMode !== 'presentation'}
             workspace={coverage}
           />
           <HeatmapSettingsOverlay
@@ -466,18 +530,22 @@ export function StreetlightWorkspace({
           churchName={coverage.churchName}
           displayMode={progressDisplayMode}
           onDisplayModeChange={changeProgressDisplayMode}
+          onModeChange={changeProgressMode}
           onPlay={playProgress}
           onPrint={printProgress}
           onStepChange={(step) => {
-            setProgressStep(step);
+            setProgressPosition(step);
             setProgressPlaying(false);
           }}
           onYearChange={changeProgressYear}
           playing={progressPlaying}
+          presentationButtonRef={progressPresentationButtonRef}
           progress={progress}
+          position={resolvedProgressPosition}
+          selectedDate={progressSelectedDate}
           snapshot={progressSnapshot}
-          step={resolvedProgressStep}
-          through={progressThrough}
+          stepCount={progressStepCount}
+          timelinePosition={progressPlayback.barPosition}
           year={progressYear}
           years={progressYears}
         />

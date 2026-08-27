@@ -1,14 +1,22 @@
 'use client';
 
-import type { CSSProperties } from 'react';
-import type { OutreachProgressPeriod, OutreachProgressSnapshot } from '@/lib/outreach-progress';
+import type { CSSProperties, RefObject } from 'react';
+import type {
+  OutreachProgressMode,
+  OutreachProgressPeriod,
+  OutreachProgressSnapshot,
+} from '@/lib/outreach-progress';
 import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 import { StreetlightSelect } from './StreetlightSelect';
 
 export type ProgressDisplayMode = 'admin' | 'presentation' | 'print';
 
-function formatDate(value: string | null, year: number): string {
-  if (!value) return `Beginning of ${year}`;
+function formatDate(value: string | null, progress: OutreachProgressPeriod): string {
+  if (!value) {
+    return progress.mode === 'calendar'
+      ? `Beginning of ${progress.year}`
+      : 'Beginning of the past year';
+  }
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: 'long',
     timeZone: 'UTC',
@@ -33,7 +41,7 @@ function Metrics({ snapshot }: { snapshot: OutreachProgressSnapshot }) {
         </div>
       )}
       <div>
-        <dt>Estimated homes</dt>
+        <dt>Estimated homes reached</dt>
         <dd>{snapshot.estimatedHomes.toLocaleString()}</dd>
       </div>
     </dl>
@@ -45,15 +53,19 @@ export function OutreachProgress({
   churchName,
   displayMode,
   onDisplayModeChange,
+  onModeChange,
   onPlay,
   onPrint,
   onStepChange,
   onYearChange,
   playing,
+  presentationButtonRef,
   progress,
+  position,
+  stepCount,
+  selectedDate,
   snapshot,
-  step,
-  through,
+  timelinePosition,
   year,
   years,
 }: {
@@ -61,20 +73,24 @@ export function OutreachProgress({
   churchName: string;
   displayMode: ProgressDisplayMode;
   onDisplayModeChange: (mode: ProgressDisplayMode) => void;
+  onModeChange: (mode: OutreachProgressMode) => void;
   onPlay: () => void;
   onPrint: () => void;
   onStepChange: (step: number) => void;
   onYearChange: (year: number) => void;
   playing: boolean;
+  presentationButtonRef: RefObject<HTMLButtonElement | null>;
   progress: OutreachProgressPeriod;
+  position: number;
+  stepCount: number;
+  selectedDate: string | null;
   snapshot: OutreachProgressSnapshot;
-  step: number;
-  through: string | null;
+  timelinePosition: number;
   year: number;
   years: number[];
 }) {
   if (displayMode !== 'admin') {
-    const completion = progress.dates.length === 0 ? 0 : step / progress.dates.length;
+    const completion = stepCount === 0 ? 0 : timelinePosition / stepCount;
     return (
       <aside className="territory-sidebar progress-stage-sidebar" hidden={!active}>
         {displayMode === 'presentation' && (
@@ -87,11 +103,13 @@ export function OutreachProgress({
           </button>
         )}
         <div className="progress-stage-copy">
-          <h1>{year} outreach</h1>
+          <h1>{progress.mode === 'calendar' ? `${year} outreach` : 'Past year'}</h1>
           <p>{churchName}</p>
           <Metrics snapshot={snapshot} />
           <div className="progress-stage-timeline">
-            <strong aria-live="polite">{formatDate(through, year)}</strong>
+            <strong aria-live={playing ? 'off' : 'polite'}>
+              {formatDate(selectedDate, progress)}
+            </strong>
             <span>
               {snapshot.outreachDays} outreach {snapshot.outreachDays === 1 ? 'day' : 'days'}{' '}
               recorded
@@ -109,62 +127,112 @@ export function OutreachProgress({
     <aside className="territory-sidebar outreach-progress-sidebar" hidden={!active}>
       <div className="sidebar-scroll">
         <section className="progress-intro">
-          <h1>{year} outreach progress</h1>
-          <p>Replay the outreach Streetlight has actually recorded across the region.</p>
+          <h1>{progress.mode === 'calendar' ? `${year} outreach progress` : 'Past year'}</h1>
+          <p>See how completed outreach spread across your region over time.</p>
         </section>
-        <label className="coverage-field" htmlFor="progress-period">
-          Time period
-          <StreetlightSelect
-            ariaLabel="Time period"
-            id="progress-period"
-            onValueChange={(value) => onYearChange(Number(value))}
-            options={years.map((value) => ({ label: String(value), value: String(value) }))}
-            value={String(year)}
-          />
-        </label>
+        <div className="progress-period-fields">
+          <label className="coverage-field" htmlFor="progress-mode">
+            View
+            <StreetlightSelect
+              ariaLabel="View"
+              id="progress-mode"
+              onValueChange={(value) => onModeChange(value as OutreachProgressMode)}
+              options={[
+                { label: 'Calendar year', value: 'calendar' },
+                { label: 'Past year', value: 'rolling' },
+              ]}
+              value={progress.mode}
+            />
+          </label>
+          {progress.mode === 'calendar' && (
+            <label className="coverage-field" htmlFor="progress-period">
+              Year
+              <StreetlightSelect
+                ariaLabel="Year"
+                id="progress-period"
+                onValueChange={(value) => onYearChange(Number(value))}
+                options={years.map((value) => ({ label: String(value), value: String(value) }))}
+                value={String(year)}
+              />
+            </label>
+          )}
+        </div>
         <section>
           <h2>
-            {through
-              ? `Recorded through ${formatDate(through, year)}`
-              : `Recorded outreach in ${year}`}
+            {selectedDate
+              ? `Progress as of ${formatDate(selectedDate, progress)}`
+              : progress.mode === 'calendar'
+                ? `Recorded outreach in ${year}`
+                : 'Recorded outreach in the past year'}
           </h2>
           <Metrics snapshot={snapshot} />
         </section>
         <section className="progress-playback">
-          <h2>Yearly playback</h2>
+          <h2>Playback</h2>
           {progress.dates.length === 0 ? (
-            <p className="empty-state">No completed outreach is recorded for {year}.</p>
+            <p className="empty-state">No completed outreach is recorded for this period.</p>
           ) : (
-            <>
+            <div className="progress-playback-controls">
+              <button
+                aria-label={
+                  playing
+                    ? 'Pause playback'
+                    : position > 0 && position < stepCount
+                      ? 'Resume playback'
+                      : progress.mode === 'calendar'
+                        ? `Play ${year}`
+                        : 'Play past year'
+                }
+                className="progress-playback-toggle"
+                onClick={onPlay}
+                type="button"
+              >
+                {playing ? (
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M6.5 5h4v14h-4zM13.5 5h4v14h-4z" />
+                  </svg>
+                ) : (
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="m8 5 11 7-11 7z" />
+                  </svg>
+                )}
+              </button>
               <input
                 aria-label="Outreach playback date"
-                max={progress.dates.length}
+                aria-valuetext={formatDate(selectedDate, progress)}
+                max={stepCount}
                 min="0"
-                onChange={(event) => onStepChange(Number(event.target.value))}
+                onChange={(event) => onStepChange(Math.round(Number(event.target.value)))}
+                step="any"
                 type="range"
-                value={step}
+                value={position}
               />
-              <p aria-live="polite">{formatDate(through, year)}</p>
-            </>
+              <p className="progress-playback-date" aria-live={playing ? 'off' : 'polite'}>
+                {formatDate(selectedDate, progress)}
+              </p>
+            </div>
           )}
         </section>
       </div>
       <div className="sidebar-actions progress-actions">
         <div>
-          <button disabled={progress.dates.length === 0} onClick={onPlay} type="button">
-            {playing ? 'Restart playback' : 'Play year'}
-          </button>
           <button
-            className="secondary"
+            disabled={progress.dates.length === 0}
             onClick={() => onDisplayModeChange('presentation')}
+            ref={presentationButtonRef}
             type="button"
           >
             Present full screen
           </button>
+          <button
+            className="secondary"
+            disabled={progress.dates.length === 0}
+            onClick={onPrint}
+            type="button"
+          >
+            Print progress
+          </button>
         </div>
-        <button className="secondary" onClick={onPrint} type="button">
-          Print progress
-        </button>
       </div>
     </aside>
   );

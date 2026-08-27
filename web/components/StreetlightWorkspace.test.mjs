@@ -9,6 +9,15 @@ const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf
   /^@import[^;]+;\s*/,
   '',
 );
+const progressMapSource = readFileSync(new URL('./OpenProgressMap.tsx', import.meta.url), 'utf8');
+
+test('progress map replaces lifecycle ownership before releasing the previous frame', () => {
+  const publish = progressMapSource.indexOf('release: lifecycle.present({');
+  const releasePrevious = progressMapSource.indexOf('previous?.release();');
+  assert.ok(publish >= 0);
+  assert.ok(releasePrevious > publish);
+  assert.match(progressMapSource, /current\.release\(\);\s*releaseRef\.current = null;/);
+});
 
 test('Setup disclosure controls stay inside both horizontal clipping edges', async (t) => {
   const browser = await chromium.launch({ headless: true });

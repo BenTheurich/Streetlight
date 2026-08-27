@@ -3,6 +3,8 @@ import type { LineString, Position } from './territory-geometry.ts';
 
 type ProgressEvent = { date: string; packetId: string | null };
 
+export type OutreachProgressMode = 'calendar' | 'rolling';
+
 export type OutreachProgressUnit = {
   id: string;
   kind: 'street' | 'apartment';
@@ -12,7 +14,10 @@ export type OutreachProgressUnit = {
 };
 
 export type OutreachProgressPeriod = {
+  mode: OutreachProgressMode;
   year: number;
+  startDate: string;
+  endDate: string;
   dates: string[];
   events: ProgressEvent[];
   units: OutreachProgressUnit[];
@@ -26,9 +31,61 @@ export type OutreachProgressSnapshot = {
   outreachDays: number;
 };
 
-function periodEvents(roots: CoverageRoot[], year: number): ProgressEvent[] {
+const millisecondsPerDay = 24 * 60 * 60 * 1000;
+const playbackBarShare = 0.2;
+const playbackRevealShare = 0.6;
+
+function dateValue(date: string): number {
+  return new Date(`${date}T00:00:00Z`).getTime();
+}
+
+function shiftDate(date: string, days: number): string {
+  return new Date(dateValue(date) + days * millisecondsPerDay).toISOString().slice(0, 10);
+}
+
+export function outreachProgressStepCount(progress: OutreachProgressPeriod): number {
+  return progress.dates.length;
+}
+
+export function outreachProgressPlayback(
+  progress: OutreachProgressPeriod,
+  position: number,
+): {
+  barPosition: number;
+  completedStep: number;
+  revealDate: string | null;
+  revealProgress: number;
+  selectedDate: string | null;
+  through: string | null;
+} {
+  const endStep = outreachProgressStepCount(progress);
+  const clamped = Math.max(0, Math.min(position, endStep));
+  const baseStep = Math.floor(clamped);
+  const phase = baseStep < endStep ? clamped - baseStep : 0;
+  const targetDate = progress.dates[baseStep] ?? null;
+  const barPhase = Math.min(phase / playbackBarShare, 1);
+  const easedBarPhase = barPhase * barPhase * (3 - 2 * barPhase);
+  const revealProgress = Math.max(0, Math.min((phase - playbackBarShare) / playbackRevealShare, 1));
+  const completedStep = Math.min(
+    endStep,
+    baseStep + (targetDate !== null && revealProgress >= 1 ? 1 : 0),
+  );
+  const through = progress.dates[completedStep - 1] ?? null;
+  return {
+    barPosition: Math.min(endStep, baseStep + easedBarPhase),
+    completedStep,
+    revealDate: targetDate,
+    revealProgress,
+    selectedDate: phase >= playbackBarShare ? targetDate : (progress.dates[baseStep - 1] ?? null),
+    through,
+  };
+}
+
+function periodEvents(roots: CoverageRoot[], startDate: string, endDate: string): ProgressEvent[] {
   return roots.flatMap(({ effectiveCoveredOn, packetId }) =>
-    effectiveCoveredOn?.startsWith(`${year}-`) ? [{ date: effectiveCoveredOn, packetId }] : [],
+    effectiveCoveredOn && effectiveCoveredOn >= startDate && effectiveCoveredOn <= endDate
+      ? [{ date: effectiveCoveredOn, packetId }]
+      : [],
   );
 }
 
@@ -47,12 +104,21 @@ export function outreachProgressYears(workspace: CoverageWorkspace): number[] {
 
 export function buildOutreachProgress(
   workspace: CoverageWorkspace,
-  year: number,
+  selection: number | 'rolling',
 ): OutreachProgressPeriod {
+  const mode: OutreachProgressMode = selection === 'rolling' ? 'rolling' : 'calendar';
+  const year = selection === 'rolling' ? Number(workspace.asOf.slice(0, 4)) : selection;
+  const startDate = mode === 'rolling' ? shiftDate(workspace.asOf, -363) : `${year}-01-01`;
+  const endDate =
+    mode === 'rolling'
+      ? workspace.asOf
+      : year === Number(workspace.asOf.slice(0, 4))
+        ? workspace.asOf
+        : `${year}-12-31`;
   const events: ProgressEvent[] = [];
   const units: OutreachProgressUnit[] = [];
   for (const segment of workspace.segments) {
-    const matches = periodEvents(segment.roots, year);
+    const matches = periodEvents(segment.roots, startDate, endDate);
     if (matches.length === 0) continue;
     events.push(...matches);
     units.push({
@@ -64,7 +130,7 @@ export function buildOutreachProgress(
     });
   }
   for (const apartment of workspace.apartmentComplexes) {
-    const matches = periodEvents(apartment.roots, year);
+    const matches = periodEvents(apartment.roots, startDate, endDate);
     if (matches.length === 0) continue;
     events.push(...matches);
     units.push({
@@ -76,7 +142,10 @@ export function buildOutreachProgress(
     });
   }
   return {
+    mode,
     year,
+    startDate,
+    endDate,
     dates: [...new Set(events.map(({ date }) => date))].sort(),
     events: events.sort((first, second) => first.date.localeCompare(second.date)),
     units: units.sort(

@@ -10,6 +10,7 @@ import type {
   MapOverlayAdapter,
   MapOverlayEvent,
   MapOverlayMarker,
+  ProgressMapMask,
   WorkspaceMapBasePresentation,
 } from './map-overlay-lifecycle.ts';
 import baseStyleJson from './open-map-base-style.json' with { type: 'json' };
@@ -25,9 +26,99 @@ export function createMapLibreOverlayAdapter(
 ): MapOverlayAdapter {
   const canvas = map.getCanvas();
   const pending = new Set<() => void>();
+  const canvasContainer = map.getCanvasContainer();
   let overlayCursor: '' | 'crosshair' | 'pointer' = '';
   let selectionCursorActive = false;
   let ignoreNextMapClick = false;
+  let progressMask: ProgressMapMask = { visible: false, lines: [] };
+  let progressMaskCanvas: HTMLCanvasElement | null = null;
+  let progressMaskContext: CanvasRenderingContext2D | null = null;
+  let progressMaskCutoutCanvas: HTMLCanvasElement | null = null;
+  let progressMaskCutoutContext: CanvasRenderingContext2D | null = null;
+
+  const drawProgressMask = () => {
+    if (
+      !progressMask.visible ||
+      !progressMaskCanvas ||
+      !progressMaskContext ||
+      !progressMaskCutoutCanvas ||
+      !progressMaskCutoutContext
+    )
+      return;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    if (width === 0 || height === 0) return;
+    const pixelRatio = window.devicePixelRatio || 1;
+    const targetWidth = Math.round(width * pixelRatio);
+    const targetHeight = Math.round(height * pixelRatio);
+    if (progressMaskCanvas.width !== targetWidth) progressMaskCanvas.width = targetWidth;
+    if (progressMaskCanvas.height !== targetHeight) progressMaskCanvas.height = targetHeight;
+    if (progressMaskCutoutCanvas.width !== targetWidth)
+      progressMaskCutoutCanvas.width = targetWidth;
+    if (progressMaskCutoutCanvas.height !== targetHeight)
+      progressMaskCutoutCanvas.height = targetHeight;
+    const context = progressMaskContext;
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.globalCompositeOperation = 'source-over';
+    context.globalAlpha = 1;
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = 'rgb(7 17 31 / 46%)';
+    context.fillRect(0, 0, width, height);
+    if (progressMask.lines.length === 0 && !progressMask.active) return;
+
+    const zoomProgress = Math.max(0, Math.min(1, (map.getZoom() - 11) / 3));
+    const roadWidth = 20 + zoomProgress * 18;
+    const cutout = progressMaskCutoutContext;
+    cutout.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    cutout.globalCompositeOperation = 'source-over';
+    cutout.globalAlpha = 1;
+    cutout.clearRect(0, 0, width, height);
+    cutout.strokeStyle = '#000';
+    cutout.lineCap = 'round';
+    cutout.lineJoin = 'round';
+    cutout.lineWidth = roadWidth;
+    const addRoads = (lines: ProgressMapMask['lines'], opacity: number) => {
+      if (lines.length === 0 || opacity <= 0) return;
+      cutout.globalAlpha = opacity;
+      cutout.beginPath();
+      for (const coordinates of lines) {
+        if (coordinates.length < 2) continue;
+        const start = map.project(coordinates[0]);
+        cutout.moveTo(start.x, start.y);
+        for (const coordinate of coordinates.slice(1)) {
+          const point = map.project(coordinate);
+          cutout.lineTo(point.x, point.y);
+        }
+      }
+      cutout.stroke();
+    };
+    addRoads(progressMask.lines, 1);
+    if (progressMask.active) addRoads(progressMask.active.lines, progressMask.active.opacity);
+
+    context.globalCompositeOperation = 'destination-out';
+    context.globalAlpha = 1;
+    context.filter = 'blur(12px)';
+    context.drawImage(progressMaskCutoutCanvas, 0, 0, width, height);
+    context.filter = 'none';
+  };
+
+  const ensureProgressMask = () => {
+    if (progressMaskCanvas) return;
+    const maskCanvas = document.createElement('canvas');
+    const context = maskCanvas.getContext('2d');
+    const cutoutCanvas = document.createElement('canvas');
+    const cutoutContext = cutoutCanvas.getContext('2d');
+    if (!context || !cutoutContext) return;
+    maskCanvas.ariaHidden = 'true';
+    maskCanvas.className = 'progress-map-mask';
+    canvasContainer.append(maskCanvas);
+    progressMaskCanvas = maskCanvas;
+    progressMaskContext = context;
+    progressMaskCutoutCanvas = cutoutCanvas;
+    progressMaskCutoutContext = cutoutContext;
+    map.on('move', drawProgressMask);
+    map.on('resize', drawProgressMask);
+  };
 
   const syncCursor = () => {
     canvas.style.cursor = selectionCursorActive ? 'crosshair' : overlayCursor;
@@ -110,6 +201,17 @@ export function createMapLibreOverlayAdapter(
     },
     setPaintProperty(id, property, value) {
       if (map.getLayer(id)) map.setPaintProperty(id, property, value as never);
+    },
+    setProgressMask(mask) {
+      progressMask = mask;
+      if (!mask.visible) {
+        if (progressMaskCanvas) progressMaskCanvas.hidden = true;
+        return;
+      }
+      ensureProgressMask();
+      if (!progressMaskCanvas) return;
+      progressMaskCanvas.hidden = false;
+      drawProgressMask();
     },
     styleLayers() {
       return (map.getStyle().layers ?? []).map((layer) => {
@@ -280,6 +382,15 @@ export function createMapLibreOverlayAdapter(
     },
     dispose() {
       for (const cancel of [...pending]) cancel();
+      if (progressMaskCanvas) {
+        map.off('move', drawProgressMask);
+        map.off('resize', drawProgressMask);
+        progressMaskCanvas.remove();
+        progressMaskCanvas = null;
+        progressMaskContext = null;
+        progressMaskCutoutCanvas = null;
+        progressMaskCutoutContext = null;
+      }
       overlayCursor = '';
       selectionCursorActive = false;
       ignoreNextMapClick = false;

@@ -593,6 +593,19 @@ button.administrator-account-trigger:not(:disabled):hover {
   z-index: 1;
 }
 
+.progress-map-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.maplibregl-marker {
+  z-index: 2;
+}
+
 .workspace-map-stack.satellite .workspace-open-map,
 .workspace-map-stack.satellite .maplibregl-canvas {
   background: transparent;
@@ -3463,6 +3476,21 @@ button.coverage-road-row:not(:disabled):hover {
   font-weight: 800;
 }
 
+.progress-period-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+}
+
+.outreach-progress-sidebar .progress-period-fields .coverage-field {
+  margin: 0;
+}
+
+.progress-period-fields > .coverage-field:only-child {
+  grid-column: 1 / -1;
+}
+
 .progress-metrics {
   margin: 0;
   border-top: 1px solid var(--line);
@@ -3486,22 +3514,53 @@ button.coverage-road-row:not(:disabled):hover {
   margin: 0;
   color: var(--ink);
   font-size: 1rem;
+  font-variant-numeric: tabular-nums;
   font-weight: 900;
 }
 
+.outreach-progress-sidebar .progress-playback {
+  margin-top: 1.5rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.progress-playback-controls {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+}
+
 .progress-playback input {
+  min-width: 0;
+  width: 100%;
   accent-color: var(--ink);
 }
 
-.progress-playback p {
-  margin: 0.35rem 0 0;
+button.progress-playback-toggle {
+  display: grid;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  place-items: center;
+}
+
+button.progress-playback-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: currentcolor;
+}
+
+.progress-playback-date {
+  grid-column: 2;
+  margin: 0;
+  margin-inline-start: 0.5rem;
   color: var(--muted);
   font-size: 0.7rem;
 }
 
 .progress-actions > div:not(.operation-status) {
-  grid-template-columns: 1fr 1.35fr;
-  margin-bottom: 0.5rem;
+  grid-template-columns: 1fr 1fr;
 }
 
 .progress-map-legend {
@@ -3534,7 +3593,7 @@ button.coverage-road-row:not(:disabled):hover {
 
 .progress-stage .territory-workspace {
   height: 100dvh;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 24vw);
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 30vw);
 }
 
 .progress-stage .layers-control {
@@ -3542,6 +3601,8 @@ button.coverage-road-row:not(:disabled):hover {
 }
 
 .progress-stage-sidebar {
+  position: relative;
+  grid-template-rows: minmax(0, 1fr);
   border-left-color: rgb(255 253 247 / 18%);
   background: var(--ink);
   color: white;
@@ -3552,23 +3613,23 @@ button.coverage-road-row:not(:disabled):hover {
   min-height: 0;
   flex-direction: column;
   justify-content: center;
-  padding: clamp(2rem, 5vw, 4.5rem) clamp(1.5rem, 3vw, 3rem);
+  padding: clamp(2rem, 5vh, 4rem) clamp(2rem, 3vw, 3.5rem);
 }
 
 .progress-stage-copy h1 {
   margin: 0;
   color: var(--paper);
   font-family: Georgia, serif;
-  font-size: clamp(2.5rem, 4.5vw, 5rem);
+  font-size: clamp(3.4rem, 4.5vw, 5.5rem);
   font-weight: 400;
   letter-spacing: -0.035em;
   line-height: 0.95;
 }
 
 .progress-stage-copy > p {
-  margin: 0.85rem 0 2rem;
+  margin: 0.85rem 0 clamp(1.5rem, 3vh, 2.5rem);
   color: #d9d3c7;
-  font-size: 0.8rem;
+  font-size: clamp(1.15rem, 1.5vw, 1.5rem);
 }
 
 .progress-stage .progress-metrics {
@@ -3576,20 +3637,28 @@ button.coverage-road-row:not(:disabled):hover {
 }
 
 .progress-stage .progress-metrics > div {
+  display: grid;
+  min-height: clamp(72px, 9vh, 94px);
+  align-content: center;
+  justify-content: stretch;
+  gap: 0.25rem;
   border-color: rgb(255 253 247 / 18%);
 }
 
 .progress-stage .progress-metrics dt {
   color: #d9d3c7;
+  font-size: clamp(1.1rem, 1.3vw, 1.35rem);
 }
 
 .progress-stage .progress-metrics dd {
   color: white;
-  font-size: 1.35rem;
+  font-size: clamp(2.25rem, 2.7vw, 3rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .progress-stage-timeline {
-  margin-top: 2rem;
+  margin-top: clamp(1.5rem, 3vh, 2.5rem);
 }
 
 .progress-stage-timeline > strong,
@@ -3599,13 +3668,13 @@ button.coverage-road-row:not(:disabled):hover {
 
 .progress-stage-timeline > strong {
   color: var(--paper);
-  font-size: 0.9rem;
+  font-size: clamp(1.4rem, 1.8vw, 1.85rem);
 }
 
 .progress-stage-timeline > span {
   margin-top: 0.3rem;
   color: #d9d3c7;
-  font-size: 0.68rem;
+  font-size: clamp(1.05rem, 1.2vw, 1.3rem);
 }
 
 .progress-stage-timeline > div {
@@ -3624,14 +3693,38 @@ button.coverage-road-row:not(:disabled):hover {
   transform-origin: left;
   border-radius: inherit;
   background: var(--amber);
-  transition: transform 650ms ease;
+  transition: transform 80ms linear;
 }
 
-.progress-presentation-exit {
+button.secondary.progress-presentation-exit {
   position: absolute;
   top: 1rem;
   right: 1rem;
   z-index: 2;
+  border-color: rgb(255 253 247 / 30%);
+  background: rgb(255 253 247 / 10%);
+  color: var(--paper);
+  opacity: 0;
+  animation: progress-exit-cue 3.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+button.secondary.progress-presentation-exit:is(:hover, :focus-visible) {
+  border-color: rgb(255 253 247 / 55%);
+  background: rgb(255 253 247 / 18%);
+  color: white;
+  opacity: 1;
+  animation: none;
+}
+
+@keyframes progress-exit-cue {
+  0%,
+  55% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
 }
 
 .administrator-account-badge {
@@ -3978,6 +4071,11 @@ button.coverage-road-row:not(:disabled):hover {
     animation: none;
     transition: none;
   }
+
+  .progress-presentation-exit {
+    opacity: 1;
+    animation: none;
+  }
 }
 
 @media (max-width: 600px) {
@@ -4058,7 +4156,7 @@ button.coverage-road-row:not(:disabled):hover {
 
   .progress-stage .territory-workspace {
     height: 100dvh;
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 34vw);
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 36vw);
     grid-template-rows: 1fr;
   }
 
@@ -4068,29 +4166,126 @@ button.coverage-road-row:not(:disabled):hover {
   }
 }
 
+@media (max-width: 600px) {
+  .progress-period-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-stage .territory-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(42dvh, 1fr) minmax(0, 58dvh);
+  }
+
+  .progress-stage-sidebar {
+    border-top: 1px solid rgb(255 253 247 / 18%);
+    border-left: 0;
+  }
+
+  .progress-stage-copy {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    align-content: center;
+    gap: 0 1.5rem;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .progress-stage-copy h1,
+  .progress-stage-copy > p {
+    grid-column: 1;
+  }
+
+  .progress-stage-copy h1 {
+    font-size: clamp(2.5rem, 12vw, 4rem);
+  }
+
+  .progress-stage-copy > p {
+    margin: 0.5rem 0 0;
+    font-size: 0.95rem;
+  }
+
+  .progress-stage .progress-metrics {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .progress-stage .progress-metrics > div {
+    min-height: 54px;
+  }
+
+  .progress-stage .progress-metrics dt,
+  .progress-stage-timeline > span {
+    font-size: 0.8rem;
+  }
+
+  .progress-stage .progress-metrics dd {
+    font-size: 1.45rem;
+  }
+
+  .progress-stage-timeline {
+    grid-column: 1 / -1;
+    margin-top: 1rem;
+  }
+
+  .progress-stage-timeline > strong {
+    font-size: 1rem;
+  }
+}
+
 @media print {
   @page {
     size: landscape;
-    margin: 0;
+    margin: 0.35in;
   }
 
   .progress-print.territory-page,
   .progress-print .territory-workspace {
-    width: 100vw;
+    width: 100%;
     height: 100vh;
     min-height: 0;
     overflow: hidden;
   }
 
   .progress-print .territory-workspace {
-    grid-template-columns: minmax(0, 1fr) 28vw;
+    grid-template-columns: minmax(0, 1fr) 3.1in;
     grid-template-rows: 1fr;
+    gap: 0.2in;
+    print-color-adjust: exact;
   }
 
   .progress-print .progress-stage-sidebar {
-    border-top: 0;
-    border-left: 1px solid rgb(255 253 247 / 18%);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--ink);
     print-color-adjust: exact;
+  }
+
+  .progress-print .progress-stage-copy {
+    padding: 0.35in;
+  }
+
+  .progress-print .progress-stage-copy h1,
+  .progress-print .progress-stage-timeline > strong {
+    color: var(--ink);
+  }
+
+  .progress-print .progress-stage-copy > p,
+  .progress-print .progress-metrics dt,
+  .progress-print .progress-stage-timeline > span {
+    color: var(--muted);
+  }
+
+  .progress-print .progress-metrics,
+  .progress-print .progress-metrics > div {
+    border-color: var(--line);
+  }
+
+  .progress-print .progress-metrics dd {
+    color: var(--ink);
+  }
+
+  .progress-print .progress-stage-timeline > div {
+    background: var(--line);
   }
 
   .progress-presentation-exit,

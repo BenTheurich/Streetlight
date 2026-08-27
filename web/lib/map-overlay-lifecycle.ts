@@ -12,7 +12,7 @@ import {
   segmentSelectionBounds,
 } from './map-camera.ts';
 import type { OpenMapData } from './open-map-data.ts';
-import type { OutreachProgressPeriod } from './outreach-progress.ts';
+import { type OutreachProgressPeriod, outreachProgressPlayback } from './outreach-progress.ts';
 import { type PacketProposal, proposalsForMap } from './packet-selection.ts';
 import type { ReconciliationMapPresentation } from './reconciliation.ts';
 import { type BoundaryShape, type Position, territoryBoundary } from './territory-geometry.ts';
@@ -83,10 +83,12 @@ export type WorkspaceMapPresentation =
       selectedIndex: number | null;
     }
   | {
+      animated: boolean;
+      cinematic: boolean;
       kind: 'progress';
+      position: number;
       visible: boolean;
       progress: OutreachProgressPeriod;
-      through: string | null;
       workspace: CoverageWorkspace;
     }
   | {
@@ -111,6 +113,12 @@ export type MapOverlayLayer = {
   layout?: Record<string, unknown>;
   paint?: Record<string, unknown>;
   visible?: boolean;
+};
+
+export type ProgressMapMask = {
+  visible: boolean;
+  lines: Array<Position[]>;
+  active?: { lines: Array<Position[]>; opacity: number };
 };
 
 export type MapOverlayMarker =
@@ -143,6 +151,7 @@ export type MapOverlayAdapter = {
   removeLayer: (id: string) => void;
   setLayerVisibility: (id: string, visible: boolean) => void;
   setPaintProperty: (id: string, property: string, value: unknown) => void;
+  setProgressMask: (mask: ProgressMapMask) => void;
   styleLayers: () => ReadonlyArray<{
     id: string;
     type: string;
@@ -199,8 +208,8 @@ const TERRITORY_LAYERS = [
 ] as const;
 const PROGRESS_LAYERS = [
   'streetlight-progress-context',
-  'streetlight-progress-glow',
   'streetlight-progress-lines',
+  'streetlight-progress-lines-active',
   'streetlight-progress-apartment-context',
   'streetlight-progress-apartments',
 ] as const;
@@ -223,6 +232,8 @@ const OWNED_SOURCES = [
   'streetlight-apartment-selection',
   'streetlight-packet-proposals',
   'streetlightProgress',
+  'streetlightProgressCompleted',
+  'streetlightProgressActive',
   'streetlight-reconciliation',
 ] as const;
 
@@ -262,6 +273,40 @@ function featureCollection(features: unknown[]): unknown {
   return { type: 'FeatureCollection', features };
 }
 
+function progressLinePortion(
+  geometry: { type: 'LineString'; coordinates: Position[] },
+  fraction: number,
+): { type: 'LineString'; coordinates: Position[] } | null {
+  if (fraction <= 0) return null;
+  if (fraction >= 1) return geometry;
+  const lengths = geometry.coordinates.slice(1).map((coordinate, index) => {
+    const previous = geometry.coordinates[index];
+    const latitudeScale = Math.cos((((previous[1] + coordinate[1]) / 2) * Math.PI) / 180);
+    const longitude = (coordinate[0] - previous[0]) * latitudeScale;
+    const latitude = coordinate[1] - previous[1];
+    return Math.hypot(longitude, latitude);
+  });
+  const target = lengths.reduce((total, length) => total + length, 0) * fraction;
+  const coordinates: Position[] = [geometry.coordinates[0]];
+  let covered = 0;
+  for (const [index, length] of lengths.entries()) {
+    const next = geometry.coordinates[index + 1];
+    if (covered + length <= target) {
+      coordinates.push(next);
+      covered += length;
+      continue;
+    }
+    const previous = geometry.coordinates[index];
+    const partial = length === 0 ? 0 : (target - covered) / length;
+    coordinates.push([
+      previous[0] + (next[0] - previous[0]) * partial,
+      previous[1] + (next[1] - previous[1]) * partial,
+    ]);
+    break;
+  }
+  return coordinates.length > 1 ? { type: 'LineString', coordinates } : null;
+}
+
 function ensureSource(
   adapter: MapOverlayAdapter,
   id: string,
@@ -298,6 +343,17 @@ export function createMapOverlayLifecycle({
   let reconciliationFocusKey: string | null = null;
   let territoryRoadFocusKey: number | null = null;
   let territoryApartmentFocusKey = '';
+  let progressSourcePeriod: OutreachProgressPeriod | null = null;
+  let progressSourceWorkspace: CoverageWorkspace | null = null;
+  let progressCompletedKey = '';
+  let progressActive = false;
+  let progressRows: Array<{
+    completedOn: string;
+    completedStep: number;
+    geometry:
+      | { type: 'LineString'; coordinates: Position[] }
+      | { type: 'Point'; coordinates: Position };
+  }> = [];
   let territoryCenter: Position | null = null;
   let suppressedRoadLayerIds: string[] = [];
 
@@ -328,7 +384,10 @@ export function createMapOverlayLifecycle({
 
   function cleanupRuntime(): void {
     for (const kind of [...cleanups.keys()]) clearRuntime(kind);
-    if (adapter) restoreRoadLayers(adapter);
+    if (adapter) {
+      adapter.setProgressMask({ visible: false, lines: [] });
+      restoreRoadLayers(adapter);
+    }
   }
 
   function removeOwned(current: MapOverlayAdapter): void {
@@ -1005,36 +1064,100 @@ export function createMapOverlayLifecycle({
     value: Extract<WorkspaceMapPresentation, { kind: 'progress' }>,
   ): void {
     if (!value.visible) {
+      current.setProgressMask({ visible: false, lines: [] });
       setVisible(current, PROGRESS_LAYERS, false);
       return;
     }
-    const completionById = new Map(value.progress.units.map((unit) => [unit.id, unit.completedOn]));
-    ensureSource(
-      current,
-      'streetlightProgress',
-      featureCollection([
-        ...value.workspace.segments.map((segment) => {
-          const completedOn = completionById.get(segment.id) ?? null;
-          return {
+    const sourceChanged =
+      !current.hasSource('streetlightProgress') ||
+      progressSourcePeriod !== value.progress ||
+      progressSourceWorkspace !== value.workspace;
+    if (sourceChanged) {
+      ensureSource(
+        current,
+        'streetlightProgress',
+        featureCollection([
+          ...value.workspace.segments.map((segment) => ({
             type: 'Feature',
             geometry: segment.geometry,
-            properties: {
-              completed: Boolean(value.through && completedOn && completedOn <= value.through),
-            },
-          };
-        }),
-        ...value.workspace.apartmentComplexes.map((apartment) => {
-          const completedOn = completionById.get(apartment.id) ?? null;
-          return {
+            properties: {},
+          })),
+          ...value.workspace.apartmentComplexes.map((apartment) => ({
             type: 'Feature',
             geometry: { type: 'Point', coordinates: apartment.position },
-            properties: {
-              completed: Boolean(value.through && completedOn && completedOn <= value.through),
-            },
-          };
-        }),
-      ]),
+            properties: {},
+          })),
+        ]),
+      );
+      progressRows = value.progress.units.map((unit) => ({
+        completedOn: unit.completedOn,
+        completedStep: value.progress.dates.indexOf(unit.completedOn) + 1,
+        geometry: unit.geometry,
+      }));
+      progressSourcePeriod = value.progress;
+      progressSourceWorkspace = value.workspace;
+      progressCompletedKey = '';
+      progressActive = false;
+    }
+    const playback = outreachProgressPlayback(value.progress, value.position);
+    const completedKey = `${value.progress.startDate}:${playback.through ?? 'none'}`;
+    const completedRows = progressRows.filter(
+      ({ completedStep }) => completedStep <= playback.completedStep,
     );
+    if (
+      !current.hasSource('streetlightProgressCompleted') ||
+      progressCompletedKey !== completedKey
+    ) {
+      ensureSource(
+        current,
+        'streetlightProgressCompleted',
+        featureCollection(
+          completedRows.map(({ geometry }) => ({ type: 'Feature', geometry, properties: {} })),
+        ),
+      );
+      progressCompletedKey = completedKey;
+    }
+    const revealing =
+      value.animated &&
+      playback.revealDate !== null &&
+      playback.revealProgress > 0 &&
+      playback.revealProgress < 1;
+    const activeRoads = revealing
+      ? progressRows.flatMap(({ completedOn, geometry }) => {
+          if (geometry.type !== 'LineString' || completedOn !== playback.revealDate) return [];
+          const portion = progressLinePortion(geometry, playback.revealProgress);
+          return portion ? [portion] : [];
+        })
+      : [];
+    if (revealing) {
+      ensureSource(
+        current,
+        'streetlightProgressActive',
+        featureCollection(
+          activeRoads.map((geometry) => ({ type: 'Feature', geometry, properties: {} })),
+        ),
+      );
+      progressActive = true;
+    } else if (!current.hasSource('streetlightProgressActive') || progressActive) {
+      ensureSource(current, 'streetlightProgressActive', emptyCollection());
+      progressActive = false;
+    }
+    current.setProgressMask({
+      visible: value.cinematic,
+      lines: completedRows.flatMap(({ geometry }) =>
+        geometry.type === 'LineString' ? [geometry.coordinates] : [],
+      ),
+      active:
+        activeRoads.length > 0
+          ? {
+              lines: activeRoads.map(({ coordinates }) => coordinates),
+              opacity: (() => {
+                const fade = Math.min(playback.revealProgress / 0.25, 1);
+                return fade * fade * (3 - 2 * fade);
+              })(),
+            }
+          : undefined,
+    });
     const before = beforeLabels(current);
     const layers: MapOverlayLayer[] = [
       {
@@ -1050,30 +1173,20 @@ export function createMapOverlayLifecycle({
         },
       },
       {
-        id: 'streetlight-progress-glow',
+        id: 'streetlight-progress-lines',
         type: 'line',
-        source: 'streetlightProgress',
-        filter: [
-          'all',
-          ['==', ['geometry-type'], 'LineString'],
-          ['==', ['get', 'completed'], true],
-        ],
+        source: 'streetlightProgressCompleted',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': '#fff0b8',
-          'line-opacity': 0.72,
-          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 7, 14, 11],
+          'line-color': '#d79b2b',
+          'line-opacity': 0.98,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 2.5, 14, 5],
         },
       },
       {
-        id: 'streetlight-progress-lines',
+        id: 'streetlight-progress-lines-active',
         type: 'line',
-        source: 'streetlightProgress',
-        filter: [
-          'all',
-          ['==', ['geometry-type'], 'LineString'],
-          ['==', ['get', 'completed'], true],
-        ],
+        source: 'streetlightProgressActive',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': '#d79b2b',
@@ -1097,8 +1210,8 @@ export function createMapOverlayLifecycle({
       {
         id: 'streetlight-progress-apartments',
         type: 'circle',
-        source: 'streetlightProgress',
-        filter: ['all', ['==', ['geometry-type'], 'Point'], ['==', ['get', 'completed'], true]],
+        source: 'streetlightProgressCompleted',
+        filter: ['==', ['geometry-type'], 'Point'],
         paint: {
           'circle-color': '#d79b2b',
           'circle-radius': 7,
@@ -1411,6 +1524,7 @@ export function createMapOverlayLifecycle({
           } else if (value.kind === 'proposals') {
             setVisible(adapter, ['streetlight-packet-proposals-halo'], false);
           } else if (value.kind === 'progress') {
+            adapter.setProgressMask({ visible: false, lines: [] });
             setVisible(adapter, PROGRESS_LAYERS, false);
           } else if (value.kind === 'reconciliation') {
             setVisible(
