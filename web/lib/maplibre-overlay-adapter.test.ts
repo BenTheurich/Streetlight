@@ -5,14 +5,71 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { WorkspaceMapBasePresentation } from './map-overlay-lifecycle.ts';
 import { createMapLibreOverlayAdapter } from './maplibre-overlay-adapter.ts';
 
+class FakeElement extends EventTarget {
+  readonly style: Record<string, string> = { cursor: '' };
+  className = '';
+
+  append() {}
+
+  getBoundingClientRect() {
+    return { left: 0, top: 0 };
+  }
+
+  remove() {}
+}
+
+class FakeToggle {
+  enabled = true;
+
+  disable() {
+    this.enabled = false;
+  }
+
+  enable() {
+    this.enabled = true;
+  }
+
+  isEnabled() {
+    return this.enabled;
+  }
+}
+
 class FakeMap extends EventEmitter {
-  readonly canvas = { style: { cursor: '' } };
+  readonly canvas = new FakeElement();
+  readonly container = new FakeElement();
+  readonly boxZoom = new FakeToggle();
+  readonly dragPan = new FakeToggle();
+  readonly layers = new Set(['road']);
+  renderedFeatures: Array<{ properties: Record<string, unknown> }> = [];
+  rejectDegenerateBounds = false;
   loadedValue = false;
   styleLoadedValue = false;
   styleReplacements = 0;
 
   getCanvas() {
     return this.canvas;
+  }
+
+  getCanvasContainer() {
+    return this.container;
+  }
+
+  getLayer(id: string) {
+    return this.layers.has(id) ? { id } : undefined;
+  }
+
+  queryRenderedFeatures(geometry?: unknown) {
+    if (
+      this.rejectDegenerateBounds &&
+      Array.isArray(geometry) &&
+      Array.isArray(geometry[0]) &&
+      Array.isArray(geometry[1]) &&
+      geometry[0][0] === geometry[1][0] &&
+      geometry[0][1] === geometry[1][1]
+    ) {
+      return [];
+    }
+    return this.renderedFeatures;
   }
 
   loaded() {
@@ -69,6 +126,33 @@ const adapterFor = (map: FakeMap) =>
   createMapLibreOverlayAdapter(map as unknown as MapLibreMap, null as never, base());
 
 const turn = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+function installDom() {
+  const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: new EventTarget(),
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: { createElement: () => new FakeElement() },
+  });
+  return () => {
+    if (windowDescriptor) Object.defineProperty(globalThis, 'window', windowDescriptor);
+    else Reflect.deleteProperty(globalThis, 'window');
+    if (documentDescriptor) Object.defineProperty(globalThis, 'document', documentDescriptor);
+    else Reflect.deleteProperty(globalThis, 'document');
+  };
+}
+
+function domEvent(type: string, properties: Record<string, unknown>) {
+  const event = new Event(type);
+  for (const [key, value] of Object.entries(properties)) {
+    Object.defineProperty(event, key, { value });
+  }
+  return event;
+}
 
 test('initial readiness waits for the map load event after the initial style event is gone', async () => {
   const map = new FakeMap();
@@ -158,4 +242,172 @@ test('a recoverable map error does not consume the replacement style listener', 
   assert.equal(map.listenerCount('load'), 0);
   assert.equal(map.listenerCount('style.load'), 0);
   assert.equal(map.listenerCount('error'), 0);
+});
+
+test('box selection cursor follows Shift and resets after a drag', (context) => {
+  context.after(installDom());
+  const map = new FakeMap();
+  const adapter = adapterFor(map);
+  const release = adapter.registerBoxSelection({
+    armed: false,
+    layerIds: ['road'],
+    onComplete() {},
+    onEmptyClick() {},
+  });
+
+  window.dispatchEvent(domEvent('keydown', { key: 'Shift' }));
+  assert.equal(map.canvas.style.cursor, 'crosshair');
+  adapter.setCursor('pointer');
+  assert.equal(map.canvas.style.cursor, 'crosshair');
+  window.dispatchEvent(domEvent('keyup', { key: 'Shift' }));
+  assert.equal(map.canvas.style.cursor, '');
+
+  window.dispatchEvent(domEvent('keydown', { key: 'Shift' }));
+  map.container.dispatchEvent(
+    domEvent('mousedown', { button: 0, clientX: 10, clientY: 10, shiftKey: true }),
+  );
+  window.dispatchEvent(domEvent('keyup', { key: 'Shift' }));
+  assert.equal(map.canvas.style.cursor, 'crosshair');
+  window.dispatchEvent(domEvent('mouseup', { clientX: 30, clientY: 30, shiftKey: false }));
+  assert.equal(map.canvas.style.cursor, '');
+
+  release();
+});
+
+test('more than three hidden-road Shift clicks remain additive across adapter rebindings', (context) => {
+  context.after(installDom());
+  const map = new FakeMap();
+  map.layers.add('streetlight-territory-hidden');
+  map.rejectDegenerateBounds = true;
+  const adapter = adapterFor(map);
+  let selected = ['hidden-road-one'];
+  let release = () => {};
+  const bind = () => {
+    release();
+    release = adapter.registerBoxSelection({
+      armed: false,
+      layerIds: ['streetlight-territory-hidden'],
+      onComplete(ids, additive) {
+        if (!additive) {
+          selected = [...new Set(ids)];
+          return;
+        }
+        const next = new Set(selected);
+        for (const id of ids) {
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+        }
+        selected = [...next];
+      },
+      onEmptyClick() {},
+    });
+  };
+  bind();
+  window.dispatchEvent(domEvent('keydown', { key: 'Shift' }));
+
+  for (const [index, id] of [
+    'hidden-road-two',
+    'hidden-road-three',
+    'hidden-road-four',
+  ].entries()) {
+    map.renderedFeatures = [{ properties: { id, selectable: true } }];
+    map.container.dispatchEvent(
+      domEvent('mousedown', {
+        button: 0,
+        clientX: 10 + index,
+        clientY: 10 + index,
+        shiftKey: true,
+      }),
+    );
+    window.dispatchEvent(
+      domEvent('mouseup', {
+        clientX: 10 + index,
+        clientY: 10 + index,
+        shiftKey: true,
+      }),
+    );
+    bind();
+    map.emit('click', {
+      originalEvent: { shiftKey: true },
+      point: { x: 10 + index, y: 10 + index },
+    });
+  }
+
+  assert.deepEqual(selected, [
+    'hidden-road-one',
+    'hidden-road-two',
+    'hidden-road-three',
+    'hidden-road-four',
+  ]);
+  release();
+});
+
+test('armed box selection returns to the map cursor when the gesture completes', (context) => {
+  context.after(installDom());
+  const map = new FakeMap();
+  const adapter = adapterFor(map);
+  let emptyClicks = 0;
+  let release = adapter.registerBoxSelection({
+    armed: true,
+    layerIds: ['road'],
+    onComplete() {},
+    onEmptyClick: () => {
+      emptyClicks += 1;
+    },
+  });
+
+  assert.equal(map.canvas.style.cursor, 'crosshair');
+  map.container.dispatchEvent(
+    domEvent('mousedown', { button: 0, clientX: 10, clientY: 10, shiftKey: false }),
+  );
+  window.dispatchEvent(domEvent('mouseup', { clientX: 30, clientY: 30, shiftKey: false }));
+  assert.equal(map.canvas.style.cursor, '');
+
+  release();
+  release = adapter.registerBoxSelection({
+    armed: false,
+    layerIds: ['road'],
+    onComplete() {},
+    onEmptyClick: () => {
+      emptyClicks += 1;
+    },
+  });
+  map.emit('click', { originalEvent: { shiftKey: false }, point: { x: 30, y: 30 } });
+  assert.equal(emptyClicks, 0);
+
+  map.container.dispatchEvent(
+    domEvent('mousedown', { button: 0, clientX: 40, clientY: 40, shiftKey: false }),
+  );
+  map.emit('click', { originalEvent: { shiftKey: false }, point: { x: 40, y: 40 } });
+  assert.equal(emptyClicks, 1);
+
+  release();
+});
+
+test('plain empty-map clicks clear selection without affecting road or Shift clicks', (context) => {
+  context.after(installDom());
+  const map = new FakeMap();
+  const adapter = adapterFor(map);
+  let emptyClicks = 0;
+  const release = adapter.registerBoxSelection({
+    armed: false,
+    layerIds: ['road'],
+    onComplete() {},
+    onEmptyClick: () => {
+      emptyClicks += 1;
+    },
+  });
+
+  map.emit('click', { originalEvent: { shiftKey: false }, point: { x: 10, y: 10 } });
+  assert.equal(emptyClicks, 1);
+
+  map.renderedFeatures = [{ properties: { id: 'road-one', selectable: true } }];
+  map.emit('click', { originalEvent: { shiftKey: false }, point: { x: 10, y: 10 } });
+  assert.equal(emptyClicks, 1);
+
+  map.renderedFeatures = [];
+  map.emit('click', { originalEvent: { shiftKey: true }, point: { x: 10, y: 10 } });
+  assert.equal(emptyClicks, 1);
+
+  release();
 });

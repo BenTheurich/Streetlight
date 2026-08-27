@@ -3,6 +3,7 @@ import type {
   MapLayerMouseEvent,
   Map as MapLibreMap,
   Marker as MapLibreMarker,
+  MapMouseEvent,
   StyleSpecification,
 } from 'maplibre-gl';
 import type {
@@ -24,6 +25,19 @@ export function createMapLibreOverlayAdapter(
 ): MapOverlayAdapter {
   const canvas = map.getCanvas();
   const pending = new Set<() => void>();
+  let overlayCursor: '' | 'crosshair' | 'pointer' = '';
+  let selectionCursorActive = false;
+  let ignoreNextMapClick = false;
+
+  const syncCursor = () => {
+    canvas.style.cursor = selectionCursorActive ? 'crosshair' : overlayCursor;
+  };
+
+  const setSelectionCursor = (active: boolean, clearOverlay = false) => {
+    selectionCursorActive = active;
+    if (clearOverlay) overlayCursor = '';
+    syncCursor();
+  };
 
   function waitFor(event: 'load' | 'style.load', action?: () => void): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -123,7 +137,8 @@ export function createMapLibreOverlayAdapter(
       return () => map.off(event, layerId, handler);
     },
     setCursor(cursor) {
-      canvas.style.cursor = cursor;
+      overlayCursor = cursor;
+      syncCursor();
     },
     fitBounds(bounds, options) {
       map.fitBounds(bounds, options);
@@ -137,24 +152,44 @@ export function createMapLibreOverlayAdapter(
       if (!source) throw new Error('Cluster source is unavailable');
       return source.getClusterExpansionZoom(clusterId);
     },
-    registerBoxSelection({ armed, layerIds, onComplete }) {
+    registerBoxSelection({ armed, layerIds, onComplete, onEmptyClick }) {
       const container = map.getCanvasContainer();
       const boxZoomWasEnabled = map.boxZoom.isEnabled();
       map.boxZoom.disable();
       let start: { x: number; y: number } | null = null;
       let box: HTMLDivElement | null = null;
       let dragPanWasEnabled = false;
+      let shiftPressed = false;
+      let dragging = false;
+      let armedActive = armed;
       const point = (event: MouseEvent) => {
         const bounds = container.getBoundingClientRect();
         return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
       };
-      const reset = () => {
+      const selectedIds = (bounds: Parameters<MapLibreMap['queryRenderedFeatures']>[0]) => {
+        const visibleLayers = layerIds.filter((id) => map.getLayer(id));
+        if (visibleLayers.length === 0) return [];
+        return [
+          ...new Set(
+            map
+              .queryRenderedFeatures(bounds, { layers: visibleLayers })
+              .filter(
+                ({ properties }) => properties?.selectable && typeof properties.id === 'string',
+              )
+              .map(({ properties }) => properties?.id as string),
+          ),
+        ];
+      };
+      const clearBox = () => {
         box?.remove();
         box = null;
         start = null;
-        container.style.cursor = armed ? 'crosshair' : '';
         if (dragPanWasEnabled) map.dragPan.enable();
         dragPanWasEnabled = false;
+        dragging = false;
+      };
+      const syncSelectionCursor = (clearOverlay = false) => {
+        setSelectionCursor(armedActive || shiftPressed || dragging, clearOverlay);
       };
       const move = (event: MouseEvent) => {
         if (!start || !box) return;
@@ -172,41 +207,64 @@ export function createMapLibreOverlayAdapter(
           [Math.min(start.x, current.x), Math.min(start.y, current.y)],
           [Math.max(start.x, current.x), Math.max(start.y, current.y)],
         ];
-        const visibleLayers = layerIds.filter((id) => map.getLayer(id));
-        const ids = [
-          ...new Set(
-            map
-              .queryRenderedFeatures(bounds, { layers: visibleLayers })
-              .filter(
-                ({ properties }) => properties?.selectable && typeof properties.id === 'string',
-              )
-              .map(({ properties }) => properties?.id as string),
-          ),
-        ];
+        const ids = selectedIds(dragged ? bounds : [current.x, current.y]);
+        clearBox();
+        armedActive = false;
+        shiftPressed = false;
+        ignoreNextMapClick = true;
+        syncSelectionCursor(true);
         onComplete(ids, !dragged && event.shiftKey);
-        reset();
       };
       const begin = (event: MouseEvent) => {
-        if (event.button !== 0 || (!event.shiftKey && !armed)) return;
+        ignoreNextMapClick = false;
+        if (event.button !== 0 || (!event.shiftKey && !armedActive)) return;
         event.preventDefault();
         event.stopPropagation();
         start = point(event);
+        dragging = true;
         dragPanWasEnabled = map.dragPan.isEnabled();
         map.dragPan.disable();
         box = document.createElement('div');
         box.className = 'territory-selection-box';
         container.append(box);
-        container.style.cursor = 'crosshair';
+        syncSelectionCursor();
       };
-      if (armed) container.style.cursor = 'crosshair';
+      const keyDown = (event: KeyboardEvent) => {
+        if (event.key !== 'Shift') return;
+        shiftPressed = true;
+        syncSelectionCursor();
+      };
+      const keyUp = (event: KeyboardEvent) => {
+        if (event.key !== 'Shift') return;
+        shiftPressed = false;
+        syncSelectionCursor(!armedActive && !dragging);
+      };
+      const click = (event: MapMouseEvent) => {
+        if (ignoreNextMapClick) {
+          ignoreNextMapClick = false;
+          return;
+        }
+        if (armed || event.originalEvent.shiftKey) return;
+        if (selectedIds(event.point).length === 0) onEmptyClick();
+      };
+      syncSelectionCursor();
       container.addEventListener('mousedown', begin, true);
+      window.addEventListener('keydown', keyDown);
+      window.addEventListener('keyup', keyUp);
       window.addEventListener('mousemove', move);
       window.addEventListener('mouseup', finish);
+      map.on('click', click);
       return () => {
         container.removeEventListener('mousedown', begin, true);
+        window.removeEventListener('keydown', keyDown);
+        window.removeEventListener('keyup', keyUp);
         window.removeEventListener('mousemove', move);
         window.removeEventListener('mouseup', finish);
-        reset();
+        map.off('click', click);
+        clearBox();
+        armedActive = false;
+        shiftPressed = false;
+        syncSelectionCursor(true);
         if (boxZoomWasEnabled) map.boxZoom.enable();
       };
     },
@@ -222,7 +280,10 @@ export function createMapLibreOverlayAdapter(
     },
     dispose() {
       for (const cancel of [...pending]) cancel();
-      canvas.style.cursor = '';
+      overlayCursor = '';
+      selectionCursorActive = false;
+      ignoreNextMapClick = false;
+      syncCursor();
     },
   };
 }

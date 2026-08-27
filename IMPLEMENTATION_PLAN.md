@@ -898,6 +898,14 @@ controls, progress metrics, and new packet candidates are absent.
   acceptance at 1440 by 900 and 768 by 1024 confirms the quiet apartment placeholder, street-only
   packet proposals and finalization copy, no apartment map setting or progress metric, no horizontal
   overflow, and no browser console errors.
+- On August 27, the Phase 9 review worktree received an ignored local Python 3.12 environment with
+  pinned DuckDB 1.5.5 and explicit development configuration. Import failures now retain the safe
+  user-facing fallback while logging the original exception server-side. The 13 focused import-job
+  checks, Biome, TypeScript, a configured-process check, and the restarted development server pass.
+- Region and Printouts now omit their idle action footers. Editing either view reveals the shared
+  `Cancel` and `Save changes` actions, while active region imports and recoverable failures remain
+  visible. Biome, TypeScript, whitespace validation, and the Impeccable detector pass; browser
+  verification remains with the founder as requested.
 
 ### Tracked follow-ups
 

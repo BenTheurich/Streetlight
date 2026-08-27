@@ -52,6 +52,13 @@ export function isReflectedMapCamera(published: MapCamera | null, incoming: MapC
   return published !== null && mergeMapCamera(published, incoming) === published;
 }
 
+export function mapReadyCameraTarget(
+  createdWith: MapCamera | null,
+  incoming: MapCamera,
+): MapCamera | null {
+  return isReflectedMapCamera(createdWith, incoming) ? null : incoming;
+}
+
 export function positionBounds(positions: Position[]): [[number, number], [number, number]] | null {
   if (positions.length === 0) return null;
   const longitudes = positions.map(([longitude]) => longitude);

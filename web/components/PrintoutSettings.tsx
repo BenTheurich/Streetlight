@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { type ChurchPrintoutSettings, parseChurchPrintoutSettings } from '@/lib/settings';
 import { OperationStatus } from './OperationStatus';
 import { setupToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
+import { UnsavedChangesDialog } from './UnsavedChangesDialog';
 
 export function PrintoutSettings({
   active,
@@ -80,6 +81,12 @@ export function PrintoutSettings({
     await saveSettings();
   }
 
+  function cancelChanges(): void {
+    setMessage(settings.message);
+    setReference(settings.reference);
+    setFeedback(null);
+  }
+
   return (
     <aside aria-busy={saving} className="territory-sidebar tool-sidebar" hidden={!active}>
       <ToolViewSwitcher
@@ -140,21 +147,23 @@ export function PrintoutSettings({
           </div>
         </section>
       </div>
-      <div className="sidebar-actions printout-settings-actions">
-        {feedback && (
-          <OperationStatus
-            detail={feedback.message}
-            headline={
-              feedback.error ? 'Printout settings were not saved' : 'Printout settings saved'
-            }
-            tone={feedback.error ? 'error' : 'success'}
-          />
-        )}
-        {pendingLeave ? (
-          <div className="territory-leave-prompt" role="alert">
-            <strong>Save printout changes before leaving?</strong>
-            <p>Your draft will stay here until you choose what to do.</p>
-            <div>
+      {(dirty || (pendingLeave && active)) && (
+        <div className="sidebar-actions printout-settings-actions">
+          {feedback && (
+            <OperationStatus
+              detail={feedback.message}
+              headline={
+                feedback.error ? 'Printout settings were not saved' : 'Printout settings saved'
+              }
+              tone={feedback.error ? 'error' : 'success'}
+            />
+          )}
+          {pendingLeave && active ? (
+            <UnsavedChangesDialog
+              disabled={saving}
+              onStay={onStay}
+              title="Save printout changes before leaving?"
+            >
               <button className="secondary" disabled={saving} onClick={onStay} type="button">
                 Stay
               </button>
@@ -162,14 +171,12 @@ export function PrintoutSettings({
                 className="secondary"
                 disabled={saving}
                 onClick={() => {
-                  setMessage(settings.message);
-                  setReference(settings.reference);
-                  setFeedback(null);
+                  cancelChanges();
                   onDiscardAndLeave();
                 }}
                 type="button"
               >
-                Discard edits
+                Discard changes
               </button>
               <button
                 disabled={saving}
@@ -180,30 +187,21 @@ export function PrintoutSettings({
                 }}
                 type="button"
               >
-                Save and leave
+                Save and continue
+              </button>
+            </UnsavedChangesDialog>
+          ) : (
+            <div>
+              <button className="secondary" disabled={saving} onClick={cancelChanges} type="button">
+                Cancel
+              </button>
+              <button disabled={saving} form="printout-settings-form" type="submit">
+                {saving ? 'Saving...' : 'Save changes'}
               </button>
             </div>
-          </div>
-        ) : (
-          <div>
-            <button
-              className="secondary"
-              disabled={!message && !reference}
-              onClick={() => {
-                setMessage('');
-                setReference('');
-                setFeedback(null);
-              }}
-              type="button"
-            >
-              Clear message
-            </button>
-            <button disabled={!dirty || saving} form="printout-settings-form" type="submit">
-              {saving ? 'Saving...' : 'Save printout settings'}
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </aside>
   );
 }

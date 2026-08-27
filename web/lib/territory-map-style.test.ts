@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   apartmentMarkerColor,
-  boundaryStrokePaths,
   segmentMapAppearance,
   segmentStrokeWeight,
   segmentVisibleOnMap,
@@ -205,36 +204,6 @@ test('apartment interaction keeps selection origin, camera threshold, and drawin
   assert.equal(typeof apartmentAllowsDrawingPoint, 'function');
   assert.equal(apartmentAllowsDrawingPoint?.(false), true);
   assert.equal(apartmentAllowsDrawingPoint?.(true), false);
-});
-
-test('square boundary strokes restart on each side instead of crossing corners', () => {
-  const ring = [
-    [-2, -1],
-    [2, -1],
-    [2, 1],
-    [-2, 1],
-    [-2, -1],
-  ] as [number, number][];
-
-  assert.deepEqual(boundaryStrokePaths(ring, 'square'), [
-    [
-      [-2, -1],
-      [2, -1],
-    ],
-    [
-      [2, -1],
-      [2, 1],
-    ],
-    [
-      [2, 1],
-      [-2, 1],
-    ],
-    [
-      [-2, 1],
-      [-2, -1],
-    ],
-  ]);
-  assert.deepEqual(boundaryStrokePaths(ring, 'circle'), [ring]);
 });
 
 test('segment strokes scale from two to five pixels', () => {

@@ -41,6 +41,26 @@ test('a camera update emitted by the map is recognized after the map keeps movin
   assert.equal(isReflectedMapCamera(published, { center: [-117.12, 33.55], zoom: 17 }), false);
 });
 
+test('map readiness preserves its entrance fit unless the controlled camera changed while loading', async () => {
+  const mapReadyCameraTarget = ((await import('./map-camera.ts')) as Record<string, unknown>)
+    .mapReadyCameraTarget as
+    | ((
+        createdWith: { center: [number, number]; zoom: number } | null,
+        incoming: {
+          center: [number, number];
+          zoom: number;
+        },
+      ) => { center: [number, number]; zoom: number } | null)
+    | undefined;
+  const createdWith = { center: [-117.11, 33.54] as [number, number], zoom: 11 };
+  const changed = { center: [-117.12, 33.55] as [number, number], zoom: 12 };
+
+  assert.equal(typeof mapReadyCameraTarget, 'function');
+  assert.equal(mapReadyCameraTarget?.(createdWith, { ...createdWith }), null);
+  assert.equal(mapReadyCameraTarget?.(createdWith, changed), changed);
+  assert.equal(mapReadyCameraTarget?.(null, changed), changed);
+});
+
 test('Google and MapLibre cameras use the same geographic scale', async () => {
   const camera = (await import('./map-camera.ts')) as unknown as {
     googleZoomToMapLibre: (zoom: number) => number;

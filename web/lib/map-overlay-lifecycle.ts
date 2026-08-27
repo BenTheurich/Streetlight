@@ -20,7 +20,6 @@ import {
   type ApartmentSelectionSource,
   apartmentFocusZoom,
   apartmentMarkerColor,
-  boundaryStrokePaths,
   coverageColors,
   mapMarkerStyle,
   segmentMapAppearance,
@@ -164,6 +163,7 @@ export type MapOverlayAdapter = {
     armed: boolean;
     layerIds: string[];
     onComplete: (ids: string[], additive: boolean) => void;
+    onEmptyClick: () => void;
   }) => () => void;
   addMarker: (marker: MapOverlayMarker) => () => void;
   dispose: () => void;
@@ -672,9 +672,13 @@ export function createMapOverlayLifecycle({
       territoryRoadFocusKey = null;
       return;
     }
-    ensureSource(current, 'territory-boundary-fill', emptyCollection());
-    ensureSource(current, 'territory-boundary-line', emptyCollection());
-    ensureSource(current, 'streetlight-apartment-selection', emptyCollection());
+    for (const id of [
+      'territory-boundary-fill',
+      'territory-boundary-line',
+      'streetlight-apartment-selection',
+    ] as const) {
+      if (!current.hasSource(id)) current.addSource(id, emptyCollection());
+    }
     const labels = beforeLabels(current);
     ensureLayer(
       current,
@@ -724,6 +728,7 @@ export function createMapOverlayLifecycle({
       },
       labels,
     );
+    setVisible(current, TERRITORY_LAYERS, true);
     suppressBaseRoads(current);
     const boundary = territoryBoundary(value.center, value.radiusMiles, value.boundaryShape);
     current.setSourceData('territory-boundary-fill', {
@@ -734,10 +739,7 @@ export function createMapOverlayLifecycle({
     current.setSourceData('territory-boundary-line', {
       type: 'Feature',
       properties: {},
-      geometry: {
-        type: 'MultiLineString',
-        coordinates: boundaryStrokePaths(boundary.coordinates[0], value.boundaryShape),
-      },
+      geometry: boundary,
     });
     const selectedApartment = value.apartments.find(({ id }) => id === value.selectedApartmentId);
     const apartmentGeometries = selectedApartment
@@ -862,6 +864,7 @@ export function createMapOverlayLifecycle({
     }
     if (!value.interactive || value.mutationLocked) return;
     const selectRoad = (event: MapOverlayEvent) => {
+      if (event.shiftKey) return;
       const properties = event.features?.find(
         ({ properties }) => properties?.selectable,
       )?.properties;
@@ -912,6 +915,9 @@ export function createMapOverlayLifecycle({
         onComplete: (ids, additive) => {
           if (ids.length > 0) value.onSelectSegments(ids, additive);
           value.onBoxSelectionComplete();
+        },
+        onEmptyClick: () => {
+          if (value.selectedSegmentIds.length > 0) value.onSelectSegments([], false);
         },
       }),
     );

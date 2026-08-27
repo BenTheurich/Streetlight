@@ -380,7 +380,8 @@ export function createTerritoryImportLifecycle(
       runInWorkspace(scope, () =>
         replaceTerritoryFromImport(job.draft, imported, { filename, importJobId: job.id }),
       );
-    } catch {
+    } catch (error) {
+      console.error('Territory import failed', error);
       try {
         runInWorkspace(scope, () => failActiveJob(job.id, scope));
       } catch {

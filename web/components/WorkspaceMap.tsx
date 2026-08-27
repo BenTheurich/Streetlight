@@ -9,6 +9,7 @@ import {
   isReflectedMapCamera,
   type MapCamera,
   mapLibreZoomToGoogle,
+  mapReadyCameraTarget,
 } from '@/lib/map-camera';
 import { createMapOverlayLifecycle, type MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
 import { createMapLibreOverlayAdapter } from '@/lib/maplibre-overlay-adapter';
@@ -39,6 +40,7 @@ export function WorkspaceMap({
   const dataRef = useRef(data);
   const googleMapRef = useRef<google.maps.Map | null>(null);
   const cameraRef = useRef(camera);
+  const creationCameraRef = useRef<MapCamera | null>(null);
   const publishedCameraRef = useRef<MapCamera | null>(null);
   const mapTypeRef = useRef(mapType);
   const onCameraChangeRef = useRef(onCameraChange);
@@ -78,16 +80,18 @@ export function WorkspaceMap({
     void import('maplibre-gl')
       .then(({ Map: MapLibre, Marker }) => {
         if (disposed || !openElementRef.current) return;
+        const creationCamera = cameraRef.current;
+        creationCameraRef.current = creationCamera;
         const map = new MapLibre({
           attributionControl: false,
-          center: cameraRef.current.center,
+          center: creationCamera.center,
           container: openElementRef.current,
           style: buildWorkspaceMapStyle(
             baseStyleJson as unknown as OpenMapStyle,
             initialData,
             mapTypeRef.current === 'satellite',
           ) as maplibregl.StyleSpecification,
-          zoom: googleZoomToMapLibre(cameraRef.current.zoom),
+          zoom: googleZoomToMapLibre(creationCamera.zoom),
         });
         mapRef.current = map;
         detach = lifecycle.attach(
@@ -131,6 +135,7 @@ export function WorkspaceMap({
       detach();
       mapRef.current?.remove();
       mapRef.current = null;
+      creationCameraRef.current = null;
     };
   }, [lifecycle, mapDataAvailable]);
 
@@ -143,7 +148,10 @@ export function WorkspaceMap({
     cameraRef.current = camera;
     const map = mapRef.current;
     if (!map || mapStatus !== 'ready') return;
-    map.jumpTo({ center: camera.center, zoom: googleZoomToMapLibre(camera.zoom) });
+    const target = mapReadyCameraTarget(creationCameraRef.current, camera);
+    creationCameraRef.current = null;
+    if (!target) return;
+    map.jumpTo({ center: target.center, zoom: googleZoomToMapLibre(target.zoom) });
   }, [camera, mapStatus]);
 
   useEffect(() => {

@@ -8,6 +8,7 @@ import {
   type MapOverlayLayer,
   type MapOverlayMarker,
   type WorkspaceMapBasePresentation,
+  type WorkspaceMapPresentation,
 } from './map-overlay-lifecycle.ts';
 import type { OpenMapData } from './open-map-data.ts';
 import type { PacketProposal } from './packet-selection.ts';
@@ -93,15 +94,18 @@ function selectedReconciliationPresentation() {
 class TestMapAdapter implements MapOverlayAdapter {
   readonly initialBase: WorkspaceMapBasePresentation;
   readonly sources = new Map<string, unknown>();
+  readonly sourceUpdates: Array<{ id: string; data: unknown }> = [];
   readonly sourceOptions = new Map<string, Record<string, unknown> | undefined>();
   readonly layers = new Map<string, MapOverlayLayer>();
   readonly listeners = new Map<string, Set<(event: MapOverlayEvent) => void>>();
   readonly markers = new Map<string, MapOverlayMarker>();
   readonly paintProperties = new Map<string, unknown>();
+  readonly visibilityUpdates: Array<{ id: string; visible: boolean }> = [];
   readonly fits: Array<{ bounds: unknown; options: unknown }> = [];
   readonly eases: Array<{ center?: [number, number]; zoom?: number }> = [];
   renderedLayers: MapOverlayAdapter['styleLayers'] extends () => infer Result ? Result : never = [];
   boxSelection: ((ids: string[], additive: boolean) => void) | null = null;
+  emptyMapClick: (() => void) | null = null;
   clusterZoom: Promise<number> = Promise.resolve(14);
   readonly styleRequests: Array<{
     complete: () => void;
@@ -142,6 +146,7 @@ class TestMapAdapter implements MapOverlayAdapter {
   setSourceData(id: string, data: unknown) {
     assert.equal(this.sources.has(id), true);
     this.sources.set(id, data);
+    this.sourceUpdates.push({ id, data });
   }
 
   removeSource(id: string) {
@@ -165,6 +170,7 @@ class TestMapAdapter implements MapOverlayAdapter {
     const layer = this.layers.get(id);
     assert(layer);
     this.layers.set(id, { ...layer, visible });
+    this.visibilityUpdates.push({ id, visible });
   }
 
   setPaintProperty(id: string, property: string, value: unknown) {
@@ -196,10 +202,12 @@ class TestMapAdapter implements MapOverlayAdapter {
   getClusterExpansionZoom() {
     return this.clusterZoom;
   }
-  registerBoxSelection(options: { onComplete: (ids: string[], additive: boolean) => void }) {
+  registerBoxSelection(options: Parameters<MapOverlayAdapter['registerBoxSelection']>[0]) {
     this.boxSelection = options.onComplete;
+    this.emptyMapClick = options.onEmptyClick;
     return () => {
       this.boxSelection = null;
+      this.emptyMapClick = null;
     };
   }
 
@@ -510,7 +518,7 @@ test('territory intent owns road suppression, direct selection, and box selectio
     fitOnFirstShow: false,
     onSelectSegment() {},
   });
-  const cleanup = lifecycle.present({
+  const territory: Extract<WorkspaceMapPresentation, { kind: 'territory' }> = {
     kind: 'territory',
     visible: true,
     interactive: true,
@@ -554,11 +562,38 @@ test('territory intent owns road suppression, direct selection, and box selectio
     selectedApartmentId: null,
     selectedApartmentPosition: null,
     apartmentSelectionSource: null,
-  });
+  };
+  let cleanup = lifecycle.present(territory);
   lifecycle.attach(adapter);
   await turn();
 
   assert.equal(adapter.layers.get('base-road')?.visible, false);
+  const territoryBoundaryFill = adapter.sources.get('territory-boundary-fill') as {
+    geometry: unknown;
+  };
+  const territoryBoundaryLine = adapter.sources.get('territory-boundary-line') as {
+    geometry: unknown;
+  };
+  assert.deepEqual(territoryBoundaryLine.geometry, territoryBoundaryFill.geometry);
+  adapter.sourceUpdates.length = 0;
+  adapter.visibilityUpdates.length = 0;
+  const previousCleanup = cleanup;
+  cleanup = lifecycle.present({ ...territory, showHiddenRoads: true });
+  previousCleanup();
+  assert.equal(
+    adapter.sourceUpdates.filter(({ id }) => id === 'territory-boundary-fill').length,
+    1,
+  );
+  assert.equal(
+    adapter.sourceUpdates.filter(({ id }) => id === 'territory-boundary-line').length,
+    1,
+  );
+  assert.equal(
+    adapter.visibilityUpdates.some(
+      ({ id, visible }) => id.startsWith('territory-boundary-') && !visible,
+    ),
+    false,
+  );
   const territoryWidth = [
     'interpolate',
     ['linear'],
@@ -574,7 +609,6 @@ test('territory intent owns road suppression, direct selection, and box selectio
     territoryWidth,
   );
   adapter.emit('click', 'streetlight-coverage', {
-    shiftKey: true,
     features: [
       {
         geometry: { type: 'LineString' },
@@ -582,11 +616,28 @@ test('territory intent owns road suppression, direct selection, and box selectio
       },
     ],
   });
-  adapter.boxSelection?.(['segment-one'], false);
+  adapter.emit('click', 'streetlight-territory-hidden', {
+    shiftKey: true,
+    features: [
+      {
+        geometry: { type: 'LineString' },
+        properties: { id: 'segment-two', selectable: true },
+      },
+    ],
+  });
+  adapter.boxSelection?.(['segment-two'], true);
   assert.deepEqual(selected, [
-    { ids: ['segment-one'], additive: true },
     { ids: ['segment-one'], additive: false },
+    { ids: ['segment-two'], additive: true },
   ]);
+  adapter.emptyMapClick?.();
+  assert.equal(selected.length, 2);
+
+  const hiddenCleanup = cleanup;
+  cleanup = lifecycle.present({ ...territory, selectedSegmentIds: ['segment-one'] });
+  hiddenCleanup();
+  adapter.emptyMapClick?.();
+  assert.deepEqual(selected.at(-1), { ids: [], additive: false });
 
   cleanup();
   assert.equal(adapter.layers.get('base-road')?.visible, true);
@@ -615,6 +666,10 @@ test('territory intent owns road suppression, direct selection, and box selectio
     false,
   );
   assert.equal(adapter.markers.size, 0);
+  const restoreTerritory = lifecycle.present(territory);
+  assert.equal(adapter.layers.get('territory-boundary-fill')?.visible, true);
+  assert.equal(adapter.layers.get('territory-boundary-line')?.visible, true);
+  restoreTerritory();
   releaseCoverage();
   assert.equal(adapter.layers.get('streetlight-coverage')?.visible, false);
   lifecycle.dispose();

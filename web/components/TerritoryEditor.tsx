@@ -23,6 +23,7 @@ import type {
 import { OpenTerritoryMap } from './OpenTerritoryMap';
 import { OperationStatus } from './OperationStatus';
 import { setupToolViews, ToolViewSwitcher } from './ToolViewSwitcher';
+import { UnsavedChangesDialog } from './UnsavedChangesDialog';
 
 type PendingAddress = {
   formattedAddress: string;
@@ -432,6 +433,7 @@ export function TerritoryEditor({
     await workflow.save(leaveAfterSave ? 'leave' : 'stay');
   }
   const operationPlacement = 'placement' in view.operation ? view.operation.placement : 'surface';
+  const retryAvailable = active && saveFailure?.recovery === 'retry';
   const saveStatus =
     saving || importing || saveFailure || backgroundImportComplete ? (
       <OperationStatus
@@ -540,13 +542,11 @@ export function TerritoryEditor({
                   }}
                   type="button"
                 >
-                  {boxSelectionArmed ? 'Drag over roads' : 'Select road area'}
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5M12 8v8M8 12h8" />
+                  </svg>
+                  Select roads
                 </button>
-                <span>
-                  {boxSelectionArmed
-                    ? 'Drag a box over road segments'
-                    : 'Shift-drag selects road segments'}
-                </span>
               </div>
             )}
           </>,
@@ -555,7 +555,7 @@ export function TerritoryEditor({
 
       <aside
         aria-busy={saving || importing}
-        className={`territory-sidebar tool-sidebar${canSave ? ' has-pending-changes' : ''}`}
+        className="territory-sidebar tool-sidebar"
         hidden={!active}
       >
         {!setupRequired && (
@@ -1238,8 +1238,9 @@ export function TerritoryEditor({
                   <span className="review-disclosure-summary-copy">
                     <strong className="review-disclosure-title">Data quality</strong>
                     <small className="review-disclosure-meta">
-                      {savedWorkspace.import.quality.warnings.length} warning
-                      {savedWorkspace.import.quality.warnings.length === 1 ? '' : 's'}
+                      {savedWorkspace.import.quality.warnings.length > 0
+                        ? 'Review recommended'
+                        : 'Open mapping data'}
                     </small>
                   </span>
                   <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -1247,69 +1248,74 @@ export function TerritoryEditor({
                   </svg>
                 </summary>
                 <div className="review-disclosure-body">
-                  <p className="quality-impact">
-                    Some streets need a quick map review before packet generation. Streetlight kept
-                    them available so you can check unusual roads and building-heavy areas.
-                  </p>
                   {savedWorkspace.import.quality.warnings.length > 0 && (
                     <div className="import-quality-warning">
-                      <strong>Street data may be incomplete</strong>
-                      <p>Review the map before generating the next packet batch.</p>
+                      <strong>Some roads need review</strong>
+                      <p>
+                        Include any residential streets that should be covered. Tract estimates may
+                        be low in some areas.
+                      </p>
+                      <button
+                        className="quality-road-review-action"
+                        onClick={() => {
+                          setShowHiddenRoads(true);
+                          transitionReviewSection('roads');
+                        }}
+                        type="button"
+                      >
+                        Show hidden roads
+                      </button>
                     </div>
                   )}
-                  <details className="quality-technical-details">
-                    <summary>Technical details</summary>
-                    <p>
-                      Address match: {savedWorkspace.import.quality.assignedAddresses} of{' '}
-                      {savedWorkspace.import.quality.totalAddresses} &middot;{' '}
-                      {savedWorkspace.import.quality.inferredRoads} inferred road
-                      {savedWorkspace.import.quality.inferredRoads === 1 ? '' : 's'}
-                    </p>
-                    <ul>
-                      {savedWorkspace.import.quality.warnings.map((warning) => (
-                        <li key={warning}>{warning}</li>
-                      ))}
-                    </ul>
-                  </details>
+                  <p className="quality-source-note">
+                    Open mapping data may be incomplete or out of date, especially in recently
+                    developed areas.
+                  </p>
                 </div>
               </details>
             )}
           </div>
         </div>
 
-        <div className="sidebar-actions">
-          {apartmentSaveFailure && (
-            <OperationStatus
-              action={
-                apartmentSaveFailure.recovery === 'reload' ? (
-                  <button onClick={() => void workflow.apartments?.retry()} type="button">
-                    Reload to verify
-                  </button>
-                ) : (
-                  <button
-                    disabled={leaveControlsDisabled}
-                    onClick={() => void workflow.apartments?.retry()}
-                    type="button"
-                  >
-                    Try again
-                  </button>
-                )
-              }
-              detail={apartmentSaveFailure.message}
-              headline={
-                apartmentSaveFailure.recovery === 'reload'
-                  ? 'Could not confirm apartment save'
-                  : 'Apartment changes were not saved'
-              }
-              tone="error"
-            />
-          )}
-          {operationPlacement === 'surface' && saveStatus}
-          {pendingLeave ? (
-            <div className="territory-leave-prompt" role="alert">
-              <strong>Save region changes before leaving?</strong>
-              <p>Your draft will stay here until you choose what to do.</p>
-              <div>
+        {(apartmentSaveFailure ||
+          (operationPlacement === 'surface' && saveStatus) ||
+          (pendingLeave && active) ||
+          hasUnsavedChanges ||
+          retryAvailable) && (
+          <div className="sidebar-actions">
+            {apartmentSaveFailure && (
+              <OperationStatus
+                action={
+                  apartmentSaveFailure.recovery === 'reload' ? (
+                    <button onClick={() => void workflow.apartments?.retry()} type="button">
+                      Reload to verify
+                    </button>
+                  ) : (
+                    <button
+                      disabled={leaveControlsDisabled}
+                      onClick={() => void workflow.apartments?.retry()}
+                      type="button"
+                    >
+                      Try again
+                    </button>
+                  )
+                }
+                detail={apartmentSaveFailure.message}
+                headline={
+                  apartmentSaveFailure.recovery === 'reload'
+                    ? 'Could not confirm apartment save'
+                    : 'Apartment changes were not saved'
+                }
+                tone="error"
+              />
+            )}
+            {operationPlacement === 'surface' && saveStatus}
+            {pendingLeave && active ? (
+              <UnsavedChangesDialog
+                disabled={leaveControlsDisabled}
+                onStay={onStay}
+                title="Save region changes before leaving?"
+              >
                 <button
                   className="secondary"
                   disabled={leaveControlsDisabled}
@@ -1334,42 +1340,48 @@ export function TerritoryEditor({
                   onClick={() => void saveChanges(true)}
                   type="button"
                 >
-                  {saveFailure?.recovery === 'retry' ? 'Try save again' : 'Save changes'}
+                  Save and continue
                 </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {!saving && !saveFailure && !backgroundImportComplete && (
-                <p aria-live="polite">{notice}</p>
-              )}
-              {importRequired && !importing && (
-                <p className="import-notice">Street data will refresh when saved.</p>
-              )}
-              <div>
-                <button
-                  className="secondary"
-                  disabled={!hasUnsavedChanges || leaveControlsDisabled}
-                  onClick={cancelChanges}
-                  type="button"
-                >
-                  Cancel
-                </button>
-                <button
-                  disabled={!canSave || leaveControlsDisabled || Boolean(radiusError)}
-                  onClick={() => void saveChanges()}
-                  type="button"
-                >
-                  {saving
-                    ? 'Saving…'
-                    : saveFailure?.recovery === 'retry'
-                      ? 'Try save again'
-                      : 'Save changes'}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+              </UnsavedChangesDialog>
+            ) : (
+              <>
+                {hasUnsavedChanges && !saving && !saveFailure && !backgroundImportComplete && (
+                  <p aria-live="polite">{notice}</p>
+                )}
+                {hasUnsavedChanges && importRequired && !importing && (
+                  <p className="import-notice">
+                    {setupRequired
+                      ? 'Saving will prepare the streets in your region. Setup will finish when they are ready.'
+                      : 'Saving will update the streets shown on your map. You can keep using Streetlight while it finishes.'}
+                  </p>
+                )}
+                {(hasUnsavedChanges || retryAvailable) && (
+                  <div>
+                    <button
+                      className="secondary"
+                      disabled={!hasUnsavedChanges || leaveControlsDisabled}
+                      onClick={cancelChanges}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      disabled={!canSave || leaveControlsDisabled || Boolean(radiusError)}
+                      onClick={() => void saveChanges()}
+                      type="button"
+                    >
+                      {saving
+                        ? 'Saving…'
+                        : saveFailure?.recovery === 'retry'
+                          ? 'Try save again'
+                          : 'Save changes'}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </aside>
       {operationPlacement === 'global' && saveStatus}
     </>
