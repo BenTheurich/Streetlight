@@ -7,7 +7,6 @@ import {
   insertCoverageCompletionFixture,
   withSeededTemeculaDatabase,
 } from '../test/persistence-fixtures.ts';
-import { countEligibleHomesCovered } from './coverage.ts';
 import {
   appendCoverageCorrection,
   getCoverageWorkspace,
@@ -294,11 +293,6 @@ test('coverage thresholds persist per territory without changing coverage totals
         ?.coverageClass,
       'green',
     );
-    const coveredHomes = countEligibleHomesCovered(
-      beforeThresholdChange.segments,
-      beforeThresholdChange.asOf,
-      90,
-    );
 
     saveCoverageThresholds(
       { yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 90 },
@@ -319,6 +313,13 @@ test('coverage thresholds persist per territory without changing coverage totals
       'orange',
     );
     assert.equal(after.totals.eligibleHomes, before.totals.eligibleHomes);
-    assert.equal(countEligibleHomesCovered(after.segments, after.asOf, 90), coveredHomes);
+    assert.deepEqual(
+      after.segments.map(({ id, lastCoveredOn, roots }) => ({ id, lastCoveredOn, roots })),
+      beforeThresholdChange.segments.map(({ id, lastCoveredOn, roots }) => ({
+        id,
+        lastCoveredOn,
+        roots,
+      })),
+    );
   });
 });

@@ -15,12 +15,22 @@ export async function getPacketPdf(
   request: Request,
   options: PacketPdfOptions = {},
 ): Promise<Response> {
-  const scope = new URL(request.url).searchParams.get('scope');
-  if (scope !== 'newest' && scope !== 'active') {
+  const parameters = new URL(request.url).searchParams;
+  const scope = parameters.get('scope');
+  const batchId = parameters.get('batchId');
+  if (
+    parameters.getAll('scope').length !== 1 ||
+    (scope !== 'newest' && scope !== 'active' && scope !== 'batch') ||
+    (scope === 'batch'
+      ? parameters.getAll('batchId').length !== 1 || !batchId || batchId.trim() !== batchId
+      : parameters.has('batchId'))
+  ) {
     return Response.json({ error: 'Invalid packet download scope' }, { status: 400 });
   }
   try {
-    const selection = getPacketDownloadSelection(scope);
+    const selection = getPacketDownloadSelection(
+      scope === 'batch' ? { batchId: batchId as string } : scope,
+    );
     const logo = await readFile(path.join(process.cwd(), 'public', 'StreetlightLogo.png'));
     const maps = await (options.renderMaps ?? renderOpenPacketMaps)(selection);
     const bytes = await renderPacketPdf(selection, {
@@ -33,7 +43,11 @@ export async function getPacketPdf(
       },
     });
     const filename =
-      scope === 'newest' ? 'streetlight-newest-batch.pdf' : 'streetlight-active-packets.pdf';
+      scope === 'batch'
+        ? 'streetlight-batch.pdf'
+        : scope === 'newest'
+          ? 'streetlight-newest-batch.pdf'
+          : 'streetlight-active-packets.pdf';
     return new Response(Uint8Array.from(bytes).buffer, {
       headers: {
         'content-type': 'application/pdf',

@@ -72,10 +72,12 @@ export type PacketMapGeneration = {
 };
 
 export type PacketDownloadSelection = {
-  scope: 'newest' | 'active';
+  scope: 'newest' | 'active' | 'batch';
   packets: DownloadPacket[];
   mapGenerations: PacketMapGeneration[];
 };
+
+export type PacketDownloadTarget = 'newest' | 'active' | { batchId: string };
 
 export class PacketProposalConflictError extends Error {}
 

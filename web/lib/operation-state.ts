@@ -45,11 +45,9 @@ function isStart(value: unknown): boolean {
   return isRecord(value) && typeof value.address === 'string' && isPosition(value.position);
 }
 
-function isFinalizedPacket(value: unknown): boolean {
+export function isPacketProposalPayload(value: unknown): boolean {
   return (
     isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.code === 'string' &&
     (value.kind === undefined || value.kind === 'apartment') &&
     (value.apartmentId === undefined || typeof value.apartmentId === 'string') &&
     (value.kind !== 'apartment' || typeof value.apartmentId === 'string') &&
@@ -61,6 +59,15 @@ function isFinalizedPacket(value: unknown): boolean {
     isStart(value.start) &&
     Array.isArray(value.streetNames) &&
     value.streetNames.every((name) => typeof name === 'string')
+  );
+}
+
+function isFinalizedPacket(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.code === 'string' &&
+    isPacketProposalPayload(value)
   );
 }
 
@@ -157,29 +164,6 @@ export async function readMutationResult<T>(
   } catch {
     return { status: 'uncertain', recovery: 'reload' };
   }
-}
-
-type PacketOperationState = {
-  downloading: 'newest' | 'active' | null;
-  finalizing: boolean;
-  generating: boolean;
-  verificationRequired: boolean;
-};
-
-export function packetOperationControls(state: PacketOperationState, activePackets: number) {
-  const busy =
-    state.generating ||
-    state.finalizing ||
-    state.downloading !== null ||
-    state.verificationRequired;
-  return {
-    activePdfDisabled: busy || activePackets === 0,
-    busy,
-    finalizationDisabled: busy,
-    newestPdfDisabled: busy,
-    proposalDisabled: busy,
-    requestDisabled: busy,
-  };
 }
 
 export type CorrectionAttempt = {

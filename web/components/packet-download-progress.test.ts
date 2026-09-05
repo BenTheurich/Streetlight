@@ -14,4 +14,9 @@ test('packet download progress uses the selected scope count', () => {
     headline: 'Preparing active packet PDF',
     message: 'Preparing 12 packet maps and PDF…',
   });
+  assert.deepEqual(packetDownloadProgress('batch', 5, 12), {
+    busy: true,
+    headline: 'Preparing finalized batch PDF',
+    message: 'Preparing 5 packet maps and PDF…',
+  });
 });

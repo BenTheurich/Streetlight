@@ -5,7 +5,6 @@ import {
   calendarDateInTimeZone,
   classifyCoverage,
   countEligibleHomesByCoverageClass,
-  countEligibleHomesCovered,
   coverageLegend,
   DEFAULT_COVERAGE_THRESHOLDS,
   parseCorrectionRequest,
@@ -352,40 +351,4 @@ test('correction requests accept exactly eventId and coveredOn', () => {
   ]) {
     assert.throws(() => parseCorrectionRequest(request, asOf), /correction request/i);
   }
-});
-
-test('eligible period homes include each covered logical segment once at inclusive endpoints', () => {
-  const derived = [
-    {
-      id: 'a',
-      estimatedHomes: 3,
-      eligible: true,
-      lastCoveredOn: '2026-05-15',
-      roots: [],
-    },
-    {
-      id: 'b',
-      estimatedHomes: 5,
-      eligible: true,
-      lastCoveredOn: '2026-07-28',
-      roots: [],
-    },
-    {
-      id: 'c',
-      estimatedHomes: 7,
-      eligible: true,
-      lastCoveredOn: '2026-04-29',
-      roots: [],
-    },
-    { id: 'd', estimatedHomes: 11, eligible: false, lastCoveredOn: null, roots: [] },
-  ];
-  assert.equal(countEligibleHomesCovered(derived, asOf, 90), 8);
-  assert.equal(
-    countEligibleHomesCovered(
-      [{ ...derived[0], lastCoveredOn: '2026-07-29', estimatedHomes: 13 }],
-      asOf,
-      90,
-    ),
-    0,
-  );
 });

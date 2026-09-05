@@ -5,7 +5,6 @@ import {
   buildOutreachProgress,
   outreachProgressPlayback,
   outreachProgressSnapshot,
-  outreachProgressStepCount,
   outreachProgressYears,
 } from './outreach-progress.ts';
 
@@ -85,7 +84,7 @@ test('cumulative snapshots never remove earlier outreach', () => {
 test('playback advances only through recorded outreach days', () => {
   const progress = buildOutreachProgress(workspace, 2026);
 
-  assert.equal(outreachProgressStepCount(progress), 2);
+  assert.equal(progress.dates.length, 2);
   assert.deepEqual(outreachProgressPlayback(progress, 0.1), {
     barPosition: 0.5,
     completedStep: 0,
@@ -118,6 +117,6 @@ test('rolling progress spans the latest 52 weeks across calendar years', () => {
   assert.equal(progress.mode, 'rolling');
   assert.equal(progress.startDate, '2025-08-04');
   assert.equal(progress.endDate, '2026-08-02');
-  assert.equal(outreachProgressStepCount(progress), 3);
+  assert.equal(progress.dates.length, 3);
   assert.deepEqual(progress.dates, ['2025-12-01', '2026-02-01', '2026-03-01']);
 });

@@ -475,7 +475,16 @@ function correctPacketCompletion(
         .prepare(
           `SELECT DISTINCT p.packet_code
           FROM packet_segments original
-          JOIN packet_segments newer ON newer.street_segment_id = original.street_segment_id
+          JOIN street_segments original_segment
+            ON original_segment.id = original.street_segment_id
+            AND original_segment.church_id = original.church_id
+          JOIN street_segments reserved_segment
+            ON reserved_segment.church_id = original_segment.church_id
+            AND reserved_segment.territory_id = original_segment.territory_id
+            AND reserved_segment.import_segment_id = original_segment.import_segment_id
+          JOIN packet_segments newer
+            ON newer.street_segment_id = reserved_segment.id
+            AND newer.church_id = original.church_id
           JOIN packets p ON p.id = newer.packet_id AND p.church_id = newer.church_id
           WHERE original.packet_id = ? AND original.church_id = ?
             AND newer.packet_id != original.packet_id AND p.status = 'active'
@@ -486,8 +495,16 @@ function correctPacketCompletion(
         .prepare(
           `SELECT DISTINCT p.packet_code
           FROM packet_apartment_complexes original
+          JOIN apartment_complexes original_site
+            ON original_site.id = original.apartment_complex_id
+            AND original_site.church_id = original.church_id
+          JOIN apartment_complexes reserved_site
+            ON reserved_site.church_id = original_site.church_id
+            AND reserved_site.territory_id = original_site.territory_id
+            AND reserved_site.import_complex_id = original_site.import_complex_id
           JOIN packet_apartment_complexes newer
-            ON newer.apartment_complex_id = original.apartment_complex_id
+            ON newer.apartment_complex_id = reserved_site.id
+            AND newer.church_id = original.church_id
           JOIN packets p ON p.id = newer.packet_id AND p.church_id = newer.church_id
           WHERE original.packet_id = ? AND original.church_id = ?
             AND newer.packet_id != original.packet_id AND p.status = 'active'

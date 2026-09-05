@@ -129,6 +129,14 @@ class TestMapAdapter implements MapOverlayAdapter {
     return this.ready;
   }
 
+  settled = Promise.resolve();
+  settleRequests = 0;
+
+  waitUntilSettled() {
+    this.settleRequests += 1;
+    return this.settled;
+  }
+
   replaceStyle(value: WorkspaceMapBasePresentation) {
     this.styleReplacements += 1;
     this.styleTargets.push(value);
@@ -420,6 +428,47 @@ test('an identical provider style received before initial readiness cannot leave
 
   assert.equal(adapter.styleReplacements, 0);
   assert.deepEqual(statuses, ['loading', 'ready']);
+  lifecycle.dispose();
+});
+
+test('settled readiness includes style replacement and republished overlays before the provider frame', async () => {
+  const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
+  const adapter = new TestMapAdapter();
+  lifecycle.present(base());
+  lifecycle.attach(adapter);
+  await turn();
+  lifecycle.present({ ...base(), mapType: 'satellite' });
+  let rendered = () => {};
+  adapter.settled = new Promise<void>((resolve) => {
+    rendered = resolve;
+  });
+  let ready = false;
+  const settling = lifecycle.whenSettled(new AbortController().signal).then(() => {
+    ready = true;
+  });
+  await turn();
+  assert.equal(adapter.settleRequests, 0);
+  adapter.styleRequests[0].complete();
+  await turn();
+  assert.equal(adapter.settleRequests, 1);
+  assert.equal(ready, false);
+  assert.equal(adapter.markers.has('church'), true);
+  rendered();
+  await settling;
+  assert.equal(ready, true);
+  lifecycle.dispose();
+});
+
+test('settled readiness is cancellable while waiting for initial map loading', async () => {
+  const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
+  const adapter = new TestMapAdapter();
+  adapter.ready = new Promise(() => {});
+  lifecycle.attach(adapter);
+  const controller = new AbortController();
+  const settling = assert.rejects(lifecycle.whenSettled(controller.signal));
+  controller.abort();
+  await settling;
+  assert.equal(adapter.settleRequests, 0);
   lifecycle.dispose();
 });
 

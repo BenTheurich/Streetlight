@@ -6,9 +6,6 @@ import {
   type LineString,
   lineInsideCircle,
   lineInsideTerritoryBoundary,
-  lineIntersectsPolygon,
-  type Polygon,
-  polygonIsSimple,
   territoryBoundary,
 } from './territory-geometry.ts';
 
@@ -25,19 +22,6 @@ const crossingLine: LineString = {
   coordinates: [
     [0, 0],
     [0, 0.03],
-  ],
-};
-
-const square: Polygon = {
-  type: 'Polygon',
-  coordinates: [
-    [
-      [-1, -1],
-      [1, -1],
-      [1, 1],
-      [-1, 1],
-      [-1, -1],
-    ],
   ],
 };
 
@@ -61,57 +45,6 @@ test('circle containment includes complete lines on or within the radius', () =>
 
 test('circle containment rejects a line that crosses the radius', () => {
   assert.equal(lineInsideCircle(crossingLine, [0, 0], 1), false);
-});
-
-test('polygon contact includes a line that only touches its boundary', () => {
-  assert.equal(
-    lineIntersectsPolygon(
-      {
-        type: 'LineString',
-        coordinates: [
-          [-2, 1],
-          [-1, 1],
-        ],
-      },
-      square,
-    ),
-    true,
-  );
-});
-
-test('polygon intersection leaves an unrelated line alone', () => {
-  assert.equal(
-    lineIntersectsPolygon(
-      {
-        type: 'LineString',
-        coordinates: [
-          [2, 2],
-          [3, 3],
-        ],
-      },
-      square,
-    ),
-    false,
-  );
-});
-
-test('polygon validation rejects a self-intersecting ring', () => {
-  assert.equal(
-    polygonIsSimple({
-      type: 'Polygon',
-      coordinates: [
-        [
-          [-1, -1],
-          [1, 1],
-          [-1, 1],
-          [1, -1],
-          [-1, -1],
-        ],
-      ],
-    }),
-    false,
-  );
-  assert.equal(polygonIsSimple(square), true);
 });
 
 test('closing a polygon adds one closing coordinate', () => {

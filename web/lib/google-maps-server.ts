@@ -1,5 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
 import type { Position } from './territory-geometry.ts';
 
 export type GeocodedAddress = {
@@ -7,31 +5,12 @@ export type GeocodedAddress = {
   center: Position;
 };
 
-function configuredValue(name: string): string {
-  const direct = process.env[name]?.trim();
-  if (direct) {
-    return direct;
-  }
-
-  const envPath = path.resolve(process.cwd(), '..', '.env.local');
-  if (!existsSync(envPath)) {
-    return '';
-  }
-  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
-    const match = line.match(new RegExp(`^\\s*${name}\\s*=\\s*(.+?)\\s*$`));
-    if (match) {
-      return match[1].replace(/^['"]|['"]$/g, '');
-    }
-  }
-  return '';
-}
-
 export function getGoogleMapsBrowserKey(): string {
-  return configuredValue('GOOGLE_MAPS_BROWSER_API_KEY');
+  return process.env.GOOGLE_MAPS_BROWSER_API_KEY?.trim() ?? '';
 }
 
 export function getGoogleMapsServerKey(): string {
-  return configuredValue('GOOGLE_MAPS_SERVER_API_KEY');
+  return process.env.GOOGLE_MAPS_SERVER_API_KEY?.trim() ?? '';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

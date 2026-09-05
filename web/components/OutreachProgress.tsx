@@ -1,15 +1,13 @@
 'use client';
 
 import type { CSSProperties, RefObject } from 'react';
+import type { OutreachProgressPeriod, OutreachProgressSnapshot } from '@/lib/outreach-progress';
 import type {
-  OutreachProgressMode,
-  OutreachProgressPeriod,
-  OutreachProgressSnapshot,
-} from '@/lib/outreach-progress';
+  OutreachProgressAction,
+  OutreachProgressView,
+} from '@/lib/outreach-progress-workflow';
 import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 import { StreetlightSelect } from './StreetlightSelect';
-
-export type ProgressDisplayMode = 'admin' | 'presentation' | 'print';
 
 function formatDate(value: string | null, progress: OutreachProgressPeriod): string {
   if (!value) {
@@ -51,44 +49,29 @@ function Metrics({ snapshot }: { snapshot: OutreachProgressSnapshot }) {
 export function OutreachProgress({
   active,
   churchName,
-  displayMode,
-  onDisplayModeChange,
-  onModeChange,
-  onPlay,
-  onPrint,
-  onStepChange,
-  onYearChange,
-  playing,
+  act,
   presentationButtonRef,
-  progress,
-  position,
-  stepCount,
-  selectedDate,
-  snapshot,
-  timelinePosition,
-  year,
-  years,
+  view,
 }: {
   active: boolean;
   churchName: string;
-  displayMode: ProgressDisplayMode;
-  onDisplayModeChange: (mode: ProgressDisplayMode) => void;
-  onModeChange: (mode: OutreachProgressMode) => void;
-  onPlay: () => void;
-  onPrint: () => void;
-  onStepChange: (step: number) => void;
-  onYearChange: (year: number) => void;
-  playing: boolean;
+  act: (action: OutreachProgressAction) => Promise<void>;
   presentationButtonRef: RefObject<HTMLButtonElement | null>;
-  progress: OutreachProgressPeriod;
-  position: number;
-  stepCount: number;
-  selectedDate: string | null;
-  snapshot: OutreachProgressSnapshot;
-  timelinePosition: number;
-  year: number;
-  years: number[];
+  view: OutreachProgressView;
 }) {
+  const {
+    displayMode,
+    error,
+    playing,
+    progress,
+    position,
+    selectedDate,
+    snapshot,
+    timelinePosition,
+    year,
+    years,
+  } = view;
+  const stepCount = progress.dates.length;
   if (displayMode !== 'admin') {
     const completion = stepCount === 0 ? 0 : timelinePosition / stepCount;
     return (
@@ -96,7 +79,7 @@ export function OutreachProgress({
         {displayMode === 'presentation' && (
           <button
             className="progress-presentation-exit secondary"
-            onClick={() => onDisplayModeChange('admin')}
+            onClick={() => void act({ kind: 'exit' })}
             type="button"
           >
             Exit presentation
@@ -140,7 +123,9 @@ export function OutreachProgress({
             <StreetlightSelect
               ariaLabel="View"
               id="progress-mode"
-              onValueChange={(value) => onModeChange(value as OutreachProgressMode)}
+              onValueChange={(value) =>
+                void act({ kind: 'mode', mode: value as 'calendar' | 'rolling' })
+              }
               options={[
                 { label: 'Calendar year', value: 'calendar' },
                 { label: 'Past year', value: 'rolling' },
@@ -154,7 +139,7 @@ export function OutreachProgress({
               <StreetlightSelect
                 ariaLabel="Year"
                 id="progress-period"
-                onValueChange={(value) => onYearChange(Number(value))}
+                onValueChange={(value) => void act({ kind: 'year', year: Number(value) })}
                 options={years.map((value) => ({ label: String(value), value: String(value) }))}
                 value={String(year)}
               />
@@ -188,7 +173,7 @@ export function OutreachProgress({
                         : 'Play past year'
                 }
                 className="progress-playback-toggle"
-                onClick={onPlay}
+                onClick={() => void act({ kind: 'play' })}
                 type="button"
               >
                 {playing ? (
@@ -206,7 +191,9 @@ export function OutreachProgress({
                 aria-valuetext={formatDate(selectedDate, progress)}
                 max={stepCount}
                 min="0"
-                onChange={(event) => onStepChange(Math.round(Number(event.target.value)))}
+                onChange={(event) =>
+                  void act({ kind: 'position', position: Math.round(Number(event.target.value)) })
+                }
                 step="any"
                 type="range"
                 value={position}
@@ -219,10 +206,15 @@ export function OutreachProgress({
         </section>
       </div>
       <div className="sidebar-actions progress-actions">
+        {error && (
+          <p className="field-error" role="alert">
+            {error}
+          </p>
+        )}
         <div>
           <button
             disabled={progress.dates.length === 0}
-            onClick={() => onDisplayModeChange('presentation')}
+            onClick={() => void act({ kind: 'present' })}
             ref={presentationButtonRef}
             type="button"
           >
@@ -231,7 +223,7 @@ export function OutreachProgress({
           <button
             className="secondary"
             disabled={progress.dates.length === 0}
-            onClick={onPrint}
+            onClick={() => void act({ kind: 'print' })}
             type="button"
           >
             Print progress

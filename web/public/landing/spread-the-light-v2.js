@@ -1,5 +1,4 @@
 const story = document.querySelector('.anchor-story');
-const toast = document.querySelector('.demo-toast');
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const desktop = window.matchMedia('(min-width: 761px)');
 const lamp = story.querySelector('.anchor-lamp');
@@ -163,14 +162,6 @@ pilotForm.addEventListener('submit', async (event) => {
   } finally {
     submit.disabled = false;
   }
-});
-
-document.querySelectorAll('[data-demo]').forEach((button) => {
-  button.addEventListener('click', () => {
-    toast.textContent = 'Administrator sign-in will be available to invited pilot churches.';
-    toast.classList.add('is-visible');
-    window.setTimeout(() => toast.classList.remove('is-visible'), 2600);
-  });
 });
 
 window.addEventListener('scroll', measureStory, { passive: true });

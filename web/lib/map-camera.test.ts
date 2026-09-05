@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import * as cameraModule from './map-camera.ts';
-import { forwardMapCameraChange, isReflectedMapCamera, mergeMapCamera } from './map-camera.ts';
+import {
+  coverageSelectionCameraOptions,
+  forwardMapCameraChange,
+  googleZoomToMapLibre,
+  isReflectedMapCamera,
+  mapLibreZoomToGoogle,
+  mapReadyCameraTarget,
+  mergeMapCamera,
+  positionBounds,
+  segmentSelectionBounds,
+} from './map-camera.ts';
 
 test('camera synchronization ignores reflected updates but accepts real movement', () => {
   const current = { center: [-117.11, 33.54] as [number, number], zoom: 16 };
@@ -41,48 +50,23 @@ test('a camera update emitted by the map is recognized after the map keeps movin
   assert.equal(isReflectedMapCamera(published, { center: [-117.12, 33.55], zoom: 17 }), false);
 });
 
-test('map readiness preserves its entrance fit unless the controlled camera changed while loading', async () => {
-  const mapReadyCameraTarget = ((await import('./map-camera.ts')) as Record<string, unknown>)
-    .mapReadyCameraTarget as
-    | ((
-        createdWith: { center: [number, number]; zoom: number } | null,
-        incoming: {
-          center: [number, number];
-          zoom: number;
-        },
-      ) => { center: [number, number]; zoom: number } | null)
-    | undefined;
+test('map readiness preserves its entrance fit unless the controlled camera changed while loading', () => {
   const createdWith = { center: [-117.11, 33.54] as [number, number], zoom: 11 };
   const changed = { center: [-117.12, 33.55] as [number, number], zoom: 12 };
 
-  assert.equal(typeof mapReadyCameraTarget, 'function');
-  assert.equal(mapReadyCameraTarget?.(createdWith, { ...createdWith }), null);
-  assert.equal(mapReadyCameraTarget?.(createdWith, changed), changed);
-  assert.equal(mapReadyCameraTarget?.(null, changed), changed);
+  assert.equal(mapReadyCameraTarget(createdWith, { ...createdWith }), null);
+  assert.equal(mapReadyCameraTarget(createdWith, changed), changed);
+  assert.equal(mapReadyCameraTarget(null, changed), changed);
 });
 
-test('Google and MapLibre cameras use the same geographic scale', async () => {
-  const camera = (await import('./map-camera.ts')) as unknown as {
-    googleZoomToMapLibre: (zoom: number) => number;
-    mapLibreZoomToGoogle: (zoom: number) => number;
-  };
-
-  assert.equal(typeof camera.googleZoomToMapLibre, 'function');
-  assert.equal(typeof camera.mapLibreZoomToGoogle, 'function');
-  assert.equal(camera.googleZoomToMapLibre(14), 13);
-  assert.equal(camera.mapLibreZoomToGoogle(13.5), 14.5);
+test('Google and MapLibre cameras use the same geographic scale', () => {
+  assert.equal(googleZoomToMapLibre(14), 13);
+  assert.equal(mapLibreZoomToGoogle(13.5), 14.5);
 });
 
-test('map fitting derives one bound from every visible position', async () => {
-  const camera = (await import('./map-camera.ts')) as unknown as {
-    positionBounds?: (
-      positions: Array<[number, number]>,
-    ) => [[number, number], [number, number]] | null;
-  };
-
-  assert.equal(typeof camera.positionBounds, 'function');
+test('map fitting derives one bound from every visible position', () => {
   assert.deepEqual(
-    camera.positionBounds?.([
+    positionBounds([
       [-117.12, 33.55],
       [-117.1, 33.52],
       [-117.11, 33.54],
@@ -92,19 +76,10 @@ test('map fitting derives one bound from every visible position', async () => {
       [-117.1, 33.55],
     ],
   );
-  assert.equal(camera.positionBounds?.([]), null);
+  assert.equal(positionBounds([]), null);
 });
 
-test('segment selection bounds include only the requested road geometry', async () => {
-  const camera = (await import('./map-camera.ts')) as unknown as {
-    segmentSelectionBounds?: (
-      segments: Array<{
-        id: string;
-        geometry: { coordinates: Array<[number, number]> };
-      }>,
-      ids: string[],
-    ) => [[number, number], [number, number]] | null;
-  };
+test('segment selection bounds include only the requested road geometry', () => {
   const segments = [
     {
       id: 'selected',
@@ -126,22 +101,19 @@ test('segment selection bounds include only the requested road geometry', async 
     },
   ];
 
-  assert.equal(typeof camera.segmentSelectionBounds, 'function');
-  assert.deepEqual(camera.segmentSelectionBounds?.(segments, ['selected']), [
+  assert.deepEqual(segmentSelectionBounds(segments, ['selected']), [
     [-117.12, 33.52],
     [-117.1, 33.54],
   ]);
-  assert.equal(camera.segmentSelectionBounds?.(segments, ['missing']), null);
+  assert.equal(segmentSelectionBounds(segments, ['missing']), null);
 });
 
 test('coverage camera fitting follows both map and search selections and respects reduced motion', () => {
-  const options = cameraModule.coverageSelectionCameraOptions;
-  assert.equal(typeof options, 'function');
-  assert.equal(options?.('map', false)?.duration, 220);
-  assert.deepEqual(options?.('search', true), {
+  assert.equal(coverageSelectionCameraOptions('map', false)?.duration, 220);
+  assert.deepEqual(coverageSelectionCameraOptions('search', true), {
     padding: { top: 64, right: 96, bottom: 64, left: 64 },
     maxZoom: 16,
     duration: 0,
   });
-  assert.equal(options?.('search', false)?.duration, 220);
+  assert.equal(coverageSelectionCameraOptions('search', false)?.duration, 220);
 });

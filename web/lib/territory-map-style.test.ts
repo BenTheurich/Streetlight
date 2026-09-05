@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  apartmentAllowsDrawingPoint,
   apartmentMarkerColor,
+  createApartmentSelection as createSelection,
+  apartmentFocusZoom as focusZoom,
+  mapMarkerStyle as markerStyle,
+  apartmentOptionLabel as optionLabel,
+  mapPinDataUrl as pinDataUrl,
+  apartmentReviewOptions as reviewOptions,
   segmentMapAppearance,
   segmentStrokeWeight,
   segmentVisibleOnMap,
@@ -19,31 +26,7 @@ test('apartment markers follow packet inclusion after membership invalidation', 
   );
 });
 
-test('apartment options use packet inclusion and disambiguate anonymous complexes by road', async () => {
-  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
-  const reviewOptions = module.apartmentReviewOptions as
-    | ((
-        apartments: Array<{
-          id: string;
-          address: string | null;
-          position: [number, number];
-          name: string | null;
-          includedInPackets: boolean;
-          members: Array<{ apartmentBuilding: boolean }>;
-        }>,
-        segments: Array<{
-          id: string;
-          streetName: string;
-          geometry: { coordinates: Array<[number, number]> };
-        }>,
-        query: string,
-      ) => Array<{
-        apartment: { id: string };
-        label: string;
-        nearbyStreet: string | null;
-        disambiguator: string | null;
-      }>)
-    | undefined;
+test('apartment options use packet inclusion and disambiguate anonymous complexes by road', () => {
   const segments = [
     {
       id: 'unnamed',
@@ -103,8 +86,7 @@ test('apartment options use packet inclusion and disambiguate anonymous complexe
     },
   ];
 
-  assert.equal(typeof reviewOptions, 'function');
-  const options = reviewOptions?.(apartments, segments, '') ?? [];
+  const options = reviewOptions(apartments, segments, '');
   assert.deepEqual(
     options.map(({ apartment }) => apartment.id),
     ['anonymous-a', 'anonymous-b', 'ready-oak'],
@@ -121,16 +103,12 @@ test('apartment options use packet inclusion and disambiguate anonymous complexe
     'Address unavailable near Main Street · Not included · Building 2',
   );
   assert.deepEqual(
-    reviewOptions?.(apartments, segments, 'oak').map(({ apartment }) => apartment.id),
+    reviewOptions(apartments, segments, 'oak').map(({ apartment }) => apartment.id),
     ['ready-oak'],
   );
 });
 
-test('church, packet, and apartment markers share one visual system', async () => {
-  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
-  const markerStyle = module.mapMarkerStyle as Record<string, unknown> | undefined;
-  const pinDataUrl = module.mapPinDataUrl as ((symbol: 'church' | 'start') => string) | undefined;
-
+test('church, packet, and apartment markers share one visual system', () => {
   assert.deepEqual(markerStyle, {
     fill: '#123464',
     outline: '#ffffff',
@@ -138,9 +116,8 @@ test('church, packet, and apartment markers share one visual system', async () =
     radius: 12,
     selectedRadius: 15,
   });
-  assert.equal(typeof pinDataUrl, 'function');
-  const church = decodeURIComponent(pinDataUrl?.('church') ?? '');
-  const start = decodeURIComponent(pinDataUrl?.('start') ?? '');
+  const church = decodeURIComponent(pinDataUrl('church'));
+  const start = decodeURIComponent(pinDataUrl('start'));
   for (const pin of [church, start]) {
     assert.match(pin, /fill="#123464"/);
     assert.match(pin, /stroke="#ffffff"/);
@@ -150,29 +127,9 @@ test('church, packet, and apartment markers share one visual system', async () =
   assert.match(start, /<circle cx="22" cy="17\.5" r="4\.6" fill="#ffffff"/);
 });
 
-test('apartment interaction keeps selection origin, camera threshold, and drawing isolation explicit', async () => {
-  const module = (await import('./territory-map-style.ts')) as Record<string, unknown>;
-  const optionLabel = module.apartmentOptionLabel as
-    | ((apartment: {
-        name: string | null;
-        address: string | null;
-        includedInPackets: boolean;
-        members: Array<{ apartmentBuilding: boolean }>;
-      }) => string)
-    | undefined;
-  const focusZoom = module.apartmentFocusZoom as
-    | ((source: 'map' | 'selector', zoom: number) => number | null)
-    | undefined;
-  const createSelection = module.createApartmentSelection as
-    | ((id: string, source: 'map' | 'selector') => { id: string; source: 'map' | 'selector' })
-    | undefined;
-  const apartmentAllowsDrawingPoint = module.apartmentAllowsDrawingPoint as
-    | ((apartmentHit: boolean) => boolean)
-    | undefined;
-
-  assert.equal(typeof optionLabel, 'function');
+test('apartment interaction keeps selection origin, camera threshold, and drawing isolation explicit', () => {
   assert.equal(
-    optionLabel?.({
+    optionLabel({
       address: null,
       name: null,
       includedInPackets: false,
@@ -181,7 +138,7 @@ test('apartment interaction keeps selection origin, camera threshold, and drawin
     'Address unavailable · Not included',
   );
   assert.equal(
-    optionLabel?.({
+    optionLabel({
       address: '1 Main Street',
       name: null,
       includedInPackets: true,
@@ -189,21 +146,19 @@ test('apartment interaction keeps selection origin, camera threshold, and drawin
     }),
     '1 Main Street · Included',
   );
-  assert.equal(focusZoom?.('map', 11), null);
-  assert.equal(focusZoom?.('selector', 11), 16);
-  assert.equal(focusZoom?.('selector', 17.25), 17.25);
-  assert.equal(typeof createSelection, 'function');
-  assert.deepEqual(createSelection?.('apartment-one', 'map'), {
+  assert.equal(focusZoom('map', 11), null);
+  assert.equal(focusZoom('selector', 11), 16);
+  assert.equal(focusZoom('selector', 17.25), 17.25);
+  assert.deepEqual(createSelection('apartment-one', 'map'), {
     id: 'apartment-one',
     source: 'map',
   });
-  assert.deepEqual(createSelection?.('apartment-one', 'selector'), {
+  assert.deepEqual(createSelection('apartment-one', 'selector'), {
     id: 'apartment-one',
     source: 'selector',
   });
-  assert.equal(typeof apartmentAllowsDrawingPoint, 'function');
-  assert.equal(apartmentAllowsDrawingPoint?.(false), true);
-  assert.equal(apartmentAllowsDrawingPoint?.(true), false);
+  assert.equal(apartmentAllowsDrawingPoint(false), true);
+  assert.equal(apartmentAllowsDrawingPoint(true), false);
 });
 
 test('segment strokes scale from two to five pixels', () => {

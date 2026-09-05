@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { countEligibleHomesCovered } from '../lib/coverage.ts';
+import { countEligibleHomesByCoverageClass } from '../lib/coverage.ts';
 import { getCoverageWorkspace } from '../lib/coverage-persistence.ts';
 import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
 import { migrateDatabase, openDatabase } from './migrate.mjs';
@@ -38,12 +38,12 @@ test('coverage demo recreates only its isolated database with stable representat
       true,
     );
     assert.equal(workspace.activePackets, 1);
-    assert.deepEqual(
-      [30, 90, 180, 365].map((period) =>
-        countEligibleHomesCovered(workspace.segments, workspace.asOf, period),
-      ),
-      [5, 21, 27, 28],
-    );
+    assert.deepEqual(countEligibleHomesByCoverageClass(workspace.segments), {
+      green: 21,
+      yellow: 6,
+      orange: 1,
+      red: workspace.totals.eligibleHomes - 28,
+    });
     const corrected = workspace.segments
       .flatMap((segment) => segment.roots)
       .find((root) => root.eventId === 'coverage-demo-corrected-root');

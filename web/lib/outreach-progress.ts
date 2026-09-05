@@ -44,10 +44,6 @@ function shiftDate(date: string, days: number): string {
   return new Date(dateValue(date) + days * millisecondsPerDay).toISOString().slice(0, 10);
 }
 
-export function outreachProgressStepCount(progress: OutreachProgressPeriod): number {
-  return progress.dates.length;
-}
-
 export function outreachProgressPlayback(
   progress: OutreachProgressPeriod,
   position: number,
@@ -59,7 +55,7 @@ export function outreachProgressPlayback(
   selectedDate: string | null;
   through: string | null;
 } {
-  const endStep = outreachProgressStepCount(progress);
+  const endStep = progress.dates.length;
   const clamped = Math.max(0, Math.min(position, endStep));
   const baseStep = Math.floor(clamped);
   const phase = baseStep < endStep ? clamped - baseStep : 0;

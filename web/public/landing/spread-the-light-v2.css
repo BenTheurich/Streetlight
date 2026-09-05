@@ -765,27 +765,6 @@ body.is-daylight .site-header .button-solid:hover,
   text-transform: uppercase;
   white-space: nowrap;
 }
-.demo-toast {
-  position: fixed;
-  z-index: 200;
-  left: 50%;
-  bottom: 24px;
-  max-width: calc(100vw - 32px);
-  padding: 13px 16px;
-  color: #fff;
-  background: var(--ink);
-  box-shadow: 8px 15px 35px rgba(0, 0, 0, 0.28);
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, 18px);
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
-}
-.demo-toast.is-visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
 
 .pilot-drawer {
   position: fixed;

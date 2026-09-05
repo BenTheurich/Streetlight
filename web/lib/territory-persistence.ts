@@ -491,7 +491,7 @@ function persistTerritoryDraft(draft: TerritoryDraftInput, options: PersistTerri
       );
       for (const segment of options.imported.segments) {
         const geometry = JSON.stringify(segment.geometry);
-        const physicalId = `${segment.id}@${generation}`;
+        const physicalId = `${workspaceTerritoryId()}:${segment.id}@${generation}`;
         insertSegment.run(
           physicalId,
           workspaceChurchId(),
@@ -537,7 +537,7 @@ function persistTerritoryDraft(draft: TerritoryDraftInput, options: PersistTerri
           0,
         );
         insertApartment.run(
-          `${apartment.id}@${generation}`,
+          `${workspaceTerritoryId()}:${apartment.id}@${generation}`,
           workspaceChurchId(),
           workspaceTerritoryId(),
           apartment.id,
@@ -563,7 +563,7 @@ function persistTerritoryDraft(draft: TerritoryDraftInput, options: PersistTerri
       }
       for (const apartment of preservedApartmentSites) {
         insertApartment.run(
-          `${apartment.import_complex_id}@${generation}:preserved`,
+          `${workspaceTerritoryId()}:${apartment.import_complex_id}@${generation}:preserved`,
           workspaceChurchId(),
           workspaceTerritoryId(),
           apartment.import_complex_id,
@@ -618,7 +618,7 @@ function persistTerritoryDraft(draft: TerritoryDraftInput, options: PersistTerri
         if (segment.source_segment_id && importedSourceIds.has(segment.source_segment_id)) {
           continue;
         }
-        const physicalId = `${segment.import_segment_id}@${generation}`;
+        const physicalId = `${workspaceTerritoryId()}:${segment.import_segment_id}@${generation}`;
         insertSegment.run(
           physicalId,
           workspaceChurchId(),
@@ -945,7 +945,7 @@ export function saveApartmentSiteMembership(
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'needs_review', ?, 'admin_group', 1, ?)`,
         )
         .run(
-          `${logicalId}@${generation}`,
+          `${workspaceTerritoryId()}:${logicalId}@${generation}`,
           workspaceChurchId(),
           workspaceTerritoryId(),
           logicalId,
@@ -976,7 +976,7 @@ export function saveApartmentSiteMembership(
     for (const member of retiredEvidence.values()) {
       if (requested.has(member.id) || represented.has(member.id)) continue;
       insertUngrouped.run(
-        `${member.id}@${generation}:restored:${randomUUID()}`,
+        `${workspaceTerritoryId()}:${member.id}@${generation}:restored:${randomUUID()}`,
         workspaceChurchId(),
         workspaceTerritoryId(),
         member.id,

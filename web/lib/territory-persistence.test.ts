@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { openDatabase } from '../db/migrate.mjs';
 import {
+  importedApartmentFixture,
   importedSegmentFixture,
   importedTerritoryFixture,
   withSeededTemeculaDatabase,
 } from '../test/persistence-fixtures.ts';
+import { TEMECULA_TEST_WORKSPACE } from '../test/workspace-fixtures.ts';
 import { getCoverageWorkspace } from './coverage-persistence.ts';
 import type { ImportedTerritoryInput, ImportedTerritorySegment } from './overture-import.ts';
 import { territoryDraftFromWorkspace } from './territory-client.ts';
@@ -13,8 +15,10 @@ import type { TerritoryDraftInput } from './territory-draft.ts';
 import {
   getTerritoryWorkspace,
   replaceTerritoryFromImport,
+  saveApartmentSiteConfiguration,
   saveTerritoryDraft as saveContainedTerritoryDraft,
 } from './territory-persistence.ts';
+import { runInWorkspace } from './workspace-scope.ts';
 
 function saveTerritoryDraft(
   draft: unknown,
@@ -24,6 +28,90 @@ function saveTerritoryDraft(
   return options.imported
     ? replaceTerritoryFromImport(parsedDraft, options.imported, { filename: options.filename })
     : saveContainedTerritoryDraft(parsedDraft, { filename: options.filename });
+}
+
+for (const kind of ['street', 'apartment'] as const) {
+  test(`overlapping churches retain independent ${kind} imports and preserved generations`, () => {
+    withSeededTemeculaDatabase((filename) => {
+      const initial = getTerritoryWorkspace(filename);
+      const secondScope = {
+        churchId: 'church-overlapping',
+        territoryId: 'territory-overlapping',
+        timeZone: TEMECULA_TEST_WORKSPACE.timeZone,
+      };
+      const database = openDatabase(filename);
+      try {
+        database
+          .prepare('INSERT INTO churches (id, name, time_zone) VALUES (?, ?, ?)')
+          .run(secondScope.churchId, 'Overlapping Church', secondScope.timeZone);
+        database
+          .prepare(
+            `INSERT INTO territories
+              (id, church_id, name, center_latitude, center_longitude, radius_meters,
+                boundary_geojson, origin_address, import_generation)
+            SELECT ?, ?, name, center_latitude, center_longitude, radius_meters,
+              boundary_geojson, origin_address, import_generation
+            FROM territories WHERE id = ?`,
+          )
+          .run(secondScope.territoryId, secondScope.churchId, initial.id);
+      } finally {
+        database.close();
+      }
+
+      const draft = { ...territoryDraftFromWorkspace(initial), radiusMiles: 1 };
+      const segment = importedSegmentFixture('shared-road', 'Shared Road', 'residential', 10);
+      const imported = {
+        ...importedTerritoryFixture(kind === 'street' ? [segment] : []),
+        radiusMiles: 1,
+        apartmentSites: kind === 'apartment' ? [importedApartmentFixture('shared-site')] : [],
+      };
+      for (let generation = 0; generation < 3; generation++) {
+        for (const scope of [TEMECULA_TEST_WORKSPACE, secondScope]) {
+          runInWorkspace(scope, () => {
+            replaceTerritoryFromImport(
+              draft,
+              generation === 1 ? { ...imported, segments: [], apartmentSites: [] } : imported,
+              { filename },
+            );
+            if (generation === 0) {
+              if (kind === 'street') {
+                saveContainedTerritoryDraft(
+                  { ...draft, activatedSegmentIds: [segment.id] },
+                  { filename },
+                );
+              } else {
+                saveApartmentSiteConfiguration(
+                  {
+                    id: 'shared-site',
+                    name: null,
+                    address: '10 Sample Road, Temecula CA 92591',
+                    addressConfirmed: true,
+                    tractCount: 12,
+                    accessStatus: 'open',
+                    groupingConfirmed: true,
+                    includedInPackets: true,
+                  },
+                  filename,
+                );
+              }
+            }
+          });
+        }
+        for (const scope of [TEMECULA_TEST_WORKSPACE, secondScope]) {
+          runInWorkspace(scope, () => {
+            const workspace = getTerritoryWorkspace(filename);
+            assert.equal(workspace.id, scope.territoryId);
+            assert.deepEqual(
+              (kind === 'street' ? workspace.segments : workspace.apartmentSites).map(
+                ({ id }) => id,
+              ),
+              [kind === 'street' ? 'shared-road' : 'shared-site'],
+            );
+          });
+        }
+      }
+    });
+  });
 }
 
 test('circle and square boundaries control eligibility and coverage-map visibility', () => {
@@ -239,7 +327,8 @@ test('reimport retains assigned addresses for imported and preserved manual segm
     const firstDatabase = openDatabase(filename);
     const firstRows = firstDatabase
       .prepare(
-        `SELECT s.id AS segment_id, a.house_number, a.street, a.locality, a.postcode,
+        `SELECT s.import_segment_id AS segment_id, s.import_generation,
+          a.house_number, a.street, a.locality, a.postcode,
           a.longitude, a.latitude
         FROM street_segments s
         JOIN segment_addresses a ON a.street_segment_id = s.id
@@ -252,7 +341,8 @@ test('reimport retains assigned addresses for imported and preserved manual segm
       firstRows.map((row) => ({ ...row })),
       [
         {
-          segment_id: 'approved@1',
+          segment_id: 'approved',
+          import_generation: 1,
           house_number: '39483',
           street: 'Diego Drive',
           locality: 'Temecula',
@@ -261,7 +351,8 @@ test('reimport retains assigned addresses for imported and preserved manual segm
           latitude: 33.5435,
         },
         {
-          segment_id: 'approved@1',
+          segment_id: 'approved',
+          import_generation: 1,
           house_number: null,
           street: 'Diego Drive',
           locality: null,
@@ -282,7 +373,8 @@ test('reimport retains assigned addresses for imported and preserved manual segm
     const secondDatabase = openDatabase(filename);
     const secondRows = secondDatabase
       .prepare(
-        `SELECT s.id AS segment_id, a.house_number, a.street, a.locality, a.postcode,
+        `SELECT s.import_segment_id AS segment_id, s.import_generation,
+          a.house_number, a.street, a.locality, a.postcode,
           a.longitude, a.latitude
         FROM street_segments s
         JOIN segment_addresses a ON a.street_segment_id = s.id
@@ -295,7 +387,8 @@ test('reimport retains assigned addresses for imported and preserved manual segm
       secondRows.map((row) => ({ ...row })),
       [
         {
-          segment_id: 'approved@2',
+          segment_id: 'approved',
+          import_generation: 2,
           house_number: '39483',
           street: 'Diego Drive',
           locality: 'Temecula',
@@ -304,7 +397,8 @@ test('reimport retains assigned addresses for imported and preserved manual segm
           latitude: 33.5435,
         },
         {
-          segment_id: 'approved@2',
+          segment_id: 'approved',
+          import_generation: 2,
           house_number: null,
           street: 'Diego Drive',
           locality: null,

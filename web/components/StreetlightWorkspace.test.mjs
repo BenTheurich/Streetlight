@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
+import ts from 'typescript';
 
 // Repository policy: these tests execute the production stylesheet in Chromium because clipping
 // geometry and scrollbar gutters are computed-layout behavior, not stable source syntax.
@@ -9,14 +12,204 @@ const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf
   /^@import[^;]+;\s*/,
   '',
 );
-const progressMapSource = readFileSync(new URL('./OpenProgressMap.tsx', import.meta.url), 'utf8');
+const require = createRequire(import.meta.url);
+const reactDirectory = path.dirname(require.resolve('react/package.json'));
+const domDirectory = path.dirname(require.resolve('react-dom/package.json'));
+const schedulerDirectory = path.dirname(
+  createRequire(require.resolve('react-dom')).resolve('scheduler/package.json'),
+);
+// Execute the installed React runtime and production progress modules in a browser without a dev server.
+const browserModules = {
+  react: path.join(reactDirectory, 'cjs/react.development.js'),
+  'react/jsx-runtime': path.join(reactDirectory, 'cjs/react-jsx-runtime.development.js'),
+  'react-dom': path.join(domDirectory, 'cjs/react-dom.development.js'),
+  'react-dom/client': path.join(domDirectory, 'cjs/react-dom-client.development.js'),
+  scheduler: path.join(schedulerDirectory, 'cjs/scheduler.development.js'),
+  OpenProgressMap: new URL('./OpenProgressMap.tsx', import.meta.url),
+  useOutreachProgress: new URL('./useOutreachProgress.ts', import.meta.url),
+  '@/lib/outreach-progress-workflow': new URL(
+    '../lib/outreach-progress-workflow.ts',
+    import.meta.url,
+  ),
+  './outreach-progress.ts': new URL('../lib/outreach-progress.ts', import.meta.url),
+};
+const progressBrowserScript = `
+  const process = { env: { NODE_ENV: 'development' } };
+  const modules = {${Object.entries(browserModules)
+    .map(([name, filename]) => {
+      const source = readFileSync(filename, 'utf8');
+      const code =
+        filename instanceof URL
+          ? ts.transpileModule(source, {
+              compilerOptions: {
+                module: ts.ModuleKind.CommonJS,
+                jsx: ts.JsxEmit.ReactJSX,
+                target: ts.ScriptTarget.ES2022,
+              },
+            }).outputText
+          : source;
+      return `${JSON.stringify(name)}: (require, module, exports) => {${code}\n}`;
+    })
+    .join(',')}};
+  const cache = {};
+  window.fixtureRequire = (name) => {
+    if (!cache[name]) {
+      cache[name] = { exports: {} };
+      modules[name](window.fixtureRequire, cache[name], cache[name].exports);
+    }
+    return cache[name].exports;
+  };
+`;
 
-test('progress map replaces lifecycle ownership before releasing the previous frame', () => {
-  const publish = progressMapSource.indexOf('release: lifecycle.present({');
-  const releasePrevious = progressMapSource.indexOf('previous?.release();');
-  assert.ok(publish >= 0);
-  assert.ok(releasePrevious > publish);
-  assert.match(progressMapSource, /current\.release\(\);\s*releaseRef\.current = null;/);
+test('progress map updates preserve visible ownership and unmount releases the final presentation', async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.setContent('<div id="root"></div>');
+  await page.addScriptTag({ content: progressBrowserScript });
+  await page.evaluate(() => {
+    const { createElement } = window.fixtureRequire('react');
+    const { createRoot } = window.fixtureRequire('react-dom/client');
+    const { OpenProgressMap } = window.fixtureRequire('OpenProgressMap');
+    const root = createRoot(document.querySelector('#root'));
+    let current;
+    window.events = [];
+    const lifecycle = {
+      present(value) {
+        current = value;
+        window.events.push(['present', value.position]);
+        return () => {
+          if (current === value) {
+            current = null;
+            window.events.push(['hidden', value.position]);
+          }
+        };
+      },
+    };
+    window.update = (position) =>
+      root.render(
+        createElement(OpenProgressMap, {
+          active: true,
+          animated: true,
+          cinematic: false,
+          fitForPrint: false,
+          lifecycle,
+          position,
+          progress: {},
+          showLegend: true,
+          workspace: {},
+        }),
+      );
+    window.unmount = () => root.unmount();
+    window.update(0);
+  });
+  await page.waitForFunction(() => window.events.length === 1);
+  await page.evaluate(() => window.update(1));
+  await page.waitForFunction(() => window.events.length >= 2);
+  assert.deepEqual(await page.evaluate(() => window.events), [
+    ['present', 0],
+    ['present', 1],
+  ]);
+  await page.evaluate(() => window.unmount());
+  assert.deepEqual(await page.evaluate(() => window.events), [
+    ['present', 0],
+    ['present', 1],
+    ['hidden', 1],
+  ]);
+});
+
+test('React commits the print presentation before map readiness and preserves it until afterprint', async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.setContent('<div id="root"></div>');
+  await page.addScriptTag({ content: progressBrowserScript });
+  await page.evaluate(() => {
+    const { createElement } = window.fixtureRequire('react');
+    const { createRoot } = window.fixtureRequire('react-dom/client');
+    const { OpenProgressMap } = window.fixtureRequire('OpenProgressMap');
+    const { useOutreachProgress } = window.fixtureRequire('useOutreachProgress');
+    const coverage = {
+      asOf: '2026-08-02',
+      apartmentComplexes: [],
+      segments: [
+        {
+          id: '1',
+          streetName: 'Main',
+          roadGroupId: 'main',
+          estimatedHomes: 10,
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [0, 0],
+              [0.1, 0.1],
+            ],
+          },
+          roots: [{ effectiveCoveredOn: '2026-02-20', packetId: 'packet' }],
+        },
+      ],
+    };
+    let presented;
+    window.events = [];
+    window.print = () => window.events.push('print');
+    const lifecycle = {
+      present(value) {
+        presented = value;
+        return () => {};
+      },
+      whenSettled() {
+        window.events.push(
+          `waiting:${presented.fitForPrint}:${document.querySelector('#stage').className}`,
+        );
+        return new Promise((resolve) => {
+          window.settled = resolve;
+        });
+      },
+    };
+    function App() {
+      const { view, act } = useOutreachProgress({
+        active: true,
+        coverage,
+        camera: { center: [1, 2], zoom: 13 },
+        lifecycle,
+        onCameraChange: (camera) => window.events.push(['restored', camera]),
+      });
+      window.act = act;
+      return createElement(
+        'div',
+        { id: 'stage', className: view.displayMode },
+        createElement(OpenProgressMap, {
+          active: true,
+          animated: !view.reducedMotion,
+          cinematic: false,
+          fitForPrint: view.displayMode === 'print',
+          lifecycle,
+          position: view.position,
+          progress: view.progress,
+          showLegend: false,
+          workspace: coverage,
+        }),
+      );
+    }
+    createRoot(document.querySelector('#root')).render(
+      createElement(window.fixtureRequire('react').StrictMode, null, createElement(App)),
+    );
+  });
+  await page.waitForFunction(() => Boolean(window.act));
+  await page.evaluate(() => {
+    void window.act({ kind: 'print' });
+  });
+  await page.waitForFunction(() => Boolean(window.settled));
+  assert.deepEqual(await page.evaluate(() => window.events), ['waiting:true:print']);
+  await page.evaluate(() => window.settled());
+  await page.waitForFunction(() => window.events.includes('print'));
+  assert.equal(await page.locator('#stage').getAttribute('class'), 'print');
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  await page.waitForFunction(() => document.querySelector('#stage').className === 'admin');
+  assert.deepEqual(await page.evaluate(() => window.events.at(-1)), [
+    'restored',
+    { center: [1, 2], zoom: 13 },
+  ]);
 });
 
 test('print preparation uses the final paper map dimensions before opening the dialog', async (t) => {

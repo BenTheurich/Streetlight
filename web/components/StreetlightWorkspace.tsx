@@ -1,21 +1,13 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { CoverageWorkspace } from '@/lib/coverage';
 import { retainCoverageSelection } from '@/lib/coverage';
 import type { StreetlightMapType } from '@/lib/google-maps-browser';
 import type { CoverageSelectionSource, MapCamera } from '@/lib/map-camera';
 import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
 import type { OpenMapData } from '@/lib/open-map-data';
-import {
-  buildOutreachProgress,
-  type OutreachProgressMode,
-  outreachProgressPlayback,
-  outreachProgressSnapshot,
-  outreachProgressStepCount,
-  outreachProgressYears,
-} from '@/lib/outreach-progress';
 import type { ReviewedPacketGenerationResult } from '@/lib/packet-finalization';
 import type { ReconciliationHistoryTarget } from '@/lib/reconciliation';
 import { createRegionSetupWorkflow } from '@/lib/region-setup-workflow';
@@ -27,12 +19,13 @@ import { HeatmapSettingsOverlay } from './HeatmapSettingsOverlay';
 import { MapLayersControl } from './MapLayersControl';
 import { OpenCoverageMap } from './OpenCoverageMap';
 import { OpenProgressMap } from './OpenProgressMap';
-import { OutreachProgress, type ProgressDisplayMode } from './OutreachProgress';
+import { OutreachProgress } from './OutreachProgress';
 import { PacketGenerator } from './PacketGenerator';
 import { PacketProposalMap } from './PacketProposalMap';
 import { PrintoutSettings } from './PrintoutSettings';
 import { ReconciliationTool } from './ReconciliationTool';
 import { TerritoryEditor } from './TerritoryEditor';
+import { useOutreachProgress } from './useOutreachProgress';
 import { WorkspaceMap } from './WorkspaceMap';
 
 type WorkspaceTool = 'coverage' | 'packets' | 'progress' | 'setup';
@@ -47,8 +40,6 @@ const tools: Array<{ id: WorkspaceTool; label: string; shortLabel: string }> = [
 ];
 
 const apartmentMarkerPreferenceKey = 'streetlight:show-apartment-markers';
-const progressMillisecondsPerOutreachDay = 2250;
-const progressRestMilliseconds = 4000;
 
 function readApartmentMarkerPreference(): boolean {
   try {
@@ -81,7 +72,6 @@ export function StreetlightWorkspace({
   initialPrintoutSettings: ChurchPrintoutSettings;
   mapsApiKey: string;
 }) {
-  const initialYears = outreachProgressYears(initialData);
   const [setupRequired, setSetupOnly] = useState(setupOnly);
   const [tool, setTool] = useState<WorkspaceTool>(setupOnly ? 'setup' : 'coverage');
   const [packetView, setPacketView] = useState<PacketView>('generate');
@@ -104,14 +94,6 @@ export function StreetlightWorkspace({
   const pendingSetupViewRef = useRef<SetupView | null>(null);
   pendingToolRef.current = pendingTool;
   pendingSetupViewRef.current = pendingSetupView;
-  const [progressYear, setProgressYear] = useState(initialYears[0]);
-  const [progressMode, setProgressMode] = useState<OutreachProgressMode>('calendar');
-  const [progressPosition, setProgressPosition] = useState<number | null>(null);
-  const [progressPlaying, setProgressPlaying] = useState(false);
-  const [progressDisplayMode, setProgressDisplayMode] = useState<ProgressDisplayMode>('admin');
-  const progressPresentationButtonRef = useRef<HTMLButtonElement>(null);
-  const progressPrintCameraRef = useRef<MapCamera | null>(null);
-  const [reducedMotion, setReducedMotion] = useState(false);
   const setupMap = territoryMapMode(tool, setupView);
   const [mapLifecycle, setMapLifecycle] = useState<MapOverlayLifecycle | null>(null);
   const [mapData, setMapData] = useState<OpenMapData | null>(null);
@@ -128,23 +110,17 @@ export function StreetlightWorkspace({
     setShowApartmentMarkers(readApartmentMarkerPreference());
   }, []);
 
-  const progressYears = useMemo(() => outreachProgressYears(coverage), [coverage]);
-  const progress = useMemo(
-    () => buildOutreachProgress(coverage, progressMode === 'calendar' ? progressYear : 'rolling'),
-    [coverage, progressMode, progressYear],
-  );
-  const progressStepCount = outreachProgressStepCount(progress);
-  const resolvedProgressPosition = progressPosition ?? progressStepCount;
-  const progressPositionRef = useRef(resolvedProgressPosition);
-  progressPositionRef.current = resolvedProgressPosition;
-  const progressHasDates = progress.dates.length > 0;
-  const progressPlayback = outreachProgressPlayback(progress, resolvedProgressPosition);
-  const progressSelectedDate = progressPlayback.selectedDate;
-  const progressThrough = progressPlayback.through;
-  const progressSnapshot = useMemo(
-    () => outreachProgressSnapshot(progress, progressThrough),
-    [progress, progressThrough],
-  );
+  const {
+    view: progressView,
+    act: progressAction,
+    presentationButtonRef,
+  } = useOutreachProgress({
+    active: tool === 'progress',
+    coverage,
+    camera: mapCamera,
+    lifecycle: mapLifecycle,
+    onCameraChange: setMapCamera,
+  });
   const refreshMapData = useCallback(async () => {
     setMapDataError('');
     try {
@@ -161,92 +137,6 @@ export function StreetlightWorkspace({
   useEffect(() => {
     void refreshMapData();
   }, [refreshMapData]);
-
-  useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReducedMotion(query.matches);
-    update();
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, []);
-
-  useEffect(() => {
-    if (!progressPlaying) return;
-    if (reducedMotion || !progressHasDates) {
-      setProgressPosition(progressStepCount);
-      setProgressPlaying(false);
-      return;
-    }
-    let frame = 0;
-    let currentPosition = progressPositionRef.current;
-    let previousFrame: number | null = null;
-    let restStarted: number | null = null;
-    const tick = (time: number) => {
-      if (previousFrame === null) previousFrame = time;
-      const elapsed = Math.min(time - previousFrame, 100);
-      if (elapsed >= 30) {
-        previousFrame = time;
-        if (currentPosition >= progressStepCount) {
-          if (progressDisplayMode !== 'presentation') {
-            setProgressPlaying(false);
-            return;
-          }
-          restStarted ??= time;
-          if (time - restStarted >= progressRestMilliseconds) {
-            currentPosition = 0;
-            restStarted = null;
-            setProgressPosition(0);
-          }
-        } else {
-          currentPosition = Math.min(
-            progressStepCount,
-            currentPosition + elapsed / progressMillisecondsPerOutreachDay,
-          );
-          setProgressPosition(currentPosition);
-        }
-      }
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [progressDisplayMode, progressHasDates, progressPlaying, progressStepCount, reducedMotion]);
-
-  useEffect(() => {
-    if (progressDisplayMode !== 'presentation') return;
-    const finishPresentation = () => {
-      setProgressDisplayMode('admin');
-      setProgressPlaying(false);
-      setProgressPosition(progressStepCount);
-      requestAnimationFrame(() => progressPresentationButtonRef.current?.focus());
-    };
-    const closeFallback = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !document.fullscreenElement) {
-        finishPresentation();
-      }
-    };
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) finishPresentation();
-    };
-    window.addEventListener('keydown', closeFallback);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => {
-      window.removeEventListener('keydown', closeFallback);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
-  }, [progressDisplayMode, progressStepCount]);
-
-  const finishProgressPrint = useCallback(() => {
-    setProgressDisplayMode('admin');
-    if (progressPrintCameraRef.current) {
-      setMapCamera(progressPrintCameraRef.current);
-      progressPrintCameraRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('afterprint', finishProgressPrint);
-    return () => window.removeEventListener('afterprint', finishProgressPrint);
-  }, [finishProgressPrint]);
 
   const selectCoverageSegment = useCallback((id: string) => {
     setSelectedSegmentId(id);
@@ -328,8 +218,6 @@ export function StreetlightWorkspace({
       return;
     }
     setHeatmapSettingsOpen(false);
-    setProgressDisplayMode('admin');
-    setProgressPlaying(false);
     setTool(nextTool);
   }
 
@@ -347,68 +235,9 @@ export function StreetlightWorkspace({
     setSetupView(nextView);
   }
 
-  function changeProgressYear(year: number): void {
-    setProgressYear(year);
-    const next = buildOutreachProgress(coverage, year);
-    setProgressPosition(outreachProgressStepCount(next));
-    setProgressPlaying(false);
-  }
-
-  function changeProgressMode(mode: OutreachProgressMode): void {
-    setProgressMode(mode);
-    const next = buildOutreachProgress(coverage, mode === 'calendar' ? progressYear : 'rolling');
-    setProgressPosition(outreachProgressStepCount(next));
-    setProgressPlaying(false);
-  }
-
-  function playProgress(): void {
-    if (progressPlaying) {
-      setProgressPlaying(false);
-      return;
-    }
-    if (progress.dates.length === 0) return;
-    if (reducedMotion) {
-      setProgressPosition(progressStepCount);
-      return;
-    }
-    if (resolvedProgressPosition >= progressStepCount) setProgressPosition(0);
-    setProgressPlaying(true);
-  }
-
-  function changeProgressDisplayMode(mode: ProgressDisplayMode): void {
-    if (mode === 'presentation' && progress.dates.length === 0) return;
-    setProgressDisplayMode(mode);
-    if (mode === 'presentation') {
-      setProgressPosition(reducedMotion ? progressStepCount : 0);
-      setProgressPlaying(!reducedMotion);
-      void document.documentElement.requestFullscreen?.().catch(() => undefined);
-    } else {
-      setProgressPlaying(false);
-      setProgressPosition(progressStepCount);
-      if (document.fullscreenElement) {
-        void document.exitFullscreen().catch(() => undefined);
-      }
-      requestAnimationFrame(() => progressPresentationButtonRef.current?.focus());
-    }
-  }
-
-  function printProgress(): void {
-    if (progress.dates.length === 0) return;
-    progressPrintCameraRef.current = mapCamera;
-    setProgressPlaying(false);
-    setProgressPosition(progressStepCount);
-    setProgressDisplayMode('print');
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        window.print();
-        finishProgressPrint();
-      }),
-    );
-  }
-
   return (
     <div
-      className={`territory-page${progressDisplayMode === 'admin' ? '' : ` progress-stage progress-${progressDisplayMode}`}`}
+      className={`territory-page${progressView.displayMode === 'admin' ? '' : ` progress-stage progress-${progressView.displayMode}`}`}
     >
       <header className="territory-header workspace-header">
         <div className="brand">
@@ -478,13 +307,13 @@ export function StreetlightWorkspace({
           />
           <OpenProgressMap
             active={tool === 'progress'}
-            animated={!reducedMotion}
-            cinematic={progressDisplayMode === 'presentation'}
-            fitForPrint={progressDisplayMode === 'print'}
+            animated={!progressView.reducedMotion}
+            cinematic={progressView.displayMode === 'presentation'}
+            fitForPrint={progressView.displayMode === 'print'}
             lifecycle={mapLifecycle}
-            position={resolvedProgressPosition}
-            progress={progress}
-            showLegend={progressDisplayMode !== 'presentation'}
+            position={progressView.position}
+            progress={progressView.progress}
+            showLegend={progressView.displayMode !== 'presentation'}
             workspace={coverage}
           />
           <HeatmapSettingsOverlay
@@ -538,26 +367,9 @@ export function StreetlightWorkspace({
         <OutreachProgress
           active={tool === 'progress'}
           churchName={coverage.churchName}
-          displayMode={progressDisplayMode}
-          onDisplayModeChange={changeProgressDisplayMode}
-          onModeChange={changeProgressMode}
-          onPlay={playProgress}
-          onPrint={printProgress}
-          onStepChange={(step) => {
-            setProgressPosition(step);
-            setProgressPlaying(false);
-          }}
-          onYearChange={changeProgressYear}
-          playing={progressPlaying}
-          presentationButtonRef={progressPresentationButtonRef}
-          progress={progress}
-          position={resolvedProgressPosition}
-          selectedDate={progressSelectedDate}
-          snapshot={progressSnapshot}
-          stepCount={progressStepCount}
-          timelinePosition={progressPlayback.barPosition}
-          year={progressYear}
-          years={progressYears}
+          act={progressAction}
+          presentationButtonRef={presentationButtonRef}
+          view={progressView}
         />
         {regionSetup.kind === 'ready' && (
           <TerritoryEditor

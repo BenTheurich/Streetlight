@@ -160,6 +160,38 @@ export function createMapLibreOverlayAdapter(
     waitUntilReady() {
       return map.loaded() || map.isStyleLoaded() ? Promise.resolve() : waitFor('load');
     },
+    waitUntilSettled(signal) {
+      return new Promise<void>((resolve, reject) => {
+        const cleanup = () => {
+          map.off('idle', rendered);
+          map.off('error', failed);
+          signal.removeEventListener('abort', cancel);
+          pending.delete(detached);
+        };
+        const rendered = () => {
+          cleanup();
+          resolve();
+        };
+        const failed = () => {
+          cleanup();
+          reject(new Error('Open map could not finish rendering.'));
+        };
+        const cancel = () => {
+          cleanup();
+          reject(signal.reason);
+        };
+        const detached = () => {
+          cleanup();
+          reject(new Error('Open map was detached'));
+        };
+        pending.add(detached);
+        map.once('idle', rendered);
+        map.on('error', failed);
+        signal.addEventListener('abort', cancel, { once: true });
+        if (signal.aborted) cancel();
+        else map.triggerRepaint();
+      });
+    },
     replaceStyle(base) {
       return waitFor('style.load', () => {
         map.setStyle(

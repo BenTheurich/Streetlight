@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -12,7 +12,8 @@ const imageShim = `data:text/javascript,${encodeURIComponent(`
 
 function resolveModule(target) {
   for (const candidate of [target, `${target}.ts`, `${target}.tsx`]) {
-    if (existsSync(candidate)) return pathToFileURL(candidate).href;
+    if (statSync(candidate, { throwIfNoEntry: false })?.isFile())
+      return pathToFileURL(candidate).href;
   }
   return null;
 }

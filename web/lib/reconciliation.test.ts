@@ -5,7 +5,11 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
-import { insertCoverageCompletionFixture } from '../test/persistence-fixtures.ts';
+import {
+  importedSegmentFixture,
+  importedTerritoryFixture,
+  insertCoverageCompletionFixture,
+} from '../test/persistence-fixtures.ts';
 import { withTemeculaWorkspace } from '../test/workspace-fixtures.ts';
 import { appendCoverageCorrection, getCoverageWorkspace } from './coverage-persistence.ts';
 import { getPacketGenerationWorkspace } from './packet-persistence.ts';
@@ -21,6 +25,8 @@ import {
   type ReconciliationApplyResult,
   readReconciliation,
 } from './reconciliation-persistence.ts';
+import { territoryDraftFromWorkspace } from './territory-client.ts';
+import { getTerritoryWorkspace, replaceTerritoryFromImport } from './territory-persistence.ts';
 import { runInWorkspace } from './workspace-scope.ts';
 
 function accepted(result: ReconciliationApplyResult): ReconciliationWorkspace {
@@ -650,6 +656,123 @@ test('whole-packet correction and undo preserve earlier coverage and reject rese
     );
   });
 });
+
+for (const kind of ['street', 'apartment'] as const) {
+  test(`undo checks logical ${kind} reservations across import generations`, async () => {
+    await withDatabase((filename) => {
+      const prepared = prepareBatch(filename);
+      const packetId = kind === 'street' ? prepared.streetPacketId : prepared.apartmentPacketId;
+      const now = new Date('2026-07-29T12:00:00.000Z');
+      accepted(
+        applyReconciliation(
+          'reconcile',
+          {
+            batchId: prepared.batchId,
+            decisions: [
+              prepared.streetPacketId,
+              prepared.apartmentPacketId,
+              prepared.keepPacketId,
+              prepared.cancelPacketId,
+            ].map((id) => ({ packetId: id, outcome: id === packetId ? 'taken' : 'still-here' })),
+          },
+          { filename, now },
+        ),
+      );
+      replaceTerritoryFromImport(
+        { ...territoryDraftFromWorkspace(getTerritoryWorkspace(filename)), radiusMiles: 1 },
+        {
+          ...importedTerritoryFixture(
+            prepared.streetLogicalIds.map((id) =>
+              importedSegmentFixture(id, 'Refreshed Road', 'residential', 10),
+            ),
+          ),
+          radiusMiles: 1,
+        },
+        { filename },
+      );
+
+      const database = openDatabase(filename);
+      try {
+        database
+          .prepare(
+            `INSERT INTO batches (id, church_id, name, status, finalized_at)
+            VALUES ('newer-batch', 'church-temecula-pilot', 'Newer', 'finalized',
+              '2026-07-29T12:30:00.000Z')`,
+          )
+          .run();
+        database
+          .prepare(
+            `INSERT INTO packets
+              (id, church_id, batch_id, packet_code, start_address, estimated_homes, status,
+                start_longitude, start_latitude, packet_kind)
+            SELECT 'newer-packet', church_id, 'newer-batch', 'TEM-NEWER', start_address,
+              estimated_homes, 'active', start_longitude, start_latitude, packet_kind
+            FROM packets WHERE id = ?`,
+          )
+          .run(packetId);
+        if (kind === 'street') {
+          database
+            .prepare(
+              `INSERT INTO packet_segments
+                (church_id, packet_id, street_segment_id, sequence_number)
+              SELECT church_id, 'newer-packet', id, 0 FROM street_segments
+              WHERE church_id = 'church-temecula-pilot' AND import_segment_id = ?
+                AND is_current = 1`,
+            )
+            .run(prepared.streetLogicalIds[0]);
+        } else {
+          database
+            .prepare(
+              `INSERT INTO packet_apartment_complexes
+                (church_id, packet_id, apartment_complex_id)
+              SELECT church_id, 'newer-packet', id FROM apartment_complexes
+              WHERE church_id = 'church-temecula-pilot' AND import_complex_id = ?
+                AND is_current = 1`,
+            )
+            .run(prepared.apartmentLogicalId);
+        }
+        const eventsBefore = database.prepare('SELECT * FROM coverage_events ORDER BY rowid').all();
+        assert.deepEqual(
+          applyReconciliation('completion', { packetId, coveredOn: null }, { filename, now }),
+          { kind: 'conflict', message: 'Cannot undo while TEM-NEWER reserves this outreach' },
+        );
+        assert.deepEqual(
+          database.prepare('SELECT * FROM coverage_events ORDER BY rowid').all(),
+          eventsBefore,
+        );
+        assert.equal(
+          (
+            database.prepare('SELECT status FROM packets WHERE id = ?').get(packetId) as {
+              status: string;
+            }
+          ).status,
+          'completed',
+        );
+        accepted(
+          applyReconciliation(
+            'reconcile',
+            {
+              batchId: 'newer-batch',
+              decisions: [{ packetId: 'newer-packet', outcome: 'discarded' }],
+            },
+            { filename, now },
+          ),
+        );
+        const restored = accepted(
+          applyReconciliation('completion', { packetId, coveredOn: null }, { filename, now }),
+        );
+        assert.equal(
+          restored.batches
+            .find(({ id }) => id === prepared.batchId)
+            ?.packets.find(({ id }) => id === packetId)?.status,
+          'active',
+        );
+      } finally {
+        database.close();
+      }
+    });
+  });
+}
 
 test('foreign church batch, packet, event, and correction identifiers stay inaccessible', async () => {
   await withDatabase((filename) => {

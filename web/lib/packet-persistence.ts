@@ -6,6 +6,7 @@ import {
   type DownloadPacket,
   type FinalizedBatch,
   type PacketDownloadSelection,
+  type PacketDownloadTarget,
   type PacketFinalizationInput,
   PacketProposalConflictError,
   packetProposalFingerprint,
@@ -315,9 +316,10 @@ export function finalizePacketBatch(
 }
 
 export function getPacketDownloadSelection(
-  scope: 'newest' | 'active',
+  target: PacketDownloadTarget,
   filename?: string,
 ): PacketDownloadSelection {
+  const scope = typeof target === 'string' ? target : 'batch';
   const database = openSqliteDatabase(filename);
   try {
     const newest =
@@ -342,10 +344,18 @@ export function getPacketDownloadSelection(
         LEFT JOIN packet_apartment_complexes pa ON pa.packet_id = p.id AND pa.church_id = p.church_id
         LEFT JOIN apartment_complexes a ON a.id = pa.apartment_complex_id
         WHERE p.church_id = ?
-          AND (${scope === 'newest' ? 'p.batch_id = ?' : "p.status = 'active'"})
+          AND b.finalized_at IS NOT NULL
+          AND (${scope === 'active' ? "p.status = 'active'" : 'p.batch_id = ?'})
         ORDER BY b.finalized_at, b.id, p.sequence_number, p.id`,
       )
-      .all(workspaceChurchId(), ...(scope === 'newest' ? [newest?.id ?? ''] : [])) as Array<{
+      .all(
+        workspaceChurchId(),
+        ...(typeof target === 'object'
+          ? [target.batchId]
+          : scope === 'newest'
+            ? [newest?.id ?? '']
+            : []),
+      ) as Array<{
       id: string;
       packet_code: string;
       batch_id: string;

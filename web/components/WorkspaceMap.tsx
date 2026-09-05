@@ -16,6 +16,7 @@ import { createMapLibreOverlayAdapter } from '@/lib/maplibre-overlay-adapter';
 import baseStyleJson from '@/lib/open-map-base-style.json';
 import type { OpenMapData } from '@/lib/open-map-data';
 import { buildWorkspaceMapStyle, type OpenMapStyle } from '@/lib/open-map-style';
+import { createSatelliteMapReadiness, waitForWorkspaceMap } from '@/lib/workspace-map-readiness';
 
 type WorkspaceMapProps = {
   apiKey: string;
@@ -49,6 +50,12 @@ export function WorkspaceMap({
   const [lifecycle] = useState(() =>
     createMapOverlayLifecycle({ onStatus: ({ state }) => setMapStatus(state) }),
   );
+  const [satelliteReadiness] = useState(createSatelliteMapReadiness);
+  const [workspaceLifecycle] = useState<MapOverlayLifecycle>(() => ({
+    ...lifecycle,
+    whenSettled: (signal) =>
+      waitForWorkspaceMap(lifecycle, () => mapTypeRef.current, satelliteReadiness, signal),
+  }));
   const [googleRequested, setGoogleRequested] = useState(mapType === 'satellite');
   const [satelliteError, setSatelliteError] = useState('');
   const mapDataAvailable = data !== null;
@@ -59,11 +66,11 @@ export function WorkspaceMap({
   onLifecycleChangeRef.current = onLifecycleChange;
 
   useEffect(() => {
-    onLifecycleChangeRef.current(lifecycle);
+    onLifecycleChangeRef.current(workspaceLifecycle);
     return () => {
       onLifecycleChangeRef.current(null);
     };
-  }, [lifecycle]);
+  }, [workspaceLifecycle]);
 
   useEffect(() => {
     if (!data) return;
@@ -169,8 +176,14 @@ export function WorkspaceMap({
   }, [mapType]);
 
   useEffect(() => {
-    if (!googleRequested || !apiKey || !satelliteElementRef.current || googleMapRef.current) return;
+    if (!googleRequested) return;
+    if (!apiKey) {
+      satelliteReadiness.fail();
+      return;
+    }
+    if (!satelliteElementRef.current || googleMapRef.current) return;
     let disposed = false;
+    let stopObserving = () => {};
     setSatelliteError('');
     loadGoogleMaps(apiKey)
       .then((maps) => {
@@ -189,16 +202,21 @@ export function WorkspaceMap({
           gestureHandling: 'none',
           keyboardShortcuts: false,
         });
+        stopObserving = satelliteReadiness.observe(googleMapRef.current);
       })
       .catch(() => {
-        if (!disposed) setSatelliteError('Google satellite map could not load.');
+        if (!disposed) {
+          satelliteReadiness.fail();
+          setSatelliteError('Google satellite map could not load.');
+        }
       });
     return () => {
       disposed = true;
+      stopObserving();
       if (googleMapRef.current) google.maps.event.clearInstanceListeners(googleMapRef.current);
       googleMapRef.current = null;
     };
-  }, [apiKey, googleRequested]);
+  }, [apiKey, googleRequested, satelliteReadiness]);
 
   return (
     <div className={`workspace-map-stack ${mapType === 'satellite' ? 'satellite' : 'map'}`}>

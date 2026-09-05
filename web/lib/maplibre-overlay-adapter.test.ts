@@ -109,6 +109,11 @@ class FakeMap extends EventEmitter {
   loadedValue = false;
   styleLoadedValue = false;
   styleReplacements = 0;
+  repaints = 0;
+
+  triggerRepaint() {
+    this.repaints += 1;
+  }
 
   constructor() {
     super();
@@ -319,6 +324,41 @@ test('initial readiness resolves immediately when the map or style is already lo
     assert.equal(map.listenerCount('load'), 0);
     assert.equal(map.listenerCount('style.load'), 0);
     adapter.dispose();
+  }
+});
+
+test('print readiness waits for a rendered idle frame, not a loaded style or an ordinary render', async () => {
+  const map = new FakeMap();
+  map.loadedValue = true;
+  const adapter = adapterFor(map);
+  let settled = false;
+  const ready = adapter.waitUntilSettled(new AbortController().signal).then(() => {
+    settled = true;
+  });
+  assert.equal(map.repaints, 1);
+  map.emit('render');
+  map.emit('style.load');
+  await turn();
+  assert.equal(settled, false);
+  map.emit('idle');
+  await ready;
+  assert.equal(settled, true);
+  assert.equal(map.listenerCount('idle'), 0);
+  assert.equal(map.listenerCount('error'), 0);
+});
+
+test('print readiness rejects and removes listeners after error, cancellation, or map detachment', async () => {
+  for (const failure of ['error', 'cancel', 'detach']) {
+    const map = new FakeMap();
+    const adapter = adapterFor(map);
+    const controller = new AbortController();
+    const rejected = assert.rejects(adapter.waitUntilSettled(controller.signal));
+    if (failure === 'error') map.emitMapError();
+    else if (failure === 'cancel') controller.abort();
+    else adapter.dispose();
+    await rejected;
+    assert.equal(map.listenerCount('idle'), 0);
+    assert.equal(map.listenerCount('error'), 0);
   }
 });
 

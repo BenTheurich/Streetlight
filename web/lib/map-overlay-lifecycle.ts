@@ -142,6 +142,7 @@ export type MapOverlayMarker =
 export type MapOverlayAdapter = {
   initialBase: WorkspaceMapBasePresentation;
   waitUntilReady: () => Promise<void>;
+  waitUntilSettled: (signal: AbortSignal) => Promise<void>;
   replaceStyle: (base: WorkspaceMapBasePresentation) => Promise<void>;
   hasSource: (id: string) => boolean;
   addSource: (id: string, data: unknown, options?: Record<string, unknown>) => void;
@@ -183,6 +184,7 @@ export type MapOverlayAdapter = {
 export type MapOverlayLifecycle = {
   attach: (adapter: MapOverlayAdapter) => () => void;
   present: (presentation: WorkspaceMapPresentation) => () => void;
+  whenSettled: (signal: AbortSignal) => Promise<void>;
   dispose: () => void;
 };
 
@@ -339,6 +341,7 @@ export function createMapOverlayLifecycle({
   let styleEpoch = 0;
   let appliedBase: WorkspaceMapBasePresentation | null = null;
   let statusState: MapLifecycleStatus['state'] | null = null;
+  const statusListeners = new Set<() => void>();
   let coverageFitted = false;
   let coverageFocusKey = '';
   let proposalFocusKey = '';
@@ -367,6 +370,7 @@ export function createMapOverlayLifecycle({
     if (next.state !== 'error' && next.state === statusState) return;
     statusState = next.state;
     onStatus(next);
+    for (const listener of statusListeners) listener();
   }
 
   function clearRuntime(kind: PresentationKind): void {
@@ -1495,10 +1499,38 @@ export function createMapOverlayLifecycle({
       styleRunning = false;
       styleEpoch += 1;
       adapterToken += 1;
+      for (const listener of statusListeners) listener();
     }
   }
 
   return {
+    async whenSettled(signal) {
+      while (true) {
+        await new Promise<void>((resolve, reject) => {
+          const cleanup = () => {
+            statusListeners.delete(check);
+            signal.removeEventListener('abort', check);
+          };
+          const check = () => {
+            if (signal.aborted || disposed || !adapter || statusState === 'error') {
+              cleanup();
+              reject(signal.reason ?? new Error('Open map could not load.'));
+            } else if (ready && !styleRunning && statusState === 'ready') {
+              cleanup();
+              resolve();
+            }
+          };
+          statusListeners.add(check);
+          signal.addEventListener('abort', check, { once: true });
+          check();
+        });
+        const current = adapter;
+        const revision = presentationToken;
+        if (!current) throw new Error('Open map was detached');
+        await current.waitUntilSettled(signal);
+        if (current === adapter && revision === presentationToken && !styleRunning) return;
+      }
+    },
     attach(current) {
       if (disposed) throw new Error('Map overlay lifecycle is disposed');
       if (adapter) detach(adapter, adapterToken);

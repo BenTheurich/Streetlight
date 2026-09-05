@@ -4,7 +4,6 @@ import {
   correctionControlForPacket,
   isFinalizedBatchPayload,
   isReconciliationWorkspacePayload,
-  packetOperationControls,
   readMutationResult,
   reconciliationMutationControlsDisabled,
 } from './operation-state.ts';
@@ -175,70 +174,6 @@ test('partial mutation payloads require reload verification', async (context) =>
       assert.deepEqual(result, { status: 'uncertain', recovery: 'reload' });
     });
   }
-});
-
-test('one packet operation control projection locks every mutation and PDF entry point', () => {
-  for (const state of [
-    {
-      downloading: null,
-      finalizing: false,
-      generating: true,
-      verificationRequired: false,
-    },
-    {
-      downloading: null,
-      finalizing: true,
-      generating: false,
-      verificationRequired: false,
-    },
-    {
-      downloading: 'newest' as const,
-      finalizing: false,
-      generating: false,
-      verificationRequired: false,
-    },
-    {
-      downloading: null,
-      finalizing: false,
-      generating: false,
-      verificationRequired: true,
-    },
-  ]) {
-    assert.deepEqual(packetOperationControls(state, 3), {
-      activePdfDisabled: true,
-      busy: true,
-      finalizationDisabled: true,
-      newestPdfDisabled: true,
-      proposalDisabled: true,
-      requestDisabled: true,
-    });
-  }
-  assert.deepEqual(
-    packetOperationControls(
-      {
-        downloading: null,
-        finalizing: false,
-        generating: false,
-        verificationRequired: false,
-      },
-      0,
-    ),
-    {
-      activePdfDisabled: true,
-      busy: false,
-      finalizationDisabled: false,
-      newestPdfDisabled: false,
-      proposalDisabled: false,
-      requestDisabled: false,
-    },
-  );
-  assert.equal(
-    packetOperationControls(
-      { downloading: null, finalizing: false, generating: false, verificationRequired: false },
-      3,
-    ).activePdfDisabled,
-    false,
-  );
 });
 
 test('correction recovery stays with one packet and retries the exact attempt', () => {

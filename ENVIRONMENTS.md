@@ -21,9 +21,9 @@ The browser key is intentionally visible in the rendered map request and must be
 API and referrer restrictions. The server key must never use a browser-visible `NEXT_PUBLIC_`
 name.
 
-Without `GOOGLE_MAPS_BROWSER_API_KEY`, Territory Setup renders a clear unavailable-map state
-while database, test, and production-build commands continue to work. Address changes require
-one of the server-side keys; the existing saved address and location remain usable without it.
+The ordinary Map view uses MapLibre and works without `GOOGLE_MAPS_BROWSER_API_KEY`. Satellite
+and address suggestions require that browser key. Address changes require
+`GOOGLE_MAPS_SERVER_API_KEY`; the existing saved address and location remain usable without it.
 Church onboarding falls back to manual address entry without the browser key, but its Google
 suggestions require Places API (New) to be enabled for that key's project.
 
@@ -67,4 +67,8 @@ This check sends one real WorkOS invitation and should be run only when the foun
 7. Save Territory Setup once, then confirm Coverage, Generate packets, and Reconcile become
    available.
 
-Production and recovery configuration belongs to Phase 10.
+The application reads these values from the environment loaded by Next.js. The repository-root
+`.env.local` is not an application configuration source; use `web/.env.local` for local values.
+
+Production and recovery configuration belongs to Phase 12. Its deployment gate includes the
+approved Google quotas, server-key restrictions, public-request rate control, and restore proof.

@@ -129,3 +129,83 @@ test('GET reports an open-map render failure without returning a partial PDF', a
     assert.deepEqual(await response.json(), { error: 'Could not render packet maps' });
   });
 });
+
+test('a batch download and retry retain the requested batch after another batch is finalized', async () => {
+  await withDatabase(async (filename) => {
+    const database = openDatabase(filename);
+    database.exec(`
+      INSERT INTO batches (id, church_id, name, status, finalized_at)
+      VALUES ('batch-later', 'church-temecula-pilot', 'Later batch', 'finalized',
+        '2026-07-29T19:30:00.000Z');
+      INSERT INTO packets (id, church_id, batch_id, packet_code, start_address,
+        estimated_homes, status, sequence_number, start_longitude, start_latitude)
+      VALUES ('packet-later', 'church-temecula-pilot', 'batch-later', 'TEM-PDF-002',
+        '1 Main Street', 10, 'active', 0, -117.116885, 33.54293);
+    `);
+    database.close();
+    const selections: string[][] = [];
+    let fail = true;
+    const options = {
+      renderMaps: async (selection: { packets: Array<{ id: string }> }) => {
+        selections.push(selection.packets.map(({ id }) => id));
+        if (fail) throw new Error('Could not render packet maps');
+        return renderMaps(selection);
+      },
+    };
+    const url = 'http://streetlight.local/api/packets/pdf?scope=batch&batchId=batch-pdf';
+    assert.equal((await GET(new Request(url), options)).status, 502);
+    fail = false;
+    assert.equal((await GET(new Request(url), options)).status, 200);
+    assert.deepEqual(selections, [['packet-pdf'], ['packet-pdf']]);
+    await GET(new Request('http://streetlight.local/api/packets/pdf?scope=newest'), options);
+    assert.deepEqual(selections.at(-1), ['packet-later']);
+    await GET(new Request('http://streetlight.local/api/packets/pdf?scope=active'), options);
+    assert.deepEqual(selections.at(-1), ['packet-pdf', 'packet-later']);
+  });
+});
+
+test('batch downloads reject malformed targets and cannot read another church or draft batch', async () => {
+  await withDatabase(async (filename) => {
+    for (const query of [
+      'scope=batch',
+      'scope=batch&batchId=',
+      'scope=batch&batchId=%20',
+      'scope=batch&batchId=batch-pdf&batchId=other',
+      'scope=active&batchId=batch-pdf',
+      'scope=newest&scope=batch&batchId=batch-pdf',
+    ]) {
+      assert.equal(
+        (
+          await GET(new Request(`http://streetlight.local/api/packets/pdf?${query}`), {
+            renderMaps,
+          })
+        ).status,
+        400,
+        query,
+      );
+    }
+    const database = openDatabase(filename);
+    database.exec(`
+      INSERT INTO churches (id, name, time_zone) VALUES ('other-church', 'Other church', 'UTC');
+      INSERT INTO batches (id, church_id, name, status, finalized_at)
+      VALUES ('private-batch', 'other-church', 'Private batch', 'finalized', '2026-07-30T00:00:00Z');
+      INSERT INTO packets (id, church_id, batch_id, packet_code, start_address,
+        estimated_homes, status, sequence_number, start_longitude, start_latitude)
+      VALUES ('private-packet', 'other-church', 'private-batch', 'OTHER-001',
+        'Private address', 10, 'active', 0, 0, 0);
+      UPDATE batches SET finalized_at = NULL, status = 'draft' WHERE id = 'batch-pdf';
+    `);
+    database.close();
+    for (const batchId of ['private-batch', 'batch-pdf', 'missing-batch']) {
+      const response = await GET(
+        new Request(`http://streetlight.local/api/packets/pdf?scope=batch&batchId=${batchId}`),
+        {
+          renderMaps: async () => {
+            throw new Error('Must not render inaccessible batches');
+          },
+        },
+      );
+      assert.equal(response.status, 404, batchId);
+    }
+  });
+});
