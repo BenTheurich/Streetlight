@@ -35,33 +35,34 @@ const finalizedBatch = {
   estimatedHomes: 12,
   packets: [finalizedPacket],
 };
+const reconciliationBatch = {
+  id: 'batch-1',
+  name: 'August outreach',
+  status: 'finalized',
+  finalizedAt: '2026-08-01T12:00:00.000Z',
+  packets: [
+    {
+      id: 'packet-1',
+      code: 'A-001',
+      kind: 'street',
+      status: 'active',
+      estimatedTracts: 12,
+      start,
+      segments: [packetSegment],
+      apartment: null,
+      completedOn: null,
+      history: [],
+    },
+  ],
+  counts: { active: 1, completed: 0, cancelled: 0 },
+};
 const reconciliationWorkspace = {
   asOf: '2026-08-01',
   defaultBatchId: 'batch-1',
-  batches: [
-    {
-      id: 'batch-1',
-      name: 'August outreach',
-      status: 'finalized',
-      finalizedAt: '2026-08-01T12:00:00.000Z',
-      packets: [
-        {
-          id: 'packet-1',
-          code: 'A-001',
-          kind: 'street',
-          status: 'active',
-          estimatedTracts: 12,
-          start,
-          segments: [packetSegment],
-          apartment: null,
-          completedOn: null,
-          history: [],
-        },
-      ],
-      counts: { active: 1, completed: 0, cancelled: 0 },
-    },
-  ],
+  batches: [reconciliationBatch],
+  batch: reconciliationBatch,
 };
+
 type SavedRecord = { id: string };
 
 function isSavedRecord(value: unknown): value is SavedRecord {
@@ -157,12 +158,10 @@ test('partial mutation payloads require reload verification', async (context) =>
   };
   const partialReconciliationWorkspace = {
     ...reconciliationWorkspace,
-    batches: [
-      {
-        ...reconciliationWorkspace.batches[0],
-        packets: [{ ...reconciliationWorkspace.batches[0].packets[0], apartment: {} }],
-      },
-    ],
+    batch: {
+      ...reconciliationBatch,
+      packets: [{ ...reconciliationBatch.packets[0], apartment: {} }],
+    },
   };
   for (const [name, payload, validator] of [
     ['finalized batch', partialFinalizedBatch, isFinalizedBatchPayload],

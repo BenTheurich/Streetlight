@@ -1,12 +1,13 @@
 'use client';
 
-import { type CSSProperties, useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import type { CoverageWorkspace } from '@/lib/coverage';
 import {
   countEligibleHomesByCoverageClass,
   coverageRoadForSegment,
   coverageRoadPacketGroups,
   coverageRoadResultContent,
+  coverageRoads,
   coverageSearchAnnouncement,
   currentWorkState,
   searchCoverageRoads,
@@ -48,13 +49,17 @@ export function CoverageDashboard({
   onOpenHistory,
 }: CoverageDashboardProps) {
   const [query, setQuery] = useState('');
-  const selected = coverageRoadForSegment(workspace.segments, selectedSegmentId);
-  const search = searchCoverageRoads(workspace.segments, query);
+  const roads = useMemo(() => coverageRoads(workspace.segments), [workspace.segments]);
+  const selected = coverageRoadForSegment(roads, selectedSegmentId);
+  const search = useMemo(() => searchCoverageRoads(roads, query), [roads, query]);
   const selectedContent = selected ? coverageRoadResultContent(selected) : null;
   const searchAnnouncement = coverageSearchAnnouncement(query, search);
   const selectedDates = selected ? coverageRoadPacketGroups(selected.segments) : [];
   const workState = currentWorkState(workspace.activePackets);
-  const distribution = countEligibleHomesByCoverageClass(workspace.segments);
+  const distribution = useMemo(
+    () => countEligibleHomesByCoverageClass(workspace.segments),
+    [workspace.segments],
+  );
   const distributionItems = coverageClasses.map((coverageClass) => ({
     coverageClass,
     homes: distribution[coverageClass],

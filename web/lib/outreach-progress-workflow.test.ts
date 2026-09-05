@@ -163,6 +163,29 @@ test('reduced motion completes the map and fullscreen denial retains an escapabl
   assert.equal(workflow.getSnapshot().playing, true);
 });
 
+test('presentation reuses completed-date metrics and does not publish during the finished rest', async () => {
+  const browser = new Browser();
+  const workflow = createOutreachProgressWorkflow(coverage, browser);
+  await workflow.act({ kind: 'present' });
+  const initialMetrics = workflow.getSnapshot().snapshot;
+  browser.advance(400);
+  assert.equal(workflow.getSnapshot().snapshot, initialMetrics);
+  browser.advance(4600);
+  assert.equal(workflow.getSnapshot().position, 2);
+  const resting = workflow.getSnapshot();
+  let publishes = 0;
+  workflow.subscribe(() => {
+    publishes += 1;
+  });
+  browser.advance(3000);
+  assert.equal(publishes, 0);
+  assert.equal(workflow.getSnapshot(), resting);
+  browser.advance(1500);
+  assert.ok(publishes > 0);
+  assert.ok(workflow.getSnapshot().position < 1);
+  await workflow.act({ kind: 'exit' });
+});
+
 test('late fullscreen success cannot leave admin mode fullscreen or cancel a newer presentation', async () => {
   const browser = new Browser();
   const workflow = createOutreachProgressWorkflow(coverage, browser);

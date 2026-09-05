@@ -8,10 +8,14 @@ import ts from 'typescript';
 
 // Repository policy: these tests execute the production stylesheet in Chromium because clipping
 // geometry and scrollbar gutters are computed-layout behavior, not stable source syntax.
-const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8').replace(
-  /^@import[^;]+;\s*/,
-  '',
-);
+const styles = ['globals.css', 'workspace.css']
+  .map((filename) =>
+    readFileSync(new URL(`../app/${filename}`, import.meta.url), 'utf8').replace(
+      /^@import[^;]+;\s*/,
+      '',
+    ),
+  )
+  .join('\n');
 const require = createRequire(import.meta.url);
 const reactDirectory = path.dirname(require.resolve('react/package.json'));
 const domDirectory = path.dirname(require.resolve('react-dom/package.json'));
@@ -127,7 +131,7 @@ test('React commits the print presentation before map readiness and preserves it
   await page.evaluate(() => {
     const { createElement } = window.fixtureRequire('react');
     const { createRoot } = window.fixtureRequire('react-dom/client');
-    const { OpenProgressMap } = window.fixtureRequire('OpenProgressMap');
+    const { WorkspaceProgressMap } = window.fixtureRequire('OpenProgressMap');
     const { useOutreachProgress } = window.fixtureRequire('useOutreachProgress');
     const coverage = {
       asOf: '2026-08-02',
@@ -167,7 +171,7 @@ test('React commits the print presentation before map readiness and preserves it
       },
     };
     function App() {
-      const { view, act } = useOutreachProgress({
+      const { workflow, displayMode, act } = useOutreachProgress({
         active: true,
         coverage,
         camera: { center: [1, 2], zoom: 13 },
@@ -177,16 +181,11 @@ test('React commits the print presentation before map readiness and preserves it
       window.act = act;
       return createElement(
         'div',
-        { id: 'stage', className: view.displayMode },
-        createElement(OpenProgressMap, {
+        { id: 'stage', className: displayMode },
+        createElement(WorkspaceProgressMap, {
           active: true,
-          animated: !view.reducedMotion,
-          cinematic: false,
-          fitForPrint: view.displayMode === 'print',
           lifecycle,
-          position: view.position,
-          progress: view.progress,
-          showLegend: false,
+          workflow,
           workspace: coverage,
         }),
       );
@@ -242,6 +241,96 @@ test('print preparation uses the final paper map dimensions before opening the d
   assert.equal(geometry.pageWidth, 1056);
   assert.ok(Math.abs(geometry.mapHeight - 748.8) < 0.1);
   assert.ok(Math.abs(geometry.mapWidth - 672) < 0.1);
+});
+
+test('progress animation updates its map without rerendering the workspace shell', async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.setContent('<div id="root"></div>');
+  await page.addScriptTag({ content: progressBrowserScript });
+  await page.evaluate(() => {
+    const { createElement } = window.fixtureRequire('react');
+    const { createRoot } = window.fixtureRequire('react-dom/client');
+    const { WorkspaceProgressMap } = window.fixtureRequire('OpenProgressMap');
+    const { useOutreachProgress } = window.fixtureRequire('useOutreachProgress');
+    const frames = new Map();
+    let frameId = 0;
+    window.requestAnimationFrame = (callback) => {
+      frames.set(++frameId, callback);
+      return frameId;
+    };
+    window.cancelAnimationFrame = (id) => frames.delete(id);
+    window.advance = (time) => {
+      const callbacks = [...frames.values()];
+      frames.clear();
+      for (const callback of callbacks) callback(time);
+    };
+    const coverage = {
+      asOf: '2026-08-02',
+      apartmentComplexes: [],
+      segments: [
+        {
+          id: '1',
+          streetName: 'Main',
+          roadGroupId: 'main',
+          estimatedHomes: 10,
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [0, 0],
+              [0.1, 0.1],
+            ],
+          },
+          roots: [{ effectiveCoveredOn: '2026-02-20', packetId: 'packet' }],
+        },
+      ],
+    };
+    const lifecycle = {
+      present(value) {
+        window.position = value.position;
+        return () => {};
+      },
+    };
+    window.shellRenders = 0;
+    function App() {
+      window.shellRenders += 1;
+      const { workflow, act, displayMode } = useOutreachProgress({
+        active: true,
+        coverage,
+        camera: { center: [1, 2], zoom: 13 },
+        lifecycle,
+        onCameraChange() {},
+      });
+      window.act = act;
+      return createElement(
+        'div',
+        { className: displayMode },
+        createElement(WorkspaceProgressMap, {
+          active: true,
+          lifecycle,
+          workflow,
+          workspace: coverage,
+        }),
+      );
+    }
+    createRoot(document.querySelector('#root')).render(createElement(App));
+  });
+  await page.waitForFunction(() => window.position === 1);
+  const renders = await page.evaluate(() => window.shellRenders);
+  await page.evaluate(() => {
+    void window.act({ kind: 'play' });
+  });
+  await page.waitForFunction(() => window.position === 0);
+  await page.evaluate(() => {
+    window.advance(0);
+    window.advance(40);
+  });
+  await page.waitForFunction(() => window.position > 0 && window.position < 1);
+  assert.equal(await page.evaluate(() => window.shellRenders), renders);
+  await page.evaluate(() => {
+    void window.act({ kind: 'exit' });
+  });
 });
 
 test('Setup disclosure controls stay inside both horizontal clipping edges', async (t) => {

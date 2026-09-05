@@ -73,7 +73,7 @@ export function proposalsForMap(
   return proposals[selectedIndex] ? [proposals[selectedIndex]] : [];
 }
 
-type TargetSlot = { targetHomes: number; order: number };
+type TargetSlot = PacketSizeRequest & { order: number };
 type Prefix = {
   segments: PacketSelectionSegment[];
   estimatedHomes: number;
@@ -181,6 +181,17 @@ function sameNamedContinuation(
 
 function buildAdjacency(segments: PacketSelectionSegment[]): Adjacency {
   const adjacency = new Map(segments.map((segment) => [segment.id, new Set<string>()]));
+  const bounds = segments.map(({ geometry }) =>
+    geometry.coordinates.reduce(
+      (box, [longitude, latitude]) => ({
+        west: Math.min(box.west, longitude),
+        east: Math.max(box.east, longitude),
+        south: Math.min(box.south, latitude),
+        north: Math.max(box.north, latitude),
+      }),
+      { west: Infinity, east: -Infinity, south: Infinity, north: -Infinity },
+    ),
+  );
   const byEndpoint = new Map<string, string[]>();
   for (const segment of segments) {
     for (const endpoint of endpoints(segment)) {
@@ -197,12 +208,24 @@ function buildAdjacency(segments: PacketSelectionSegment[]): Adjacency {
       }
     }
   }
-  // ponytail: Pair scanning is cheap for the pilot's ~1,500 roads; add a spatial index if
-  // substantially larger territories make proposal generation measurably slow.
+  // Reject distant bounds before exact junction tests; preserve the original pair order.
   for (let firstIndex = 0; firstIndex < segments.length; firstIndex += 1) {
     for (let secondIndex = firstIndex + 1; secondIndex < segments.length; secondIndex += 1) {
       const first = segments[firstIndex];
       const second = segments[secondIndex];
+      const a = bounds[firstIndex];
+      const b = bounds[secondIndex];
+      const latitudeGap = Math.max(a.south - b.north, b.south - a.north, 0);
+      if (latitudeGap * metersPerDegree > continuationGapMeters) continue;
+      const longitudeGap = Math.max(a.west - b.east, b.west - a.east, 0);
+      // Every point and projected point lies within these latitudes. The smallest
+      // longitude scale therefore gives a conservative lower bound on separation.
+      const longitudeScale = Math.cos(
+        (Math.max(Math.abs(a.south), Math.abs(a.north), Math.abs(b.south), Math.abs(b.north)) *
+          Math.PI) /
+          180,
+      );
+      if (longitudeGap * longitudeScale * metersPerDegree > continuationGapMeters) continue;
       if (adjacency.get(first.id)?.has(second.id)) continue;
       if (
         terminalDirections(first).some((endpoint) =>
@@ -404,8 +427,10 @@ function connectedPrefixes(
   component: PacketSelectionSegment[],
   center: Position,
   adjacency: Adjacency,
+  upperBound: number,
 ): Prefix[] {
   const selected = [anchor];
+  let estimatedHomes = anchor.estimatedHomes;
   const remaining = new Map(
     component.filter((segment) => segment.id !== anchor.id).map((segment) => [segment.id, segment]),
   );
@@ -415,12 +440,14 @@ function connectedPrefixes(
     if (start) {
       prefixes.push({
         segments: [...selected],
-        estimatedHomes: selected.reduce((sum, segment) => sum + segment.estimatedHomes, 0),
+        estimatedHomes,
         area: boundingArea(selected, center),
         start,
       });
     }
-    if (remaining.size === 0) break;
+    // Home counts cannot decrease; later prefixes cannot fit any requested size.
+    // Keep the first prefix so an indivisible oversized segment remains eligible.
+    if (remaining.size === 0 || estimatedHomes > upperBound) break;
     const selectedIds = new Set(selected.map((segment) => segment.id));
     const next = [...remaining.values()]
       .filter((segment) => [...(adjacency.get(segment.id) ?? [])].some((id) => selectedIds.has(id)))
@@ -439,6 +466,7 @@ function connectedPrefixes(
       )[0];
     if (!next) break;
     selected.push(next);
+    estimatedHomes += next.estimatedHomes;
     remaining.delete(next.id);
   }
   return prefixes;
@@ -617,15 +645,9 @@ export function generatePacketProposals(input: {
   segments: PacketSelectionSegment[];
   apartmentComplexes?: ApartmentPacketCandidate[];
 }): PacketGenerationResult {
-  const slots: TargetSlot[] = input.requests.flatMap((request) =>
-    Array.from({ length: request.quantity }, () => ({
-      targetHomes: request.targetHomes,
-      order: 0,
-    })),
-  );
-  slots.forEach((slot, index) => {
-    slot.order = index;
-  });
+  // Equal-size slots within a request are interchangeable; retain their count
+  // and the request's precedence without allocating one object per packet.
+  const slots: TargetSlot[] = input.requests.map((request, order) => ({ ...request, order }));
   const proposals: PacketProposal[] = [];
   const warnings: string[] = [];
   const available = new Map(
@@ -659,13 +681,20 @@ export function generatePacketProposals(input: {
         }
       | undefined;
     let missingAddress = false;
-    const minimumViableHomes = Math.min(...slots.map(({ targetHomes }) => targetHomes * 0.7));
+    const minimumViableHomes = slots.reduce(
+      (minimum, { targetHomes }) => Math.min(minimum, targetHomes * 0.7),
+      Infinity,
+    );
+    const upperBound = slots.reduce(
+      (maximum, { targetHomes }) => Math.max(maximum, targetHomes * 1.3),
+      0,
+    );
 
     for (const anchor of anchors) {
       const component = componentFrom(anchor, available, adjacency);
-      const prefixes = connectedPrefixes(anchor, component, input.center, adjacency);
+      const prefixes = connectedPrefixes(anchor, component, input.center, adjacency, upperBound);
       if (prefixes.length === 0) {
-        missingAddress = true;
+        missingAddress ||= !component.some(({ addresses }) => addresses.some(usableAddress));
         continue;
       }
       choice = prefixes
@@ -773,7 +802,8 @@ export function generatePacketProposals(input: {
         );
       }
       availableApartments.delete(apartment.id);
-      slots.splice(slots.indexOf(apartmentSlot), 1);
+      apartmentSlot.quantity -= 1;
+      if (apartmentSlot.quantity === 0) slots.splice(slots.indexOf(apartmentSlot), 1);
       continue;
     }
 
@@ -798,7 +828,8 @@ export function generatePacketProposals(input: {
       streetNames: [...new Set(choice.prefix.segments.map(({ streetName }) => streetName))].sort(),
     });
     for (const segment of choice.prefix.segments) available.delete(segment.id);
-    slots.splice(slots.indexOf(choice.slot), 1);
+    choice.slot.quantity -= 1;
+    if (choice.slot.quantity === 0) slots.splice(slots.indexOf(choice.slot), 1);
   }
   fillBorderedGaps(proposals, available, allSegments, adjacency, input.center);
   if (slots.length > 0) {

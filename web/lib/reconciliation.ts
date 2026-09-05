@@ -31,13 +31,21 @@ export type ReconciliationBatch = {
   counts: { active: number; completed: number; cancelled: number };
 };
 
+export type ReconciliationBatchSummary = Omit<ReconciliationBatch, 'packets'>;
+
 export type ReconciliationWorkspace = {
   asOf: string;
   defaultBatchId: string | null;
-  batches: ReconciliationBatch[];
+  batches: ReconciliationBatchSummary[];
+  batch: ReconciliationBatch | null;
 };
 
 export type ReconciliationView = 'active' | 'history';
+export type ReconciliationSelection = {
+  view?: ReconciliationView;
+  batchId?: string;
+  packetId?: string;
+};
 export type ReconciliationHistoryTarget = { packetId: string };
 
 export type ReconciliationDecision = {
@@ -70,9 +78,10 @@ export type ReconciliationMapPresentation = {
 };
 
 export type ReconciliationProjection = {
-  activeBatches: ReconciliationBatch[];
-  historyBatches: ReconciliationBatch[];
-  visibleBatches: ReconciliationBatch[];
+  activeBatches: ReconciliationBatchSummary[];
+  historyBatches: ReconciliationBatchSummary[];
+  visibleBatches: ReconciliationBatchSummary[];
+  batchId: string | null;
   batch: ReconciliationBatch | null;
   activePackets: ReconciliationPacket[];
   historyPackets: ReconciliationPacket[];
@@ -85,9 +94,9 @@ export type ReconciliationProjection = {
 };
 
 function batchesForView(
-  batches: ReconciliationBatch[],
+  batches: ReconciliationBatchSummary[],
   view: ReconciliationView,
-): ReconciliationBatch[] {
+): ReconciliationBatchSummary[] {
   return batches.filter((batch) =>
     view === 'active'
       ? batch.counts.active > 0
@@ -96,18 +105,19 @@ function batchesForView(
 }
 
 function targetSelection(
-  batches: ReconciliationBatch[],
+  batch: ReconciliationBatch | null,
   target: ReconciliationHistoryTarget | null | undefined,
 ): { batchId: string; packetId: string } | null {
   if (!target) return null;
-  const batch = batches.find(({ packets }) =>
-    packets.some((packet) => packet.id === target.packetId && packet.status !== 'active'),
-  );
-  return batch ? { batchId: batch.id, packetId: target.packetId } : null;
+  return batch?.packets.some(
+    (packet) => packet.id === target.packetId && packet.status !== 'active',
+  )
+    ? { batchId: batch.id, packetId: target.packetId }
+    : null;
 }
 
 function preferredBatchId(
-  batches: ReconciliationBatch[],
+  batches: ReconciliationBatchSummary[],
   requested: string | null,
   fallback: string | null,
 ): string | null {
@@ -122,7 +132,7 @@ export function projectReconciliation(
 ): ReconciliationProjection {
   const activeBatches = batchesForView(workspace.batches, 'active');
   const historyBatches = batchesForView(workspace.batches, 'history');
-  const target = targetSelection(workspace.batches, draft.historyTarget);
+  const target = targetSelection(workspace.batch, draft.historyTarget);
   const view = target ? 'history' : draft.view;
   const visibleBatches = view === 'active' ? activeBatches : historyBatches;
   const batchId = preferredBatchId(
@@ -130,7 +140,7 @@ export function projectReconciliation(
     target?.batchId ?? draft.batchId,
     view === 'active' ? workspace.defaultBatchId : null,
   );
-  const batch = visibleBatches.find(({ id }) => id === batchId) ?? null;
+  const batch = workspace.batch?.id === batchId ? workspace.batch : null;
   const activePackets = batch?.packets.filter(({ status }) => status === 'active') ?? [];
   const historyPackets = batch?.packets.filter(({ status }) => status !== 'active') ?? [];
   const selectedCandidate = target?.packetId ?? draft.selectedPacketId;
@@ -181,6 +191,7 @@ export function projectReconciliation(
     activeBatches,
     historyBatches,
     visibleBatches,
+    batchId,
     batch,
     activePackets,
     historyPackets,

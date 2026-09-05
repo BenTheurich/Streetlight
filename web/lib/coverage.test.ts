@@ -107,7 +107,8 @@ test('coverage distribution counts eligible estimated homes in each heatmap clas
 });
 
 test('street search trims case, keeps human name order, and returns one connected road group', () => {
-  const search = coverageModule.searchCoverageRoads;
+  const search = (segments: ReturnType<typeof searchableSegment>[], query: string) =>
+    coverageModule.searchCoverageRoads(coverageModule.coverageRoads(segments), query);
   assert.equal(typeof search, 'function');
   const segments = [
     searchableSegment('internal-z', 'road-z', 'Zinnia Road'),
@@ -127,7 +128,8 @@ test('street search trims case, keeps human name order, and returns one connecte
 });
 
 test('street search keeps unnamed roads reachable and caps visible road groups at twenty', () => {
-  const search = coverageModule.searchCoverageRoads;
+  const search = (segments: ReturnType<typeof searchableSegment>[], query: string) =>
+    coverageModule.searchCoverageRoads(coverageModule.coverageRoads(segments), query);
   assert.equal(typeof search, 'function');
   const unnamed = searchableSegment('internal-unnamed', 'road-unnamed', '  ');
 
@@ -162,7 +164,7 @@ test('street search merges nearby same-name carriageways but keeps distant names
     geometry: { coordinates },
   });
   const roads = coverageModule.searchCoverageRoads(
-    [
+    coverageModule.coverageRoads([
       segment('northbound', 'road-northbound', [
         [-117.1437, 33.5427],
         [-117.1405, 33.5526],
@@ -175,7 +177,7 @@ test('street search merges nearby same-name carriageways but keeps distant names
         [-117.13, 33.54],
         [-117.129, 33.55],
       ]),
-    ],
+    ]),
     'winchester',
   ).matches;
 
@@ -184,12 +186,7 @@ test('street search merges nearby same-name carriageways but keeps distant names
     [['northbound', 'southbound'], ['distant']],
   );
   assert.deepEqual(
-    coverageModule
-      .coverageRoadForSegment(
-        roads.flatMap(({ segments }) => segments),
-        'southbound',
-      )
-      ?.segments.map(({ id }) => id),
+    coverageModule.coverageRoadForSegment(roads, 'southbound')?.segments.map(({ id }) => id),
     ['northbound', 'southbound'],
   );
 });

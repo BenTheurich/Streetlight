@@ -1,13 +1,27 @@
 'use client';
 
-import type { CSSProperties, RefObject } from 'react';
+import { type CSSProperties, type RefObject, useSyncExternalStore } from 'react';
 import type { OutreachProgressPeriod, OutreachProgressSnapshot } from '@/lib/outreach-progress';
 import type {
   OutreachProgressAction,
   OutreachProgressView,
+  OutreachProgressWorkflow,
 } from '@/lib/outreach-progress-workflow';
 import { APARTMENTS_ENABLED } from '@/lib/product-capabilities';
 import { StreetlightSelect } from './StreetlightSelect';
+
+export function WorkspaceProgressPanel({
+  workflow,
+  ...props
+}: {
+  active: boolean;
+  churchName: string;
+  presentationButtonRef: RefObject<HTMLButtonElement | null>;
+  workflow: OutreachProgressWorkflow;
+}) {
+  const view = useSyncExternalStore(workflow.subscribe, workflow.getSnapshot, workflow.getSnapshot);
+  return <OutreachProgress {...props} act={workflow.act} view={view} />;
+}
 
 function formatDate(value: string | null, progress: OutreachProgressPeriod): string {
   if (!value) {

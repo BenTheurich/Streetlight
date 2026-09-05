@@ -93,7 +93,7 @@ test('reconciliation route exposes read, confirm, replay, correction, and undo',
     const confirmed = await POST(request('POST', body));
     assert.equal(confirmed.status, 200);
     assert.equal(eventCount(filename), before + 1);
-    assert.equal((await confirmed.json()).batches[0].packets[0].status, 'completed');
+    assert.equal((await confirmed.json()).batch.packets[0].status, 'completed');
 
     const replay = await POST(request('POST', body));
     assert.equal(replay.status, 200);
@@ -103,11 +103,42 @@ test('reconciliation route exposes read, confirm, replay, correction, and undo',
       request('PATCH', { packetId: 'route-packet', coveredOn: '2026-07-20' }),
     );
     assert.equal(corrected.status, 200);
-    assert.equal((await corrected.json()).batches[0].packets[0].completedOn, '2026-07-20');
+    assert.equal((await corrected.json()).batch.packets[0].completedOn, '2026-07-20');
 
     const undone = await PATCH(request('PATCH', { packetId: 'route-packet', coveredOn: null }));
     assert.equal(undone.status, 200);
-    assert.equal((await undone.json()).batches[0].packets[0].status, 'active');
+    assert.equal((await undone.json()).batch.packets[0].status, 'active');
+  });
+});
+
+test('reconciliation reads validate and resolve batch or packet selection without writes', async () => {
+  await withDatabase(async (filename) => {
+    const before = eventCount(filename);
+    for (const query of [
+      'churchId=other',
+      'view=all',
+      'view=active&view=history',
+      'batchId=',
+      'batchId=route-batch&packetId=route-packet',
+    ]) {
+      assert.equal(
+        GET(new Request(`http://streetlight.local/api/reconciliation?${query}`)).status,
+        400,
+      );
+    }
+    for (const query of ['batchId=missing', 'packetId=missing']) {
+      assert.equal(
+        GET(new Request(`http://streetlight.local/api/reconciliation?${query}`)).status,
+        404,
+      );
+    }
+    const result = await GET(
+      new Request('http://streetlight.local/api/reconciliation?packetId=route-packet'),
+    ).json();
+    assert.equal(result.batch.id, 'route-batch');
+    assert.equal(result.batch.packets[0].id, 'route-packet');
+    assert.equal('packets' in result.batches[0], false);
+    assert.equal(eventCount(filename), before);
   });
 });
 

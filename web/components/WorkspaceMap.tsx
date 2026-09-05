@@ -38,6 +38,7 @@ export function WorkspaceMap({
   const openElementRef = useRef<HTMLDivElement>(null);
   const satelliteElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const mapLibreRef = useRef<Promise<typeof import('maplibre-gl')> | null>(null);
   const dataRef = useRef(data);
   const googleMapRef = useRef<google.maps.Map | null>(null);
   const cameraRef = useRef(camera);
@@ -78,6 +79,11 @@ export function WorkspaceMap({
   }, [data, lifecycle, mapType]);
 
   useEffect(() => {
+    mapLibreRef.current ??= import('maplibre-gl');
+    void mapLibreRef.current.catch(() => setMapStatus('error'));
+  }, []);
+
+  useEffect(() => {
     if (!mapDataAvailable) return;
     const initialData = dataRef.current;
     if (!initialData || !openElementRef.current) return;
@@ -85,7 +91,7 @@ export function WorkspaceMap({
     let detach = () => {};
     let resizeObserver: ResizeObserver | null = null;
     setMapStatus('loading');
-    void import('maplibre-gl')
+    void (mapLibreRef.current ?? import('maplibre-gl'))
       .then(({ Map: MapLibre, Marker }) => {
         if (disposed || !openElementRef.current) return;
         const creationCamera = cameraRef.current;
@@ -112,6 +118,7 @@ export function WorkspaceMap({
           }),
         );
         map.on('move', () => {
+          if (mapTypeRef.current !== 'satellite') return;
           const center = map.getCenter();
           googleMapRef.current?.moveCamera({
             center: { lat: center.lat, lng: center.lng },

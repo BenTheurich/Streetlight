@@ -1,6 +1,5 @@
-import { ChurchOnboarding } from '@/components/ChurchOnboarding';
+import { AdministratorEntry } from '@/components/AdministratorEntry';
 import { PublicLanding } from '@/components/PublicLanding';
-import { StreetlightWorkspace } from '@/components/StreetlightWorkspace';
 import {
   ChurchWorkspaceAccessError,
   type OrganizationSession,
@@ -39,11 +38,14 @@ export default async function CoverageDashboardPage() {
 
   if (!session.access.territoryId) {
     return (
-      <ChurchOnboarding
-        churchName={session.access.churchName}
-        initialTimeZone={session.access.timeZone}
-        mapsApiKey={getGoogleMapsBrowserKey()}
-        timeZones={Array.from(new Set(['UTC', ...Intl.supportedValuesOf('timeZone')]))}
+      <AdministratorEntry
+        view="onboarding"
+        properties={{
+          churchName: session.access.churchName,
+          initialTimeZone: session.access.timeZone,
+          mapsApiKey: getGoogleMapsBrowserKey(),
+          timeZones: Array.from(new Set(['UTC', ...Intl.supportedValuesOf('timeZone')])),
+        }}
       />
     );
   }
@@ -61,13 +63,16 @@ export default async function CoverageDashboardPage() {
         .length
     : null;
   return (
-    <StreetlightWorkspace
-      administratorEmail={session.user.email}
-      initialData={initialData}
-      initialPrintoutSettings={initialPrintoutSettings}
-      mapsApiKey={getGoogleMapsBrowserKey()}
-      pendingPilotRequests={pendingPilotRequests}
-      setupOnly={!session.access.onboardingCompleted}
+    <AdministratorEntry
+      view="workspace"
+      properties={{
+        administratorEmail: session.user.email,
+        initialData,
+        initialPrintoutSettings,
+        mapsApiKey: getGoogleMapsBrowserKey(),
+        pendingPilotRequests,
+        setupOnly: !session.access.onboardingCompleted,
+      }}
     />
   );
 }

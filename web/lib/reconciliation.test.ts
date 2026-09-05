@@ -48,19 +48,19 @@ test('one projection owns explicit sheet decisions and the stable retry submissi
     history: [],
   });
   const packets = [packet('still-here'), packet('taken'), packet('discarded')];
+  const batch: ReconciliationBatch = {
+    id: 'batch',
+    name: 'Batch',
+    status: 'finalized',
+    finalizedAt: '2026-08-25T12:00:00.000Z',
+    packets,
+    counts: { active: 3, completed: 0, cancelled: 0 },
+  };
   const workspace: ReconciliationWorkspace = {
     asOf: '2026-08-25',
     defaultBatchId: 'batch',
-    batches: [
-      {
-        id: 'batch',
-        name: 'Batch',
-        status: 'finalized',
-        finalizedAt: '2026-08-25T12:00:00.000Z',
-        packets,
-        counts: { active: 3, completed: 0, cancelled: 0 },
-      },
-    ],
+    batches: [batch],
+    batch,
   };
   const outcomes = new Map([
     ['discarded', 'discarded'],
@@ -301,7 +301,7 @@ test('legacy packets without saved coordinates use their stored outreach geometr
       .run(segment.id);
     database.close();
 
-    const packet = readReconciliation({ filename }).batches[0]?.packets.find(
+    const packet = readReconciliation({ filename }).batch?.packets.find(
       ({ id }) => id === 'legacy-packet',
     );
     assert.deepEqual(packet?.start.position, JSON.parse(segment.geometry_geojson).coordinates[0]);
@@ -345,6 +345,7 @@ test('one projection owns active and history batches plus exact history targetin
     asOf: '2026-07-29',
     defaultBatchId: 'active-batch',
     batches,
+    batch: batches[2],
   };
   const projection = projectReconciliation(workspace, {
     batchId: 'active-batch',
@@ -373,12 +374,15 @@ test('one projection owns active and history batches plus exact history targetin
     [['history-packet', true]],
   );
 
-  const unresolved = projectReconciliation(workspace, {
-    batchId: 'active-batch',
-    outcomes: new Map(),
-    selectedPacketId: null,
-    view: 'active',
-  });
+  const unresolved = projectReconciliation(
+    { ...workspace, batch: batches[0] },
+    {
+      batchId: 'active-batch',
+      outcomes: new Map(),
+      selectedPacketId: null,
+      view: 'active',
+    },
+  );
   assert.deepEqual(unresolved.review.unreviewed, ['active-packet']);
   assert.equal(unresolved.submission, null);
 });
@@ -389,7 +393,7 @@ test('one reconciliation atomically completes missing packets, keeps present, ca
     const now = new Date('2026-07-29T12:00:00.000Z');
     const before = readReconciliation({ filename, now });
     assert.equal(before.defaultBatchId, prepared.batchId);
-    assert.equal(before.batches[0].packets.length, 4);
+    assert.equal(before.batch?.packets.length, 4);
 
     const input = {
       batchId: prepared.batchId,
@@ -401,7 +405,7 @@ test('one reconciliation atomically completes missing packets, keeps present, ca
       ],
     };
     const after = accepted(applyReconciliation('reconcile', input, { filename, now }));
-    const batch = after.batches.find(({ id }) => id === prepared.batchId);
+    const batch = after.batch;
     assert.ok(batch);
     assert.deepEqual(
       batch.packets.map(({ id, status }) => [id, status]),
@@ -649,9 +653,11 @@ test('whole-packet correction and undo preserve earlier coverage and reject rese
       null,
     );
     assert.equal(
-      readReconciliation({ filename, now: new Date('2026-07-29T14:00:00.000Z') })
-        .batches.find(({ id }) => id === prepared.batchId)
-        ?.packets.find(({ id }) => id === prepared.streetPacketId)?.status,
+      readReconciliation({
+        filename,
+        now: new Date('2026-07-29T14:00:00.000Z'),
+        selection: { batchId: prepared.batchId },
+      }).batch?.packets.find(({ id }) => id === prepared.streetPacketId)?.status,
       'active',
     );
   });
@@ -761,12 +767,7 @@ for (const kind of ['street', 'apartment'] as const) {
         const restored = accepted(
           applyReconciliation('completion', { packetId, coveredOn: null }, { filename, now }),
         );
-        assert.equal(
-          restored.batches
-            .find(({ id }) => id === prepared.batchId)
-            ?.packets.find(({ id }) => id === packetId)?.status,
-          'active',
-        );
+        assert.equal(restored.batch?.packets.find(({ id }) => id === packetId)?.status, 'active');
       } finally {
         database.close();
       }

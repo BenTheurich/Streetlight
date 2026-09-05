@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import { createElement } from 'react';
@@ -235,4 +236,68 @@ test('the public landing renders administrator login and the complete pilot requ
   const honeypot = page.locator('input[name="website"]');
   assert.equal(await honeypot.getAttribute('tabindex'), '-1');
   assert.equal(await honeypot.locator('xpath=..').getAttribute('aria-hidden'), 'true');
+});
+
+const publicLandingStyles = readFileSync(
+  new URL('../public/landing/spread-the-light-v2.css', import.meta.url),
+  'utf8',
+);
+
+test('compact and reduced-motion layouts defer desktop artwork and restore it on desktop', async (t) => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  t.after(() => page.close());
+  const requests = [];
+  await page.route('https://streetlight.test/**', (route) => {
+    requests.push(new URL(route.request().url()).pathname);
+    return route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>',
+    });
+  });
+  await page.setContent(`
+    <base href="https://streetlight.test/">
+    <style>${publicLandingStyles}</style>
+    ${renderToStaticMarkup(createElement(PublicLanding))}
+  `);
+  const desktopSources = () =>
+    page
+      .locator('.anchor-stage img')
+      .evaluateAll((images) => images.map((image) => image.currentSrc));
+  assert.ok((await desktopSources()).every((source) => source.startsWith('data:')));
+  assert.ok(!requests.includes('/landing/streetlamp-v2.webp'));
+  assert.ok(!requests.includes('/landing/neighborhood-map-frosted-v2.webp'));
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  assert.ok((await desktopSources()).every((source) => source.startsWith('data:')));
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('.anchor-stage img')].every((image) =>
+      image.currentSrc.startsWith('https://streetlight.test/landing/'),
+    ),
+  );
+  assert.ok(requests.includes('/landing/streetlamp-v2.webp'));
+  assert.ok(requests.includes('/landing/neighborhood-map-frosted-v2.webp'));
+
+  await page.addScriptTag({
+    content: readFileSync(
+      new URL('../public/landing/spread-the-light-v2.js', import.meta.url),
+      'utf8',
+    ),
+  });
+  await page.evaluate(() => {
+    const story = document.querySelector('.anchor-story');
+    window.scrollTo({ top: (story.offsetHeight - window.innerHeight) * 0.75, behavior: 'instant' });
+  });
+  await page.waitForFunction(
+    () =>
+      document.querySelector('.anchor-story').dataset.active === '3' &&
+      Number(document.querySelector('.anchor-map').style.opacity) > 0.9,
+  );
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.waitForFunction(
+    () =>
+      document.querySelector('.anchor-story').dataset.active === '0' &&
+      Number(document.querySelector('.anchor-map').style.opacity) === 0,
+  );
 });

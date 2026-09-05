@@ -35,8 +35,6 @@ const emptyData: OpenMapData = {
   importGeneration: 1,
   overtureRelease: 'test',
   buildingMode: 'overture_only' as const,
-  segments: [],
-  apartmentComplexes: [],
   buildings: [],
   houseNumbers: [],
   attribution: { base: 'Base', roads: 'Roads', buildings: 'Buildings', fema: null },
@@ -81,7 +79,7 @@ function selectedReconciliationPresentation() {
     counts: { active: 1, completed: 0, cancelled: 0 },
   };
   return projectReconciliation(
-    { asOf: '2026-01-01', defaultBatchId: batch.id, batches: [batch] },
+    { asOf: '2026-01-01', defaultBatchId: batch.id, batches: [batch], batch },
     {
       batchId: batch.id,
       outcomes: new Map([[batch.packets[0].id, 'still-here']]),
@@ -95,6 +93,10 @@ class TestMapAdapter implements MapOverlayAdapter {
   readonly initialBase: WorkspaceMapBasePresentation;
   readonly sources = new Map<string, unknown>();
   readonly sourceUpdates: Array<{ id: string; data: unknown }> = [];
+  readonly propertyUpdates: Array<{
+    sourceId: string;
+    updates: Array<{ id: string; properties: Record<string, unknown> }>;
+  }> = [];
   readonly sourceOptions = new Map<string, Record<string, unknown> | undefined>();
   readonly layers = new Map<string, MapOverlayLayer>();
   readonly listeners = new Map<string, Set<(event: MapOverlayEvent) => void>>();
@@ -161,6 +163,21 @@ class TestMapAdapter implements MapOverlayAdapter {
     assert.equal(this.sources.has(id), true);
     this.sources.set(id, data);
     this.sourceUpdates.push({ id, data });
+  }
+
+  updateSourceProperties(
+    sourceId: string,
+    updates: Array<{ id: string; properties: Record<string, unknown> }>,
+  ) {
+    this.propertyUpdates.push({ sourceId, updates });
+    const source = this.sources.get(sourceId) as {
+      features: Array<{ id: string; properties: Record<string, unknown> }>;
+    };
+    for (const update of updates) {
+      const feature = source.features.find(({ id }) => id === update.id);
+      assert(feature);
+      Object.assign(feature.properties, update.properties);
+    }
   }
 
   removeSource(id: string) {
@@ -364,6 +381,77 @@ test('presentation and adapter cleanup permit React-style ownership replay', asy
   assert.equal(secondAdapter.sources.has('streetlightBoundary'), true);
   detachSecond();
   releaseSecondBase();
+  lifecycle.dispose();
+});
+
+test('coverage selection updates only changed properties and reloads geography after style replacement', async () => {
+  const adapter = new TestMapAdapter();
+  const lifecycle = createMapOverlayLifecycle({ onStatus() {} });
+  lifecycle.present(base());
+  lifecycle.attach(adapter);
+  await turn();
+  const presentation: Extract<WorkspaceMapPresentation, { kind: 'coverage' }> = {
+    kind: 'coverage',
+    visible: true,
+    interactive: true,
+    segments: ['one', 'two'].map((id) => ({
+      id,
+      roadGroupId: id,
+      streetName: id,
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [-117.1, 33.5],
+          [-117.09, 33.5],
+        ],
+      },
+      estimatedHomes: 10,
+      eligible: true,
+      excludedReason: null,
+      lastCoveredOn: null,
+      coverageClass: 'red',
+      roots: [],
+    })),
+    apartments: [],
+    selectedSegmentId: null,
+    selectionSource: null,
+    showApartmentMarkers: false,
+    fitOnFirstShow: false,
+    onSelectSegment() {},
+  };
+  let release = lifecycle.present(presentation);
+  adapter.sourceUpdates.length = 0;
+  release();
+  release = lifecycle.present({ ...presentation, selectedSegmentId: 'one' });
+  assert.equal(adapter.sourceUpdates.length, 0);
+  assert.deepEqual(adapter.propertyUpdates.at(-1)?.updates, [
+    { id: 'one', properties: { selected: true } },
+  ]);
+  release();
+  lifecycle.present({ ...presentation, selectedSegmentId: 'two' });
+  assert.equal(adapter.sourceUpdates.length, 0);
+  assert.deepEqual(adapter.propertyUpdates.at(-1)?.updates, [
+    { id: 'one', properties: { selected: false } },
+    { id: 'two', properties: { selected: true } },
+  ]);
+  lifecycle.present(base('satellite'));
+  adapter.styleRequests[0].complete();
+  await turn();
+  assert.equal(adapter.sourceUpdates.filter(({ id }) => id === 'streetlightCoverage').length, 1);
+  const restored = adapter.sources.get('streetlightCoverage') as {
+    features: Array<{ id: string; properties: { selected: boolean } }>;
+  };
+  assert.deepEqual(
+    restored.features.map(({ id, properties }) => [id, properties.selected]),
+    [
+      ['one', false],
+      ['two', true],
+    ],
+  );
+  const changed = { ...presentation.segments[0], eligible: false };
+  adapter.sourceUpdates.length = 0;
+  lifecycle.present({ ...presentation, segments: [changed, presentation.segments[1]] });
+  assert.equal(adapter.sourceUpdates.filter(({ id }) => id === 'streetlightCoverage').length, 1);
   lifecycle.dispose();
 });
 
@@ -705,6 +793,15 @@ test('territory intent owns road suppression, direct selection, and box selectio
   adapter.emptyMapClick?.();
   assert.deepEqual(selected.at(-1), { ids: [], additive: false });
 
+  adapter.sourceUpdates.length = 0;
+  const selectedCleanup = cleanup;
+  cleanup = lifecycle.present({ ...territory, selectedSegmentIds: [] });
+  selectedCleanup();
+  assert.equal(adapter.sourceUpdates.filter(({ id }) => id === 'streetlightCoverage').length, 0);
+  assert.deepEqual(adapter.propertyUpdates.at(-1)?.updates, [
+    { id: 'segment-one', properties: { selected: false, opacity: 0.8 } },
+  ]);
+
   cleanup();
   assert.equal(adapter.layers.get('base-road')?.visible, true);
   assert.equal(adapter.layers.get('streetlight-coverage')?.visible, true);
@@ -1038,7 +1135,7 @@ test('proposal and reconciliation focus keys do not repeat camera work', async (
     counts: { active: 1, completed: 0, cancelled: 0 },
   };
   const presentation = projectReconciliation(
-    { asOf: '2026-01-01', defaultBatchId: batch.id, batches: [batch] },
+    { asOf: '2026-01-01', defaultBatchId: batch.id, batches: [batch], batch },
     {
       batchId: batch.id,
       outcomes: new Map([['packet-one', 'still-here'] as const]),

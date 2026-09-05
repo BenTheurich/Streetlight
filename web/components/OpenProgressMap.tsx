@@ -1,9 +1,37 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import type { CoverageWorkspace } from '@/lib/coverage';
 import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
 import type { OutreachProgressPeriod } from '@/lib/outreach-progress';
+import type { OutreachProgressWorkflow } from '@/lib/outreach-progress-workflow';
+
+export function WorkspaceProgressMap({
+  active,
+  lifecycle,
+  workflow,
+  workspace,
+}: {
+  active: boolean;
+  lifecycle: MapOverlayLifecycle | null;
+  workflow: OutreachProgressWorkflow;
+  workspace: CoverageWorkspace;
+}) {
+  const view = useSyncExternalStore(workflow.subscribe, workflow.getSnapshot, workflow.getSnapshot);
+  return (
+    <OpenProgressMap
+      active={active}
+      animated={!view.reducedMotion}
+      cinematic={view.displayMode === 'presentation'}
+      fitForPrint={view.displayMode === 'print'}
+      lifecycle={lifecycle}
+      position={view.position}
+      progress={view.progress}
+      showLegend={view.displayMode !== 'presentation'}
+      workspace={workspace}
+    />
+  );
+}
 
 export function OpenProgressMap({
   active,

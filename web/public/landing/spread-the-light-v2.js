@@ -15,6 +15,7 @@ const pilotError = document.querySelector('.drawer-error');
 const pilotMessage = document.querySelector('[data-pilot-message]');
 const motion = { current: 0, target: 0 };
 let animationFrame = 0;
+let measureRequested = false;
 let pilotOpener = null;
 let pilotScroll = 0;
 
@@ -36,6 +37,7 @@ function dynamicStoryEnabled() {
 
 function updateStep(progress) {
   const stepIndex = Math.min(4, Math.floor(clamp(progress) * 5));
+  if (story.dataset.active === String(stepIndex)) return;
   story.dataset.active = String(stepIndex);
   story.querySelectorAll('.anchor-step').forEach((step) => {
     step.classList.toggle('is-current', Number(step.dataset.step) === stepIndex);
@@ -50,7 +52,6 @@ function measureStory() {
   const rect = story.getBoundingClientRect();
   motion.target = clamp(-rect.top / Math.max(1, rect.height - window.innerHeight));
   updateStep(motion.target);
-  requestFrame();
 }
 
 function render(progress) {
@@ -82,6 +83,11 @@ function requestFrame() {
 
 function runMotion() {
   animationFrame = 0;
+  if (measureRequested) {
+    measureRequested = false;
+    measureStory();
+  }
+  if (!dynamicStoryEnabled()) return;
   const difference = motion.target - motion.current;
   if (Math.abs(difference) > 0.0004) {
     motion.current += difference * 0.13;
@@ -93,11 +99,8 @@ function runMotion() {
 }
 
 function resetPresentation() {
-  if (dynamicStoryEnabled()) {
-    measureStory();
-  } else {
-    document.body.classList.remove('is-daylight');
-  }
+  measureRequested = true;
+  requestFrame();
 }
 
 function openPilot(event) {
@@ -164,8 +167,8 @@ pilotForm.addEventListener('submit', async (event) => {
   }
 });
 
-window.addEventListener('scroll', measureStory, { passive: true });
-window.addEventListener('resize', measureStory);
+window.addEventListener('scroll', resetPresentation, { passive: true });
+window.addEventListener('resize', resetPresentation);
 reduceMotion.addEventListener('change', resetPresentation);
 desktop.addEventListener('change', resetPresentation);
 resetPresentation();

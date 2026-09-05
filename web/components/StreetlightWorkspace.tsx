@@ -18,8 +18,8 @@ import { CoverageDashboard } from './CoverageDashboard';
 import { HeatmapSettingsOverlay } from './HeatmapSettingsOverlay';
 import { MapLayersControl } from './MapLayersControl';
 import { OpenCoverageMap } from './OpenCoverageMap';
-import { OpenProgressMap } from './OpenProgressMap';
-import { OutreachProgress } from './OutreachProgress';
+import { WorkspaceProgressMap } from './OpenProgressMap';
+import { WorkspaceProgressPanel } from './OutreachProgress';
 import { PacketGenerator } from './PacketGenerator';
 import { PacketProposalMap } from './PacketProposalMap';
 import { PrintoutSettings } from './PrintoutSettings';
@@ -111,8 +111,8 @@ export function StreetlightWorkspace({
   }, []);
 
   const {
-    view: progressView,
-    act: progressAction,
+    workflow: progressWorkflow,
+    displayMode: progressDisplayMode,
     presentationButtonRef,
   } = useOutreachProgress({
     active: tool === 'progress',
@@ -237,7 +237,7 @@ export function StreetlightWorkspace({
 
   return (
     <div
-      className={`territory-page${progressView.displayMode === 'admin' ? '' : ` progress-stage progress-${progressView.displayMode}`}`}
+      className={`territory-page${progressDisplayMode === 'admin' ? '' : ` progress-stage progress-${progressDisplayMode}`}`}
     >
       <header className="territory-header workspace-header">
         <div className="brand">
@@ -305,15 +305,10 @@ export function StreetlightWorkspace({
             proposals={packetResult?.proposals ?? []}
             selectedIndex={selectedPacketIndex}
           />
-          <OpenProgressMap
+          <WorkspaceProgressMap
             active={tool === 'progress'}
-            animated={!progressView.reducedMotion}
-            cinematic={progressView.displayMode === 'presentation'}
-            fitForPrint={progressView.displayMode === 'print'}
             lifecycle={mapLifecycle}
-            position={progressView.position}
-            progress={progressView.progress}
-            showLegend={progressView.displayMode !== 'presentation'}
+            workflow={progressWorkflow}
             workspace={coverage}
           />
           <HeatmapSettingsOverlay
@@ -364,12 +359,11 @@ export function StreetlightWorkspace({
           onViewChange={setPacketView}
           target={reconciliationTarget}
         />
-        <OutreachProgress
+        <WorkspaceProgressPanel
           active={tool === 'progress'}
           churchName={coverage.churchName}
-          act={progressAction}
           presentationButtonRef={presentationButtonRef}
-          view={progressView}
+          workflow={progressWorkflow}
         />
         {regionSetup.kind === 'ready' && (
           <TerritoryEditor

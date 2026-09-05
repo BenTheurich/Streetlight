@@ -4,8 +4,10 @@ import { calendarDateInTimeZone, validateCoverageDate } from './coverage.ts';
 import type {
   PacketCoverageHistory,
   ReconciliationBatch,
+  ReconciliationBatchSummary,
   ReconciliationDecision,
   ReconciliationPacket,
+  ReconciliationSelection,
   ReconciliationSubmission,
   ReconciliationWorkspace,
 } from './reconciliation.ts';
@@ -18,7 +20,11 @@ import { withImmediateTransaction, withWorkspaceDatabase } from './sqlite-persis
 import type { LineString, Position } from './territory-geometry.ts';
 import { requireWorkspaceScope } from './workspace-scope.ts';
 
-type ReconciliationOptions = { filename?: string; now?: Date };
+type ReconciliationOptions = {
+  filename?: string;
+  now?: Date;
+  selection?: ReconciliationSelection;
+};
 
 export type ReconciliationApplyResult =
   | { kind: 'accepted'; workspace: ReconciliationWorkspace }
@@ -28,7 +34,7 @@ export type ReconciliationApplyResult =
 
 type CompletionInput = { packetId: string; coveredOn: string | null };
 
-class ReconciliationApplyError extends Error {
+export class ReconciliationApplyError extends Error {
   readonly kind: 'not-found' | 'conflict';
 
   constructor(kind: 'not-found' | 'conflict', message: string) {
@@ -66,17 +72,28 @@ type CoverageEventRow = {
   apartment_complex_id: string | null;
 };
 
-function packetHistory(database: DatabaseSync, asOf: string, packetId?: string): CoverageHistory {
+function packetHistory(
+  database: DatabaseSync,
+  asOf: string,
+  selection: { packetId: string } | { batchId: string },
+): CoverageHistory {
+  const byPacket = 'packetId' in selection;
+  // Keep selected packets first so SQLite uses the packet-history index instead
+  // of scanning every coverage event belonging to this church.
   const rows = database
     .prepare(
-      `SELECT id, rowid AS sequence, packet_id, completion_group_id, covered_on, kind,
-        corrects_event_id, is_void, street_segment_id, apartment_complex_id
-      FROM coverage_events
-      WHERE church_id = ? AND packet_id IS NOT NULL
-        AND (? IS NULL OR packet_id = ?)
-      ORDER BY rowid`,
+      `SELECT ce.id, ce.rowid AS sequence, ce.packet_id, ce.completion_group_id,
+        ce.covered_on, ce.kind, ce.corrects_event_id, ce.is_void,
+        ce.street_segment_id, ce.apartment_complex_id
+      FROM packets p
+      CROSS JOIN coverage_events ce ON ce.packet_id = p.id AND ce.church_id = p.church_id
+      WHERE p.church_id = ? AND ${byPacket ? 'p.id' : 'p.batch_id'} = ?
+      ORDER BY ce.rowid`,
     )
-    .all(workspaceChurchId(), packetId ?? null, packetId ?? null) as CoverageEventRow[];
+    .all(
+      workspaceChurchId(),
+      byPacket ? selection.packetId : selection.batchId,
+    ) as CoverageEventRow[];
   const events = rows.map((row): CoverageHistoryEvent => {
     const targetKind = row.street_segment_id ? 'street' : 'apartment';
     const targetId = row.street_segment_id ?? row.apartment_complex_id;
@@ -100,126 +117,171 @@ function packetHistory(database: DatabaseSync, asOf: string, packetId?: string):
 function readReconciliationFromDatabase(
   database: DatabaseSync,
   asOf: string,
+  selection: ReconciliationSelection = {},
 ): ReconciliationWorkspace {
-  const history = packetHistory(database, asOf);
   const batchRows = database
     .prepare(
-      `SELECT id, name, status, finalized_at
-        FROM batches
-        WHERE church_id = ? AND finalized_at IS NOT NULL
-        ORDER BY finalized_at DESC, id DESC`,
+      `SELECT b.id, b.name, b.status, b.finalized_at,
+        COALESCE(SUM(p.status = 'active'), 0) AS active,
+        COALESCE(SUM(p.status = 'completed'), 0) AS completed,
+        COALESCE(SUM(p.status = 'cancelled'), 0) AS cancelled
+      FROM batches b
+      LEFT JOIN packets p ON p.batch_id = b.id AND p.church_id = b.church_id
+      WHERE b.church_id = ? AND b.finalized_at IS NOT NULL
+      GROUP BY b.id
+      ORDER BY b.finalized_at DESC, b.id DESC`,
     )
     .all(workspaceChurchId()) as Array<{
     id: string;
     name: string;
     status: ReconciliationBatch['status'];
     finalized_at: string | null;
+    active: number;
+    completed: number;
+    cancelled: number;
   }>;
-  const packetRows = database.prepare(
-    `SELECT id, packet_code, estimated_homes, start_address, start_longitude, start_latitude,
-        packet_kind, status
-      FROM packets
-      WHERE church_id = ? AND batch_id = ?
-      ORDER BY sequence_number, id`,
-  );
-  const segmentRows = database.prepare(
-    `SELECT s.import_segment_id, s.geometry_geojson, s.estimated_homes
-      FROM packet_segments ps
-      JOIN street_segments s ON s.id = ps.street_segment_id
-      WHERE ps.church_id = ? AND ps.packet_id = ?
-      ORDER BY ps.sequence_number`,
-  );
-  const apartmentRow = database.prepare(
-    `SELECT a.import_complex_id, a.longitude, a.latitude
-      FROM packet_apartment_complexes pa
-      JOIN apartment_complexes a ON a.id = pa.apartment_complex_id
-      WHERE pa.church_id = ? AND pa.packet_id = ?`,
-  );
-  const batches = batchRows.map((batch): ReconciliationBatch => {
-    const packets = (
-      packetRows.all(workspaceChurchId(), batch.id) as Array<{
-        id: string;
-        packet_code: string;
-        estimated_homes: number;
-        start_address: string;
-        start_longitude: number | null;
-        start_latitude: number | null;
-        packet_kind: ReconciliationPacket['kind'];
-        status: ReconciliationPacket['status'];
-      }>
-    ).map((packet): ReconciliationPacket => {
-      const groups = history.packetGroups.get(packet.id) ?? [];
-      const packetCoverage: PacketCoverageHistory[] = groups.map((group) => ({
-        completionGroupId: group.completionGroupId,
-        originalCoveredOn: group.originalCoveredOn,
-        effectiveCoveredOn: group.effectiveCoveredOn,
-      }));
-      const completedOn =
-        packetCoverage.findLast(({ effectiveCoveredOn }) => effectiveCoveredOn !== null)
-          ?.effectiveCoveredOn ?? null;
-      const apartment = apartmentRow.get(workspaceChurchId(), packet.id) as
-        | { import_complex_id: string; longitude: number; latitude: number }
-        | undefined;
-      const segments = (
-        segmentRows.all(workspaceChurchId(), packet.id) as Array<{
-          import_segment_id: string;
-          geometry_geojson: string;
-          estimated_homes: number;
-        }>
-      ).map((segment) => ({
-        id: segment.import_segment_id,
-        geometry: parseGeometry<LineString>(segment.geometry_geojson),
-        estimatedHomes: segment.estimated_homes,
-      }));
-      const startPosition: Position | undefined =
-        packet.start_longitude !== null && packet.start_latitude !== null
-          ? [packet.start_longitude, packet.start_latitude]
-          : apartment
-            ? [apartment.longitude, apartment.latitude]
-            : segments[0]?.geometry.coordinates[0];
-      if (!startPosition) throw new Error('Packet starting point missing');
-      return {
-        id: packet.id,
-        code: packet.packet_code,
-        kind: packet.packet_kind,
-        status: packet.status,
-        estimatedTracts: packet.estimated_homes,
-        start: { address: packet.start_address, position: startPosition },
-        segments,
-        apartment: apartment
-          ? {
-              id: apartment.import_complex_id,
-              position: [apartment.longitude, apartment.latitude],
-            }
-          : null,
-        completedOn,
-        history: packetCoverage,
-      };
-    });
-    return {
+  const batches = batchRows.map(
+    (batch): ReconciliationBatchSummary => ({
       id: batch.id,
       name: batch.name,
       status: batch.status,
       finalizedAt: batch.finalized_at,
-      packets,
-      counts: {
-        active: packets.filter(({ status }) => status === 'active').length,
-        completed: packets.filter(({ status }) => status === 'completed').length,
-        cancelled: packets.filter(({ status }) => status === 'cancelled').length,
-      },
+      counts: { active: batch.active, completed: batch.completed, cancelled: batch.cancelled },
+    }),
+  );
+  const defaultBatchId =
+    batches.find(({ counts }) => counts.active > 0)?.id ?? batches[0]?.id ?? null;
+  let requestedBatchId = selection.batchId;
+  if (selection.packetId) {
+    const packet = database
+      .prepare('SELECT batch_id FROM packets WHERE church_id = ? AND id = ?')
+      .get(workspaceChurchId(), selection.packetId) as { batch_id: string } | undefined;
+    if (!packet) throw new ReconciliationApplyError('not-found', 'Packet not found');
+    requestedBatchId = packet.batch_id;
+  }
+  if (requestedBatchId && !batches.some(({ id }) => id === requestedBatchId)) {
+    throw new ReconciliationApplyError('not-found', 'Batch not found');
+  }
+  const visible = batches.filter(({ counts }) =>
+    selection.view === 'active'
+      ? counts.active > 0
+      : selection.view === 'history'
+        ? counts.completed + counts.cancelled > 0
+        : true,
+  );
+  const selected =
+    visible.find(({ id }) => id === (requestedBatchId ?? defaultBatchId)) ?? visible[0];
+  if (!selected) return { asOf, defaultBatchId, batches, batch: null };
+
+  const history = packetHistory(database, asOf, { batchId: selected.id });
+  const packetRows = database
+    .prepare(
+      `SELECT id, packet_code, estimated_homes, start_address, start_longitude, start_latitude,
+        packet_kind, status
+      FROM packets
+      WHERE church_id = ? AND batch_id = ?
+      ORDER BY sequence_number, id`,
+    )
+    .all(workspaceChurchId(), selected.id) as Array<{
+    id: string;
+    packet_code: string;
+    estimated_homes: number;
+    start_address: string;
+    start_longitude: number | null;
+    start_latitude: number | null;
+    packet_kind: ReconciliationPacket['kind'];
+    status: ReconciliationPacket['status'];
+  }>;
+  const segmentsByPacket = new Map<string, ReconciliationPacket['segments']>();
+  for (const row of database
+    .prepare(
+      `SELECT ps.packet_id, s.import_segment_id, s.geometry_geojson, s.estimated_homes
+      FROM packets p
+      JOIN packet_segments ps ON ps.packet_id = p.id AND ps.church_id = p.church_id
+      JOIN street_segments s ON s.id = ps.street_segment_id AND s.church_id = ps.church_id
+      WHERE p.church_id = ? AND p.batch_id = ?
+      ORDER BY p.sequence_number, p.id, ps.sequence_number`,
+    )
+    .all(workspaceChurchId(), selected.id) as Array<{
+    packet_id: string;
+    import_segment_id: string;
+    geometry_geojson: string;
+    estimated_homes: number;
+  }>) {
+    const segments = segmentsByPacket.get(row.packet_id) ?? [];
+    segments.push({
+      id: row.import_segment_id,
+      geometry: parseGeometry<LineString>(row.geometry_geojson),
+      estimatedHomes: row.estimated_homes,
+    });
+    segmentsByPacket.set(row.packet_id, segments);
+  }
+  const apartmentsByPacket = new Map<string, NonNullable<ReconciliationPacket['apartment']>>();
+  if (packetRows.some(({ packet_kind }) => packet_kind === 'apartment')) {
+    for (const row of database
+      .prepare(
+        `SELECT pa.packet_id, a.import_complex_id, a.longitude, a.latitude
+        FROM packets p
+        JOIN packet_apartment_complexes pa ON pa.packet_id = p.id AND pa.church_id = p.church_id
+        JOIN apartment_complexes a ON a.id = pa.apartment_complex_id AND a.church_id = pa.church_id
+        WHERE p.church_id = ? AND p.batch_id = ?`,
+      )
+      .all(workspaceChurchId(), selected.id) as Array<{
+      packet_id: string;
+      import_complex_id: string;
+      longitude: number;
+      latitude: number;
+    }>) {
+      apartmentsByPacket.set(row.packet_id, {
+        id: row.import_complex_id,
+        position: [row.longitude, row.latitude],
+      });
+    }
+  }
+  const packets = packetRows.map((packet): ReconciliationPacket => {
+    const groups = history.packetGroups.get(packet.id) ?? [];
+    const packetCoverage: PacketCoverageHistory[] = groups.map((group) => ({
+      completionGroupId: group.completionGroupId,
+      originalCoveredOn: group.originalCoveredOn,
+      effectiveCoveredOn: group.effectiveCoveredOn,
+    }));
+    const completedOn =
+      packetCoverage.findLast(({ effectiveCoveredOn }) => effectiveCoveredOn !== null)
+        ?.effectiveCoveredOn ?? null;
+    const apartment = apartmentsByPacket.get(packet.id) ?? null;
+    const segments = segmentsByPacket.get(packet.id) ?? [];
+    const startPosition: Position | undefined =
+      packet.start_longitude !== null && packet.start_latitude !== null
+        ? [packet.start_longitude, packet.start_latitude]
+        : apartment
+          ? apartment.position
+          : segments[0]?.geometry.coordinates[0];
+    if (!startPosition) throw new Error('Packet starting point missing');
+    return {
+      id: packet.id,
+      code: packet.packet_code,
+      kind: packet.packet_kind,
+      status: packet.status,
+      estimatedTracts: packet.estimated_homes,
+      start: { address: packet.start_address, position: startPosition },
+      segments,
+      apartment,
+      completedOn,
+      history: packetCoverage,
     };
   });
   return {
     asOf,
-    defaultBatchId: batches.find(({ counts }) => counts.active > 0)?.id ?? batches[0]?.id ?? null,
+    defaultBatchId,
     batches,
+    batch: { ...selected, packets },
   };
 }
 
 export function readReconciliation(options: ReconciliationOptions = {}): ReconciliationWorkspace {
   const asOf = todayForWorkspace(options.now);
   return withWorkspaceDatabase(options.filename, (database) =>
-    readReconciliationFromDatabase(database, asOf),
+    readReconciliationFromDatabase(database, asOf, options.selection),
   );
 }
 
@@ -346,7 +408,7 @@ function reconcilePacketBatch(
           'Reconciliation changed. Reload and review the batch again.',
         );
       }
-      return readReconciliationFromDatabase(database, coveredOn);
+      return readReconciliationFromDatabase(database, coveredOn, { batchId: input.batchId });
     }
 
     const insertStreetEvent = database.prepare(
@@ -441,7 +503,7 @@ function reconcilePacketBatch(
     database
       .prepare('UPDATE batches SET status = ? WHERE id = ? AND church_id = ?')
       .run(status, input.batchId, workspaceChurchId());
-    return readReconciliationFromDatabase(database, coveredOn);
+    return readReconciliationFromDatabase(database, coveredOn, { batchId: input.batchId });
   });
 }
 
@@ -464,7 +526,8 @@ function correctPacketCompletion(
     if (packet.status !== 'completed') {
       throw new ReconciliationApplyError('conflict', 'Packet is not completed');
     }
-    const groups = packetHistory(database, asOf, packet.id).packetGroups.get(packet.id) ?? [];
+    const groups =
+      packetHistory(database, asOf, { packetId: packet.id }).packetGroups.get(packet.id) ?? [];
     const current = groups.findLast(({ effectiveCoveredOn }) => effectiveCoveredOn !== null);
     if (!current || current.roots.length === 0) {
       throw new ReconciliationApplyError('not-found', 'Packet completion not found');
@@ -552,7 +615,7 @@ function correctPacketCompletion(
         .prepare("UPDATE batches SET status = 'finalized' WHERE id = ? AND church_id = ?")
         .run(packet.batch_id, workspaceChurchId());
     }
-    return readReconciliationFromDatabase(database, asOf);
+    return readReconciliationFromDatabase(database, asOf, { batchId: packet.batch_id });
   });
 }
 

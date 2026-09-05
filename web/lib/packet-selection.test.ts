@@ -194,6 +194,112 @@ test('packet tolerance keeps connected exceptions whole and terminates on zero e
   assert.ok(zero.warnings.some((warning) => warning.includes('cleanup packet')));
 });
 
+test('large packet quantities retain mixed-size selection without materializing every slot', () => {
+  const requests = [
+    { quantity: Number.MAX_SAFE_INTEGER, targetHomes: 10 },
+    { quantity: 1, targetHomes: 20 },
+  ];
+  const segments = [
+    segment('small', [0, 0], [0.001, 0], 10, 'red'),
+    segment('large', [0.01, 0], [0.011, 0], 20, 'red'),
+  ];
+  const input = { center: [0, 0] as Position, requests, segments };
+  const result = generatePacketProposals(input);
+
+  assert.deepEqual(
+    result,
+    generatePacketProposals({
+      ...input,
+      requests: [{ quantity: 3, targetHomes: 10 }, requests[1]],
+    }),
+  );
+  assert.deepEqual(
+    result.proposals.map(({ targetHomes }) => targetHomes),
+    [10, 20],
+  );
+  assert.equal(requests[0].quantity, Number.MAX_SAFE_INTEGER);
+  assert.ok(result.warnings.some((warning) => warning.includes('Generated fewer packets')));
+});
+
+test('exhausted request rows retain the precedence of later repeated packet sizes', () => {
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [
+      { quantity: 2, targetHomes: 10 },
+      { quantity: 1, targetHomes: 20 },
+      { quantity: 2, targetHomes: 10 },
+    ],
+    segments: Array.from({ length: 5 }, (_, index) =>
+      segment(`street-${index}`, [index * 0.01, 0], [index * 0.01 + 0.001, 0], 10, 'red'),
+    ),
+  });
+
+  assert.deepEqual(
+    result.proposals.map(({ targetHomes }) => targetHomes),
+    [10, 10, 10, 10],
+  );
+  assert.ok(result.warnings.some((warning) => warning.includes('cleanup packet')));
+});
+
+test('a starting address beyond an oversized prefix does not cause a missing-address warning', () => {
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [{ quantity: 1, targetHomes: 10 }],
+    segments: [
+      segment('oversized-without-address', [0, 0], [0.001, 0], 60, 'red', { addresses: [] }),
+      segment('address-too-far', [0.001, 0], [0.002, 0], 5, 'red'),
+    ],
+  });
+
+  assert.deepEqual(result.proposals, []);
+  assert.deepEqual(result.warnings, [
+    'Some overdue streets need a smaller cleanup packet.',
+    'Generated fewer packets because no more sensible eligible streets were available.',
+  ]);
+});
+
+test('adjacency bounds preserve short named continuations at high latitudes', () => {
+  const gap = 15 / (111_320 * Math.cos((80 * Math.PI) / 180));
+  const result = generatePacketProposals({
+    center: [0, 80],
+    requests: [{ quantity: 1, targetHomes: 12 }],
+    segments: [
+      segment('west', [0, 80], [0.001, 80], 6, 'red', { streetName: 'Same Street' }),
+      segment('east', [0.001 + gap, 80], [0.002 + gap, 80], 6, 'red', {
+        streetName: 'Same Street',
+      }),
+    ],
+  });
+
+  assert.deepEqual(
+    result.proposals[0]?.segments.map(({ id }) => id),
+    ['west', 'east'],
+  );
+});
+
+test('adjacency bounds include interior vertices of curved roads', () => {
+  const curved = segment('curved', [0, 0], [0.002, 0], 6, 'red', {
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [0, 0],
+        [0.001, 0.002],
+        [0.002, 0],
+      ],
+    },
+  });
+  const result = generatePacketProposals({
+    center: [0, 0],
+    requests: [{ quantity: 1, targetHomes: 10 }],
+    segments: [curved, segment('branch', [0.001, 0.002], [0.002, 0.002], 4, 'red')],
+  });
+
+  assert.deepEqual(
+    result.proposals[0]?.segments.map(({ id }) => id),
+    ['curved', 'branch'],
+  );
+});
+
 test('a tiny nearby component does not displace an available normal packet', () => {
   const result = generatePacketProposals({
     center: [0, 0],

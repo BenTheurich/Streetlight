@@ -1,8 +1,10 @@
 import {
+  type CoverageRoad,
   type CoverageWorkspace,
   type CoverageWorkspaceApartment,
   type CoverageWorkspaceSegment,
   coverageRoadForSegment,
+  coverageRoads,
 } from './coverage.ts';
 import type { StreetlightMapType } from './google-maps-browser.ts';
 import {
@@ -147,6 +149,10 @@ export type MapOverlayAdapter = {
   hasSource: (id: string) => boolean;
   addSource: (id: string, data: unknown, options?: Record<string, unknown>) => void;
   setSourceData: (id: string, data: unknown) => void;
+  updateSourceProperties: (
+    id: string,
+    updates: Array<{ id: string; properties: Record<string, unknown> }>,
+  ) => void;
   removeSource: (id: string) => void;
   hasLayer: (id: string) => boolean;
   addLayer: (layer: MapOverlayLayer, before?: string) => void;
@@ -362,6 +368,13 @@ export function createMapOverlayLifecycle({
   }> = [];
   let territoryCenter: Position | null = null;
   let suppressedRoadLayerIds: string[] = [];
+  let roadSourceOwner: 'coverage' | 'territory' | null = null;
+  let roadSelectedIds = new Set<string>();
+  let coverageSegments: CoverageWorkspaceSegment[] | null = null;
+  let coverageRoadIndex: CoverageRoad<CoverageWorkspaceSegment>[] = [];
+  let coverageApartments: CoverageWorkspaceApartment[] | null = null;
+  let territoryRoads: Extract<WorkspaceMapPresentation, { kind: 'territory' }> | null = null;
+  let territorySegmentsById = new Map<string, TerritorySegment>();
 
   const reducedMotion = () =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -467,6 +480,7 @@ export function createMapOverlayLifecycle({
   function ensureCoverageLayers(current: MapOverlayAdapter): void {
     if (!current.hasSource(COVERAGE_SOURCE)) {
       current.addSource(COVERAGE_SOURCE, emptyCollection());
+      roadSourceOwner = null;
     }
     if (!current.hasSource(APARTMENT_SOURCE)) {
       current.addSource(APARTMENT_SOURCE, emptyCollection(), {
@@ -474,6 +488,7 @@ export function createMapOverlayLifecycle({
         clusterRadius: 44,
         clusterMaxZoom: 16,
       });
+      coverageApartments = null;
     }
     const labels = beforeLabels(current);
     ensureLayer(
@@ -620,35 +635,52 @@ export function createMapOverlayLifecycle({
     value: Extract<WorkspaceMapPresentation, { kind: 'coverage' }>,
   ): void {
     ensureCoverageLayers(current);
-    if (value.visible) {
-      const selectedRoad = coverageRoadForSegment(value.segments, value.selectedSegmentId);
-      const selectedIds = new Set(selectedRoad?.segments.map(({ id }) => id));
-      current.setSourceData(
-        COVERAGE_SOURCE,
-        featureCollection(
-          value.segments.map((segment) => ({
-            type: 'Feature',
-            geometry: segment.geometry,
-            properties: {
+    if (value.visible && !territoryPresentation()?.visible) {
+      const sourceChanged = roadSourceOwner !== 'coverage' || coverageSegments !== value.segments;
+      if (coverageSegments !== value.segments) {
+        coverageSegments = value.segments;
+        coverageRoadIndex = coverageRoads(value.segments);
+      }
+      const selectedRoad = coverageRoadForSegment(coverageRoadIndex, value.selectedSegmentId);
+      const selectedIds = new Set(
+        value.interactive ? selectedRoad?.segments.map(({ id }) => id) : [],
+      );
+      if (sourceChanged) {
+        current.setSourceData(
+          COVERAGE_SOURCE,
+          featureCollection(
+            value.segments.map((segment) => ({
+              type: 'Feature',
               id: segment.id,
-              selected: value.interactive && selectedIds.has(segment.id),
-              color: segment.eligible ? coverageColors[segment.coverageClass] : coverageColors.gray,
-              opacity: segment.eligible ? 0.68 : 0.42,
-              hidden: false,
-            },
-          })),
-        ),
-      );
-      current.setSourceData(
-        APARTMENT_SOURCE,
-        featureCollection(
-          value.apartments.map((apartment) => ({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: apartment.position },
-            properties: { id: apartment.id, label: 'A', color: apartmentMarkerColor(apartment) },
-          })),
-        ),
-      );
+              geometry: segment.geometry,
+              properties: {
+                id: segment.id,
+                selected: selectedIds.has(segment.id),
+                color: segment.eligible
+                  ? coverageColors[segment.coverageClass]
+                  : coverageColors.gray,
+                opacity: segment.eligible ? 0.68 : 0.42,
+                hidden: false,
+              },
+            })),
+          ),
+        );
+        roadSourceOwner = 'coverage';
+        roadSelectedIds = selectedIds;
+      } else updateRoadSelection(current, selectedIds);
+      if (coverageApartments !== value.apartments) {
+        current.setSourceData(
+          APARTMENT_SOURCE,
+          featureCollection(
+            value.apartments.map((apartment) => ({
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: apartment.position },
+              properties: { id: apartment.id, label: 'A', color: apartmentMarkerColor(apartment) },
+            })),
+          ),
+        );
+        coverageApartments = value.apartments;
+      }
       if (value.fitOnFirstShow && !coverageFitted) {
         const bounds = positionBounds(
           value.segments.flatMap(({ geometry }) => geometry.coordinates),
@@ -659,9 +691,8 @@ export function createMapOverlayLifecycle({
         }
       }
       if (value.selectedSegmentId && value.selectionSource) {
-        const road = coverageRoadForSegment(value.segments, value.selectedSegmentId);
         const bounds = positionBounds(
-          road?.segments.flatMap(({ geometry }) => geometry.coordinates) ?? [],
+          selectedRoad?.segments.flatMap(({ geometry }) => geometry.coordinates) ?? [],
         );
         const focusKey = `${value.selectionSource}:${value.selectedSegmentId}:${JSON.stringify(bounds)}`;
         if (bounds && focusKey !== coverageFocusKey) {
@@ -722,6 +753,28 @@ export function createMapOverlayLifecycle({
     for (const id of suppressedRoadLayerIds) {
       if (current.hasLayer(id)) current.setLayerVisibility(id, false);
     }
+  }
+
+  function updateRoadSelection(
+    current: MapOverlayAdapter,
+    selectedIds: Set<string>,
+    territory = false,
+  ): void {
+    const updates = [...new Set([...roadSelectedIds, ...selectedIds])]
+      .filter((id) => roadSelectedIds.has(id) !== selectedIds.has(id))
+      .map((id) => {
+        const selected = selectedIds.has(id);
+        const segment = territory ? territorySegmentsById.get(id) : undefined;
+        return {
+          id,
+          properties: {
+            selected,
+            ...(segment ? { opacity: segmentMapAppearance(segment, selected).strokeOpacity } : {}),
+          },
+        };
+      });
+    if (updates.length > 0) current.updateSourceProperties(COVERAGE_SOURCE, updates);
+    roadSelectedIds = selectedIds;
   }
 
   function reconcileTerritory(
@@ -821,32 +874,45 @@ export function createMapOverlayLifecycle({
       ),
     );
     const selectedIds = new Set(value.selectedSegmentIds);
-    const visibleSegments = value.segments.filter((segment) =>
-      segmentVisibleOnMap(segment, value.showHiddenRoads),
-    );
-    current.setSourceData(
-      COVERAGE_SOURCE,
-      featureCollection(
-        visibleSegments.map((segment) => {
-          const appearance = segmentMapAppearance(segment, selectedIds.has(segment.id));
-          return {
-            type: 'Feature',
-            geometry: segment.geometry,
-            properties: {
+    const sourceChanged =
+      roadSourceOwner !== 'territory' ||
+      territoryRoads?.segments !== value.segments ||
+      territoryRoads?.showHiddenRoads !== value.showHiddenRoads ||
+      territoryRoads?.interactive !== value.interactive ||
+      territoryRoads?.mutationLocked !== value.mutationLocked;
+    if (sourceChanged) {
+      const visibleSegments = value.segments.filter((segment) =>
+        segmentVisibleOnMap(segment, value.showHiddenRoads),
+      );
+      territorySegmentsById = new Map(visibleSegments.map((segment) => [segment.id, segment]));
+      current.setSourceData(
+        COVERAGE_SOURCE,
+        featureCollection(
+          visibleSegments.map((segment) => {
+            const appearance = segmentMapAppearance(segment, selectedIds.has(segment.id));
+            return {
+              type: 'Feature',
               id: segment.id,
-              active: segment.active,
-              manuallyExcluded: segment.manuallyExcluded,
-              hidden: !segment.active && !segment.manuallyExcluded,
-              selected: appearance.selected,
-              selectable: value.interactive && !value.mutationLocked && appearance.selectable,
-              color: appearance.strokeColor,
-              opacity: appearance.strokeOpacity,
-              weightOffset: appearance.weightOffset,
-            },
-          };
-        }),
-      ),
-    );
+              geometry: segment.geometry,
+              properties: {
+                id: segment.id,
+                active: segment.active,
+                manuallyExcluded: segment.manuallyExcluded,
+                hidden: !segment.active && !segment.manuallyExcluded,
+                selected: appearance.selected,
+                selectable: value.interactive && !value.mutationLocked && appearance.selectable,
+                color: appearance.strokeColor,
+                opacity: appearance.strokeOpacity,
+                weightOffset: appearance.weightOffset,
+              },
+            };
+          }),
+        ),
+      );
+      roadSourceOwner = 'territory';
+      roadSelectedIds = selectedIds;
+    } else updateRoadSelection(current, selectedIds, true);
+    territoryRoads = value;
     for (const layerId of ['streetlight-coverage', 'streetlight-territory-hidden']) {
       if (current.hasLayer(layerId)) {
         current.setPaintProperty(
@@ -888,6 +954,7 @@ export function createMapOverlayLifecycle({
         })),
       ),
     );
+    coverageApartments = null;
     setVisible(current, COVERAGE_LAYERS, true);
     setVisible(current, APARTMENT_LAYERS, true);
     current.setPaintProperty('streetlight-apartments', 'circle-stroke-width', [

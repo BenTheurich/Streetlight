@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { MapOverlayLifecycle } from '@/lib/map-overlay-lifecycle';
 import { type CorrectionAttempt, correctionControlForPacket } from '@/lib/operation-state';
 import type {
-  ReconciliationBatch,
+  ReconciliationBatchSummary,
   ReconciliationHistoryTarget,
   ReconciliationPacket,
 } from '@/lib/reconciliation';
@@ -20,7 +20,7 @@ function formatDate(value: string): string {
   );
 }
 
-function batchOptionLabel(batch: ReconciliationBatch): string {
+function batchOptionLabel(batch: ReconciliationBatchSummary): string {
   const automaticPrefix = 'Outreach batch - ';
   const historyPrefix = 'Outreach history - ';
   const automaticTimestamp = batch.name.startsWith(automaticPrefix)
@@ -42,7 +42,7 @@ function batchOptionLabel(batch: ReconciliationBatch): string {
   return `${name} · ${timestamp} · ${batch.counts.active} active`;
 }
 
-function historyBatchOptionLabel(batch: ReconciliationBatch): string {
+function historyBatchOptionLabel(batch: ReconciliationBatchSummary): string {
   return batchOptionLabel(batch).replace(
     /\d+ active$/,
     `${batch.counts.completed + batch.counts.cancelled} records`,
@@ -97,7 +97,7 @@ export function ReconciliationTool({
   }, [active, workflow]);
 
   useEffect(() => {
-    if (!active || !ready || !target) return;
+    if (!active || !ready || ready.mutationControlsDisabled || !target) return;
     void workflow.act({ kind: 'target', target });
     onTargetHandled();
   }, [active, onTargetHandled, ready, target, workflow]);
@@ -229,7 +229,7 @@ export function ReconciliationTool({
               }
               detail={
                 snapshot.kind === 'unavailable'
-                  ? `${snapshot.message}. No packet records were changed.`
+                  ? `${snapshot.message}. Try loading the saved records again.`
                   : 'No saved packet data was changed.'
               }
               headline="Packet batches could not be loaded"

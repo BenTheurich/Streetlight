@@ -1,10 +1,8 @@
-import { getCoverageWorkspace } from './coverage-persistence.ts';
 import type { OpenMapData } from './open-map-data.ts';
 import type { ImportedMapBuilding } from './overture-import.ts';
 import { openSqliteDatabase } from './sqlite-persistence.ts';
 import { type LineString, type Position, territoryBoundary } from './territory-geometry.ts';
 import { OVERTURE_RELEASE } from './territory-import.ts';
-import { getTerritoryWorkspace } from './territory-persistence.ts';
 import { requireWorkspaceScope } from './workspace-scope.ts';
 
 function workspaceChurchId(): string {
@@ -20,31 +18,35 @@ function parseGeometry<T extends LineString | ImportedMapBuilding['geometry']>(j
 }
 
 export function getOpenMapData(filename?: string): OpenMapData {
-  const territory = getTerritoryWorkspace(filename);
-  const coverage = getCoverageWorkspace(filename);
-  const boundary = territoryBoundary(
-    territory.center,
-    territory.radiusMiles,
-    territory.boundaryShape,
-  );
-  const points = boundary.coordinates[0];
-  const roadClasses = new Map(territory.segments.map(({ id, roadClass }) => [id, roadClass]));
   const database = openSqliteDatabase(filename);
   try {
     const generation = database
       .prepare(
-        `SELECT import_generation, import_release, import_building_mode
+        `SELECT name, center_longitude, center_latitude, radius_meters, boundary_shape,
+          import_generation, import_release, import_building_mode
         FROM territories
         WHERE church_id = ? AND id = ?`,
       )
       .get(workspaceChurchId(), workspaceTerritoryId()) as
       | {
+          name: string;
+          center_longitude: number;
+          center_latitude: number;
+          radius_meters: number;
+          boundary_shape: 'circle' | 'square';
           import_generation: number;
           import_release: string | null;
           import_building_mode: 'overture_fema' | 'overture_only' | null;
         }
       | undefined;
     if (!generation) throw new Error('Territory not found');
+    const center: Position = [generation.center_longitude, generation.center_latitude];
+    const boundary = territoryBoundary(
+      center,
+      generation.radius_meters / 1609.344,
+      generation.boundary_shape,
+    );
+    const points = boundary.coordinates[0];
     const buildings = (
       database
         .prepare(
@@ -108,8 +110,8 @@ export function getOpenMapData(filename?: string): OpenMapData {
     return {
       churchId: workspaceChurchId(),
       territoryId: workspaceTerritoryId(),
-      territoryName: territory.name,
-      center: territory.center,
+      territoryName: generation.name,
+      center,
       bounds: [
         Math.min(...points.map(([longitude]) => longitude)),
         Math.min(...points.map(([, latitude]) => latitude)),
@@ -120,11 +122,6 @@ export function getOpenMapData(filename?: string): OpenMapData {
       importGeneration: generation.import_generation,
       overtureRelease: generation.import_release ?? OVERTURE_RELEASE,
       buildingMode: generation.import_building_mode ?? 'overture_only',
-      segments: coverage.segments.map((segment) => ({
-        ...segment,
-        roadClass: roadClasses.get(segment.id) ?? 'residential',
-      })),
-      apartmentComplexes: coverage.apartmentComplexes,
       buildings,
       houseNumbers,
       attribution: {

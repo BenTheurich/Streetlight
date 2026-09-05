@@ -5,10 +5,10 @@ import { chromium } from 'playwright';
 
 // Repository policy: execute the shipped stylesheets in Chromium so focus, motion, and target-size
 // regressions are checked as computed behavior rather than by preserving CSS syntax.
-const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8').replace(
-  /^@import[^\n]+\n/,
-  '',
-);
+const styles = ['globals.css', 'workspace.css']
+  .map((file) => readFileSync(new URL(`../app/${file}`, import.meta.url), 'utf8'))
+  .join('\n')
+  .replace(/^@import[^\n]+\n/gm, '');
 const publicStyles = readFileSync(
   new URL('../public/landing/spread-the-light-v2.css', import.meta.url),
   'utf8',

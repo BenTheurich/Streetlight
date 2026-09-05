@@ -1,3 +1,5 @@
+import '../workspace.css';
+import { AuthKitProvider } from '@workos-inc/authkit-nextjs/components';
 import { notFound } from 'next/navigation';
 import { PilotRequestReview } from '@/components/PilotRequestReview';
 import { FounderAccessNotFoundError, requireFounderSession } from '@/lib/founder-auth';
@@ -12,5 +14,9 @@ export default async function PilotRequestsPage() {
     if (error instanceof FounderAccessNotFoundError) notFound();
     throw error;
   }
-  return <PilotRequestReview initialRequests={listPilotRequests()} />;
+  return (
+    <AuthKitProvider>
+      <PilotRequestReview initialRequests={listPilotRequests()} />
+    </AuthKitProvider>
+  );
 }

@@ -168,22 +168,31 @@ export function coverageRoads<T extends CoverageRoadSegment>(segments: T[]): Cov
     const secondRoot = find(second);
     if (firstRoot !== secondRoot) parents[secondRoot] = firstRoot;
   };
-  for (let first = 0; first < roads.length; first += 1) {
-    const name = roads[first].streetName.trim().toLocaleLowerCase();
-    if (name === 'unnamed road') continue;
-    for (let second = first + 1; second < roads.length; second += 1) {
-      if (roads[second].streetName.trim().toLocaleLowerCase() !== name) continue;
-      if (
-        roads[first].segments.some((a) =>
-          roads[second].segments.some(
-            (b) =>
-              a.geometry &&
-              b.geometry &&
-              linesAreNearby(a.geometry.coordinates, b.geometry.coordinates),
-          ),
-        )
-      ) {
-        join(first, second);
+  const names = new Map<string, number[]>();
+  roads.forEach((road, index) => {
+    const name = road.streetName.trim().toLocaleLowerCase();
+    if (name === 'unnamed road') return;
+    const matching = names.get(name) ?? [];
+    matching.push(index);
+    names.set(name, matching);
+  });
+  for (const matching of names.values()) {
+    for (let index = 0; index < matching.length; index += 1) {
+      const first = matching[index];
+      for (let next = index + 1; next < matching.length; next += 1) {
+        const second = matching[next];
+        if (
+          roads[first].segments.some((a) =>
+            roads[second].segments.some(
+              (b) =>
+                a.geometry &&
+                b.geometry &&
+                linesAreNearby(a.geometry.coordinates, b.geometry.coordinates),
+            ),
+          )
+        ) {
+          join(first, second);
+        }
       }
     }
   }
@@ -201,22 +210,21 @@ export function coverageRoads<T extends CoverageRoadSegment>(segments: T[]): Cov
 }
 
 export function coverageRoadForSegment<T extends CoverageSearchableSegment>(
-  segments: T[],
+  roads: CoverageRoad<T>[],
   segmentId: string | null,
 ): CoverageRoad<T> | null {
   return segmentId
-    ? (coverageRoads(segments).find((road) => road.segments.some(({ id }) => id === segmentId)) ??
-        null)
+    ? (roads.find((road) => road.segments.some(({ id }) => id === segmentId)) ?? null)
     : null;
 }
 
 export function searchCoverageRoads<T extends CoverageSearchableSegment>(
-  segments: T[],
+  roads: CoverageRoad<T>[],
   query: string,
 ): { matches: CoverageRoad<T>[]; total: number; hasMore: boolean } {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) return { matches: [], total: 0, hasMore: false };
-  const matches = coverageRoads(segments)
+  const matches = roads
     .filter(({ streetName }) => streetName.toLocaleLowerCase().includes(normalizedQuery))
     .sort((first, second) =>
       first.streetName.localeCompare(second.streetName, undefined, { sensitivity: 'base' }),

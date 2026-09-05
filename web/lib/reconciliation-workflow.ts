@@ -10,6 +10,7 @@ import {
   type ReconciliationHistoryTarget,
   type ReconciliationOutcome,
   type ReconciliationProjection,
+  type ReconciliationSelection,
   type ReconciliationSubmission,
   type ReconciliationView,
   type ReconciliationWorkspace,
@@ -68,7 +69,7 @@ export type ReconciliationAction =
   | { kind: 'recover'; operation: 'load' | 'confirm' | 'correction'; packetId?: string };
 
 export type ReconciliationTransport = {
-  load: () => Promise<Response>;
+  load: (selection?: ReconciliationSelection) => Promise<Response>;
   reconcile: (submission: ReconciliationSubmission) => Promise<Response>;
   correct: (attempt: CorrectionAttempt) => Promise<Response>;
 };
@@ -103,7 +104,12 @@ type ConfirmationAttempt = {
 function browserTransport(): ReconciliationTransport {
   const request = (init?: RequestInit) => fetch('/api/reconciliation', init);
   return {
-    load: () => request(),
+    load: (selection = {}) => {
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(selection))
+        if (value !== undefined) query.set(key, value);
+      return fetch(`/api/reconciliation?${query}`);
+    },
     reconcile: (submission) =>
       request({
         method: 'POST',
@@ -151,6 +157,7 @@ export function createReconciliationWorkflow(options: WorkflowOptions): Reconcil
   let snapshot: ReconciliationWorkflowSnapshot = { kind: 'idle' };
   let confirmationRetry: ConfirmationAttempt | null = null;
   let correctionRetry: CorrectionAttempt | null = null;
+  let lastSelection: ReconciliationSelection = { view: 'active' };
 
   function buildSnapshot(): ReconciliationWorkflowSnapshot {
     if (state.load === 'idle') return { kind: 'idle' };
@@ -194,7 +201,7 @@ export function createReconciliationWorkflow(options: WorkflowOptions): Reconcil
       view,
     });
     state.draft = {
-      batchId: projection.batch?.id ?? null,
+      batchId: projection.batchId,
       outcomes: new Map(),
       selectedPacketId: null,
       editingPacketId: null,
@@ -209,12 +216,16 @@ export function createReconciliationWorkflow(options: WorkflowOptions): Reconcil
     confirmationRetry = null;
   }
 
-  async function load(): Promise<void> {
-    if (state.load === 'loading' || state.load === 'ready') return;
+  async function load(selection = lastSelection, force = false): Promise<void> {
+    if (state.load === 'loading' || (state.load === 'ready' && !force)) return;
+    lastSelection = selection;
     state.load = 'loading';
     state.loadError = '';
     publish();
-    const result = await readMutationResult(transport.load, isReconciliationWorkspacePayload);
+    const result = await readMutationResult(
+      () => transport.load(selection),
+      isReconciliationWorkspacePayload,
+    );
     if (result.status !== 'success') {
       state.load = 'unavailable';
       state.loadError =
@@ -224,12 +235,32 @@ export function createReconciliationWorkflow(options: WorkflowOptions): Reconcil
     }
     state.load = 'ready';
     state.accepted = result.value;
-    resetDraft(result.value, 'active');
-    state.operation = null;
+    resetDraft(result.value, selection.view ?? state.draft.view);
+    if (selection.packetId) {
+      const target = projectReconciliation(result.value, {
+        ...state.draft,
+        historyTarget: { packetId: selection.packetId },
+      }).targetSelection;
+      if (target)
+        state.draft = {
+          ...state.draft,
+          batchId: target.batchId,
+          selectedPacketId: target.packetId,
+          view: 'history',
+        };
+    }
     state.feedback = null;
     confirmationRetry = null;
     correctionRetry = null;
     publish();
+  }
+
+  async function loadSelectedBatch(): Promise<void> {
+    if (!state.accepted) return;
+    const projection = projectReconciliation(state.accepted, state.draft);
+    if (projection.batchId && !projection.batch) {
+      await load({ view: state.draft.view, batchId: projection.batchId }, true);
+    }
   }
 
   async function notifyAccepted(feedback: ReconciliationFeedback): Promise<void> {
@@ -242,6 +273,7 @@ export function createReconciliationWorkflow(options: WorkflowOptions): Reconcil
         detail: `${feedback.detail} Reload the page to refresh the coverage map.`,
       };
     }
+    state.operation = null;
     publish();
   }
 
@@ -280,7 +312,7 @@ export function createReconciliationWorkflow(options: WorkflowOptions): Reconcil
 
     state.accepted = result.value;
     resetDraft(result.value);
-    state.operation = null;
+    await loadSelectedBatch();
     confirmationRetry = null;
     correctionRetry = null;
     publish();
@@ -333,7 +365,7 @@ export function createReconciliationWorkflow(options: WorkflowOptions): Reconcil
 
     state.accepted = result.value;
     resetDraft(result.value);
-    state.operation = null;
+    await loadSelectedBatch();
     confirmationRetry = null;
     correctionRetry = null;
     publish();
@@ -393,7 +425,7 @@ export function createReconciliationWorkflow(options: WorkflowOptions): Reconcil
         selectedPacketId: null,
         view: 'history',
       }).targetSelection;
-      if (!target) return;
+      if (!target) return load({ view: 'history', packetId: action.target.packetId }, true);
       state.draft = {
         batchId: target.batchId,
         outcomes: new Map(),
@@ -405,6 +437,7 @@ export function createReconciliationWorkflow(options: WorkflowOptions): Reconcil
       clearConfirmationFailure();
     } else if (action.kind === 'view') {
       resetDraft(snapshot.accepted, action.view);
+      await loadSelectedBatch();
     } else if (action.kind === 'batch') {
       state.draft = {
         ...state.draft,
@@ -415,6 +448,7 @@ export function createReconciliationWorkflow(options: WorkflowOptions): Reconcil
         reviewing: false,
       };
       clearConfirmationFailure();
+      await loadSelectedBatch();
     } else if (action.kind === 'outcome') {
       const outcomes = new Map(state.draft.outcomes);
       outcomes.set(action.packetId, action.outcome);

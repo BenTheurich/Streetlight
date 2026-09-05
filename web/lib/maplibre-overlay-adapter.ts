@@ -210,6 +210,14 @@ export function createMapLibreOverlayAdapter(
     setSourceData(id, data) {
       (map.getSource(id) as GeoJSONSource | undefined)?.setData(data as never);
     },
+    updateSourceProperties(id, updates) {
+      (map.getSource(id) as GeoJSONSource | undefined)?.updateData({
+        update: updates.map(({ id, properties }) => ({
+          id,
+          addOrUpdateProperties: Object.entries(properties).map(([key, value]) => ({ key, value })),
+        })),
+      });
+    },
     removeSource(id) {
       if (map.getSource(id)) map.removeSource(id);
     },

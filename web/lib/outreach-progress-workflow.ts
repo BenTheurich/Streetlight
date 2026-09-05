@@ -51,10 +51,18 @@ export function createOutreachProgressWorkflow(
   let restStarted: number | null = null;
   let printAttempt: { controller: AbortController; camera: MapCamera } | null = null;
   let presentationAttempt = 0;
+  let snapshotProgress = progress;
+  let snapshotThrough: string | null = null;
+  let metrics = outreachProgressSnapshot(progress, null);
 
   function buildSnapshot() {
     const resolvedPosition = Math.min(position ?? progress.dates.length, progress.dates.length);
     const playback = outreachProgressPlayback(progress, resolvedPosition);
+    if (snapshotProgress !== progress || snapshotThrough !== playback.through) {
+      metrics = outreachProgressSnapshot(progress, playback.through);
+      snapshotProgress = progress;
+      snapshotThrough = playback.through;
+    }
     return {
       displayMode,
       error,
@@ -63,7 +71,7 @@ export function createOutreachProgressWorkflow(
       progress,
       reducedMotion,
       selectedDate: playback.selectedDate,
-      snapshot: outreachProgressSnapshot(progress, playback.through),
+      snapshot: metrics,
       timelinePosition: playback.barPosition,
       year,
       years,
@@ -91,6 +99,8 @@ export function createOutreachProgressWorkflow(
     const elapsed = Math.min(time - previousFrame, 100);
     if (elapsed >= 30) {
       previousFrame = time;
+      const previousPosition = position;
+      const wasPlaying = playing;
       if ((position ?? progress.dates.length) >= progress.dates.length) {
         if (displayMode !== 'presentation') stop();
         else {
@@ -101,7 +111,7 @@ export function createOutreachProgressWorkflow(
           }
         }
       } else position = Math.min(progress.dates.length, (position ?? 0) + elapsed / 2250);
-      publish();
+      if (position !== previousPosition || playing !== wasPlaying) publish();
     }
     if (playing) frame = browser.requestFrame(tick);
   }
@@ -164,6 +174,7 @@ export function createOutreachProgressWorkflow(
 
   return {
     getSnapshot: () => snapshot,
+    getDisplayMode: () => snapshot.displayMode,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => {

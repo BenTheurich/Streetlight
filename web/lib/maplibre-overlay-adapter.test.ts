@@ -196,8 +196,6 @@ const base = (mapType: 'roadmap' | 'satellite' = 'roadmap'): WorkspaceMapBasePre
     importGeneration: 1,
     overtureRelease: 'test',
     buildingMode: 'overture_only',
-    segments: [],
-    apartmentComplexes: [],
     buildings: [],
     houseNumbers: [],
     attribution: { base: 'Base', roads: 'Roads', buildings: 'Buildings', fema: null },
@@ -208,6 +206,34 @@ const adapterFor = (map: FakeMap) =>
   createMapLibreOverlayAdapter(map as unknown as MapLibreMap, null as never, base());
 
 const turn = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+test('selection sends property diffs by stable feature ID without replacing source data', () => {
+  const map = new FakeMap();
+  const differences: unknown[] = [];
+  Object.assign(map, {
+    getSource: () => ({ updateData: (diff: unknown) => differences.push(diff) }),
+  });
+  const adapter = adapterFor(map);
+  adapter.updateSourceProperties('streetlightCoverage', [
+    { id: 'one', properties: { selected: true, opacity: 0.95 } },
+    { id: 'two', properties: { selected: false } },
+  ]);
+  assert.deepEqual(differences, [
+    {
+      update: [
+        {
+          id: 'one',
+          addOrUpdateProperties: [
+            { key: 'selected', value: true },
+            { key: 'opacity', value: 0.95 },
+          ],
+        },
+        { id: 'two', addOrUpdateProperties: [{ key: 'selected', value: false }] },
+      ],
+    },
+  ]);
+  adapter.dispose();
+});
 
 function installDom(createElement: (tagName: string) => FakeElement = () => new FakeElement()) {
   const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');

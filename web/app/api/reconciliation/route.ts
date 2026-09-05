@@ -1,6 +1,8 @@
 import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
+import type { ReconciliationSelection } from '../../../lib/reconciliation.ts';
 import {
   applyReconciliation,
+  ReconciliationApplyError,
   type ReconciliationApplyResult,
   readReconciliation,
 } from '../../../lib/reconciliation-persistence.ts';
@@ -9,10 +11,27 @@ function json(body: unknown, status = 200): Response {
   return Response.json(body, { status });
 }
 
-export function getReconciliation(): Response {
+export function getReconciliation(request?: Request): Response {
+  const query = request ? new URL(request.url).searchParams : new URLSearchParams();
+  if (
+    [...query.keys()].some(
+      (key) => !['view', 'batchId', 'packetId'].includes(key) || query.getAll(key).length !== 1,
+    ) ||
+    (query.has('view') && !['active', 'history'].includes(query.get('view') ?? '')) ||
+    ['batchId', 'packetId'].some((key) => query.has(key) && !query.get(key)?.trim()) ||
+    (query.has('batchId') && query.has('packetId'))
+  ) {
+    return json({ error: 'Invalid reconciliation selection' }, 400);
+  }
+  const selection: ReconciliationSelection = {
+    view: (query.get('view') ?? undefined) as ReconciliationSelection['view'],
+    batchId: query.get('batchId') ?? undefined,
+    packetId: query.get('packetId') ?? undefined,
+  };
   try {
-    return json(readReconciliation());
-  } catch {
+    return json(readReconciliation({ selection }));
+  } catch (error) {
+    if (error instanceof ReconciliationApplyError) return json({ error: error.message }, 404);
     return json({ error: 'Could not load packet reconciliation' }, 500);
   }
 }

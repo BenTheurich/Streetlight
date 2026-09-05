@@ -1,9 +1,11 @@
+import Image from 'next/image';
 import Script from 'next/script';
+import type { ImgHTMLAttributes } from 'react';
 
 export function PublicLanding() {
   return (
     <>
-      <link rel="preload" href="/landing/streetlamp-v2.webp" as="image" type="image/webp" />
+      <link rel="preload" href="/landing/streetlamp-dark-v2.webp" as="image" type="image/webp" />
       <link rel="stylesheet" href="/landing/spread-the-light-v2.css" />
       <a className="skip-link" href="#product-overview">
         Skip to product overview
@@ -58,8 +60,7 @@ export function PublicLanding() {
             <div className="anchor-daylight" />
             <div className="anchor-aura" />
             <div className="anchor-map real-map">
-              {/* biome-ignore lint/performance/noImgElement: The approved scroll composition targets this exact raw asset and requires browser comparison before conversion. */}
-              <img
+              <DesktopStoryImage
                 src="/landing/neighborhood-map-frosted-v2.webp"
                 width="1536"
                 height="1024"
@@ -77,16 +78,14 @@ export function PublicLanding() {
               </div>
             </div>
             <div className="anchor-lamp">
-              {/* biome-ignore lint/performance/noImgElement: The approved lamp crossfade targets this raw asset markup and requires browser comparison before conversion. */}
-              <img
+              <DesktopStoryImage
                 className="lamp-dark"
                 src="/landing/streetlamp-dark-v2.webp"
                 width="768"
                 height="1152"
                 alt=""
               />
-              {/* biome-ignore lint/performance/noImgElement: The approved lamp crossfade targets this raw asset markup and requires browser comparison before conversion. */}
-              <img
+              <DesktopStoryImage
                 className="lamp-lit"
                 src="/landing/streetlamp-v2.webp"
                 width="768"
@@ -94,8 +93,7 @@ export function PublicLanding() {
                 alt=""
               />
             </div>
-            {/* biome-ignore lint/performance/noImgElement: The approved scroll composition targets this exact raw asset and requires browser comparison before conversion. */}
-            <img
+            <DesktopStoryImage
               className="anchor-paper real-packet"
               src="/landing/packet-page-v2.webp"
               width="748"
@@ -218,11 +216,11 @@ export function PublicLanding() {
             </CompactBeat>
             <article className="compact-beat compact-beat-packet">
               <figure>
-                {/* biome-ignore lint/performance/noImgElement: The approved compact composition relies on this asset's exact intrinsic sizing and requires browser comparison before conversion. */}
-                <img
+                <Image
                   src="/landing/packet-page-v2.webp"
-                  width="748"
-                  height="968"
+                  sizes="(max-width: 760px) min(78vw, 300px), 300px"
+                  width={748}
+                  height={968}
                   loading="lazy"
                   alt="A printable Streetlight outreach packet"
                 />
@@ -249,11 +247,11 @@ export function PublicLanding() {
           </header>
           <div className="proof-composition">
             <figure className="coverage-proof">
-              {/* biome-ignore lint/performance/noImgElement: The approved proof composition relies on this asset's exact sizing and requires browser comparison before conversion. */}
-              <img
+              <Image
                 src="/landing/coverage-map-v2.webp"
-                width="768"
-                height="498"
+                sizes="(max-width: 760px) calc(100vw - 40px), min(73vw, 1029px)"
+                width={768}
+                height={498}
                 loading="lazy"
                 alt="A Streetlight coverage map with older streets in red and a connected packet highlighted in blue"
               />
@@ -269,11 +267,11 @@ export function PublicLanding() {
               </figcaption>
             </figure>
             <figure className="packet-proof">
-              {/* biome-ignore lint/performance/noImgElement: The approved proof composition relies on this asset's exact sizing and requires browser comparison before conversion. */}
-              <img
+              <Image
                 src="/landing/packet-page-v2.webp"
-                width="748"
-                height="968"
+                sizes="(max-width: 760px) min(calc(78vw - 31px), 320px), min(30vw, 350px)"
+                width={748}
+                height={968}
                 loading="lazy"
                 alt="A one-page Streetlight outreach packet with estimated tracts, a starting address, QR code, and highlighted street map"
               />
@@ -462,5 +460,22 @@ function DrawerField({
       <label htmlFor={id}>{label}</label>
       <input id={id} name={name} type={type} autoComplete={autoComplete} required />
     </div>
+  );
+}
+
+function DesktopStoryImage({
+  src,
+  alt = '',
+  ...properties
+}: Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & { src: string }) {
+  return (
+    <picture>
+      <source media="(min-width: 761px) and (prefers-reduced-motion: no-preference)" srcSet={src} />
+      <img
+        {...properties}
+        alt={alt}
+        src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E"
+      />
+    </picture>
   );
 }

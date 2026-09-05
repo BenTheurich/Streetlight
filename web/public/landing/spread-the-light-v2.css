@@ -360,7 +360,7 @@ body.is-daylight .site-header .button-solid:hover,
   transform-origin: center;
   will-change: opacity, transform;
 }
-.real-map > img {
+.real-map img {
   width: 100%;
   height: 100%;
   object-fit: cover;

@@ -114,15 +114,13 @@ function isReconciliationPacket(value: unknown): boolean {
   );
 }
 
-function isReconciliationBatch(value: unknown): boolean {
+function isReconciliationBatchSummary(value: unknown): boolean {
   return (
     isRecord(value) &&
     typeof value.id === 'string' &&
     typeof value.name === 'string' &&
     ['draft', 'finalized', 'reconciled', 'cancelled'].includes(String(value.status)) &&
     isNullableString(value.finalizedAt) &&
-    Array.isArray(value.packets) &&
-    value.packets.every(isReconciliationPacket) &&
     isRecord(value.counts) &&
     isNumber(value.counts.active) &&
     isNumber(value.counts.completed) &&
@@ -136,7 +134,16 @@ export function isReconciliationWorkspacePayload(value: unknown): value is Recon
     typeof value.asOf === 'string' &&
     isNullableString(value.defaultBatchId) &&
     Array.isArray(value.batches) &&
-    value.batches.every(isReconciliationBatch)
+    value.batches.every(isReconciliationBatchSummary) &&
+    (value.batch === null ||
+      (isRecord(value.batch) &&
+        isReconciliationBatchSummary(value.batch) &&
+        Array.isArray(value.batch.packets) &&
+        value.batch.packets.every(isReconciliationPacket) &&
+        value.batches.some(
+          (batch: Record<string, unknown>) =>
+            batch.id === (value.batch as Record<string, unknown>).id,
+        )))
   );
 }
 

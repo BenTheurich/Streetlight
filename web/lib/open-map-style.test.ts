@@ -305,28 +305,6 @@ function openMapData(): OpenMapData {
     importGeneration: 1,
     overtureRelease: '2026-06-17.0',
     buildingMode: 'overture_only',
-    segments: [
-      {
-        id: 'one',
-        roadGroupId: 'road-one',
-        streetName: 'Main Street',
-        roadClass: 'residential',
-        geometry: {
-          type: 'LineString',
-          coordinates: [
-            [0, 0],
-            [0.001, 0],
-          ],
-        },
-        estimatedHomes: 10,
-        eligible: true,
-        excludedReason: null,
-        lastCoveredOn: null,
-        coverageClass: 'red',
-        roots: [],
-      },
-    ],
-    apartmentComplexes: [],
     buildings: mapGeneration().buildings,
     houseNumbers: [
       { number: '31308', street: 'Amberley Circle', position: [0.00002, 0.00003] },

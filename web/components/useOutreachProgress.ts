@@ -105,7 +105,11 @@ export function useOutreachProgress({
       },
     }),
   );
-  const view = useSyncExternalStore(workflow.subscribe, workflow.getSnapshot, workflow.getSnapshot);
+  const displayMode = useSyncExternalStore(
+    workflow.subscribe,
+    workflow.getDisplayMode,
+    workflow.getDisplayMode,
+  );
   useEffect(() => workflow.start(), [workflow]);
   useEffect(() => workflow.update(coverage), [coverage, workflow]);
   useEffect(() => {
@@ -113,7 +117,7 @@ export function useOutreachProgress({
   }, [active, workflow]);
   useEffect(() => {
     const commit = printCommitRef.current;
-    if (view.displayMode !== 'print' || !commit) return;
+    if (displayMode !== 'print' || !commit) return;
     printCommitRef.current = null;
     if (!lifecycle) {
       commit.reject(new Error('The map is unavailable'));
@@ -121,6 +125,6 @@ export function useOutreachProgress({
     }
     // Child overlay effects have published the fitted print presentation for this committed layout.
     void lifecycle.whenSettled(commit.signal).then(commit.resolve, commit.reject);
-  }, [lifecycle, view.displayMode]);
-  return { view, act: workflow.act, presentationButtonRef };
+  }, [lifecycle, displayMode]);
+  return { workflow, displayMode, act: workflow.act, presentationButtonRef };
 }

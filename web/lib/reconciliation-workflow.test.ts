@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {
+  ReconciliationBatch,
   ReconciliationPacket,
+  ReconciliationSelection,
   ReconciliationSubmission,
   ReconciliationWorkspace,
 } from './reconciliation.ts';
@@ -31,24 +33,19 @@ function packet(
 function workspace(
   packets: ReconciliationPacket[] = [packet('packet-a'), packet('packet-b')],
 ): ReconciliationWorkspace {
-  return {
-    asOf: '2026-08-26',
-    defaultBatchId: 'batch-a',
-    batches: [
-      {
-        id: 'batch-a',
-        name: 'August outreach',
-        status: 'finalized',
-        finalizedAt: '2026-08-20T12:00:00.000Z',
-        packets,
-        counts: {
-          active: packets.filter(({ status }) => status === 'active').length,
-          completed: packets.filter(({ status }) => status === 'completed').length,
-          cancelled: packets.filter(({ status }) => status === 'cancelled').length,
-        },
-      },
-    ],
+  const batch: ReconciliationBatch = {
+    id: 'batch-a',
+    name: 'August outreach',
+    status: 'finalized',
+    finalizedAt: '2026-08-20T12:00:00.000Z',
+    packets,
+    counts: {
+      active: packets.filter(({ status }) => status === 'active').length,
+      completed: packets.filter(({ status }) => status === 'completed').length,
+      cancelled: packets.filter(({ status }) => status === 'cancelled').length,
+    },
   };
+  return { asOf: '2026-08-26', defaultBatchId: 'batch-a', batches: [batch], batch };
 }
 
 function transportWith(overrides: Partial<ReconciliationTransport> = {}): ReconciliationTransport {
@@ -259,3 +256,157 @@ test('an in-flight reconciliation prevents a second mutation', async () => {
   await confirmation;
   assert.equal(corrections, 0);
 });
+
+test('batch details load on selection, retry the selected read, and resolve unloaded history targets', async () => {
+  const active = workspace();
+  assert.ok(active.batch);
+  const historyBatch: ReconciliationBatch = {
+    ...active.batch,
+    id: 'old-batch',
+    packets: [packet('old-packet', 'completed')],
+    counts: { active: 0, completed: 1, cancelled: 0 },
+  };
+  const summaries = [
+    ...active.batches,
+    (({ packets: _packets, ...summary }) => summary)(historyBatch),
+  ];
+  const selections: ReconciliationSelection[] = [];
+  let failHistory = true;
+  const workflow = createReconciliationWorkflow({
+    onAccepted: async () => {},
+    transport: transportWith({
+      load: async (selection = {}) => {
+        selections.push(selection);
+        if (selection.view === 'history' && failHistory) {
+          failHistory = false;
+          throw new TypeError('offline');
+        }
+        return Response.json({
+          ...active,
+          batches: summaries,
+          batch: selection.view === 'history' ? historyBatch : active.batch,
+        });
+      },
+    }),
+  });
+  await workflow.act({ kind: 'load' });
+  assert.equal(selections.length, 1);
+  await workflow.act({ kind: 'view', view: 'history' });
+  assert.equal(workflow.getSnapshot().kind, 'unavailable');
+  await workflow.act({ kind: 'recover', operation: 'load' });
+  assert.deepEqual(selections[1], { view: 'history', batchId: 'old-batch' });
+  assert.deepEqual(selections[2], selections[1]);
+  const loaded = workflow.getSnapshot();
+  assert.equal(loaded.kind, 'ready');
+  if (loaded.kind !== 'ready') return;
+  assert.equal(loaded.projection.batch?.id, 'old-batch');
+  assert.deepEqual(
+    loaded.projection.historyPackets.map(({ id }) => id),
+    ['old-packet'],
+  );
+  await workflow.act({ kind: 'view', view: 'active' });
+  await workflow.act({ kind: 'target', target: { packetId: 'old-packet' } });
+  assert.deepEqual(selections.at(-1), { view: 'history', packetId: 'old-packet' });
+  const target = workflow.getSnapshot();
+  assert.equal(target.kind, 'ready');
+  if (target.kind !== 'ready') return;
+  assert.equal(target.projection.selectedPacketId, 'old-packet');
+  assert.equal(target.draft.view, 'history');
+});
+
+test('confirming the last sheets loads the next active batch and keeps the accepted mutation', async () => {
+  const initial = workspace();
+  assert.ok(initial.batch);
+  const next: ReconciliationBatch = {
+    ...initial.batch,
+    id: 'batch-next',
+    packets: [packet('next')],
+  };
+  const completed = workspace([packet('packet-a', 'completed'), packet('packet-b', 'completed')]);
+  const summaries = [completed.batches[0], (({ packets: _packets, ...summary }) => summary)(next)];
+  let loads = 0;
+  let notices = 0;
+  const workflow = createReconciliationWorkflow({
+    onAccepted: async () => {
+      notices += 1;
+    },
+    transport: transportWith({
+      load: async (selection) => {
+        loads += 1;
+        if (loads === 1) return Response.json(initial);
+        assert.deepEqual(selection, { view: 'active', batchId: 'batch-next' });
+        return Response.json({
+          ...completed,
+          defaultBatchId: next.id,
+          batches: summaries,
+          batch: next,
+        });
+      },
+      reconcile: async () =>
+        Response.json({ ...completed, defaultBatchId: next.id, batches: summaries }),
+    }),
+  });
+  await workflow.act({ kind: 'load' });
+  await workflow.act({ kind: 'all-outcomes', outcome: 'taken' });
+  await workflow.act({ kind: 'confirm' });
+  const result = workflow.getSnapshot();
+  assert.equal(result.kind, 'ready');
+  if (result.kind !== 'ready') return;
+  assert.equal(result.projection.batch?.id, next.id);
+  assert.equal(result.feedback?.headline, 'Reconciliation saved');
+  assert.equal(notices, 1);
+  assert.equal(loads, 2);
+});
+
+for (const operation of ['confirm', 'correct'] as const) {
+  test(`${operation} keeps mutations locked until the accepted coverage refresh finishes`, async () => {
+    let finishRefresh: () => void = () => {};
+    let startedRefresh: () => void = () => {};
+    const refresh = new Promise<void>((resolve) => {
+      finishRefresh = resolve;
+    });
+    const refreshStarted = new Promise<void>((resolve) => {
+      startedRefresh = resolve;
+    });
+    let mutations = 0;
+    const workflow = createReconciliationWorkflow({
+      onAccepted: () => {
+        startedRefresh();
+        return refresh;
+      },
+      transport: transportWith({
+        reconcile: async () => {
+          mutations += 1;
+          return Response.json(workspace());
+        },
+        correct: async () => {
+          mutations += 1;
+          return Response.json(workspace());
+        },
+      }),
+    });
+    await workflow.act({ kind: 'load' });
+    await workflow.act({ kind: 'all-outcomes', outcome: 'still-here' });
+    const pending = workflow.act(
+      operation === 'confirm'
+        ? { kind: 'confirm' }
+        : {
+            kind: 'correct',
+            attempt: { packetId: 'packet-a', coveredOn: null },
+          },
+    );
+    await refreshStarted;
+    const refreshing = workflow.getSnapshot();
+    assert.equal(refreshing.kind, 'ready');
+    if (refreshing.kind !== 'ready') return;
+    assert.equal(refreshing.mutationControlsDisabled, true);
+    await workflow.act({ kind: 'correct', attempt: { packetId: 'packet-b', coveredOn: null } });
+    assert.equal(mutations, 1);
+    finishRefresh();
+    await pending;
+    const accepted = workflow.getSnapshot();
+    assert.equal(accepted.kind, 'ready');
+    if (accepted.kind !== 'ready') return;
+    assert.equal(accepted.mutationControlsDisabled, false);
+  });
+}
