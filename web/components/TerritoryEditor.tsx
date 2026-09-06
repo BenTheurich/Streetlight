@@ -1280,7 +1280,7 @@ export function TerritoryEditor({
         {(apartmentSaveFailure ||
           (operationPlacement === 'surface' && saveStatus) ||
           (pendingLeave && active) ||
-          hasUnsavedChanges ||
+          canSave ||
           retryAvailable) && (
           <div className="sidebar-actions">
             {apartmentSaveFailure && (
@@ -1348,14 +1348,14 @@ export function TerritoryEditor({
                 {hasUnsavedChanges && !saving && !saveFailure && !backgroundImportComplete && (
                   <p aria-live="polite">{notice}</p>
                 )}
-                {hasUnsavedChanges && importRequired && !importing && (
+                {importRequired && !importing && (
                   <p className="import-notice">
                     {setupRequired
                       ? 'Saving will prepare the streets in your region. Setup will finish when they are ready.'
                       : 'Saving will update the streets shown on your map. You can keep using Streetlight while it finishes.'}
                   </p>
                 )}
-                {(hasUnsavedChanges || retryAvailable) && (
+                {(canSave || retryAvailable) && (
                   <div>
                     <button
                       className="secondary"
