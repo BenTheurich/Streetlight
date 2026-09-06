@@ -1,7 +1,8 @@
 # Phase 12 deployment and recovery
 
-September 6, 2026. Status: in progress. The target is
-`https://streetlight.bentheurich.com`; deployment and public workflow verification remain pending.
+September 6, 2026. Status: in progress. The app is running privately on `gb-dev`.
+Publishing `https://streetlight.bentheurich.com` and the public workflow checks are waiting on
+WorkOS production activation, which Ben deferred until he adds billing information.
 
 Phase 11 is complete in `main`, including Ben's review and the real WorkOS staging checks.
 Phase 12 started on `codex/phase-12-deployment-recovery`, based on `9ff56f9`. Phase 13 has not started.
@@ -18,9 +19,10 @@ The machine uses Wi-Fi. Automatic suspend is disabled on external power, includi
 battery operation still permits suspend. Keep the laptop on AC power for the pilot.
 
 The existing checkout is `/home/ben/Projects/Streetlight`. Preflight found a clean `main` at
-`ea105bb`; the Phase 12 changes are still in the Windows working tree and must be committed and
-pushed before updating this checkout. The Windows branch is based on `9ff56f9`, which also matched
-fetched `origin/main` at the start of this deployment work.
+`ea105bb`. The verified implementation was committed and pushed as `05adc70` on
+`codex/phase-12-deployment-recovery`, based on `9ff56f9`, then fetched and checked out on `gb-dev`.
+The host built `streetlight:pilot` successfully from that revision. Its image manifest list is
+`sha256:6a2f92b1e4b68dc99a422e15996d5474fbe6c15ae1f3ca0ff75ae05d6355345e`.
 
 The deployment configuration uses root `compose.yaml`, the existing Dockerfile, and two services:
 
@@ -40,6 +42,13 @@ Startup validates the `/data` mount, resolves the database path inside it, and r
 `STREETLIGHT_TRUST_CLOUDFLARE=1`. It migrates the database before starting Next.js and does not
 seed or replace church data. `STREETLIGHT_DATABASE_PATH` controls both migrations and queries.
 Shell scripts retain LF line endings in Git.
+
+Both Compose services are running with `unless-stopped` restart policies. The app is healthy
+before and after a container restart, and runs as UID 1000 with a UID-1000 database on
+`streetlight_data`. Its church, territory, street-segment, packet, and pilot-request tables are
+empty. The fresh founder workspace will be provisioned after WorkOS activation. The environment
+file contains the two production Google keys and a generated cookie secret; production WorkOS
+keys are absent. No staging credentials or existing workspace data were copied.
 
 The public form uses validated `CF-Connecting-IP` with Ben's approved five attempts per IP per
 fixed UTC hour. It ignores `X-Real-IP` and `X-Forwarded-For`, canonicalizes IPv6, stores only a hash
@@ -82,7 +91,12 @@ and Biome. Earlier recovery and browser evidence is identified separately below.
 | Compose and startup guards | Passed: valid Compose; startup rejects missing volume, database paths outside `/data`, and missing Cloudflare trust |
 | Cloudflare identity and restart checks | Passed locally: five neutral successes, sixth `429`, spoofed forwarding headers ignored, missing identity `503`; database and counter survive restart |
 | Restricted non-root container PDF | Three-packet open-map PDF passed in 2.523 seconds, 1,744,007 bytes; runtime UID and database owner are 1000 |
-| Complete import and PDF on gb-dev | Pending |
+| gb-dev build, storage, and restart | Passed at `05adc70`; fresh migrated database, UID 1000 ownership, health before and after restart, no host port bindings |
+| Cloudflare connector | Healthy, one replica, version 2026.8.3; QUIC connections established; no public routes |
+| Production Google key restrictions | Saved and verified: browser hostname plus Maps JavaScript / Places API (New); separate server key allows only Geocoding |
+| Complete import and PDF on gb-dev | Passed with production CPU availability and a 4 GiB test memory cap: import 659.8 seconds; three-packet PDF 3.87 seconds; peak 1.69 GiB, no OOM |
+| Imported-data persistence | Passed: 1,133 segments, 3,736 assigned addresses, 4,528 buildings; three finalized packets totaling 95 homes; integrity, foreign keys, and post-run health passed |
+| Host PDF inspection | Passed: three US Letter pages, 1,989,624 bytes; first-page map, labels, QR code, and footer render without clipping |
 | Deployed health, authentication, and core browser workflow | Pending |
 | Scheduled and off-machine backups | Deferred by Ben for the pilot; required before real release |
 
@@ -96,7 +110,30 @@ Final image, test, startup, HTTP, and PDF evidence is in
 The container measurements are recorded in `output/playwright/phase12/free-fit/results.json`.
 The current application does not fit a 512 MiB container. The successful 1 GiB PDF run used the
 web server and renderer in the same Node process and real open-map rendering; it does not
-establish an importer memory requirement. The full import still needs measurement on `gb-dev`.
+establish an importer memory requirement.
+
+The full one-mile Temecula import on `gb-dev` completed in 659.8 seconds with the production
+default of eight DuckDB threads. It used a separate synthetic database, no production credentials,
+and a 4 GiB/no-swap test memory cap. The production Next.js server remained active in the test
+container. Import, persistence, finalization of three packets, and their PDF used a peak of
+1.69 GiB without an OOM event. This verifies the tested workload on the laptop, not every radius
+or concurrent workload. The imported region reported 84.4% address matching and quality warnings;
+geographic review remains separate from deployment verification.
+
+An earlier diagnostic limited the container to two CPUs and timed out after 900.5 seconds in
+`downloading_streets`, with a 731 MiB peak and no OOM. In-memory settings checks showed that the
+quota reduced DuckDB's default thread count from eight to two. DuckDB uses each thread for at
+most one remote HTTP request at a time, as documented in its
+[workload tuning guide](https://duckdb.org/docs/current/guides/performance/how_to_tune_workloads).
+The successful retry removed that diagnostic CPU quota and retained the memory cap. No importer
+code or timeout was changed.
+
+Host benchmark evidence is saved in `output/playwright/phase12/selfhost/import-summary.json`,
+`import-state.json`, `import-packets.pdf`, `import-pdfinfo.txt`, and `import-packets-page1.png`.
+The constrained attempt is recorded separately in `import-2cpu-*`. The temporary benchmark
+container, volume, and remote directory were removed after copying the evidence. The local
+credential-transfer helper and earlier Windows verification container and volume were also removed.
+The production app, tunnel, and empty production database remain on `gb-dev`.
 
 ## Approved provider controls
 
@@ -118,8 +155,19 @@ Its Geocoding v3 quota rows show effective overrides of 25 requests/day and 5 re
 These project quotas also apply to local lookups using this project. No requests were sent to
 exhaust or test provider limits. The unused v4 GeocodeAddress, GeocodeLocation, GeocodePlace,
 and SearchDestinations methods each have an effective daily override of zero. Their per-minute
-settings remain unchanged. Production key restriction metadata and a deployed authenticated
-lookup still need verification.
+settings remain unchanged. A deployed authenticated lookup and its request-metrics evidence
+remain pending until WorkOS production is configured.
+
+Two separate production keys were created and their saved metadata verified:
+
+- `Streetlight pilot browser`, ID `ca12c793-5281-428e-98fc-1b868dc7a2c0`, permits only Maps
+  JavaScript API and Places API (New), with the sole HTTP referrer
+  `https://streetlight.bentheurich.com/*`.
+- `Streetlight pilot geocoding server`, ID `5f5c5c29-862a-470d-82d5-6ef9645b8ff5`, permits only
+  Geocoding API. Its application restriction is None under Ben's dynamic-egress exception.
+
+Both values are in `gb-dev`'s ignored `deploy/.env.local`, owned by `ben` with mode 600.
+The existing development key was left unchanged. No Google request was sent during key setup.
 
 The saved [Streetlight pilot - 5 USD monthly budget](https://console.cloud.google.com/billing/011F8B-071052-C508D8/budgets/76b75f9e-3912-4c14-9314-5e9352c85406/edit?project=streetlight-503712)
 applies only to project Streetlight and includes all its services. It uses a calendar month,
@@ -129,16 +177,22 @@ and 100%, plus forecast spend at 100%. The linked Monitoring email channel is
 project-owner, and Pub/Sub notification options are off. The pre-existing account-wide budget
 was left unchanged. This budget sends alerts only.
 
-Cloudflare tunnel `streetlight-gb-dev` (`b879e43b-0891-4c47-a349-21bdc1d52f17`) was created;
-its credential is stored on `gb-dev` with mode 600. Connection and the public DNS route remain
-pending, along with WorkOS production configuration and production Google keys. No Railway
-subscription or service was created. Ben approved starting with a fresh church workspace;
-the existing local database will not be copied.
+Cloudflare tunnel `streetlight-gb-dev` (`b879e43b-0891-4c47-a349-21bdc1d52f17`) is healthy;
+its credential is stored on `gb-dev` with mode 600. Cloudflare confirms one connected replica
+and no routes. No DNS records were changed, and no Railway subscription or service was created.
+
+WorkOS blocks production access until billing information is added. Its
+[environment documentation](https://workos.com/docs/authkit/environments) confirms that ordinary
+email/password AuthKit is free below one million monthly active users but still requires billing
+information to unlock production. Ben explicitly deferred that account step. Production keys,
+redirects, invite-only settings, branding, and founder membership therefore remain pending.
+Do not enable paid custom domains or enterprise connections. The public tunnel route remains
+absent until production authentication is ready.
 
 ## Deployment sequence
 
-1. Finish and verify the Compose configuration and Cloudflare request identity changes. Commit and
-   push the Phase 12 branch, then update the clean `gb-dev` checkout to that exact revision.
+1. The implementation is deployed privately at `05adc70`. Before resuming, confirm the current
+   checkout, `docker compose ps`, and the healthy tunnel. Do not recreate the tunnel or Google keys.
 2. Set the production values documented in
    [ENVIRONMENTS.md](../ENVIRONMENTS.md#phase-12-production-configuration). Configure WorkOS
    production for invite-only email/password, no public or social signup, callback
@@ -146,18 +200,16 @@ the existing local database will not be copied.
    `https://streetlight.bentheurich.com/login`, and logout URL `https://streetlight.bentheurich.com/`.
    Apply the approved `web/branding/authkit.css` and branding assets. Keep staging credentials and
    organizations separate.
-3. Create the Cloudflare Tunnel and route `streetlight.bentheurich.com` to `http://web:3000`.
-   Store its token in the ignored secret file. From the repository root, validate with
-   `docker compose config --quiet`, then run `docker compose up -d --build` and inspect
-   `docker compose ps`. The services use persistent `/data` storage and automatic restart.
-   Preserve the portfolio DNS records.
+3. After WorkOS is configured, add a public route to the existing Cloudflare Tunnel from
+   `streetlight.bentheurich.com` to `http://web:3000`. From the repository root, validate with
+   `docker compose config --quiet`, then run `docker compose up -d` to load the completed
+   production environment and inspect `docker compose ps`. Rebuild if the source or public callback
+   changes. Preserve the portfolio DNS records.
 4. Create a fresh founder church workspace, as Ben approved. Do not copy the daily-driver database,
    seed demo data, or remap an existing organization. Real territory review and outreach remain
    Phase 13.
-5. Verify the saved Google quotas and project budget. Restrict the browser key to
-   `https://streetlight.bentheurich.com/*` and its documented Maps/Places APIs. Store the separate
-   Geocoding server key in the ignored production environment file and record restriction
-   metadata without key material.
+5. The Google keys, quotas, and project budget are configured. Verify that the same recorded
+   controls are still effective when resuming; keep key values out of command output and evidence.
 6. Measure a complete import and PDF generation on `gb-dev`. Check the application after a
    container restart and run `pnpm smoke:production https://streetlight.bentheurich.com`.
 7. Confirm unauthenticated and malformed authenticated geocodes do not reach Google. Perform one
@@ -206,3 +258,7 @@ rate-limit checks pass, Ben will sign in to `https://streetlight.bentheurich.com
 batch, download its PDF, and approve or reject the pilot URL. The tested manual recovery commands
 remain in scope; scheduled backups and an off-machine restore demonstration are deferred under
 his pilot exception. Phase 13 remains pending until Ben approves Phase 12.
+
+The immediate next step is Ben adding WorkOS billing information. Public sign-in, initial founder
+provisioning, browser workflow, Google request metrics, and public rate-limit verification wait
+for that step.
