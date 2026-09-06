@@ -4,7 +4,8 @@ September 7, 2026. Status: in progress. The app is public at
 `https://streetlight.bentheurich.com`, served by `gb-dev` through Cloudflare Tunnel.
 WorkOS production is active, Ben accepted the first invitation, and church-address geocoding
 passed. The first import, packet PDF, reconciliation, Coverage, and Outreach Progress checks pass.
-Test-record cleanup, the final authentication and rate-limit checks, and founder approval remain.
+Test cleanup, the public rate limit, and persistence after restart also pass. Fresh sign-in,
+the live malformed-geocode check, and founder approval remain.
 
 Phase 11 is complete in `main`, including Ben's review and the real WorkOS staging checks.
 Phase 12 started on `codex/phase-12-deployment-recovery`, based on `9ff56f9`. Phase 13 has not started.
@@ -111,11 +112,12 @@ and Biome. Earlier recovery and browser evidence is identified separately below.
 | Google request metrics | Production server-key filter shows 1 Geocoding request, no listed errors, average latency 89 ms |
 | Geocoding rejection | Public unauthenticated POST returned `401`; route tests prove malformed authenticated input makes no Google call; live malformed authenticated check remains open |
 | Public forwarding-header spoof | Forged `CF-Connecting-IP` requests rejected by Cloudflare with `403` / error 1000 before reaching the application |
-| Public request attempt-six limit | Pending specific approval after automatic approval review rejected the proposed live contact-data test |
+| Public request attempt-six limit | Passed with Ben's approved synthetic request: five `200` responses, then `429` and `Retry-After: 3510`; varying `X-Real-IP` and `X-Forwarded-For` did not reset the limit |
 | Deployed import | Passed in 653 seconds; 1,133 imported segments and 2,611 eligible estimated homes; onboarding unlocked after success |
 | Deployed packet and reconciliation workflow | Passed: labeled test batch with 3 packets and 95 estimated tracts; 3-page PDF downloaded and visually inspected; one test completion and two cancellations saved; Coverage and Outreach Progress both show the 28-home completion |
-| Test cleanup | Undo completion requested; native browser confirmation awaiting Ben because browser automation timed out on the dialog; remaining test completion must be reversed and its restored packet discarded |
-| Production database integrity | Passed after import and reconciliation; `integrity_check` is `ok`, no foreign-key errors, zero public access requests |
+| Test cleanup | Passed: completion undone, all three packets cancelled, no active reservations; Outreach Progress returns to zero and Coverage shows all 2,611 estimated homes as never covered |
+| Production database integrity and restart | Passed after cleanup and app restart; 1 church, 1,133 segments, 3 cancelled packets, one declined test request, saved rate counter of 5; integrity `ok`, no foreign-key errors |
+| Production sign-out | Passed: WorkOS logout returns to Streetlight's public homepage |
 | Scheduled and off-machine backups | Deferred by Ben for the pilot; required before real release |
 
 The isolated source copy is `tmp/phase12-verification-20260906`. Test dependencies and synthetic
@@ -166,8 +168,18 @@ QR codes, footers, and clipping. PDF and page images are in
 The reconciliation check recorded the first test packet as completed on the church's September 6
 date and cancelled the other two. Coverage showed 28 green estimated homes and 2,583 red;
 Outreach Progress showed one completed packet, three streets, and 28 estimated homes reached.
-These are test outcomes, not actual outreach. Undo completion is pending its native browser
-confirmation; after undo, discard the restored packet and confirm both views return to zero.
+Ben accepted the Undo completion confirmation. The restored packet was then discarded through
+reconciliation. All three test packets are cancelled, no reservations remain, and Outreach
+Progress shows zero completed packets, streets, and homes. Coverage shows all 2,611 estimated
+homes as never covered. The labelled batch and correction history remain for audit.
+
+Ben separately approved the synthetic public request using `pilot-verification@streetlight.example`.
+Six submissions produced five neutral `200` responses followed by `429` with `Retry-After: 3510`.
+Each submission varied `X-Real-IP` and `X-Forwarded-For`. Only one request was created, then
+declined through the founder page; its church, organization, and invitation references remain
+null. No invitation or email was sent. The web container was restarted after cleanup. Public
+health, data integrity, and the saved limiter count of five passed afterward. Evidence is in
+`public-rate-limit-20260907.json` and `public-cleanup-20260907.json` in the same evidence directory.
 
 ## Approved provider controls
 
@@ -241,23 +253,12 @@ an import. Run `pnpm smoke:production https://streetlight.bentheurich.com` after
 
 Complete these remaining checks on `Test church 1`:
 
-1. Finish test-record cleanup. Ben needs to accept the pending native Undo completion dialog,
-   which browser automation could not control. Discard the restored test packet and confirm
-   zero completed outreach and no active reservations. Import, PDF, reconciliation, Coverage,
-   and Outreach Progress already passed. Real outreach and geographic acceptance belong to Phase 13.
-2. Exercise a fresh sign-in after the container-origin callback fix, with Ben entering his own
+1. Exercise a fresh sign-in after the container-origin callback fix, with Ben entering his own
    password. The earlier invitation set a valid session but redirected to Docker's bind address;
    opening the public hostname recovered that session and allowed onboarding.
-3. Complete the live malformed authenticated geocode check. The actual unauthenticated `401`,
+2. Complete the live malformed authenticated geocode check. The actual unauthenticated `401`,
    successful onboarding lookup, Google metrics, and focused no-Google-call route tests pass.
-4. Obtain specific approval for the public Request access test after the automatic approval
-   review rejection. The rejected command proposed six submissions with Ben's contact details
-   and would create one deduplicated live request. It did not run. Prefer a clearly labeled
-   synthetic test request, then decline it without provisioning or sending an invitation.
-   First five responses must remain neutral; the sixth must return `429` with `Retry-After`.
-   Vary `X-Real-IP` and `X-Forwarded-For` while preserving the same real caller. Cloudflare has
-   already rejected forged `CF-Connecting-IP` requests at its edge with `403` / error 1000.
-5. Record results and give Ben the founder review steps. Do not mark Phase 12 complete until the
+3. Record results and give Ben the founder review steps. Do not mark Phase 12 complete until the
    remaining checks and his approval pass.
 
 ## Manual recovery commands
@@ -295,6 +296,6 @@ batch, download its PDF, and approve or reject the pilot URL. The tested manual 
 remain in scope; scheduled backups and an off-machine restore demonstration are deferred under
 his pilot exception. Phase 13 remains pending until Ben approves Phase 12.
 
-WorkOS activation and initial founder provisioning are complete. The remaining gates are the
-deployed workflow, fresh sign-in verification, malformed authenticated geocode check, public
-attempt-six rate-limit verification, and Ben's approval of the pilot URL.
+The deployed workflow, test cleanup, and public rate-limit checks pass. The remaining gates are
+fresh sign-in verification, the malformed authenticated geocode check, and Ben's approval of
+the pilot URL.
