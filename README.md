@@ -34,6 +34,9 @@ Run these from the repository root:
 | Test | `pnpm test` |
 | Production build | `pnpm build` |
 | Run every code check | `pnpm check` |
+| Copy a database safely | `pnpm db:backup <source.db> <new-backup.db>` |
+| Restore into a new copy | `pnpm db:restore <backup.db> <new-restored.db>` |
+| Check a deployed application | `pnpm smoke:production <HTTPS-origin>` |
 | Start the isolated coverage review | `pnpm --dir web coverage:demo` |
 | Start the isolated progress review | `pnpm --dir web progress:demo` |
 
@@ -42,7 +45,16 @@ then serves Streetlight at `http://localhost:3000`.
 
 The local database is `web/data/streetlight.db`, created on first use and ignored by Git.
 Migrations and the idempotent seed prepare it; they do not restore saved outreach history.
-Preserve the database once it contains church work. Phase 12 owns backup and restore verification.
+Preserve the database once it contains church work. The manual backup and restore commands are
+verified; Ben deferred scheduled and off-machine backups for the pilot.
+
+Phase 12 is preparing Docker Compose on `gb-dev`, with Cloudflare Tunnel serving
+`https://streetlight.bentheurich.com`. The application and importer share one container and a
+persistent `/data` volume. The existing `bentheurich.com` portfolio stays on GitHub Pages.
+Deployment and the public workflow checks remain pending. Pilot data will exist only on `gb-dev`;
+configure backups and prove recovery from an off-machine copy before a real release.
+Follow [the deployment runbook](docs/PHASE_12_DEPLOYMENT_REVIEW.md) and
+[production configuration](ENVIRONMENTS.md#phase-12-production-configuration) before deploying.
 
 The Overture import needs network access but no API key. It uses `python` by default.
 Set `STREETLIGHT_PYTHON` only when `python` is not the desired executable.

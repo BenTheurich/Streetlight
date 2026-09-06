@@ -1,3 +1,4 @@
+import { limitPublicPilotRequest } from '../../../lib/pilot-request-rate-limit.ts';
 import {
   type PilotRequestInput,
   parsePilotRequest,
@@ -8,6 +9,9 @@ export async function submitPublicPilotRequest(
   request: Request,
   databaseFilename?: string,
 ): Promise<Response> {
+  const limited = limitPublicPilotRequest(request, databaseFilename);
+  if (limited) return limited;
+
   let input: PilotRequestInput;
   try {
     input = parsePilotRequest(await request.json());

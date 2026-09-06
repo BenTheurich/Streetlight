@@ -10,10 +10,10 @@ Store local values in the ignored `web/.env.local` file:
 | `GOOGLE_MAPS_SERVER_API_KEY` | Server-side church-address geocoding | Geocoding API plus server-origin restrictions; never exposed to the browser |
 | `STREETLIGHT_PYTHON` | Optional Overture importer executable | Set only when `python` is not the desired executable |
 | `SSL_CERT_FILE` | Optional CA bundle for DuckDB HTTPS imports | Set only when the Python/OpenSSL installation has no usable certificate store |
-| `WORKOS_CLIENT_ID` | WorkOS AuthKit application | Staging client ID for local work; production value only in Railway |
+| `WORKOS_CLIENT_ID` | WorkOS AuthKit application | Staging client ID for local work; separate production value in ignored deployment configuration |
 | `WORKOS_API_KEY` | WorkOS server API | Secret server value; never exposed to the browser |
 | `WORKOS_COOKIE_PASSWORD` | AuthKit session-cookie encryption | Random value at least 32 characters long |
-| `NEXT_PUBLIC_WORKOS_REDIRECT_URI` | AuthKit callback URL | `http://localhost:3000/auth/callback` locally; exact deployed HTTPS callback in Railway |
+| `NEXT_PUBLIC_WORKOS_REDIRECT_URI` | AuthKit callback URL | `http://localhost:3000/auth/callback` locally; exact deployed HTTPS callback in production |
 | `STREETLIGHT_PILOT_WORKOS_ORGANIZATION_ID` | Maps the seeded founder church to WorkOS | Exact WorkOS organization ID for the founder church |
 | `STREETLIGHT_FOUNDER_EMAIL` | Founder-only pilot request review | Optional override; defaults to `bentheurich@gmail.com` |
 
@@ -99,4 +99,58 @@ The support email remains `support@streetlight.example` until Ben selects a real
 See [Phase 11 account review](docs/PHASE_11_ACCOUNT_REVIEW.md) for the recorded checks and preview links.
 
 Production and recovery configuration belongs to Phase 12. Its deployment gate includes the
-approved Google quotas, server-key restrictions, public-request rate control, and restore proof.
+approved Google quotas, server-key restrictions, public-request rate control, and deployed workflow.
+Ben deferred scheduled and off-machine backups for the pilot; configure them and prove recovery
+before a real release.
+
+## Phase 12 production configuration
+
+The repository-root Dockerfile contains the application, importer, and Chromium PDF renderer.
+The approved target is `/home/ben/Projects/Streetlight` on `gb-dev`, published at
+`https://streetlight.bentheurich.com`. Root `compose.yaml` runs the application and `cloudflared`
+on a private Docker network. The tunnel reaches the application's container port 3000; do not
+publish the application port on the host. Keep the existing root and `www` portfolio DNS records.
+
+Store production values in ignored `deploy/.env.local` and the tunnel token in ignored
+`deploy/cloudflared-token`. The token is a secret file for `cloudflared`, not an application
+environment variable. Startup requires a real mount at `/data`, resolves the database path inside
+it, and requires `STREETLIGHT_TRUST_CLOUDFLARE=1`. It applies migrations without seeding before
+starting Next.js.
+
+| Variable | Production value or source |
+|---|---|
+| `STREETLIGHT_DATABASE_PATH` | `/data/streetlight.db`, supplied by the Dockerfile; migration and application use the same path |
+| `PORT` | Container port 3000; reachable only within the Compose network |
+| `STREETLIGHT_TRUST_CLOUDFLARE` | `1` in production; trust Cloudflare's client identity only behind the private tunnel origin |
+| `STREETLIGHT_PYTHON` | `/opt/importer/bin/python`, supplied by the image |
+| `WORKOS_API_KEY`, `WORKOS_CLIENT_ID` | Separate WorkOS production application values in ignored `deploy/.env.local` |
+| `WORKOS_COOKIE_PASSWORD` | Separate random production cookie secret of at least 32 characters |
+| `NEXT_PUBLIC_WORKOS_REDIRECT_URI` | `https://streetlight.bentheurich.com/auth/callback`; set for the image build and runtime, then rebuild if it changes |
+| `GOOGLE_MAPS_BROWSER_API_KEY` | Browser key restricted to `https://streetlight.bentheurich.com/*` and the Maps JavaScript / Places API (New) APIs |
+| `GOOGLE_MAPS_SERVER_API_KEY` | Separate server-only key restricted to the Geocoding API |
+
+Do not put secrets into Docker build arguments or copy local `.env` files into the image.
+Set the founder organization mapping only during explicitly approved initial data preparation;
+normal production startup does not run `db:seed`.
+
+Ben approved 25 daily and 5 per-minute Geocoding requests on September 6, plus a $5 monthly
+Streetlight Google Cloud project budget. Alert thresholds are actual spend at 50%, 90%, and 100%,
+and forecast spend at 100%, sent to `bentheurich@gmail.com`. The budget alerts do not cap charges.
+The v3 quota overrides and project-only budget were saved and verified in `streetlight-503712`.
+The budget includes all Streetlight services and excludes other projects on the billing account.
+Ben also approved zero daily requests for the four unused v4 methods. Those overrides are saved.
+Production key restrictions remain a deployment follow-up.
+The approved server-key IP restriction exception now applies to `gb-dev`'s dynamic home egress.
+Cloudflare Tunnel carries incoming traffic and does not supply a static outbound IP for Google
+requests. The Geocoding API restriction, server-only storage, and approved provider quotas remain
+required. The support-address replacement is deferred at Ben's request.
+
+The public form permits five attempts per IP per fixed UTC hour through Cloudflare Tunnel. It
+trusts only validated `CF-Connecting-IP`, ignores `X-Real-IP` and `X-Forwarded-For`, and returns `429`
+with `Retry-After` above the limit. Missing or malformed trusted identity returns `503`. Keep
+`STREETLIGHT_TRUST_CLOUDFLARE` unset in local previews. Deployed verification must prove that
+client-supplied identity headers cannot bypass the limit.
+
+See [Phase 12 deployment and recovery](docs/PHASE_12_DEPLOYMENT_REVIEW.md) for commands, evidence,
+provider setup, open decisions, and the founder review. Pilot data exists only on `gb-dev`;
+the manual recovery commands do not provide a scheduled or off-machine backup.

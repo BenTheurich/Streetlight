@@ -1,0 +1,44 @@
+name: streetlight
+
+services:
+  web:
+    image: streetlight:pilot
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_WORKOS_REDIRECT_URI: https://streetlight.bentheurich.com/auth/callback
+    restart: unless-stopped
+    init: true
+    env_file: deploy/.env.local
+    environment:
+      NEXT_PUBLIC_WORKOS_REDIRECT_URI: https://streetlight.bentheurich.com/auth/callback
+      STREETLIGHT_TRUST_CLOUDFLARE: "1"
+    volumes:
+      - data:/data
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, node, ../scripts/smoke-production.mjs, "http://127.0.0.1:3000"]
+    logging:
+      driver: local
+
+  cloudflared:
+    image: cloudflare/cloudflared@sha256:51c9cefcb4569df44e1ad403ab1d3d8065aa8e84339bcfc6aee75502e1140339
+    user: "1000:1000"
+    restart: unless-stopped
+    command: [tunnel, --no-autoupdate, run, --token-file, /run/secrets/cloudflared-token]
+    secrets: [cloudflared-token]
+    depends_on:
+      web:
+        condition: service_healthy
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: local
+
+volumes:
+  data:
+
+secrets:
+  cloudflared-token:
+    file: deploy/cloudflared-token

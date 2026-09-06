@@ -1,0 +1,18 @@
+# Send only the application and its build inputs to the builder.
+**
+!Dockerfile
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!web/
+!web/**
+!scripts/
+!scripts/**
+**/node_modules
+**/.next
+**/.env*
+**/.impeccable
+**/__pycache__
+**/*.pyc
+**/*.tsbuildinfo
+web/data
