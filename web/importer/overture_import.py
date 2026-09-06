@@ -5,7 +5,8 @@ import re
 import sys
 import urllib.parse
 import urllib.request
-from contextlib import redirect_stdout
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager, redirect_stdout
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -2163,10 +2164,14 @@ def query_bbox(connection, path, west, south, east, north):
     ]
 
 
-def download_features(longitude: float, latitude: float, radius_miles: float):
+@contextmanager
+def _overture_connection(connection=None):
+    if connection is not None:
+        yield connection
+        return
+
     import duckdb
 
-    west, south, east, north = enclosing_bbox(longitude, latitude, radius_miles)
     connection = duckdb.connect()
     try:
         connection.execute("INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs")
@@ -2174,6 +2179,16 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
         connection.execute("SET s3_access_key_id=''")
         connection.execute("SET s3_secret_access_key=''")
         connection.execute("SET s3_session_token=''")
+        yield connection
+    finally:
+        connection.close()
+
+
+def download_features(
+    longitude: float, latitude: float, radius_miles: float, *, connection=None
+):
+    west, south, east, north = enclosing_bbox(longitude, latitude, radius_miles)
+    with _overture_connection(connection) as connection:
         segments = query_bbox(
             connection,
             f"s3://overturemaps-us-west-2/release/{OVERTURE_RELEASE}/"
@@ -2203,25 +2218,17 @@ def download_features(longitude: float, latitude: float, radius_miles: float):
             north,
         )
         return segments, addresses, buildings
-    finally:
-        connection.close()
 
 
 def download_apartment_areas(
     longitude: float,
     latitude: float,
     radius_miles: float,
+    *,
+    connection=None,
 ):
-    import duckdb
-
     west, south, east, north = enclosing_bbox(longitude, latitude, radius_miles)
-    connection = duckdb.connect()
-    try:
-        connection.execute("INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs")
-        connection.execute("SET s3_region='us-west-2'")
-        connection.execute("SET s3_access_key_id=''")
-        connection.execute("SET s3_secret_access_key=''")
-        connection.execute("SET s3_session_token=''")
+    with _overture_connection(connection) as connection:
         rows = connection.execute(
             f"""
             SELECT id, names, source_tags, ST_AsGeoJSON(geometry)
@@ -2246,8 +2253,17 @@ def download_apartment_areas(
             if (_source_tag_value(source_tags, "residential") or "").casefold()
             == "apartments"
         ]
-    finally:
-        connection.close()
+
+
+def download_overture_features(longitude: float, latitude: float, radius_miles: float):
+    with _overture_connection() as connection:
+        features = download_features(
+            longitude, latitude, radius_miles, connection=connection
+        )
+        apartment_areas = download_apartment_areas(
+            longitude, latitude, radius_miles, connection=connection
+        )
+        return (*features, apartment_areas)
 
 
 def download_fema_features(
@@ -2318,8 +2334,7 @@ def _positive_float(value):
 
 def main(
     argv=None,
-    download=download_features,
-    download_areas=download_apartment_areas,
+    download=download_overture_features,
     download_fema=download_fema_features,
 ):
     parser = argparse.ArgumentParser()
@@ -2332,25 +2347,23 @@ def main(
 
     with redirect_stdout(sys.stderr):
         _report_stage("downloading_streets")
-        roads, addresses, buildings = download(
-            args.longitude,
-            args.latitude,
-            args.radius_miles,
-        )
-        apartment_areas = download_areas(
-            args.longitude,
-            args.latitude,
-            args.radius_miles,
-        )
-        try:
-            fema_buildings = download_fema(
+        with ThreadPoolExecutor(max_workers=1) as downloads:
+            fema_download = downloads.submit(
+                download_fema,
                 args.longitude,
                 args.latitude,
                 args.radius_miles,
             )
-        except (OSError, TimeoutError, ValueError, RuntimeError) as error:
-            print(f"FEMA USA Structures unavailable: {error}", file=sys.stderr)
-            fema_buildings = []
+            roads, addresses, buildings, apartment_areas = download(
+                args.longitude,
+                args.latitude,
+                args.radius_miles,
+            )
+            try:
+                fema_buildings = fema_download.result()
+            except (OSError, TimeoutError, ValueError, RuntimeError) as error:
+                print(f"FEMA USA Structures unavailable: {error}", file=sys.stderr)
+                fema_buildings = []
         _report_stage("matching")
         map_buildings = select_map_buildings(
             addresses,

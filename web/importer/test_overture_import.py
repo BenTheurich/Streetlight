@@ -5,8 +5,9 @@ from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Event
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
 from . import overture_import as importer_module
@@ -2266,6 +2267,56 @@ class BenchmarkMetricsTest(TestCase):
 
 
 class ImportBoundaryTest(TestCase):
+    def test_production_download_reuses_and_closes_one_connection(self):
+        for failure in (None, "INSTALL", "theme=transportation", "theme=base"):
+            with self.subTest(failure=failure):
+                connection = Mock()
+
+                def execute(sql, parameters=None):
+                    if failure and failure in sql:
+                        raise RuntimeError("download failed")
+                    return Mock(fetchall=lambda: [])
+
+                connection.execute.side_effect = execute
+                connect = Mock(return_value=connection)
+                with patch.dict(sys.modules, {"duckdb": Mock(connect=connect)}):
+                    if failure:
+                        with self.assertRaisesRegex(RuntimeError, "download failed"):
+                            importer_module.download_overture_features(0, 0, 1)
+                    else:
+                        result = importer_module.download_overture_features(0, 0, 1)
+                        self.assertEqual(result, ([], [], [], []))
+                        sql = [call.args[0] for call in connection.execute.call_args_list]
+                        self.assertEqual(sum("INSTALL" in item for item in sql), 1)
+                        self.assertEqual(sum("read_parquet" in item for item in sql), 4)
+                connect.assert_called_once_with()
+                connection.close.assert_called_once_with()
+
+    def test_cli_overlaps_fema_with_overture_and_waits_before_matching(self):
+        fema_started = Event()
+        overture_finished = Event()
+        output = StringIO()
+
+        def download(*args):
+            try:
+                self.assertTrue(fema_started.wait(5), "FEMA must start before Overture finishes")
+                return [], [], [], []
+            finally:
+                overture_finished.set()
+
+        def download_fema(*args):
+            fema_started.set()
+            self.assertTrue(overture_finished.wait(5))
+            return [fema_building("fema-home", box(0, 0))]
+
+        with redirect_stdout(output), redirect_stderr(StringIO()):
+            main(
+                ["--longitude", "0", "--latitude", "0", "--radius-miles", "1"],
+                download=download,
+                download_fema=download_fema,
+            )
+        self.assertEqual(json.loads(output.getvalue())["buildingMode"], "overture_fema")
+
     def test_download_apartment_areas_reads_only_explicit_apartment_land_use(self):
         class Result:
             def fetchall(self):
@@ -2584,6 +2635,7 @@ class ImportBoundaryTest(TestCase):
                         ],
                     )
                 ],
+                [],
             )
 
         with redirect_stdout(output), redirect_stderr(diagnostics):
@@ -2597,7 +2649,6 @@ class ImportBoundaryTest(TestCase):
                     "1",
                 ],
                 download=download,
-                download_areas=lambda *_: [],
                 download_fema=lambda *_: [],
             )
 
@@ -2649,8 +2700,8 @@ class ImportBoundaryTest(TestCase):
                     [],
                     [],
                     [building("building-1", "house", box(0, 0))],
+                    [],
                 ),
-                download_areas=lambda *_: [],
                 download_fema=lambda *_: (_ for _ in ()).throw(
                     OSError("service unavailable")
                 ),
