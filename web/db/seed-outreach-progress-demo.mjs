@@ -9,6 +9,8 @@ const territoryId = 'territory-temecula-pilot';
 const weeks = 52;
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
 const earthRadiusMiles = 3958.7613;
+const neighborhoodGridSize = 3;
+const neighborhoodVisitOrder = [1, 5, 7, 3, 2, 6, 0, 8, 4];
 const defaultDemoPath = path.join(import.meta.dirname, '..', 'data', 'outreach-progress-demo.db');
 const canonicalPath = path.join(import.meta.dirname, '..', 'data', 'streetlight.db');
 const coverageDeleteGuard = `CREATE TRIGGER coverage_events_no_delete
@@ -39,13 +41,46 @@ function resolveDemoPath(filename = defaultDemoPath) {
   return resolved;
 }
 
-function geometryDistanceSquared(geometryJson, center) {
+function geometryMidpoint(geometryJson) {
   const coordinates = JSON.parse(geometryJson).coordinates;
-  const midpoint = coordinates[Math.floor(coordinates.length / 2)];
-  const longitudeScale = Math.cos((center.latitude * Math.PI) / 180);
-  const longitudeDelta = (midpoint[0] - center.longitude) * longitudeScale;
-  const latitudeDelta = midpoint[1] - center.latitude;
-  return longitudeDelta * longitudeDelta + latitudeDelta * latitudeDelta;
+  return coordinates[Math.floor(coordinates.length / 2)];
+}
+
+export function orderOutreachProgressSegments(segments) {
+  const positioned = segments.map((segment) => ({
+    ...segment,
+    midpoint: geometryMidpoint(segment.geometry_geojson),
+  }));
+  const longitudes = positioned.map(({ midpoint }) => midpoint[0]);
+  const latitudes = positioned.map(({ midpoint }) => midpoint[1]);
+  const minimumLongitude = Math.min(...longitudes);
+  const maximumLongitude = Math.max(...longitudes);
+  const minimumLatitude = Math.min(...latitudes);
+  const maximumLatitude = Math.max(...latitudes);
+  const longitudeRange = Math.max(maximumLongitude - minimumLongitude, Number.EPSILON);
+  const latitudeRange = Math.max(maximumLatitude - minimumLatitude, Number.EPSILON);
+
+  function neighborhoodIndex([longitude, latitude]) {
+    const column = Math.min(
+      neighborhoodGridSize - 1,
+      Math.floor(((longitude - minimumLongitude) / longitudeRange) * neighborhoodGridSize),
+    );
+    const row = Math.min(
+      neighborhoodGridSize - 1,
+      Math.floor(((maximumLatitude - latitude) / latitudeRange) * neighborhoodGridSize),
+    );
+    return row * neighborhoodGridSize + column;
+  }
+
+  return positioned.sort((first, second) => {
+    const firstVisit = neighborhoodVisitOrder.indexOf(neighborhoodIndex(first.midpoint));
+    const secondVisit = neighborhoodVisitOrder.indexOf(neighborhoodIndex(second.midpoint));
+    return (
+      firstVisit - secondVisit ||
+      first.street_name.localeCompare(second.street_name) ||
+      first.id.localeCompare(second.id)
+    );
+  });
 }
 
 function geometryInsideCircle(geometryJson, center) {
@@ -73,25 +108,26 @@ function seedOutreachProgressDatabase(database, asOf) {
     )
     .get(territoryId, churchId);
   if (!territory) throw new Error('Temecula pilot territory is missing');
-  if (territory.boundary_shape !== 'circle') {
-    throw new Error('Outreach progress demo expects the Temecula circle boundary');
+  if (!['circle', 'square'].includes(territory.boundary_shape)) {
+    throw new Error('Outreach progress demo found an unsupported territory boundary');
   }
 
-  const segments = database
-    .prepare(
-      `SELECT id, street_name, geometry_geojson, estimated_homes
+  const segments = orderOutreachProgressSegments(
+    database
+      .prepare(
+        `SELECT id, street_name, geometry_geojson, estimated_homes
       FROM street_segments
       WHERE church_id = ? AND territory_id = ? AND is_current = 1
         AND activation_kind <> 'hidden' AND manually_excluded = 0
       ORDER BY id`,
-    )
-    .all(churchId, territoryId)
-    .filter((segment) => geometryInsideCircle(segment.geometry_geojson, territory))
-    .map((segment) => ({
-      ...segment,
-      distance: geometryDistanceSquared(segment.geometry_geojson, territory),
-    }))
-    .sort((first, second) => first.distance - second.distance || first.id.localeCompare(second.id));
+      )
+      .all(churchId, territoryId)
+      .filter(
+        (segment) =>
+          territory.boundary_shape === 'square' ||
+          geometryInsideCircle(segment.geometry_geojson, territory),
+      ),
+  );
   if (segments.length < weeks) throw new Error('Outreach progress demo needs at least 52 segments');
 
   const weeklySegments = Array.from({ length: weeks }, () => []);
@@ -187,6 +223,10 @@ export function seedOutreachProgressDemo(
   const database = openDatabase(target);
   try {
     migrateDatabase(database);
+    database.prepare('UPDATE churches SET name = ? WHERE id = ?').run('Test Church', churchId);
+    database
+      .prepare("UPDATE territories SET boundary_shape = 'circle' WHERE id = ? AND church_id = ?")
+      .run(territoryId, churchId);
     return { target, ...seedOutreachProgressDatabase(database, asOf) };
   } finally {
     database.close();

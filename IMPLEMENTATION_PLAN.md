@@ -49,7 +49,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 8 | Pilot access and onboarding | Phase 7 | Complete | Public request persistence, founder-only resumable approval, WorkOS organization/invitation provisioning, first-sign-in onboarding, one-mile setup-only region, and first-save unlock are implemented and founder-approved; 156 Node checks, 51 Python checks, Biome, TypeScript, and a production build pass |
 | 9 | Application UX/UI polish | Phase 8 | Complete | Founder approved the authenticated interface on August 27, 2026; the street workflow remains unchanged and apartments remain absent apart from the quiet Setup placeholder |
 | 10 | Outreach progress and presentation | Phase 9 | Complete | Founder approved the administrator view, unattended presentation loop, and final centered print view on August 27, 2026; the complete repository check passes |
-| 11 | Public trust and access presentation | Phase 10 | Pending | None |
+| 11 | Public trust and access presentation | Phase 10 | Complete | Ben approved the website and Account presentation subject to working administrator management; September 6 real WorkOS staging checks passed email delivery, hosted signup and acceptance, revocation, removal, and immediate denial of the removed session; disposable resources were deleted |
 | 12 | Deployment and recovery | Phase 11 | Pending | None |
 | 13 | Founder-church pilot | Phase 12 | Pending | None |
 
@@ -1081,8 +1081,9 @@ traceable to Streetlight's recorded data. The agent then stops before public tru
 
 ### Goal
 
-Make Streetlight's purpose, operation, price, and special access for the founder church explicit
-before anyone at that church receives the hosted application.
+Prepare Streetlight's public pages for church onboarding and the later public release, and
+make the founder church's special access explicit in its account. Ben's September 6, 2026
+rollout decision defers public pricing and trial messaging until the public-release stage.
 
 ### Agent work
 
@@ -1094,7 +1095,9 @@ before anyone at that church receives the hosted application.
   the landing-page body.
 - Replace customer-facing `Request pilot access` language with `Request access` and describe the
   90-day free trial; retain existing internal pilot-request names and records.
-- Add all three public-page links to the shared navigation only when the complete set is ready.
+- Use `PUBLIC_RELEASE_ENABLED` to show only Home and How it works during church onboarding.
+  Keep access requests available in both stages. Restore all four pages, promotional copy,
+  and full navigation at public release.
 - Frame How it works around keeping the paper workflow while giving it a better memory. Explain the
   real Region Setup, Coverage, Generate, Print, Reconcile, and Outreach Progress workflow with
   approved product screenshots and no new product claims.
@@ -1115,8 +1118,8 @@ before anyone at that church receives the hosted application.
   local membership model.
 - Mark the founder church as **Founding church access** and show: `Streetlight is provided to your
   church at no cost. No payment is required.`
-- Show the standard annual and monthly prices beneath the founding status so administrators can
-  explain that their access is special and Streetlight is not generally free.
+- Keep standard prices off Church account, following Ben's September 6 account review.
+  Public-release prices remain on the Pricing page.
 - Support **Sponsored access** as a separate founder-controlled label for later recipient churches.
 
 Do not add checkout, card collection, subscription webhooks, automatic trial dates, expiration
@@ -1126,9 +1129,12 @@ enforcement, feature gates, usage limits, or a billing-provider dependency in th
 
 - The landing-page body contains no pricing section and its product visuals match the finished
   application.
-- Public copy uses `free trial` and `request access`, not the internal `pilot access` term.
-- How it works, Why Streetlight, and Pricing render publicly with shared navigation.
-- The Pricing page presents `$149 per year` before `$15 per month` and states `90-day free trial`
+- Church onboarding omits trial, credit-card, and pricing messaging. Why Streetlight and Pricing
+  return 404 in this stage. Request access remains in both pages' headers and closing sections,
+  opens a drawer on the current page, and accepts submissions without trial messaging.
+- Public-release copy uses `free trial` and `request access`, not the internal `pilot access` term.
+- All four pages render with shared navigation when public release is enabled.
+- In public-release mode, Pricing presents `$149 per year` before `$15 per month` and states `90-day free trial`
   and `No credit card required`.
 - Public content makes no claims outside `PRODUCT.md` and has accessible headings and links.
 - Account access is derived server-side from the authenticated church.
@@ -1137,7 +1143,7 @@ enforcement, feature gates, usage limits, or a billing-provider dependency in th
 - Invitations are idempotent within one church, pending invitations can be revoked, removing an
   administrator removes only that church membership, and self-removal is rejected.
 - An administrator from one church cannot list, invite, revoke, or remove members of another.
-- The founder church sees the exact approved Founding church access wording and the standard price.
+- The founder church sees the exact approved Founding church access wording.
 - A sponsored test church sees Sponsored access without gaining cross-church access.
 - An ordinary test church cannot see either no-cost access label.
 - Existing administrator workflow and isolation checks continue to pass.
@@ -1150,18 +1156,234 @@ supported desktop and mobile widths. Sign in as the founder church, a sponsored 
 ordinary test church. Inspect each Account state, invite and remove a second administrator, and run
 the unchanged core workflow.
 
+### Public-site steps 1–2 evidence
+
+- On August 28, 2026, the landing page gained the complete public navigation, `Request access`
+  language, the 90-day free-trial explanation, and approved Phase 10 Outreach Progress proof while
+  retaining its existing mission-led structure and keeping pricing out of the body.
+- How it works, Why Streetlight, and Pricing now share one public shell. They cover the six-step
+  workflow, the founder story and `IMG_7042`-derived photograph, real administrator, presentation,
+  proposal-review, and print captures labeled as representative demonstration data, annual-first
+  pricing, sponsored access, the approved FAQ, and the dummy support address
+  `support@streetlight.example`.
+- Biome checks 170 files, TypeScript passes, 321 application Node tests plus seven rendered
+  contracts pass, four Python-runner Node tests pass, all 71 Python importer checks pass, and the
+  production build completes with all three public pages statically generated.
+- Browser review at 1440×1000 and 390×844 verified the landing page and all three public routes,
+  complete shared navigation including Admin login, loaded product imagery, and no horizontal
+  overflow. The Impeccable detector returned no findings and its independent finish review ended
+  with `disposition: ship`.
+- After founder feedback on August 28, the coverage proof uses a production-mode capture of a
+  circular region centered on the church, with one legend and the complete boundary visible.
+  Outreach Progress uses an isolated 52-week `Test Church` demo whose partial year reaches separate
+  neighborhood clusters, shown in a clean headless presentation frame inside a pull-down screen.
+  The lower landing section reveals the heading, coverage map, paper packet, workflow, and
+  projection screen as they enter the viewport. Browser checks covered 1646×838 and 390×844
+  viewports, and the Impeccable detector returned no findings.
+- Phase 11 remains In progress. Church Account, administrator management, and founding and
+  sponsored account-state work have not started and remain behind the founder checkpoint.
+- On September 5, 2026, the supporting pages were refined using the approved landing as visual
+  authority. The six-step guide, founder story, annual-first pricing, full inclusion list, and
+  FAQ retain the approved specification's wording. Tablet clipping is fixed, navigation targets
+  meet the 44px requirement, and complete demo presentation frames replace the statistics-only
+  crops. The presentation and print example now show the same completed demo record.
+- The [supporting-page audit](docs/PUBLIC_SITE_AUDIT_2026-09-05.md) records desktop, tablet, and
+  phone evidence, the independent Impeccable `ship` verdict, 364 passing application tests,
+  four passing Python-launcher tests, 71 passing importer tests, clean lint and TypeScript,
+  and the passing default production build. Hash checks confirm the landing source, stylesheet,
+  script, root page, global styles, and root layout were unchanged by this refinement. The public
+  support address remains undecided. These supporting-page changes await founder review;
+  the existing Phase 11 checkpoint and later work remain unchanged.
+- Ben's follow-up removes public sponsored-access promotion and explanatory screenshot/demo
+  captions, restores church markers in the four captured progress images, and brings the
+  presentation and printed report together. The capture fixture's missing base-map presentation
+  caused the missing marker; operational map code did not need a change.
+- Supporting-page Request access buttons now open the approved form in a native modal drawer on
+  the current page, preserving its URL and scroll position. Smooth scrolling, FAQ expansion and
+  collapse, drawer transitions, and restrained image entrances respect reduced-motion preferences.
+  The landing's only follow-up edit removes its demo-data label; its layout, CSS, and script remain
+  unchanged. These revisions remain within the existing founder review checkpoint.
+- Follow-up checks passed lint, TypeScript, and the isolated production build. Browser checks
+  verified every access trigger on all three built pages at desktop and mobile widths, with no
+  page errors or real submissions. The 376-test run identified one incorrect new test assertion;
+  after correction, all nine tests in that contract file passed. The audit records the evidence
+  and the independent follow-up Impeccable `ship` verdict.
+- At Ben's request, supporting-page paper and presentation motion now follows scroll position
+  directly and reverses when scrolling back. Reduced motion restores the full static images.
+  Three focused browser tests pass; intermediate desktop and phone captures show no overflow.
+  The landing, page layouts, approved copy, FAQ, and access drawer remain unchanged by this step.
+- On September 6, Ben approved a Home link before How it works in the supporting-page navigation.
+  The shared header and footer now include it. All three links return to the landing, verified at
+  320px, 390px, and 1440px. Twelve focused tests, lint, and the isolated production build pass.
+- The current-page navigation link keeps its single amber indicator on hover; only other links
+  gain a text underline. Browser checks cover all three pages at 390px and 1440px; CSS lint passes.
+- Ben removed How it works' introductory product pitch. The page starts with the six-step
+  navigation and the workflow, with a screen-reader page heading. The obsolete hero styles are
+  removed. Twelve focused tests, lint, and the isolated production build pass; all six anchors
+  and the new opening were checked at 390px and 1440px.
+- Ben's next revision removes the horizontal step navigation too and enlarges all six step
+  numbers. The workflow now begins directly below the site header. Numbers scale from 64px on
+  phones to 112px on wide screens. Three focused tests, lint, and the isolated production build
+  pass; captures at 320px, 390px, and 1440px confirm the layout.
+- Ben removed the smaller printed progress image. The presentation now sits centered beneath
+  the section text, up to 960px wide, and keeps its scroll reveal. Three focused tests, lint,
+  and the isolated production build pass; 390px and 1440px captures confirm its centered position.
+- A dotted path now connects all six step numbers, with gaps around the numerals. It realigns
+  after layout changes and stays beside the screenshots on phones. Three focused tests, lint,
+  and the isolated production build pass. Browser checks confirm all five connectors align
+  after resizing between 320px, 390px, 820px, and 1440px; captures are in the workflow-path audit folder.
+- Horizontal workflow dividers now start at the text column, clear of the dotted path. Browser
+  checks confirm alignment at 320px, 390px, 820px, and 1440px; CSS lint passes.
+- Ben's replacement photograph (`IMG_7052.jpg`) now appears on Why Streetlight and Pricing.
+  The 1520×1900 crop is stored as lossless WebP with no resizing or retouching; decoded pixels
+  match the corresponding area of the original. Lint and the isolated production build pass,
+  and browser captures confirm both portraits at 390px and 1440px. The local preview runs on 4180.
+- The three supporting pages now keep their shared navbar at the top while scrolling. Scroll
+  targets use its measured height, including initial mobile fragment links. Three focused tests
+  and lint pass; browser checks at 390px, 820px, and 1440px confirm heading clearance and that
+  the access drawer preserves the current page, scroll position, and focus. Preview 4180 is updated.
+- Ben explicitly approved adding Home to the landing-page navbar. Its active underline remains
+  single on hover, and the navbar switches to two rows at 900px to accommodate all four links.
+  Browser checks cover 320–1440px, including both sides of the breakpoints and navigation back
+  from Why Streetlight. Lint, the landing contract check, and the isolated production build pass.
+- All four public pages now share the home-page footer, including Home, How it works, Why
+  Streetlight, Pricing, and Contact. The original compact typography, spacing, verse treatment,
+  and responsive alignment are retained. Five focused checks, lint, and the isolated production
+  build pass. Browser comparisons at 320–1440px confirm matching styles and working Home links;
+  captures are in the shared-footer audit folder, and preview 4180 is updated.
+- Ben's navigation follow-up replaces inset-shadow indicators with one shared text underline for
+  selected, hovered, and keyboard-focused links. Footer links are centered independently of the
+  wordmark and verse. How it works has no image, scrolling, button, or drawer animation; Why
+  Streetlight and Pricing retain their motion. Three focused tests, lint, and the isolated build
+  pass. Browser checks at 320px, 390px, 820px, and 1440px confirm matching underline geometry,
+  centered footer rows, static workflow images, and immediate drawer transitions. Preview 4180
+  is updated; screenshots are in the chrome-reconciliation audit folder.
+- Ben approved replacing the landing projector's static image with a recording of Outreach
+  Progress. The 56-second silent loop uses the real map renderer and presentation component,
+  shows the full outreach area, and preserves the projector layout and copy. It loads and plays
+  in view, pauses offscreen or when the document is hidden, and respects manual pauses and reduced
+  motion. Five focused tests, lint, the isolated build, and desktop/mobile browser checks pass.
+  Preview 4180 is updated; captures are in the landing-video audit folder.
+- The capture fixture had bypassed `applyMvpCapabilities`, exposing preserved apartment markers.
+  Both capture scripts now apply the same MVP filter as the application. The video and the three
+  presentation screenshots were regenerated; capture assertions verify zero rendered apartment
+  markers and retain the church pin. The application capability flag and stored data are unchanged.
+- The projector has no hover player controls or Play/Pause action, following Ben's correction.
+  Automatic playback, offscreen pausing, and reduced-motion behavior remain intact.
+- Supporting-page Admin login and Request access buttons now match the home page's outlined and
+  solid treatments, dimensions, typography, and hover states. Navigation type, logo sizing, the
+  900px header breakpoint, focus rings, and access-drawer details also match the home-page reference.
+  The shared footer already matched. Three public-page tests, lint, and the isolated build pass;
+  browser comparisons across all four routes at 320–1440px include both sides of the header
+  breakpoint, check for overlaps, and confirm that Request access stays on the current route.
+  Preview 4180 is updated; captures are in the detail-consistency audit folder.
+- Ben approved a two-stage public website on September 6, 2026. `PUBLIC_RELEASE_ENABLED` defaults
+  to `false`, showing Home and How it works with outreach-focused closing sections. Following
+  Ben's correction, Admin login and Request access remain in both headers. Request access remains
+  in both closing sections, and the drawers and request submissions remain available. How it
+  works closes with `Ready to give your outreach map a better memory?`, no subtext, and only
+  Request access. Trial and credit-card copy and
+  release navigation are omitted; Why Streetlight and Pricing return 404. Setting the flag to
+  `true` and rebuilding restores the release pages and copy. Existing church accounts and
+  authentication are unchanged.
+  Checks exercise both flag settings, the retained release pages and drawers, and home video
+  playback. They also caught and corrected an existing mobile drawer offset caused by the reserved
+  scrollbar gutter. Focused checks, lint, and the isolated production build pass. Browser review
+  covers both onboarding pages at 320px, 390px, 820px, and 1440px, including route guards,
+  navigation, centered footers, playback, and the static workflow. Preview 4180 runs onboarding;
+  captures are in the church-onboarding audit folder. Phase 11 remains in progress.
+- Ben selected copy-audit revisions 4–12, 14, and 16, with his exact shortened step-2 paragraph
+  and only the step-3 heading changed. Home's desktop and mobile copy match. Unselected passages
+  and the search description remain intact. Both access drawers now have square close buttons.
+  Four focused checks, lint, and the isolated build pass; browser checks at 320px, 390px, 820px,
+  and 1440px confirm working drawers, square corners, and responsive layout. Preview 4180 is updated.
+- Ben approved the four final Impeccable fixes. Both access forms use the existing muted-color
+  token for input borders, measured at 5.2:1 against the drawer. Phone navigation and header
+  actions now use 12px text. Home preserves access drafts across closing and reopening, ignores
+  clicks inside drawer padding, and displays a retry message for network and non-JSON failures.
+  Ten focused checks pass across onboarding and release modes, including the new Home regression
+  check. Lint and the Impeccable detector pass. Browser checks cover both onboarding pages at seven
+  widths from 320px to 1440px, with twelve intercepted submissions and no JavaScript errors.
+  Preview 4180 serves the updated static assets; captures are in the final-polish audit folder.
+
+### Account and administrator evidence, September 6, 2026
+
+- Ben approved the current public website and authorized the remaining Phase 11 implementation.
+  Phase 10 remains complete. The authenticated menu now links to `/account`, with the church name,
+  access status, administrator roster, and existing support
+  placeholder. The page preserves the operational typography, cream surfaces, and navy controls.
+- Migration `029_church_access.sql` adds only `standard`, `founding`, and `sponsored` church labels.
+  The established founder church is backfilled as founding; new ordinary churches default to
+  standard. Labels are read server-side from the authenticated church and have no effect on product
+  capabilities. No billing, trial timing, access expiration, or client-controlled label update exists.
+- WorkOS supplies active administrators and pending invitations. The server derives the organization
+  from the session, validates current membership, normalizes invitation email, prevents duplicate
+  pending invitations, and confines revocation and removal to that church. Self-removal is rejected.
+  The shared session loader also checks current WorkOS membership, preventing removed administrators
+  from retaining core workflow access through an unexpired session token.
+- The canonical `pnpm check` passed in an isolated source copy: 397 application tests, four Python
+  launcher tests, 71 importer tests, lint across 202 files, TypeScript, and the default production
+  build. Tests use fake WorkOS responses and disposable databases.
+- Browser verification at 320px, 390px, 820px, and 1440px passed for the three access states, menu,
+  keyboard focus, duplicate submission, invitation, revocation, removal, retry, draft preservation,
+  and reduced motion. No horizontal overflow or JavaScript errors occurred. A separate isolated
+  browser workflow generated and finalized a packet, downloaded its one-page PDF, reconciled it,
+  and returned through Coverage and Outreach Progress to Account.
+- The Impeccable detector returned no findings. Its independent finish reviewer returned
+  `disposition: ship`, with no material fixes. The new route brief records the existing design fit;
+  `DESIGN.md` and its sidecar are unchanged.
+- The [account review record](docs/PHASE_11_ACCOUNT_REVIEW.md) contains evidence, isolated preview
+  links, and exact human-review steps. Daily-driver databases, environment files, existing build
+  output, preview 4180, and live WorkOS memberships/invitations were untouched. The actual second
+  administrator invitation/removal remains a founder-run staging check. Ben will decide the email
+  during review. Phase 11 awaits that review; Phase 12 has not started.
+- Ben's account review removes the standard-price line from all three access states. Its unused
+  CSS and obsolete price assertion are removed; the public Pricing page is unchanged. All 21 focused
+  account, administrator, and authentication tests pass, along with lint and the isolated production
+  build. Browser checks confirm all three states at 390px and 1440px; preview 4201 is updated.
+
+### September 6 real WorkOS staging verification
+
+Ben approved the Account presentation subject to the functionality working, then authorized an
+agent-run check with 10 Minute Mail and disposable test credentials. The check used the unchanged
+application source in `tmp/phase11-workos-staging-20260906`, a fresh seeded SQLite database, and a
+separate WorkOS staging organization. Ben's password was not used.
+
+- Account sent a real invitation that arrived in 10 Minute Mail. Revoking it removed the pending
+  row, and opening its email link in a separate browser session showed `Invalid invitation`.
+- A fresh invitation completed the hosted name/password signup and AuthKit callback. The invited
+  administrator opened Coverage and Account; WorkOS reported an accepted invitation and active
+  membership, and both administrators saw the updated roster.
+- Removing the invited administrator through Account preserved the WorkOS user and removed only
+  the church membership. With the invited browser still signed in, its next Account request returned
+  404; administrator and Coverage API requests returned 403. The original test administrator retained
+  access.
+- Both test sessions signed out. The disposable organization and both test users were deleted;
+  follow-up reads returned 404. The existing founder organization retained its original membership.
+
+The live checks required no application changes. With Ben's conditional approval satisfied,
+Phase 11 is complete. The support-email choice remains a pre-release follow-up. Phase 12 has not
+started. Detailed evidence is in [Phase 11 account review](docs/PHASE_11_ACCOUNT_REVIEW.md).
+
+Ben subsequently authorized staging AuthKit and email branding, including the favicon. The saved
+branding uses the original high-resolution lamp, Streetlight colors, and matching AuthKit controls.
+Desktop and phone checks, all three email previews, a delivered Gmail invitation, and scoped CSS
+lint passed. Ben approved the branding and Phase 11 closeout. He also approved deletion of the
+separate Gmail test organization; its absence was verified in WorkOS. Phase 12 remains pending.
+Configuration and cleanup evidence are recorded in the account review.
+
 ### Human review
 
 The founder approves the landing-page visuals, public content, photograph, pricing explanation,
 support boundary, and the founder church's Account presentation. A founder-church administrator
-invites and removes a second administrator, then confirms that the interface makes both facts
-clear: their church pays nothing, and Streetlight is normally a paid product.
+invites and removes a second administrator, then confirms that the interface clearly states that
+their church pays nothing. Public pricing is reviewed on the public-release Pricing page.
 
 ### Completion condition
 
 The founder approves every public page, the administrator-management flow, and the founding and
-sponsored access presentation. The founder-church administrator understands the access and pricing
-distinction without an explanatory conversation. The agent then stops before deployment work.
+sponsored access presentation. The founder-church administrator understands their church's access
+state without an explanatory conversation. The agent then stops before deployment work.
 
 ## Phase 12: Deployment and recovery
 

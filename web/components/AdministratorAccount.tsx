@@ -8,6 +8,7 @@ export function AdministratorAccount({
   return (
     <div className="administrator-account">
       <button
+        aria-label={`Administrator menu for ${email}`}
         aria-haspopup="menu"
         className="administrator-account-trigger"
         popoverTarget="administrator-account-menu"
@@ -38,6 +39,9 @@ export function AdministratorAccount({
       >
         <span>Signed in as</span>
         <strong>{email}</strong>
+        <a href="/account" role="menuitem">
+          Account
+        </a>
         {pendingPilotRequests !== null && (
           <a href="/pilot-requests" role="menuitem">
             Pilot requests

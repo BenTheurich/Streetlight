@@ -1,12 +1,19 @@
 import Image from 'next/image';
 import Script from 'next/script';
 import type { ImgHTMLAttributes } from 'react';
+import {
+  PUBLIC_ACCESS_DESCRIPTION,
+  PUBLIC_NAVIGATION,
+  PUBLIC_RELEASE_ENABLED,
+} from '@/lib/public-site';
+import { PublicSiteFooter } from './PublicSiteFooter';
 
 export function PublicLanding() {
   return (
     <>
       <link rel="preload" href="/landing/streetlamp-dark-v2.webp" as="image" type="image/webp" />
       <link rel="stylesheet" href="/landing/spread-the-light-v2.css" />
+      <link rel="stylesheet" href="/landing/public-site-chrome.css" />
       <a className="skip-link" href="#product-overview">
         Skip to product overview
       </a>
@@ -33,14 +40,25 @@ export function PublicLanding() {
           </span>
           <span>STREETLIGHT</span>
         </a>
-        <nav className="top-actions" aria-label="Account">
+        <nav className="public-nav-links public-site-nav" aria-label="Public pages">
+          {PUBLIC_NAVIGATION.map((item) => (
+            <a
+              href={item.href}
+              key={item.id}
+              aria-current={item.id === 'home' ? 'page' : undefined}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+        <div className="top-actions">
           <a className="button button-outline" href="/login">
             Admin login
           </a>
           <button className="button button-solid" type="button" data-pilot-open>
-            Request pilot access
+            Request access
           </button>
-        </nav>
+        </div>
       </header>
 
       <main id="top">
@@ -111,8 +129,8 @@ export function PublicLanding() {
                   to every street.
                 </h1>
                 <p>
-                  Streetlight helps your church see where outreach has reached, find the streets
-                  still waiting, and put the next clear assignment into a volunteer’s hands.
+                  Streetlight helps your church see which streets have received outreach, find those
+                  still waiting, and prepare printed maps for volunteers.
                 </p>
               </div>
               <div className="hero-escape">
@@ -146,8 +164,7 @@ export function PublicLanding() {
                 </>
               }
             >
-              The streets waiting longest rise first—before familiar neighborhoods are covered
-              again.
+              Streetlight starts new packets with the streets that have waited longest for outreach.
             </StoryStep>
             <StoryStep
               className="anchor-left anchor-light-copy"
@@ -161,8 +178,8 @@ export function PublicLanding() {
                 </>
               }
             >
-              Streetlight groups connected streets into practical packets, sized for the tracts your
-              church is ready to send.
+              Streetlight groups connected streets into packets based on the approximate number of
+              homes you choose.
             </StoryStep>
             <StoryStep
               className="anchor-right anchor-light-copy"
@@ -176,7 +193,8 @@ export function PublicLanding() {
                 </>
               }
             >
-              Volunteers take one sheet, one bundle, and one complete area to cover.
+              Volunteers take a printed map and the matching tracts to cover the streets marked on
+              it.
             </StoryStep>
           </div>
         </section>
@@ -192,8 +210,8 @@ export function PublicLanding() {
                 to every street.
               </h1>
               <p>
-                Streetlight helps your church see where outreach has reached, find the streets still
-                waiting, and put the next clear assignment into a volunteer’s hands.
+                Streetlight helps your church see which streets have received outreach, find those
+                still waiting, and prepare printed maps for volunteers.
               </p>
               <span className="compact-scroll">SCROLL TO FOLLOW THE LIGHT ↓</span>
             </div>
@@ -207,12 +225,11 @@ export function PublicLanding() {
               className="compact-beat-waiting"
               title="Bring forgotten streets back into view."
             >
-              The streets waiting longest rise first—before familiar neighborhoods are covered
-              again.
+              Streetlight starts new packets with the streets that have waited longest for outreach.
             </CompactBeat>
             <CompactBeat title="Turn need into clear assignments.">
-              Streetlight groups connected streets into practical packets, sized for the tracts your
-              church is ready to send.
+              Streetlight groups connected streets into packets based on the approximate number of
+              homes you choose.
             </CompactBeat>
             <article className="compact-beat compact-beat-packet">
               <figure>
@@ -231,14 +248,17 @@ export function PublicLanding() {
                   <br />
                   Set out the tracts.
                 </h2>
-                <p>Volunteers take one sheet, one bundle, and one complete area to cover.</p>
+                <p>
+                  Volunteers take a printed map and the matching tracts to cover the streets marked
+                  on it.
+                </p>
               </div>
             </article>
           </div>
         </section>
 
         <section className="product-overview" id="product-overview">
-          <header className="overview-heading">
+          <header className="overview-heading" data-reveal="overview-heading">
             <h2>One clear path from the coverage map to the outreach table.</h2>
             <p>
               Streetlight keeps the planning with the administrator and the fieldwork on paper.
@@ -246,27 +266,17 @@ export function PublicLanding() {
             </p>
           </header>
           <div className="proof-composition">
-            <figure className="coverage-proof">
+            <figure className="coverage-proof" data-reveal="coverage">
               <Image
-                src="/landing/coverage-map-v2.webp"
+                src="/landing/coverage-map-circle.webp"
                 sizes="(max-width: 760px) calc(100vw - 40px), min(73vw, 1029px)"
-                width={768}
-                height={498}
+                width={1314}
+                height={836}
                 loading="lazy"
-                alt="A Streetlight coverage map with older streets in red and a connected packet highlighted in blue"
+                alt="A Streetlight coverage map centered on the church, with streets colored by time since outreach"
               />
-              <figcaption>
-                <span>
-                  <i className="key-overdue" />
-                  Longest waiting
-                </span>
-                <span>
-                  <i className="key-packet" />
-                  Proposed packet
-                </span>
-              </figcaption>
             </figure>
-            <figure className="packet-proof">
+            <figure className="packet-proof" data-reveal="packet">
               <Image
                 src="/landing/packet-page-v2.webp"
                 sizes="(max-width: 760px) min(calc(78vw - 31px), 320px), min(30vw, 350px)"
@@ -278,14 +288,14 @@ export function PublicLanding() {
               <figcaption>One volunteer assignment. One printed page.</figcaption>
             </figure>
           </div>
-          <ol className="workflow">
+          <ol className="workflow" data-reveal="workflow">
             <li>
               <strong>Coverage</strong>
               <p>See how long each street has waited since the last recorded outreach.</p>
             </li>
             <li>
               <strong>Generate</strong>
-              <p>Prepare connected packets from the oldest eligible streets first.</p>
+              <p>Prepare packets starting with streets that have older or no recorded outreach.</p>
             </li>
             <li>
               <strong>Print</strong>
@@ -293,9 +303,41 @@ export function PublicLanding() {
             </li>
             <li>
               <strong>Reconcile</strong>
-              <p>Record which sheets were taken so the next coverage map remembers the work.</p>
+              <p>
+                Check which paper packets are still on the table, then confirm the others as
+                completed.
+              </p>
             </li>
           </ol>
+          <figure className="outreach-progress-proof" data-reveal="progress">
+            <div className="progress-projector">
+              <span className="projector-glow" />
+              <span className="projector-housing" />
+              <div className="projector-screen">
+                <video
+                  aria-label="Outreach progress over the past year"
+                  src="/landing/outreach-progress-presentation.mp4"
+                  poster="/landing/outreach-progress-presentation-poster.webp"
+                  width={1600}
+                  height={800}
+                  loop
+                  muted
+                  playsInline
+                  preload="none"
+                >
+                  Completed outreach lights up across the map over the course of a year.
+                </video>
+              </div>
+              <span className="projector-rail" />
+              <span className="projector-pull" />
+            </div>
+            <figcaption>
+              <strong>Outreach Progress</strong>
+              <span>
+                Let the church watch completed outreach spread from neighborhood to neighborhood.
+              </span>
+            </figcaption>
+          </figure>
         </section>
 
         <section className="closing">
@@ -306,42 +348,37 @@ export function PublicLanding() {
             <br />
             be forgotten.
           </h2>
+          {PUBLIC_RELEASE_ENABLED && (
+            <p className="closing-trial-note">90-day free trial. No credit card required.</p>
+          )}
           <div className="close-actions">
             <a className="button button-outline" href="/login">
               Admin login
             </a>
             <button className="button button-solid" type="button" data-pilot-open>
-              Request pilot access
+              Request access
             </button>
           </div>
         </section>
       </main>
 
-      <footer className="site-footer">
-        <span>STREETLIGHT</span>
-        <p className="site-footer-verse">
-          Ye are the light of the world. <cite>Matthew 5:14</cite>
-        </p>
-      </footer>
+      <PublicSiteFooter />
 
       <dialog className="pilot-drawer" id="pilot-dialog" aria-labelledby="pilot-dialog-title">
         <button
           className="drawer-close"
           type="button"
           data-pilot-close
-          aria-label="Close pilot request"
+          aria-label="Close access request"
         >
           ×
         </button>
         <div className="drawer-body">
           <div className="drawer-heading">
             <h2 id="pilot-dialog-title" tabIndex={-1}>
-              Request pilot access
+              Request access
             </h2>
-            <p>
-              Tell us a little about your church. This requests a conversation; it does not create
-              an account or start a paid plan.
-            </p>
+            <p>{PUBLIC_ACCESS_DESCRIPTION}</p>
           </div>
           <form className="drawer-form">
             <DrawerField
@@ -381,7 +418,7 @@ export function PublicLanding() {
             </div>
             <p className="drawer-error" role="alert" hidden />
             <button className="button drawer-submit" type="submit">
-              Request pilot access
+              Request access
             </button>
           </form>
           <div className="drawer-success" role="status" aria-live="polite" hidden>

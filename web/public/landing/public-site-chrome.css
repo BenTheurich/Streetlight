@@ -1,0 +1,81 @@
+.public-site-nav a:is(:hover, :focus-visible, [aria-current="page"]) {
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+  text-decoration-skip-ink: none;
+}
+
+.site-footer {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  padding: 18px clamp(24px, 5vw, 78px);
+  color: var(--ink);
+  border-top: 1px solid rgba(16, 26, 41, 0.2);
+  background: var(--paper);
+  font-family: "Trebuchet MS", Arial, sans-serif;
+  line-height: normal;
+}
+
+.site-footer > span {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+}
+
+.site-footer .site-footer-verse {
+  justify-self: end;
+  text-align: right;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: normal;
+}
+
+.site-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 24px;
+}
+
+.site-footer .site-footer-links a {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: auto;
+  text-decoration-thickness: auto;
+}
+
+.site-footer-verse cite {
+  margin-left: 8px;
+  color: #925311;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .site-footer {
+    min-height: 100px;
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .site-footer-links {
+    align-self: stretch;
+  }
+
+  .site-footer .site-footer-verse {
+    text-align: left;
+  }
+}

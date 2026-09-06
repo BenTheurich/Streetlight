@@ -47,11 +47,31 @@ Preserve the database once it contains church work. Phase 12 owns backup and res
 The Overture import needs network access but no API key. It uses `python` by default.
 Set `STREETLIGHT_PYTHON` only when `python` is not the desired executable.
 
+## Public website rollout
+
+Set `PUBLIC_RELEASE_ENABLED` in [web/lib/public-site.ts](web/lib/public-site.ts), then rebuild
+and restart locally, or deploy the new build when releasing the site.
+
+- `false`, the default, shows Home and How it works for church onboarding. Admin login,
+  Request access in both headers and closing sections, access forms, and the product
+  demonstrations remain. How it works has only Request access in its closing section.
+  Pricing, trial and credit-card copy, and the Why Streetlight and
+  Pricing routes are unavailable.
+- `true` restores all four pages, full navigation, and the approved release copy.
+
+The flag does not change church accounts or administrator permissions. Both versions of the
+public site are viewable without signing in.
+
 ## Administrator workspace
 
 Signed-out visitors see the public site at `http://localhost:3000/`. After sign-in, configured
 churches use one persistent workspace at the same address. Coverage, Packets, Outreach Progress,
 and Setup are tools inside it. Region configuration and printout settings live in Setup.
+
+The administrator menu links to **Account** at `/account`. It shows the church's access label and
+its WorkOS administrator roster. Administrators may invite another full administrator, revoke a
+pending invitation, or remove another administrator. Self-removal is blocked. Founding and sponsored
+labels describe no-cost access; billing and trial enforcement remain deferred.
 
 Store local Google Maps and WorkOS configuration in the ignored `web/.env.local` file. Next.js
 loads it for the application, and the seed command uses the same location. For maps:

@@ -4,7 +4,7 @@
 
 Status: approved founder direction  
 Approved: 2026-07-27
-Updated: 2026-08-27
+Updated: 2026-09-06
 
 ## Platform
 
@@ -37,9 +37,10 @@ The application is for administrators. Volunteers continue using paper. They do 
 
 The first church is the founder's church. The product should support other churches without changing the core data model, but public signup is not part of the first release.
 
-Visitors may request access from the public landing page. A request does not create an account.
+Visitors may request access from any available public page in either rollout stage. The access drawer opens on the current page
+without navigating to the landing page. A request does not create an account.
 The founder reviews requests and manually invites approved church administrators. Public copy
-describes the 90-day free trial; `pilot` remains an internal implementation and rollout term.
+describes the 90-day free trial only in the public-release stage; `pilot` remains an internal implementation and rollout term.
 
 When signed out, `/` shows the approved public landing page. When signed in to a configured
 church, `/` shows the persistent administrator map workspace. The final
@@ -534,9 +535,29 @@ Excluded:
 - Partial packet completion
 - AI of any kind
 
+## Public website rollout
+
+The public website opens in two stages, approved by Ben on September 6, 2026.
+One code flag, `PUBLIC_RELEASE_ENABLED` in `web/lib/public-site.ts`, selects the stage.
+Changing it requires rebuilding and deploying the application.
+
+- **Church onboarding, `false` by default.** Show Home and How it works, with only those page
+  links in the header and footer. Keep Admin login, Request access in the header and closing
+  section of both pages, and the existing product demonstrations. Keep the access drawer and
+  request submissions available, with no trial or credit-card language. Omit pricing copy and
+  use a simple outreach-focused closing section. How it works closes with `Ready to give your
+  outreach map a better memory?`, no subtext, and only `Request access`. Why Streetlight and
+  Pricing return 404.
+- **Public release, `true`.** Restore all four pages, full navigation and footer links, the
+  approved promotional copy. Access requests continue to open on the current page.
+
+The flag changes public pages and promotional copy. It does not change request intake, church accounts,
+administrator authentication, workspace access, or payment behavior. The church-onboarding
+site remains publicly viewable; administrator access remains invite-only.
+
 ## Pricing direction
 
-Before the founder church receives the hosted application, Streetlight publicly presents one paid
+In the public-release stage, Streetlight publicly presents one paid
 plan at **$149 per year** or **$15 per month**. Annual billing appears first. The amounts remain
 subject to an explicit founder revision after real pilot cost and support evidence, but Streetlight
 does not imply that the product is generally free while that evidence is collected.
@@ -553,19 +574,26 @@ The founder church receives **Founding church access**. Its account states exact
 >
 > Streetlight is provided to your church at no cost. No payment is required.
 
+Church account shows the access label and applicable no-payment wording without standard prices,
+following Ben's September 6 account review. Public-release pricing remains on the Pricing page.
+
 The founder may grant **Sponsored access** to another church at personal discretion. Founding and
 sponsored churches receive the same product as paying churches. Streetlight may later publish a
 truthful aggregate sponsored-church count, but it does not identify a recipient, collect its
 membership for this purpose, or claim that one subscriber funds a precise share of another
 church's access.
 
-The public landing page contains no pricing section. Once How it works and Why Streetlight are
-available, navigation links to a separate Pricing page containing the annual and monthly prices,
-trial terms, email-support boundary, sponsored-access explanation, FAQs, and a signed founder note
+The public landing page contains no pricing section. In the public-release stage,
+navigation links to a separate Pricing page containing the annual and monthly prices,
+trial terms, email-support boundary, FAQs, and a signed founder note
 with a photograph. Follow the approved
 [`Public site, trial, and subscription experience`](docs/superpowers/specs/2026-08-04-public-site-trial-subscription-design.md).
 
-Pricing and access presentation precede the founder-church handoff. Payment collection,
+The public site does not promote sponsored access or display explanatory screenshot captions and
+demo-data labels. The early, middle, and completed labels identify the yearly presentation frames.
+These public-copy decisions do not change the founder's ability to grant sponsored access.
+
+Public pricing and trial presentation wait until the public-release stage. Payment collection,
 subscription automation, trial expiration, and paid access enforcement remain excluded until the
 product works for the founder church and the founder explicitly starts that later work.
 
