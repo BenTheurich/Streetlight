@@ -20,8 +20,8 @@ export function seedDatabase(
     database
       .prepare(
         `INSERT OR IGNORE INTO churches
-          (id, name, onboarding_completed_at)
-        VALUES (?, ?, CURRENT_TIMESTAMP)`,
+          (id, name, onboarding_completed_at, access_kind)
+        VALUES (?, ?, CURRENT_TIMESTAMP, 'founding')`,
       )
       .run(churchId, 'Temecula Pilot Church');
     database

@@ -7,6 +7,59 @@ const aura = story.querySelector('.anchor-aura');
 const daylight = story.querySelector('.anchor-daylight');
 const map = story.querySelector('.anchor-map');
 const packet = story.querySelector('.anchor-paper');
+const overviewHeading = document.querySelector('[data-reveal="overview-heading"]');
+const proofComposition = document.querySelector('.proof-composition');
+const coverageProof = document.querySelector('[data-reveal="coverage"]');
+const coverageImage = coverageProof?.querySelector('img');
+const packetProof = document.querySelector('[data-reveal="packet"]');
+const workflow = document.querySelector('[data-reveal="workflow"]');
+const workflowItems = [...(workflow?.querySelectorAll('li') ?? [])];
+const progressProof = document.querySelector('[data-reveal="progress"]');
+const projectorGlow = progressProof?.querySelector('.projector-glow');
+const projectorHousing = progressProof?.querySelector('.projector-housing');
+const projectorScreen = progressProof?.querySelector('.projector-screen');
+const projectorRail = progressProof?.querySelector('.projector-rail');
+const projectorPull = progressProof?.querySelector('.projector-pull');
+const projectorCaption = progressProof?.querySelector('figcaption');
+const progressVideo = projectorScreen?.querySelector('video');
+if (progressVideo) {
+  let visible = false;
+  let reducedVideoMotion = reduceMotion.matches;
+
+  function syncVideoPlayback() {
+    if (visible && !document.hidden && !reducedVideoMotion) {
+      progressVideo.play().catch(() => {});
+    } else {
+      progressVideo.pause();
+    }
+  }
+
+  new IntersectionObserver(
+    ([entry]) => {
+      visible = entry.isIntersecting && entry.intersectionRatio >= 0.25;
+      syncVideoPlayback();
+    },
+    { threshold: 0.25 },
+  ).observe(progressVideo);
+  document.addEventListener('visibilitychange', syncVideoPlayback);
+  window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', (event) => {
+    reducedVideoMotion = event.matches;
+    syncVideoPlayback();
+  });
+}
+const secondaryMotionElements = [
+  overviewHeading,
+  coverageProof,
+  coverageImage,
+  packetProof,
+  ...workflowItems,
+  projectorGlow,
+  projectorHousing,
+  projectorScreen,
+  projectorRail,
+  projectorPull,
+  projectorCaption,
+].filter(Boolean);
 const pilotDialog = document.querySelector('#pilot-dialog');
 const pilotHeading = document.querySelector('#pilot-dialog-title');
 const pilotForm = document.querySelector('.drawer-form');
@@ -16,6 +69,7 @@ const pilotMessage = document.querySelector('[data-pilot-message]');
 const motion = { current: 0, target: 0 };
 let animationFrame = 0;
 let measureRequested = false;
+let previousSecondaryFrame = null;
 let pilotOpener = null;
 let pilotScroll = 0;
 
@@ -29,6 +83,16 @@ function easeOut(value) {
 
 function mix(from, to, amount) {
   return from + (to - from) * amount;
+}
+
+function viewportProgress(element, start = 0.94, finish = 0.5) {
+  if (!element) return 1;
+  const viewportPosition = element.getBoundingClientRect().top / Math.max(1, window.innerHeight);
+  return clamp((start - viewportPosition) / (start - finish));
+}
+
+function stagedProgress(progress, start, duration) {
+  return easeOut(clamp((progress - start) / duration));
 }
 
 function dynamicStoryEnabled() {
@@ -45,12 +109,16 @@ function updateStep(progress) {
 }
 
 function measureStory() {
-  if (!dynamicStoryEnabled()) {
+  const enabled = dynamicStoryEnabled();
+  if (enabled) {
+    const rect = story.getBoundingClientRect();
+    motion.target = clamp(-rect.top / Math.max(1, rect.height - window.innerHeight));
+  }
+  renderSecondaryMotion();
+  if (!enabled) {
     document.body.classList.remove('is-daylight');
     return;
   }
-  const rect = story.getBoundingClientRect();
-  motion.target = clamp(-rect.top / Math.max(1, rect.height - window.innerHeight));
   updateStep(motion.target);
 }
 
@@ -75,6 +143,93 @@ function render(progress) {
   map.style.transform = `scale(${mix(0.95, 1, mapAppears).toFixed(3)}) translateY(${mix(34, 0, mapAppears).toFixed(1)}px)`;
   packet.style.opacity = packetAppears.toFixed(3);
   packet.style.transform = `translate3d(0, ${mix(125, 0, packetAppears).toFixed(1)}%, 0) rotate(${mix(-6, -2, packetAppears).toFixed(2)}deg)`;
+}
+
+function renderSecondaryMotion() {
+  if (reduceMotion.matches) {
+    if (previousSecondaryFrame === null) return;
+    secondaryMotionElements.forEach((element) => {
+      element.style.removeProperty('opacity');
+      element.style.removeProperty('transform');
+      element.style.removeProperty('clip-path');
+    });
+    previousSecondaryFrame = null;
+    return;
+  }
+
+  const headingProgress = easeOut(viewportProgress(overviewHeading, 0.95, 0.55));
+  const proofProgress = viewportProgress(proofComposition, 1, 0.12);
+  const coverageProgress = easeOut(clamp(proofProgress / 0.75));
+  const packetProgress = stagedProgress(proofProgress, 0.34, 0.6);
+  const workflowProgress = viewportProgress(workflow);
+  const projectorProgress = viewportProgress(progressProof, 1.02, 0.02);
+  const projectorScreenHeight = projectorScreen?.offsetHeight ?? 0;
+  const frame = [
+    headingProgress,
+    proofProgress,
+    workflowProgress,
+    projectorProgress,
+    projectorScreenHeight,
+  ];
+  if (previousSecondaryFrame?.every((value, index) => value === frame[index])) return;
+  previousSecondaryFrame = frame;
+
+  if (overviewHeading) {
+    overviewHeading.style.opacity = headingProgress.toFixed(3);
+    overviewHeading.style.transform = `translate3d(0, ${mix(32, 0, headingProgress).toFixed(1)}px, 0)`;
+  }
+  if (coverageProof) {
+    coverageProof.style.opacity = mix(0.15, 1, coverageProgress).toFixed(3);
+    coverageProof.style.clipPath = `circle(${mix(10, 100, proofProgress).toFixed(2)}% at 50% 50%)`;
+    coverageProof.style.transform =
+      `translate3d(${mix(-76, 0, coverageProgress).toFixed(1)}px, ${mix(32, 0, coverageProgress).toFixed(1)}px, 0) ` +
+      `scale(${mix(0.955, 1, coverageProgress).toFixed(3)})`;
+  }
+  if (coverageImage)
+    coverageImage.style.transform = `scale(${mix(1.08, 1, proofProgress).toFixed(3)})`;
+  if (packetProof) {
+    packetProof.style.opacity = packetProgress.toFixed(3);
+    packetProof.style.transform =
+      `translate3d(${mix(140, 0, packetProgress).toFixed(1)}px, ${mix(96, 0, packetProgress).toFixed(1)}px, 0) ` +
+      `rotate(${mix(9, 2, packetProgress).toFixed(2)}deg) scale(${mix(0.92, 1, packetProgress).toFixed(3)})`;
+  }
+  workflowItems.forEach((item, index) => {
+    const itemProgress = stagedProgress(workflowProgress, index * 0.06, 1 - index * 0.06);
+    item.style.opacity = itemProgress.toFixed(3);
+    item.style.transform = `translate3d(0, ${mix(24, 0, itemProgress).toFixed(1)}px, 0)`;
+  });
+
+  const frameProgress = stagedProgress(projectorProgress, 0, 0.22);
+  const screenProgress = clamp((projectorProgress - 0.06) / 0.8);
+  const glowProgress = easeOut(screenProgress);
+  const detailProgress = stagedProgress(projectorProgress, 0.36, 0.52);
+  const pullProgress = stagedProgress(projectorProgress, 0.48, 0.36);
+  const screenTravel = mix(-projectorScreenHeight, 0, screenProgress);
+
+  if (projectorHousing) {
+    projectorHousing.style.opacity = frameProgress.toFixed(3);
+    projectorHousing.style.transform = `translate3d(0, ${mix(-22, 0, frameProgress).toFixed(1)}px, 0)`;
+  }
+  if (projectorScreen) {
+    projectorScreen.style.opacity = mix(0.35, 1, screenProgress).toFixed(3);
+    projectorScreen.style.clipPath = `inset(0 0 ${mix(100, 0, screenProgress).toFixed(2)}% 0)`;
+  }
+  if (projectorGlow) {
+    projectorGlow.style.opacity = glowProgress.toFixed(3);
+    projectorGlow.style.transform = `scale(${mix(0.65, 1, glowProgress).toFixed(3)})`;
+  }
+  if (projectorRail) {
+    projectorRail.style.opacity = frameProgress.toFixed(3);
+    projectorRail.style.transform = `translate3d(0, ${screenTravel.toFixed(1)}px, 0)`;
+  }
+  if (projectorCaption) {
+    projectorCaption.style.opacity = detailProgress.toFixed(3);
+    projectorCaption.style.transform = `translate3d(0, ${mix(28, 0, detailProgress).toFixed(1)}px, 0)`;
+  }
+  if (projectorPull) {
+    projectorPull.style.opacity = pullProgress.toFixed(3);
+    projectorPull.style.transform = `translate3d(-50%, ${screenTravel.toFixed(1)}px, 0)`;
+  }
 }
 
 function requestFrame() {
@@ -104,16 +259,11 @@ function resetPresentation() {
 }
 
 function openPilot(event) {
-  pilotOpener = event.currentTarget;
+  pilotOpener = event?.currentTarget ?? null;
   pilotScroll = window.scrollY;
-  pilotForm.hidden = false;
-  pilotForm.reset();
-  pilotSuccess.hidden = true;
-  pilotError.hidden = true;
-  pilotError.textContent = '';
   pilotDialog.showModal();
   document.body.classList.add('drawer-open');
-  pilotHeading.focus();
+  pilotHeading.focus({ preventScroll: true });
 }
 
 function closePilot() {
@@ -121,7 +271,16 @@ function closePilot() {
   pilotDialog.close();
   document.body.classList.remove('drawer-open');
   window.scrollTo({ top: pilotScroll, behavior: 'instant' });
-  pilotOpener?.focus();
+  const currentUrl = new URL(window.location.href);
+  if (currentUrl.searchParams.get('request') === 'access') {
+    currentUrl.searchParams.delete('request');
+    window.history.replaceState(
+      {},
+      '',
+      `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+    );
+  }
+  pilotOpener?.focus({ preventScroll: true });
 }
 
 document.querySelectorAll('[data-pilot-open]').forEach((button) => {
@@ -132,35 +291,48 @@ document.querySelectorAll('[data-pilot-close]').forEach((button) => {
   button.addEventListener('click', closePilot);
 });
 
-pilotDialog.addEventListener('cancel', (event) => {
+pilotDialog?.addEventListener('cancel', (event) => {
   event.preventDefault();
   closePilot();
 });
 
-pilotDialog.addEventListener('click', (event) => {
-  if (event.target === pilotDialog) closePilot();
+pilotDialog?.addEventListener('click', (event) => {
+  const bounds = pilotDialog.getBoundingClientRect();
+  if (
+    event.target === pilotDialog &&
+    (event.clientX < bounds.left ||
+      event.clientX > bounds.right ||
+      event.clientY < bounds.top ||
+      event.clientY > bounds.bottom)
+  ) {
+    closePilot();
+  }
 });
 
-pilotForm.addEventListener('submit', async (event) => {
+pilotForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (!pilotForm.reportValidity()) return;
   const submit = pilotForm.querySelector('[type=submit]');
+  if (submit.disabled || !pilotForm.reportValidity()) return;
   submit.disabled = true;
   pilotError.hidden = true;
+  const failure = 'Unable to send your request. Please try again.';
   try {
     const response = await fetch('/api/pilot-requests', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(Object.fromEntries(new FormData(pilotForm))),
     });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Unable to send your request');
+    const result = await response.json().catch(() => null);
+    if (!response.ok || typeof result?.message !== 'string') {
+      throw new Error(typeof result?.error === 'string' ? result.error : failure);
+    }
     pilotForm.hidden = true;
     pilotMessage.textContent = result.message;
     pilotSuccess.hidden = false;
-    pilotSuccess.querySelector('[data-pilot-close]').focus();
+    if (pilotDialog.open)
+      pilotSuccess.querySelector('[data-pilot-close]').focus({ preventScroll: true });
   } catch (error) {
-    pilotError.textContent = error instanceof Error ? error.message : 'Unable to send your request';
+    pilotError.textContent = error instanceof TypeError ? failure : error.message || failure;
     pilotError.hidden = false;
   } finally {
     submit.disabled = false;
@@ -172,3 +344,7 @@ window.addEventListener('resize', resetPresentation);
 reduceMotion.addEventListener('change', resetPresentation);
 desktop.addEventListener('change', resetPresentation);
 resetPresentation();
+
+if (pilotDialog && new URLSearchParams(window.location.search).get('request') === 'access') {
+  openPilot();
+}

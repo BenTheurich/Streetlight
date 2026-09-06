@@ -17,6 +17,7 @@ tmp
 output
 .superpowers/
 .impeccable/critique/
+.impeccable/review/
 .worktrees/
 .playwright-cli/
 debug.log

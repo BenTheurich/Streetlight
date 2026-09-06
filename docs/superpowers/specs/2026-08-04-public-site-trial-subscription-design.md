@@ -3,7 +3,32 @@
 Status: founder review
 Direction agreed in conversation: 2026-08-04
 
+Founder revision, September 5, 2026: remove sponsored-access promotion and its FAQ from the public
+site, and remove explanatory screenshot captions and demo-data labels. Keep the early, middle,
+and completed labels on the yearly frames. Restore the church marker in the presentation captures,
+group the presentation and print images together, and use restrained scrolling, image, FAQ, and
+drawer motion with reduced-motion support. Request access opens on the current public page.
+This revision supersedes the public copy and captions below; internal sponsored-access behavior
+is unchanged. The original landing layout and animation remain fixed.
+
+Founder revision, September 6, 2026: the landing navbar and footer include Home. All public
+navbars use the same selected and hover underline, and footer links are centered. How it works
+is static, including its images, scrolling, and access drawer. Motion on the other pages remains.
+The home-page projector now uses a recording of the real Outreach Progress presentation. Its
+frame, surrounding layout, and copy stay intact. Playback starts in view, pauses offscreen, and
+stays still when reduced motion is enabled. The presentation has no playback controls.
+
 ## Purpose
+
+Rollout revision, September 6, 2026: the public website starts in church-onboarding mode with
+Home and How it works. Keep Admin login and Request access in both headers, and keep the access
+drawers and submissions available. How it works closes with `Ready to give your outreach map a
+better memory?`, no subtext, and only Request access. Home keeps both closing actions. Hide trial
+and credit-card language. The
+`PUBLIC_RELEASE_ENABLED` code flag restores Why Streetlight, Pricing, full navigation, and the
+approved trial copy after rebuilding and deploying. This supersedes the public-site
+timing below; church accounts, authentication, and payment behavior are unchanged. See
+[Public website rollout](../../../PRODUCT.md#public-website-rollout).
 
 Streetlight needs a humane path from learning about the product to trying it and, later, paying
 for it. The path must make the founder visible, keep pricing from intruding on the landing page's
@@ -55,12 +80,10 @@ product site rather than the only destination beyond the landing page.
 
 ### How it works
 
-Hero:
-
-> **Keep the paper workflow. Give it a better memory.**
->
-> Streetlight helps your church see which streets have waited longest, prepare clear paper packets,
-> and record completed outreach so the map is ready for next time.
+Founder revision, September 6, 2026: omit the introductory product pitch and horizontal step
+navigation. Begin directly with the workflow below, using a large number beside each step.
+Connect the six numbers with a dotted path, leaving space around each number and keeping the
+path clear of the screenshots on phones.
 
 This page explains the real administrator workflow with product screenshots:
 
@@ -86,8 +109,8 @@ This page explains the real administrator workflow with product screenshots:
    Streetlight keeps the long-term memory.
 6. **See the progress—and be encouraged.** Show recent months or a full year on a TV screen or
    printed report so the church can see how outreach has spread and be encouraged to keep carrying
-   the light. Caption: `An overview of completed outreach.` The church-display presentation is the
-   dominant visual, with the print version as a smaller supporting detail.
+   the light. Center the church-display presentation beneath the text, without a smaller print
+   image or explanatory caption, as requested in the September 6 founder review.
 
 The page explains that volunteers need no account or phone. It does not introduce features outside
 `PRODUCT.md` or make claims about people reached, volunteer performance, or spiritual outcomes.
@@ -293,7 +316,7 @@ User-facing states are:
 - **Active subscription**: monthly or annual, with the next renewal date and a manage-subscription
   action.
 - **Founding church access**: the founder's church uses Streetlight at no cost and no payment is
-  required; the account also shows the standard annual and monthly prices.
+  required. Ben's September 6 account review removes the standard-price line from Church account.
 - **Sponsored access**: the church has full access at no cost.
 - **Payment issue**: payment management is needed, without claiming access has ended prematurely.
 - **Subscription ended**: operational access is paused and the church can subscribe again.

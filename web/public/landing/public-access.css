@@ -1,0 +1,269 @@
+html:has(.public-page) {
+  scrollbar-gutter: stable;
+}
+
+html:has(.public-page) body.public-access-open {
+  overflow: hidden;
+}
+
+.public-access-dialog {
+  position: fixed;
+  z-index: 180;
+  inset: 0 0 0 auto;
+  width: min(500px, 100vw);
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  color: var(--ink);
+  border: 0;
+  background: var(--paper);
+  box-shadow: -18px 0 56px rgb(3 9 20 / 28%);
+  transform: translateX(100%);
+  transition:
+    transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+    display 380ms allow-discrete,
+    overlay 380ms allow-discrete;
+}
+
+.public-access-dialog[open] {
+  display: flex;
+  transform: translateX(0);
+}
+
+.public-access-dialog::backdrop {
+  background: rgb(3 9 20 / 46%);
+  opacity: 0;
+  transition:
+    opacity 380ms ease,
+    display 380ms allow-discrete,
+    overlay 380ms allow-discrete;
+}
+
+.public-access-dialog[open]::backdrop {
+  opacity: 1;
+}
+
+@starting-style {
+  .public-access-dialog[open] {
+    transform: translateX(100%);
+  }
+  .public-access-dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.public-access-dialog button {
+  border-radius: 0;
+}
+
+.public-access-dialog .public-access-close {
+  position: absolute;
+  z-index: 1;
+  top: 18px;
+  right: 18px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--ink);
+  border: 1px solid rgb(16 26 41 / 45%);
+  background: transparent;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+  border-radius: 0;
+}
+
+.public-access-dialog .public-access-close:hover {
+  color: var(--paper);
+  background: var(--ink);
+}
+
+.public-access-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 94px 42px 44px;
+}
+
+.public-access-heading {
+  margin-bottom: 34px;
+}
+
+.public-access-dialog h2 {
+  margin: 0;
+  font-family: Georgia, serif;
+  font-size: clamp(45px, 4vw, 60px);
+  font-weight: 400;
+  line-height: 0.94;
+  letter-spacing: -0.04em;
+  text-wrap: pretty;
+}
+
+.public-access-heading p {
+  margin: 19px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.58;
+}
+
+.public-access-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 16px;
+}
+
+.public-access-form[hidden],
+.public-access-success[hidden] {
+  display: none;
+}
+
+.public-access-field {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.public-access-field:nth-child(n + 3),
+.public-access-error,
+.public-access-submit {
+  grid-column: 1 / -1;
+}
+
+.public-access-field label {
+  color: #273547;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.public-access-field label span {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.public-access-field input,
+.public-access-field textarea {
+  width: 100%;
+  color: var(--ink);
+  border: 1px solid var(--muted);
+  border-radius: 0;
+  background: rgb(255 253 247 / 78%);
+  font-size: 16px;
+}
+
+.public-access-field input {
+  min-height: 48px;
+  padding: 0 12px;
+}
+
+.public-access-field textarea {
+  min-height: 104px;
+  padding: 12px;
+  resize: vertical;
+}
+
+.public-access-field input:hover,
+.public-access-field textarea:hover {
+  border-color: #6c716c;
+}
+
+.public-access-field input:focus,
+.public-access-field textarea:focus {
+  border-color: #315f9d;
+  outline: 3px solid rgb(49 95 157 / 18%);
+}
+
+.public-access-honeypot {
+  position: absolute;
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.public-access-error {
+  margin: 0;
+  color: var(--error-ink);
+  font-weight: 700;
+}
+
+.public-access-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.public-access-dialog .public-access-submit,
+.public-access-success button {
+  min-height: 44px;
+  padding: 0 18px;
+  color: #fff;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.public-access-dialog .public-access-submit {
+  padding-inline: 17px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.public-access-success button {
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.public-access-dialog .public-access-submit:not(:disabled):hover,
+.public-access-success button:hover {
+  color: var(--ink);
+  background: transparent;
+}
+
+.public-access-success {
+  padding-top: 32px;
+}
+
+.public-access-dialog .public-access-success > span {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 26px;
+  color: #fff;
+  border-radius: 50%;
+  background: #3e7758;
+  font-size: 22px;
+}
+
+.public-access-success p {
+  margin: 20px 0 28px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+
+@media (max-width: 760px) {
+  .public-access-dialog {
+    left: 0;
+    right: auto;
+    width: 100vw;
+  }
+  .public-access-body {
+    padding: 86px 22px 34px;
+  }
+  .public-access-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-access-dialog,
+  .public-access-dialog::backdrop,
+  .public-access-dialog button {
+    transition: none;
+  }
+}

@@ -70,5 +70,33 @@ This check sends one real WorkOS invitation and should be run only when the foun
 The application reads these values from the environment loaded by Next.js. The repository-root
 `.env.local` is not an application configuration source; use `web/.env.local` for local values.
 
+## Phase 11 account review
+
+Church account uses the same WorkOS staging organization as the administrator workspace. Every
+authenticated request checks that the user still has an active membership in its organization.
+Removing an administrator therefore denies their next request even if their session token has not
+expired. If WorkOS cannot verify membership, the request is denied.
+
+Migration `029_church_access.sql` adds the church access label. The established founder seed church
+receives `founding`; other churches default to `standard`. A founder may assign `sponsored` to an
+explicitly selected church through a database maintenance action. Account has no label-editing
+endpoint. Changing a label does not grant membership or alter workflow permissions.
+
+The September 6 account preview on port 4201 uses copied demo geography and simulated WorkOS
+accounts. Its invitations send no email. The canonical local database has not received this
+migration as part of the review setup.
+
+Ben separately authorized a real browser check using 10 Minute Mail and disposable credentials.
+It ran on port 3000 from `tmp/phase11-workos-staging-20260906` with a fresh migrated and seeded
+database and a separate WorkOS staging organization. Email delivery, hosted invitation acceptance,
+revocation, and removal passed. The removed administrator's existing session received 404 from
+Account and 403 from the administrator and Coverage APIs. Both test users and the disposable
+organization were deleted afterward, and their absence was verified. Ben's password, canonical
+database, and original founder membership were unchanged. Automated regression tests continue
+to use fake providers and must not send invitations or create WorkOS organizations.
+
+The support email remains `support@streetlight.example` until Ben selects a real destination.
+See [Phase 11 account review](docs/PHASE_11_ACCOUNT_REVIEW.md) for the recorded checks and preview links.
+
 Production and recovery configuration belongs to Phase 12. Its deployment gate includes the
 approved Google quotas, server-key restrictions, public-request rate control, and restore proof.

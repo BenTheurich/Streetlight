@@ -21,7 +21,7 @@ function resolveModule(target) {
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === 'next/image') return { shortCircuit: true, url: imageShim };
-    if (specifier === 'next/script') {
+    if (specifier === 'next/script' || specifier === 'next/navigation') {
       return nextResolve(`${specifier}.js`, context);
     }
     if (specifier.startsWith('@/')) {
