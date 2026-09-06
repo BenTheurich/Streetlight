@@ -1,8 +1,10 @@
 # Phase 12 deployment and recovery
 
-September 6, 2026. Status: in progress. The app is running privately on `gb-dev`.
-Publishing `https://streetlight.bentheurich.com` and the public workflow checks are waiting on
-WorkOS production activation, which Ben deferred until he adds billing information.
+September 7, 2026. Status: in progress. The app is public at
+`https://streetlight.bentheurich.com`, served by `gb-dev` through Cloudflare Tunnel.
+WorkOS production is active, Ben accepted the first invitation, and church-address geocoding
+passed. The first import, packet PDF, reconciliation, Coverage, and Outreach Progress checks pass.
+Test-record cleanup, the final authentication and rate-limit checks, and founder approval remain.
 
 Phase 11 is complete in `main`, including Ben's review and the real WorkOS staging checks.
 Phase 12 started on `codex/phase-12-deployment-recovery`, based on `9ff56f9`. Phase 13 has not started.
@@ -21,8 +23,10 @@ battery operation still permits suspend. Keep the laptop on AC power for the pil
 The existing checkout is `/home/ben/Projects/Streetlight`. Preflight found a clean `main` at
 `ea105bb`. The verified implementation was committed and pushed as `05adc70` on
 `codex/phase-12-deployment-recovery`, based on `9ff56f9`, then fetched and checked out on `gb-dev`.
-The host built `streetlight:pilot` successfully from that revision. Its image manifest list is
-`sha256:6a2f92b1e4b68dc99a422e15996d5474fbe6c15ae1f3ca0ff75ae05d6355345e`.
+The current image includes `11f3bf8`, which fixes Docker's authentication return origin, and
+`17f32ec`, which exposes the first region Save button before any draft edit. The host built and
+deployed `streetlight:pilot` from `17f32ec`. Its image manifest list is
+`sha256:c5d6cf67aac655cfa3f29c83371580eabb555291c01586d1c32711f6d869d6d2`.
 
 The deployment configuration uses root `compose.yaml`, the existing Dockerfile, and two services:
 
@@ -45,10 +49,12 @@ Shell scripts retain LF line endings in Git.
 
 Both Compose services are running with `unless-stopped` restart policies. The app is healthy
 before and after a container restart, and runs as UID 1000 with a UID-1000 database on
-`streetlight_data`. Its church, territory, street-segment, packet, and pilot-request tables are
-empty. The fresh founder workspace will be provisioned after WorkOS activation. The environment
-file contains the two production Google keys and a generated cookie secret; production WorkOS
-keys are absent. No staging credentials or existing workspace data were copied.
+`streetlight_data`. A fresh founding-access church named `Test church 1` is linked to production
+WorkOS organization `org_01M1WC3YPD0KAT892XZQP33V9P`. Ben accepted its administrator invitation,
+then supplied a Temecula church address for the deployment check. Onboarding saved
+`America/Los_Angeles` and created the one-mile draft. The environment file contains the separate
+production Google and WorkOS credentials and generated cookie secret, with mode 600.
+No staging credentials or existing workspace data were copied.
 
 The public form uses validated `CF-Connecting-IP` with Ben's approved five attempts per IP per
 fixed UTC hour. It ignores `X-Real-IP` and `X-Forwarded-For`, canonicalizes IPv6, stores only a hash
@@ -92,12 +98,24 @@ and Biome. Earlier recovery and browser evidence is identified separately below.
 | Cloudflare identity and restart checks | Passed locally: five neutral successes, sixth `429`, spoofed forwarding headers ignored, missing identity `503`; database and counter survive restart |
 | Restricted non-root container PDF | Three-packet open-map PDF passed in 2.523 seconds, 1,744,007 bytes; runtime UID and database owner are 1000 |
 | gb-dev build, storage, and restart | Passed at `05adc70`; fresh migrated database, UID 1000 ownership, health before and after restart, no host port bindings |
-| Cloudflare connector | Healthy, one replica, version 2026.8.3; QUIC connections established; no public routes |
+| Cloudflare connector | Healthy, one replica, version 2026.8.3; public Streetlight hostname routes to `http://web:3000` |
 | Production Google key restrictions | Saved and verified: browser hostname plus Maps JavaScript / Places API (New); separate server key allows only Geocoding |
 | Complete import and PDF on gb-dev | Passed with production CPU availability and a 4 GiB test memory cap: import 659.8 seconds; three-packet PDF 3.87 seconds; peak 1.69 GiB, no OOM |
 | Imported-data persistence | Passed: 1,133 segments, 3,736 assigned addresses, 4,528 buildings; three finalized packets totaling 95 homes; integrity, foreign keys, and post-run health passed |
 | Host PDF inspection | Passed: three US Letter pages, 1,989,624 bytes; first-page map, labels, QR code, and footer render without clipping |
-| Deployed health, authentication, and core browser workflow | Pending |
+| Public health and origin isolation | Passed after deployment at `17f32ec`; HTTPS health succeeds, web has no published host port, portfolio DNS unchanged |
+| Production WorkOS setup | Verified production client, callback/login/logout URLs, invite-only password authentication, copied branding, founder organization and active membership |
+| First invitation and onboarding | Ben accepted the invitation and set his password; production Places suggestions and authenticated Geocoding succeeded |
+| Container callback redirect | Fixed AuthKit's public return origin; TypeScript, lint, 7 focused authentication checks, and production build passed; fresh post-fix sign-in remains open |
+| Initial region save | Reproduced missing Save on untouched draft; three render conditions fixed; 20 focused region checks, TypeScript, lint, and build passed; live Save starts the import |
+| Google request metrics | Production server-key filter shows 1 Geocoding request, no listed errors, average latency 89 ms |
+| Geocoding rejection | Public unauthenticated POST returned `401`; route tests prove malformed authenticated input makes no Google call; live malformed authenticated check remains open |
+| Public forwarding-header spoof | Forged `CF-Connecting-IP` requests rejected by Cloudflare with `403` / error 1000 before reaching the application |
+| Public request attempt-six limit | Pending specific approval after automatic approval review rejected the proposed live contact-data test |
+| Deployed import | Passed in 653 seconds; 1,133 imported segments and 2,611 eligible estimated homes; onboarding unlocked after success |
+| Deployed packet and reconciliation workflow | Passed: labeled test batch with 3 packets and 95 estimated tracts; 3-page PDF downloaded and visually inspected; one test completion and two cancellations saved; Coverage and Outreach Progress both show the 28-home completion |
+| Test cleanup | Undo completion requested; native browser confirmation awaiting Ben because browser automation timed out on the dialog; remaining test completion must be reversed and its restored packet discarded |
+| Production database integrity | Passed after import and reconciliation; `integrity_check` is `ok`, no foreign-key errors, zero public access requests |
 | Scheduled and off-machine backups | Deferred by Ben for the pilot; required before real release |
 
 The isolated source copy is `tmp/phase12-verification-20260906`. Test dependencies and synthetic
@@ -133,7 +151,23 @@ Host benchmark evidence is saved in `output/playwright/phase12/selfhost/import-s
 The constrained attempt is recorded separately in `import-2cpu-*`. The temporary benchmark
 container, volume, and remote directory were removed after copying the evidence. The local
 credential-transfer helper and earlier Windows verification container and volume were also removed.
-The production app, tunnel, and empty production database remain on `gb-dev`.
+The production app, tunnel, and separate pilot database remain on `gb-dev`.
+
+The subsequent public browser check used the founder-approved address in `Test church 1`.
+Import job `ce065ad3-e445-4557-b215-79248a2bbff2` ran from 22:36:42 to 22:47:35 UTC on
+September 6, or September 7 in Ben's local time. It completed in 653 seconds and unlocked
+onboarding. The public workflow produced batch `Deployment check 2026-09-07`, with packets
+of 28, 37, and 30 estimated tracts. Its downloaded PDF is 1,989,596 bytes and three US Letter
+pages. All pages were rendered and inspected for map highlights, labels, starting addresses,
+QR codes, footers, and clipping. PDF and page images are in
+`output/playwright/phase12/selfhost/public-packets-20260907*`; compact evidence is in
+`public-workflow-20260907.json` in that directory.
+
+The reconciliation check recorded the first test packet as completed on the church's September 6
+date and cancelled the other two. Coverage showed 28 green estimated homes and 2,583 red;
+Outreach Progress showed one completed packet, three streets, and 28 estimated homes reached.
+These are test outcomes, not actual outreach. Undo completion is pending its native browser
+confirmation; after undo, discard the restored packet and confirm both views return to zero.
 
 ## Approved provider controls
 
@@ -155,8 +189,9 @@ Its Geocoding v3 quota rows show effective overrides of 25 requests/day and 5 re
 These project quotas also apply to local lookups using this project. No requests were sent to
 exhaust or test provider limits. The unused v4 GeocodeAddress, GeocodeLocation, GeocodePlace,
 and SearchDestinations methods each have an effective daily override of zero. Their per-minute
-settings remain unchanged. A deployed authenticated lookup and its request-metrics evidence
-remain pending until WorkOS production is configured.
+settings remain unchanged. A deployed authenticated onboarding lookup succeeded on September 7.
+Metrics filtered to `Streetlight pilot geocoding server` show one Geocoding API request, no listed
+errors, 89 ms average latency, and 130 ms 99th-percentile latency. Provider quotas were not exhausted.
 
 Two separate production keys were created and their saved metadata verified:
 
@@ -179,50 +214,51 @@ was left unchanged. This budget sends alerts only.
 
 Cloudflare tunnel `streetlight-gb-dev` (`b879e43b-0891-4c47-a349-21bdc1d52f17`) is healthy;
 its credential is stored on `gb-dev` with mode 600. Cloudflare confirms one connected replica
-and no routes. No DNS records were changed, and no Railway subscription or service was created.
+and the Streetlight route to `http://web:3000`. The new `streetlight` CNAME points to
+`b879e43b-0891-4c47-a349-21bdc1d52f17.cfargotunnel.com`. The root GitHub Pages A records and
+`www` CNAME to `bentheurich.github.io` remain unchanged. No Railway service was created.
 
-WorkOS blocks production access until billing information is added. Its
-[environment documentation](https://workos.com/docs/authkit/environments) confirms that ordinary
-email/password AuthKit is free below one million monthly active users but still requires billing
-information to unlock production. Ben explicitly deferred that account step. Production keys,
-redirects, invite-only settings, branding, and founder membership therefore remain pending.
-Do not enable paid custom domains or enterprise connections. The public tunnel route remains
-absent until production authentication is ready.
+Ben activated WorkOS production. The WorkOS MCP now provides authenticated configuration and
+membership access. Production environment `environment_01KYQK0EHFTJPTCB74METBJHRR` uses client
+`client_01KYQK0ER1P5TCH17DH9CR7HX9` and AuthKit domain `quick-canyon-55.authkit.app`.
+Public signup, social login, SSO, magic links, and passkeys are disabled; password authentication
+and the existing email-verification requirement are enabled. Callback, login, and logout use
+the Streetlight public hostname. The approved staging branding was copied and compared against
+production. No paid custom domain or enterprise connection was enabled.
 
-## Deployment sequence
+The active runtime API key is `Streetlight production runtime`, ID
+`key_01M1WCA8KAHKEDG2SR2ZZFA3F4`. Two unused setup keys were immediately expired after their
+values appeared in tool output; expiration and absence of use were verified. Neither is the
+running container's credential. Key values do not belong in this document or Git.
 
-1. The implementation is deployed privately at `05adc70`. Before resuming, confirm the current
-   checkout, `docker compose ps`, and the healthy tunnel. Do not recreate the tunnel or Google keys.
-2. Set the production values documented in
-   [ENVIRONMENTS.md](../ENVIRONMENTS.md#phase-12-production-configuration). Configure WorkOS
-   production for invite-only email/password, no public or social signup, callback
-   `https://streetlight.bentheurich.com/auth/callback`, sign-in endpoint
-   `https://streetlight.bentheurich.com/login`, and logout URL `https://streetlight.bentheurich.com/`.
-   Apply the approved `web/branding/authkit.css` and branding assets. Keep staging credentials and
-   organizations separate.
-3. After WorkOS is configured, add a public route to the existing Cloudflare Tunnel from
-   `streetlight.bentheurich.com` to `http://web:3000`. From the repository root, validate with
-   `docker compose config --quiet`, then run `docker compose up -d` to load the completed
-   production environment and inspect `docker compose ps`. Rebuild if the source or public callback
-   changes. Preserve the portfolio DNS records.
-4. Create a fresh founder church workspace, as Ben approved. Do not copy the daily-driver database,
-   seed demo data, or remap an existing organization. Real territory review and outreach remain
-   Phase 13.
-5. The Google keys, quotas, and project budget are configured. Verify that the same recorded
-   controls are still effective when resuming; keep key values out of command output and evidence.
-6. Measure a complete import and PDF generation on `gb-dev`. Check the application after a
-   container restart and run `pnpm smoke:production https://streetlight.bentheurich.com`.
-7. Confirm unauthenticated and malformed authenticated geocodes do not reach Google. Perform one
-   valid authenticated lookup through the public app and confirm it in Geocoding metrics. Never
-   exhaust the production quota for a test.
-8. In a reserved test window, submit the same valid public request six times from one IP. The
-   first five responses must remain neutral and the sixth must return `429` with `Retry-After`.
-   Vary spoofed `X-Real-IP`, `X-Forwarded-For`, and `CF-Connecting-IP` values to prove the public
-   edge preserves the real client identity. Confirm the application port is not exposed on the
-   host.
-9. Run the deployed browser workflow: sign in, review test territory, generate, finalize,
-   download and inspect the PDF, reconcile, inspect Coverage and Outreach Progress, then sign
-   out. Record results and give Ben the founder review steps.
+## Resuming deployment verification
+
+The production credentials, tunnel route, and founder workspace exist. Do not provision them
+again. Confirm the current branch and `docker compose ps` on `gb-dev` before a deployment.
+Validate with `docker compose config --quiet`; use `docker compose build web` for source changes
+and `docker compose up -d web` to load the image or runtime environment. Avoid restarting during
+an import. Run `pnpm smoke:production https://streetlight.bentheurich.com` afterward.
+
+Complete these remaining checks on `Test church 1`:
+
+1. Finish test-record cleanup. Ben needs to accept the pending native Undo completion dialog,
+   which browser automation could not control. Discard the restored test packet and confirm
+   zero completed outreach and no active reservations. Import, PDF, reconciliation, Coverage,
+   and Outreach Progress already passed. Real outreach and geographic acceptance belong to Phase 13.
+2. Exercise a fresh sign-in after the container-origin callback fix, with Ben entering his own
+   password. The earlier invitation set a valid session but redirected to Docker's bind address;
+   opening the public hostname recovered that session and allowed onboarding.
+3. Complete the live malformed authenticated geocode check. The actual unauthenticated `401`,
+   successful onboarding lookup, Google metrics, and focused no-Google-call route tests pass.
+4. Obtain specific approval for the public Request access test after the automatic approval
+   review rejection. The rejected command proposed six submissions with Ben's contact details
+   and would create one deduplicated live request. It did not run. Prefer a clearly labeled
+   synthetic test request, then decline it without provisioning or sending an invitation.
+   First five responses must remain neutral; the sixth must return `429` with `Retry-After`.
+   Vary `X-Real-IP` and `X-Forwarded-For` while preserving the same real caller. Cloudflare has
+   already rejected forged `CF-Connecting-IP` requests at its edge with `403` / error 1000.
+5. Record results and give Ben the founder review steps. Do not mark Phase 12 complete until the
+   remaining checks and his approval pass.
 
 ## Manual recovery commands
 
@@ -259,6 +295,6 @@ batch, download its PDF, and approve or reject the pilot URL. The tested manual 
 remain in scope; scheduled backups and an off-machine restore demonstration are deferred under
 his pilot exception. Phase 13 remains pending until Ben approves Phase 12.
 
-The immediate next step is Ben adding WorkOS billing information. Public sign-in, initial founder
-provisioning, browser workflow, Google request metrics, and public rate-limit verification wait
-for that step.
+WorkOS activation and initial founder provisioning are complete. The remaining gates are the
+deployed workflow, fresh sign-in verification, malformed authenticated geocode check, public
+attempt-six rate-limit verification, and Ben's approval of the pilot URL.

@@ -133,13 +133,22 @@ Do not put secrets into Docker build arguments or copy local `.env` files into t
 Set the founder organization mapping only during explicitly approved initial data preparation;
 normal production startup does not run `db:seed`.
 
+WorkOS production is configured for invite-only email/password with public and social signup
+disabled. Its callback, sign-in endpoint, and logout URI use the public Streetlight hostname.
+The callback passes `NEXT_PUBLIC_WORKOS_REDIRECT_URI` as AuthKit's `baseURL` so successful
+authentication returns to the public origin instead of Docker's `0.0.0.0:3000` bind address.
+The approved branding is copied from staging. The fresh `Test church 1` workspace maps to
+production organization `org_01M1WC3YPD0KAT892XZQP33V9P`; Ben accepted its first invitation.
+Keep this production organization separate from local staging and seed data.
+
 Ben approved 25 daily and 5 per-minute Geocoding requests on September 6, plus a $5 monthly
 Streetlight Google Cloud project budget. Alert thresholds are actual spend at 50%, 90%, and 100%,
 and forecast spend at 100%, sent to `bentheurich@gmail.com`. The budget alerts do not cap charges.
 The v3 quota overrides and project-only budget were saved and verified in `streetlight-503712`.
 The budget includes all Streetlight services and excludes other projects on the billing account.
 Ben also approved zero daily requests for the four unused v4 methods. Those overrides are saved.
-Production key restrictions remain a deployment follow-up.
+Both production keys are configured with the restrictions in the table above. The live onboarding
+lookup succeeded, and Google's metrics show one request for `Streetlight pilot geocoding server`.
 The approved server-key IP restriction exception now applies to `gb-dev`'s dynamic home egress.
 Cloudflare Tunnel carries incoming traffic and does not supply a static outbound IP for Google
 requests. The Geocoding API restriction, server-only storage, and approved provider quotas remain
