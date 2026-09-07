@@ -51,9 +51,9 @@ verified; Ben deferred scheduled and off-machine backups for the pilot.
 Phase 12 runs Docker Compose on `gb-dev`, with Cloudflare Tunnel serving
 `https://streetlight.bentheurich.com`. The application and importer share one container and a
 persistent `/data` volume. The existing `bentheurich.com` portfolio stays on GitHub Pages.
-Production WorkOS authentication and deployment checks pass. Phase 12 awaits the founder's
-test-batch, PDF, and pilot-URL review. Pilot data exists only
-on `gb-dev`; configure backups and prove recovery from an off-machine copy before a real release.
+Production WorkOS authentication and deployment checks pass. Ben approved Phase 12 on
+September 7, 2026. Phase 13, the founder-church pilot, is next. Pilot data exists only on
+`gb-dev`; configure backups and prove recovery from an off-machine copy before a real release.
 Follow [the deployment runbook](docs/PHASE_12_DEPLOYMENT_REVIEW.md) and
 [production configuration](ENVIRONMENTS.md#phase-12-production-configuration) before deploying.
 

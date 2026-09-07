@@ -1,11 +1,11 @@
 # Phase 12 deployment and recovery
 
-September 7, 2026. Status: awaiting human review. The app is public at
+September 7, 2026. Status: complete, approved by Ben. The app is public at
 `https://streetlight.bentheurich.com`, served by `gb-dev` through Cloudflare Tunnel.
 WorkOS production is active, Ben accepted the first invitation, and church-address geocoding
 passed. The first import, packet PDF, reconciliation, Coverage, and Outreach Progress checks pass.
 Test cleanup, the public rate limit, persistence after restart, fresh sign-in, and the live
-malformed-geocode check also pass. Ben's final pilot-URL review remains.
+malformed-geocode check also pass. Ben approved Phase 12 and the pilot URL on September 7, 2026.
 
 Phase 11 is complete in `main`, including Ben's review and the real WorkOS staging checks.
 Phase 12 started on `codex/phase-12-deployment-recovery`, based on `9ff56f9`. Phase 13 has not started.
@@ -260,7 +260,7 @@ Validate with `docker compose config --quiet`; use `docker compose build web` fo
 and `docker compose up -d web` to load the image or runtime environment. Avoid restarting during
 an import. Run `pnpm smoke:production https://streetlight.bentheurich.com` afterward.
 
-Technical verification is complete. Keep `Test church 1` available for Ben's review below.
+Phase 12 is complete. Keep `Test church 1` available for further testing.
 Do not rerun provisioning, imports, or the public request test merely to resume the task.
 The saved cancelled test batch and declined synthetic request are verification history.
 
@@ -293,15 +293,10 @@ until the founder has inspected the recovered church, packet, and coverage recor
 
 ## Founder checkpoint
 
-Phase 12 is ready for Ben's final review. He has signed in successfully. In the deployed map:
+Ben explicitly approved Phase 12 on September 7, 2026, accepting
+`https://streetlight.bentheurich.com` as the pilot URL. This closes the human-review checkpoint.
+Phase 13 remains pending, with its Phase 12 dependency satisfied.
 
-1. Open Packets and generate one test packet with a target of 30 tracts.
-2. Review its proposal, finalize the batch, and download the PDF.
-3. Confirm the map and sheet are usable, then approve or reject
-   `https://streetlight.bentheurich.com` as the pilot URL.
-
-Use a clearly labelled test batch. Discard it through Reconcile after review so its streets are
-released without recording outreach. The tested manual recovery commands remain available;
-scheduled backups and an off-machine restore demonstration are deferred under Ben's pilot
-exception. The real support address is also deferred. Phase 13 remains pending until Ben
-approves Phase 12.
+The tested manual recovery commands remain available. Scheduled backups and an off-machine
+restore demonstration are deferred under Ben's pilot exception. The real support address is
+also deferred.
