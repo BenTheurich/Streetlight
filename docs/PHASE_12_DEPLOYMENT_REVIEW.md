@@ -1,11 +1,11 @@
 # Phase 12 deployment and recovery
 
-September 7, 2026. Status: in progress. The app is public at
+September 7, 2026. Status: awaiting human review. The app is public at
 `https://streetlight.bentheurich.com`, served by `gb-dev` through Cloudflare Tunnel.
 WorkOS production is active, Ben accepted the first invitation, and church-address geocoding
 passed. The first import, packet PDF, reconciliation, Coverage, and Outreach Progress checks pass.
-Test cleanup, the public rate limit, and persistence after restart also pass. Fresh sign-in,
-the live malformed-geocode check, and founder approval remain.
+Test cleanup, the public rate limit, persistence after restart, fresh sign-in, and the live
+malformed-geocode check also pass. Ben's final pilot-URL review remains.
 
 Phase 11 is complete in `main`, including Ben's review and the real WorkOS staging checks.
 Phase 12 started on `codex/phase-12-deployment-recovery`, based on `9ff56f9`. Phase 13 has not started.
@@ -107,10 +107,10 @@ and Biome. Earlier recovery and browser evidence is identified separately below.
 | Public health and origin isolation | Passed after deployment at `17f32ec`; HTTPS health succeeds, web has no published host port, portfolio DNS unchanged |
 | Production WorkOS setup | Verified production client, callback/login/logout URLs, invite-only password authentication, copied branding, founder organization and active membership |
 | First invitation and onboarding | Ben accepted the invitation and set his password; production Places suggestions and authenticated Geocoding succeeded |
-| Container callback redirect | Fixed AuthKit's public return origin; TypeScript, lint, 7 focused authentication checks, and production build passed; fresh post-fix sign-in remains open |
+| Container callback redirect | Passed after fix: WorkOS records a fresh production sign-in at `2026-09-07T00:21:55.898Z`; the signed-in public Streetlight map loads; TypeScript, lint, 7 focused authentication checks, and production build also passed |
 | Initial region save | Reproduced missing Save on untouched draft; three render conditions fixed; 20 focused region checks, TypeScript, lint, and build passed; live Save starts the import |
 | Google request metrics | Production server-key filter shows 1 Geocoding request, no listed errors, average latency 89 ms |
-| Geocoding rejection | Public unauthenticated POST returned `401`; route tests prove malformed authenticated input makes no Google call; live malformed authenticated check remains open |
+| Geocoding rejection | Passed: public unauthenticated POST returned `401`; Ben's signed-in browser POST with `{}` returned `400` and `Enter a church address`; route tests verify both rejection paths make zero Google calls |
 | Public forwarding-header spoof | Forged `CF-Connecting-IP` requests rejected by Cloudflare with `403` / error 1000 before reaching the application |
 | Public request attempt-six limit | Passed with Ben's approved synthetic request: five `200` responses, then `429` and `Retry-After: 3510`; varying `X-Real-IP` and `X-Forwarded-For` did not reset the limit |
 | Deployed import | Passed in 653 seconds; 1,133 imported segments and 2,611 eligible estimated homes; onboarding unlocked after success |
@@ -180,6 +180,15 @@ declined through the founder page; its church, organization, and invitation refe
 null. No invitation or email was sent. The web container was restarted after cleanup. Public
 health, data integrity, and the saved limiter count of five passed afterward. Evidence is in
 `public-rate-limit-20260907.json` and `public-cleanup-20260907.json` in the same evidence directory.
+
+Ben completed a fresh production sign-in after the callback fix. WorkOS records it at
+`2026-09-07T00:21:55.898Z`, with active membership in `Test church 1`. The browser displays the
+authenticated map at the public Streetlight origin. Ben then sent an empty JSON object to
+`/api/geocode` from that signed-in page. His supplied console screenshot shows HTTP `400`
+and `{error: 'Enter a church address'}`. The screenshot is retained as
+`malformed-authenticated-geocode-20260907.png` in the evidence directory. The existing route
+regression test verifies rejection occurs before a Google call; the successful onboarding
+lookup and provider request metric are recorded separately above.
 
 ## Approved provider controls
 
@@ -251,15 +260,9 @@ Validate with `docker compose config --quiet`; use `docker compose build web` fo
 and `docker compose up -d web` to load the image or runtime environment. Avoid restarting during
 an import. Run `pnpm smoke:production https://streetlight.bentheurich.com` afterward.
 
-Complete these remaining checks on `Test church 1`:
-
-1. Exercise a fresh sign-in after the container-origin callback fix, with Ben entering his own
-   password. The earlier invitation set a valid session but redirected to Docker's bind address;
-   opening the public hostname recovered that session and allowed onboarding.
-2. Complete the live malformed authenticated geocode check. The actual unauthenticated `401`,
-   successful onboarding lookup, Google metrics, and focused no-Google-call route tests pass.
-3. Record results and give Ben the founder review steps. Do not mark Phase 12 complete until the
-   remaining checks and his approval pass.
+Technical verification is complete. Keep `Test church 1` available for Ben's review below.
+Do not rerun provisioning, imports, or the public request test merely to resume the task.
+The saved cancelled test batch and declined synthetic request are verification history.
 
 ## Manual recovery commands
 
@@ -290,12 +293,15 @@ until the founder has inspected the recovered church, packet, and coverage recor
 
 ## Founder checkpoint
 
-Phase 12 is not ready for final approval. After the deployed workflow, health, restart, and public
-rate-limit checks pass, Ben will sign in to `https://streetlight.bentheurich.com`, create a test
-batch, download its PDF, and approve or reject the pilot URL. The tested manual recovery commands
-remain in scope; scheduled backups and an off-machine restore demonstration are deferred under
-his pilot exception. Phase 13 remains pending until Ben approves Phase 12.
+Phase 12 is ready for Ben's final review. He has signed in successfully. In the deployed map:
 
-The deployed workflow, test cleanup, and public rate-limit checks pass. The remaining gates are
-fresh sign-in verification, the malformed authenticated geocode check, and Ben's approval of
-the pilot URL.
+1. Open Packets and generate one test packet with a target of 30 tracts.
+2. Review its proposal, finalize the batch, and download the PDF.
+3. Confirm the map and sheet are usable, then approve or reject
+   `https://streetlight.bentheurich.com` as the pilot URL.
+
+Use a clearly labelled test batch. Discard it through Reconcile after review so its streets are
+released without recording outreach. The tested manual recovery commands remain available;
+scheduled backups and an off-machine restore demonstration are deferred under Ben's pilot
+exception. The real support address is also deferred. Phase 13 remains pending until Ben
+approves Phase 12.
