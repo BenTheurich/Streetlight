@@ -1,0 +1,74 @@
+.administrator-page {
+  min-height: 100dvh;
+}
+.administrator-page :focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.administrator-page-header {
+  position: sticky;
+  top: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.administrator-page-header .brand {
+  display: flex;
+  width: fit-content;
+  min-height: 44px;
+  align-items: center;
+  color: var(--ink);
+}
+.administrator-page-header .administrator-account {
+  grid-column: 2;
+}
+.administrator-page-content {
+  width: min(100%, 62rem);
+  margin-inline: auto;
+  padding: 24px 24px 48px;
+}
+.administrator-page-back {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.administrator-page-back svg {
+  width: 20px;
+  height: 20px;
+}
+.administrator-page-back:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.administrator-page-heading {
+  margin-block: 24px;
+}
+.administrator-page-heading h1 {
+  margin: 0 0 10px;
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+.administrator-page-heading p {
+  max-width: 65ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .administrator-page-content {
+    padding: 16px 16px 36px;
+  }
+  .administrator-page-heading {
+    margin-block: 16px 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .administrator-page button {
+    transition: none;
+  }
+}

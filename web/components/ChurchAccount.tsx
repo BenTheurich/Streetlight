@@ -1,10 +1,9 @@
 'use client';
 
-import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import type { ChurchAccount as ChurchAccountDetails } from '@/lib/church-account';
 import type { AdministratorAction, AdministratorRoster } from '@/lib/church-administrators';
-import { AdministratorAccount } from './AdministratorAccount';
+import { AdministratorPage } from './AdministratorPage';
 import { SUPPORT_EMAIL } from './PublicSiteFooter';
 
 export type ChurchAccountProps = {
@@ -105,181 +104,182 @@ export function ChurchAccount({
   const disabled = busy || !!rosterError || !roster;
 
   return (
-    <div className="church-account-page">
-      <header className="territory-header church-account-header">
-        <a aria-label="Streetlight workspace" className="brand" href="/">
-          <Image alt="" height="40" src="/landing/streetlight-logo-mark-v2.webp" width="24" />
-          <span className="wordmark">Streetlight</span>
-        </a>
-        <AdministratorAccount
-          email={administratorEmail}
-          pendingPilotRequests={pendingPilotRequests}
-        />
-      </header>
-      <main className="church-account-content">
-        <a className="account-back" href="/">
-          <svg aria-hidden="true" viewBox="0 0 20 20">
-            <path d="m8 5-5 5 5 5M3 10h14" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-          Back to workspace
-        </a>
-        <div className="account-title">
-          <h1>Church account</h1>
-          <p>{account.churchName}</p>
+    <AdministratorPage
+      title="Church account"
+      description={account.churchName}
+      email={administratorEmail}
+      pendingPilotRequests={pendingPilotRequests}
+    >
+      <section aria-labelledby="account-access-heading" className="account-access-section">
+        <h2 id="account-access-heading">Access</h2>
+        <div className="account-access">
+          <h3>{accessLabels[account.accessKind]}</h3>
+          {account.accessKind === 'founding' && (
+            <p>Streetlight is provided to your church at no cost. No payment is required.</p>
+          )}
+          {account.accessKind === 'sponsored' && (
+            <p>Your church has full access to Streetlight at no cost.</p>
+          )}
         </div>
+      </section>
 
-        <section aria-labelledby="account-access-heading" className="account-section">
-          <h2 id="account-access-heading">Access</h2>
-          <div className="account-access">
-            <h3>{accessLabels[account.accessKind]}</h3>
-            {account.accessKind === 'founding' && (
-              <p>Streetlight is provided to your church at no cost. No payment is required.</p>
-            )}
-            {account.accessKind === 'sponsored' && (
-              <p>Your church has full access to Streetlight at no cost.</p>
-            )}
-          </div>
-        </section>
-
-        <section aria-labelledby="account-administrators-heading" className="account-section">
-          <h2 id="account-administrators-heading">Administrators</h2>
-          <div className="account-administrators" aria-busy={busy}>
-            <p className="account-permissions">
-              All administrators have full access to this church.
+      <section
+        aria-labelledby="account-administrators-heading"
+        className="account-administrators-section"
+      >
+        <h2 id="account-administrators-heading">Administrators</h2>
+        <div className="account-administrators" aria-busy={busy}>
+          <p className="account-permissions">All administrators have full access to this church.</p>
+          <form
+            className="account-invite"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void mutate({ action: 'invite', email });
+            }}
+          >
+            <label htmlFor="administrator-invite-email">Email address</label>
+            <div>
+              <input
+                autoComplete="email"
+                disabled={disabled}
+                id="administrator-invite-email"
+                maxLength={254}
+                name="email"
+                onChange={(event) => setEmail(event.target.value)}
+                ref={inviteInput}
+                required
+                type="email"
+                value={email}
+              />
+              <button disabled={disabled} type="submit">
+                Invite administrator
+              </button>
+            </div>
+          </form>
+          <p className="account-feedback" role="status">
+            {busy ? 'Updating administrators…' : message}
+          </p>
+          {error && (
+            <p className="account-error" role="alert">
+              {error}
             </p>
-            <form
-              className="account-invite"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void mutate({ action: 'invite', email });
-              }}
-            >
-              <label htmlFor="administrator-invite-email">Email address</label>
-              <div>
-                <input
-                  autoComplete="email"
-                  disabled={disabled}
-                  id="administrator-invite-email"
-                  maxLength={254}
-                  name="email"
-                  onChange={(event) => setEmail(event.target.value)}
-                  ref={inviteInput}
-                  required
-                  type="email"
-                  value={email}
-                />
-                <button disabled={disabled} type="submit">
-                  Invite administrator
-                </button>
-              </div>
-            </form>
-            <p className="account-feedback" role="status">
-              {busy ? 'Updating administrators…' : message}
-            </p>
-            {error && (
-              <p className="account-error" role="alert">
-                {error}
-              </p>
-            )}
-            {rosterError && (
-              <div className="account-roster-error">
-                <p role="alert">{rosterError}</p>
-                <button
-                  className="secondary"
-                  disabled={busy}
-                  onClick={() => void retryRoster()}
-                  type="button"
-                >
-                  {busy ? 'Loading…' : 'Retry'}
-                </button>
-              </div>
-            )}
-            {roster && (
-              <ul aria-label="Church administrators and invitations" className="account-roster">
-                {roster.administrators.map((administrator) => (
-                  <li key={administrator.id}>
-                    <div className="account-person">
-                      <strong>{administrator.name || administrator.email}</strong>
-                      {administrator.name && <span>{administrator.email}</span>}
-                    </div>
-                    {administrator.isCurrentUser ? (
-                      <span className="account-person-state">You</span>
-                    ) : (
-                      <button
-                        aria-expanded={removing === administrator.id}
-                        aria-label={`Remove ${administrator.name || administrator.email}`}
-                        className="account-row-action"
-                        disabled={disabled}
-                        onClick={(event) => {
-                          removeTrigger.current = event.currentTarget;
-                          setRemoving(administrator.id);
-                        }}
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                    )}
-                    {removing === administrator.id && (
-                      <fieldset
-                        aria-label="Confirm administrator removal"
-                        className="account-remove-confirmation"
-                      >
-                        <p>
-                          Remove <strong>{administrator.email}</strong> from {account.churchName}?{' '}
-                          They will lose access to this church.
-                        </p>
-                        <div>
-                          <button
-                            className="danger"
-                            disabled={disabled}
-                            onClick={() => void mutate({ action: 'remove', id: administrator.id })}
-                            type="button"
-                          >
-                            Remove administrator
-                          </button>
-                          <button
-                            className="secondary"
-                            disabled={busy}
-                            onClick={() => {
-                              setRemoving(null);
-                              removeTrigger.current?.focus();
-                            }}
-                            ref={cancelRemoval}
-                            type="button"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </fieldset>
-                    )}
-                  </li>
-                ))}
-                {roster.invitations.map((invitation) => (
-                  <li key={invitation.id}>
-                    <div className="account-person">
-                      <strong>{invitation.email}</strong>
-                      <span>Invitation pending</span>
-                    </div>
+          )}
+          {rosterError && (
+            <div className="account-roster-error">
+              <p role="alert">{rosterError}</p>
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => void retryRoster()}
+                type="button"
+              >
+                {busy ? 'Loading…' : 'Retry'}
+              </button>
+            </div>
+          )}
+          {roster && (
+            <ul aria-label="Church administrators and invitations" className="account-roster">
+              {roster.administrators.map((administrator) => (
+                <li key={administrator.id}>
+                  <span aria-hidden="true" className="account-person-avatar">
+                    {(administrator.name || administrator.email).slice(0, 2).toUpperCase()}
+                  </span>
+                  <div className="account-person">
+                    <strong>{administrator.name || administrator.email}</strong>
+                    {administrator.name && <span>{administrator.email}</span>}
+                  </div>
+                  {administrator.isCurrentUser ? (
+                    <span className="account-person-state">You</span>
+                  ) : (
                     <button
-                      aria-label={`Revoke invitation to ${invitation.email}`}
+                      aria-expanded={removing === administrator.id}
+                      aria-label={`Remove ${administrator.name || administrator.email}`}
                       className="account-row-action"
                       disabled={disabled}
-                      onClick={() => void mutate({ action: 'revoke', id: invitation.id })}
+                      onClick={(event) => {
+                        removeTrigger.current = event.currentTarget;
+                        setRemoving(administrator.id);
+                      }}
                       type="button"
                     >
-                      Revoke
+                      Remove
                     </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
-        <footer className="account-support">
-          <span>Email support</span>
-          <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
-        </footer>
-      </main>
-    </div>
+                  )}
+                  {removing === administrator.id && (
+                    <fieldset
+                      aria-label="Confirm administrator removal"
+                      className="account-remove-confirmation"
+                    >
+                      <p>
+                        Remove <strong>{administrator.email}</strong> from {account.churchName}?{' '}
+                        They will lose access to this church.
+                      </p>
+                      <div>
+                        <button
+                          className="danger"
+                          disabled={disabled}
+                          onClick={() => void mutate({ action: 'remove', id: administrator.id })}
+                          type="button"
+                        >
+                          Remove administrator
+                        </button>
+                        <button
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() => {
+                            setRemoving(null);
+                            removeTrigger.current?.focus();
+                          }}
+                          ref={cancelRemoval}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </fieldset>
+                  )}
+                </li>
+              ))}
+              {roster.invitations.map((invitation) => (
+                <li key={invitation.id}>
+                  <span
+                    aria-hidden="true"
+                    className="account-person-avatar account-invitation-avatar"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                    >
+                      <rect x="3" y="5" width="14" height="10" rx="2" />
+                      <path d="m4 6 6 5 6-5" />
+                    </svg>
+                  </span>
+                  <div className="account-person">
+                    <strong>{invitation.email}</strong>
+                    <span>Invitation pending</span>
+                  </div>
+                  <button
+                    aria-label={`Revoke invitation to ${invitation.email}`}
+                    className="account-row-action"
+                    disabled={disabled}
+                    onClick={() => void mutate({ action: 'revoke', id: invitation.id })}
+                    type="button"
+                  >
+                    Revoke
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+      <footer className="account-support">
+        <span>Email support</span>
+        <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+      </footer>
+    </AdministratorPage>
   );
 }
