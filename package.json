@@ -11,9 +11,12 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "db:migrate": "pnpm --dir web db:migrate",
     "db:seed": "pnpm --dir web db:seed",
+    "db:backup": "node web/db/recovery.mjs backup",
+    "db:restore": "node web/db/recovery.mjs restore",
     "dev": "pnpm --dir web dev",
     "lint": "pnpm --dir web lint",
     "start": "pnpm --dir web start",
+    "smoke:production": "node scripts/smoke-production.mjs",
     "test": "pnpm --dir web test && node --test scripts/run-python.test.mjs && node scripts/run-python.mjs -m unittest web.importer.test_overture_import",
     "typecheck": "pnpm --dir web typecheck"
   }

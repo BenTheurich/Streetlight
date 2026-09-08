@@ -601,10 +601,15 @@ product works for the founder church and the founder explicitly starts that late
 
 The founder-church pilot uses the smallest operational stack that supports the existing application:
 
-- Railway Hobby hosts one application container under its generated HTTPS domain. The container
-  runs the Next.js application and the existing Python/DuckDB Overture importer.
-- SQLite remains the application database on one Railway persistent volume. Railway volume backups
-  are the pilot backup mechanism.
+- Ben's Linux machine `gb-dev` hosts one application container using Docker Compose. The container
+  runs Next.js and the existing Python/DuckDB Overture importer. A Cloudflare Tunnel publishes
+  `https://streetlight.bentheurich.com`; the application has no public host port. The existing
+  `bentheurich.com` portfolio remains on GitHub Pages.
+- SQLite remains the application database on one persistent volume mounted at `/data`.
+  On September 6, 2026, Ben deferred scheduled and off-machine backups for the pilot. Pilot data
+  exists only on `gb-dev`; losing that machine's storage can lose its outreach history. The manual
+  backup and restore commands remain available. Configure backups and verify recovery from an
+  off-machine copy before a real release.
 - WorkOS AuthKit provides invite-only email/password authentication, persistent sessions,
   invitation emails, and one organization per church. Use the standard WorkOS domain during the
   pilot; do not purchase its custom-domain add-on.
@@ -617,16 +622,24 @@ The founder-church pilot uses the smallest operational stack that supports the e
 - Printable packet maps use the same pinned open-data cartography and never use Google imagery.
   Google remains the provider for geocoding, road snapping, satellite viewing, and the printed
   directions QR code. Configure Google API quotas before deployment.
-- Enable Railway sleeping where compatible and set a hard spending limit. Use the generated Railway
-  domain until the founder church approves the pilot; `streetlight.church` remains a possible later
-  purchase.
+- Keep `gb-dev` powered, awake, and connected while the pilot is available. Tailscale remains the
+  private administration connection; church administrators use the public HTTPS address.
+- Ben approved this hosting change on September 6, 2026, replacing the unshipped Railway choice.
+  The server geocoding exception carries forward to `gb-dev`'s dynamic home egress: the server-only
+  key may omit an IP application restriction, but must retain its Geocoding API restriction and
+  the approved tight Google quotas and budget alerts. Cloudflare Tunnel does not give Google's
+  outbound requests a static source IP. A leaked key could consume the allowed quota.
+- The public access form permits five attempts per IP per fixed UTC hour. Trust only the validated
+  `CF-Connecting-IP` received through Cloudflare Tunnel, ignore `X-Real-IP` and `X-Forwarded-For`,
+  and return `429` with `Retry-After` above the limit. Missing or malformed trusted identity fails
+  closed with `503`.
 - Do not add Supabase, R2, Resend, Redis, a separate worker provider, or a separate database service
   for the pilot.
 
 Keep the importer in the application deployment until imports measurably interfere with normal
 requests. Move SQLite to PostgreSQL only when Streetlight needs multiple application replicas,
-database locking or import performance becomes a measured problem, the database approaches the
-Railway Hobby volume limit, stronger recovery is required, or the pilot grows beyond roughly 10–20
+database locking or import performance becomes a measured problem, the database approaches available
+storage, stronger recovery is required, or the pilot grows beyond roughly 10–20
 active churches.
 
 ## Technical decisions left open

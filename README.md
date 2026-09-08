@@ -4,13 +4,13 @@ Streetlight is a web application for churches that organize house-to-house tract
 
 Read [PRODUCT.md](PRODUCT.md) for the approved product definition and founder decisions.
 Read [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the phased build and current status.
+For the live pilot, start with [DEPLOYMENT.md](DEPLOYMENT.md) for redeployment and recovery.
 
 ## Application foundation
 
 The application is one Next.js App Router project in `web`, backed by SQLite through
 Node's built-in `node:sqlite` module. SQL migrations live in `web/db/migrations`.
-WorkOS AuthKit provides invite-only administrator authentication. Deployment and recovery remain
-in Phase 12 of the implementation plan.
+WorkOS AuthKit provides invite-only administrator authentication.
 
 Requirements:
 
@@ -34,6 +34,9 @@ Run these from the repository root:
 | Test | `pnpm test` |
 | Production build | `pnpm build` |
 | Run every code check | `pnpm check` |
+| Copy a database safely | `pnpm db:backup <source.db> <new-backup.db>` |
+| Restore into a new copy | `pnpm db:restore <backup.db> <new-restored.db>` |
+| Check a deployed application | `pnpm smoke:production <HTTPS-origin>` |
 | Start the isolated coverage review | `pnpm --dir web coverage:demo` |
 | Start the isolated progress review | `pnpm --dir web progress:demo` |
 
@@ -42,7 +45,17 @@ then serves Streetlight at `http://localhost:3000`.
 
 The local database is `web/data/streetlight.db`, created on first use and ignored by Git.
 Migrations and the idempotent seed prepare it; they do not restore saved outreach history.
-Preserve the database once it contains church work. Phase 12 owns backup and restore verification.
+Preserve the database once it contains church work. The manual backup and restore commands are
+verified; Ben deferred scheduled and off-machine backups for the pilot.
+
+Phase 12 runs Docker Compose on `gb-dev`, with Cloudflare Tunnel serving
+`https://streetlight.bentheurich.com`. The application and importer share one container and a
+persistent `/data` volume. The existing `bentheurich.com` portfolio stays on GitHub Pages.
+Production WorkOS authentication and deployment checks pass. Ben approved Phase 12 on
+September 7, 2026. Phase 13, the founder-church pilot, is next. Pilot data exists only on
+`gb-dev`; configure backups and prove recovery from an off-machine copy before a real release.
+Follow [the deployment runbook](docs/PHASE_12_DEPLOYMENT_REVIEW.md) and
+[production configuration](ENVIRONMENTS.md#phase-12-production-configuration) before deploying.
 
 The Overture import needs network access but no API key. It uses `python` by default.
 Set `STREETLIGHT_PYTHON` only when `python` is not the desired executable.

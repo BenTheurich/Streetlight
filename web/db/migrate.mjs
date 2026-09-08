@@ -3,7 +3,9 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const databasePath = path.join(import.meta.dirname, '..', 'data', 'streetlight.db');
+const databasePath =
+  process.env.STREETLIGHT_DATABASE_PATH ??
+  path.join(import.meta.dirname, '..', 'data', 'streetlight.db');
 const migrationsPath = path.join(import.meta.dirname, 'migrations');
 
 export function openDatabase(filename = databasePath) {

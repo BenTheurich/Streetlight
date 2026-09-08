@@ -50,7 +50,7 @@ Do not begin the next phase until the founder approves the current phase. Do not
 | 9 | Application UX/UI polish | Phase 8 | Complete | Founder approved the authenticated interface on August 27, 2026; the street workflow remains unchanged and apartments remain absent apart from the quiet Setup placeholder |
 | 10 | Outreach progress and presentation | Phase 9 | Complete | Founder approved the administrator view, unattended presentation loop, and final centered print view on August 27, 2026; the complete repository check passes |
 | 11 | Public trust and access presentation | Phase 10 | Complete | Ben approved the website and Account presentation subject to working administrator management; September 6 real WorkOS staging checks passed email delivery, hosted signup and acceptance, revocation, removal, and immediate denial of the removed session; disposable resources were deleted |
-| 12 | Deployment and recovery | Phase 11 | Pending | None |
+| 12 | Deployment and recovery | Phase 11 | Complete | Ben approved Phase 12 on September 7, 2026. [Deployment review](docs/PHASE_12_DEPLOYMENT_REVIEW.md): 487-test baseline, startup guards, recovery, health/restart, production WorkOS, public Cloudflare route, geocoding, 653-second import, three-packet PDF, reconciliation, Coverage, and Outreach Progress pass; test cleanup, deployed sixth-attempt rate limit, fresh sign-in, and live malformed-geocode rejection pass; backups and real support address deferred for pilot |
 | 13 | Founder-church pilot | Phase 12 | Pending | None |
 
 ## Phase 0: Geographic and print proof
@@ -1389,23 +1389,38 @@ state without an explanatory conversation. The agent then stops before deploymen
 
 ### Goal
 
-Deploy the founder-church pilot and prove that its data can be recovered.
+Deploy the founder-church pilot with verified manual recovery commands. Ben deferred scheduled
+and off-machine backups for this pilot; configure them and demonstrate recovery before a real
+release.
 
 ### Agent work
 
-- Follow the approved
+- Follow the current [approved pilot architecture](PRODUCT.md#approved-pilot-architecture) and
+  [deployment runbook](docs/PHASE_12_DEPLOYMENT_REVIEW.md). Ben's September 6 approval of `gb-dev`
+  and Cloudflare Tunnel replaces the unshipped Railway choice in the older
   [`Pilot authentication and hosting design`](docs/superpowers/specs/2026-07-29-pilot-auth-hosting-design.md).
-- Deploy one Railway Hobby service containing the application and importer.
-- Store SQLite on one Railway persistent volume and use the generated Railway HTTPS domain.
-- Configure production environment variables without committing secrets.
-- Configure WorkOS production authentication and Railway cost controls.
+- Deploy one application container containing Next.js and the importer on `gb-dev` with root
+  `compose.yaml`. Run `cloudflared` on the private Docker network and publish
+  `https://streetlight.bentheurich.com` without exposing the application port on the host.
+- Store SQLite on one persistent volume mounted at `/data`. Validate the mount and database path
+  before migrations, and keep the existing root and `www` portfolio DNS records.
+- Store production variables in ignored `deploy/.env.local` and the tunnel token in ignored
+  `deploy/cloudflared-token`. Never commit secrets or include them in the image build.
+- Configure separate WorkOS production authentication. Keep `gb-dev` awake on AC power, and
+  verify container restart and the public health endpoint.
 - Before enabling production church-address geocoding, Ben must approve the Geocoding API daily
   and queries-per-minute quota values plus the Google Cloud monthly budget amount, actual and
   forecast alert thresholds, and recipients. Configure the approved project quota overrides in
   **Google Maps Platform > Quotas** and a separate server-only key restricted to the Geocoding API.
-  Add an IP/CIDR application restriction only if Railway supplies stable outbound addresses;
-  otherwise treat the missing safe server-key application restriction as a deployment blocker,
-  never substitute a browser-referrer restriction, and obtain Ben's direction. Provider quotas
+  Ben approved carrying the server-key IP restriction exception to `gb-dev`'s dynamic home egress:
+  omit the IP application restriction, retain the server-only Geocoding API key, and configure
+  approved tight quotas and budget alerts. Cloudflare Tunnel does not give Google requests a
+  static outbound IP. Never substitute a browser-referrer restriction on the server key.
+  Ben also approved 25 requests/day, 5 requests/minute, a $5 monthly Streetlight project budget,
+  actual-spend alerts at 50%, 90%, and 100%, and a forecast alert at 100%, all sent to
+  `bentheurich@gmail.com`. He separately approved zero daily requests for the unused v4
+  GeocodeAddress, GeocodeLocation, GeocodePlace, and SearchDestinations methods. The approved
+  v3/v4 overrides and Streetlight-only budget are saved and verified. Provider quotas
   enforce request limits; Cloud Billing budgets alert but do not enforce a spending cap.
   Deployment evidence must capture the effective quota overrides, key restriction metadata without
   key material, and budget scope, amount, thresholds, and recipients. It must also prove that an
@@ -1419,23 +1434,23 @@ Deploy the founder-church pilot and prove that its data can be recovered.
   [Cloud quota management](https://cloud.google.com/docs/quotas/view-manage),
   [Cloud Billing budgets](https://cloud.google.com/billing/docs/how-to/budgets), and
   [Geocoding reporting and monitoring](https://developers.google.com/maps/documentation/geocoding/report-monitor).
-- Enable Railway volume backups.
-- Document and test the restore command.
+- Retain the documented and tested manual backup and restore commands. Ben explicitly deferred
+  scheduled and off-machine backups for the pilot on September 6. Data will exist only on `gb-dev`;
+  an operational backup and off-machine restore demonstration are required before a real release,
+  and are not a Phase 12 pilot completion gate under this exception.
 - Add one production smoke check for application health.
 - Run the core workflow in a real browser against the deployed application.
-- Resolve the public pilot-request rate-control blocker before public deployment. Railway documents
-  `X-Real-IP` as the client remote IP for proxied requests, but its Edge Rules do not provide a
-  per-route request-count action. Railway's service-wide connection and HTTP request-rate limits
-  are unrelated, and its WAF / Under Attack Mode guidance is incident response rather than this
-  application policy. Ben must approve the
-  count, fixed-window duration, and direct use of Railway's `X-Real-IP` header. Then implement
-  bounded SQLite fixed-window state with expired-window cleanup and deterministic route tests:
-  duplicates remain neutral below the limit, requests above it return `429` with `Retry-After`, and
-  deployed verification sends limit plus one requests while proving spoofed `X-Forwarded-For` is
-  ignored. Phase 12 cannot complete until this control and deployment check pass. See Railway's
-  [public networking specifications](https://docs.railway.com/networking/public-networking/specs-and-limits),
-  [Edge Rules](https://docs.railway.com/networking/edge-rules), and
-  [production lockdown guidance](https://docs.railway.com/guides/lock-down-production-project).
+- Preserve Ben's approved five public-form submissions per IP per fixed UTC hour. His approval
+  of the Cloudflare deployment also replaces Railway's `X-Real-IP` with validated
+  `CF-Connecting-IP`, enabled by `STREETLIGHT_TRUST_CLOUDFLARE=1`. Ignore `X-Real-IP` and
+  `X-Forwarded-For`; missing or malformed trusted identity returns `503`. Keep bounded SQLite
+  fixed-window state, expired-window cleanup, and deterministic route tests. Duplicates remain
+  neutral below the limit, and requests above it return `429` with `Retry-After`. Deployed
+  verification sends limit plus one requests and proves spoofed identity headers cannot reset
+  the limit. The origin must remain reachable only through the tunnel. Phase 12 cannot complete
+  until this control and deployment check pass. See Cloudflare's
+  [request headers](https://developers.cloudflare.com/fundamentals/reference/http-headers/#cf-connecting-ip)
+  and [Tunnel setup](https://developers.cloudflare.com/tunnel/setup/).
 
 Do not add payments, public signup, analytics suites, or multi-region infrastructure.
 
@@ -1444,17 +1459,23 @@ Do not add payments, public signup, analytics suites, or multi-region infrastruc
 - Production build passes.
 - Migrations apply to a fresh production-equivalent database.
 - Health check passes.
-- Backup completes.
-- Restore creates a usable copy containing expected seeded records.
+- Manual backup and restore checks pass on disposable fixtures, including expected records.
+- Production startup rejects a missing data mount, an escaped database path, or disabled
+  Cloudflare trust.
+- The deployed request limiter rejects spoofed forwarding headers and enforces the sixth attempt.
 - The deployed core browser workflow passes.
 
 ### Human review
 
-The founder signs in to the deployed application, creates a test batch, downloads its PDF, and confirms that a demonstrated restore contains the expected data.
+The founder signs in to the deployed application, creates a test batch, downloads its PDF, and
+approves the pilot URL. The approved pilot backup deferral remains recorded until a real release.
 
 ### Completion condition
 
-The production workflow and restore demonstration pass, and the founder approves the pilot URL.
+The deployed workflow, startup, health, and rate-limit checks pass, manual recovery regression
+checks remain green, and the founder approves the pilot URL. Scheduled backups and recovery from
+an off-machine copy are deferred under Ben's explicit pilot exception. Phase 13 starts only after
+this approval.
 
 ## Phase 13: Founder-church pilot
 
@@ -1477,7 +1498,8 @@ Use Streetlight for a real outreach batch and fix only problems that block the a
 
 - Every pilot defect fixed in code has a check that would have caught it.
 - The core browser workflow continues to pass.
-- Backup and restore checks continue to pass.
+- Manual backup and restore checks continue to pass; the approved pilot backup deferral remains
+  in force until backups and off-machine recovery are configured for a real release.
 
 ### Human review
 
