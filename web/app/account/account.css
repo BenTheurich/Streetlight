@@ -1,214 +1,152 @@
-.church-account-page {
-  min-height: 100dvh;
-}
-
-.church-account-page :focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 3px;
-}
-
-.church-account-header {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.church-account-header .brand {
-  display: flex;
-  width: fit-content;
-  min-height: 44px;
-  align-items: center;
-  color: var(--ink);
-}
-
-.church-account-header .administrator-account {
-  grid-column: 2;
-}
-
-.church-account-page :where(.administrator-account-menu) a {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  padding-block: 10px;
-}
-
-.church-account-content {
-  width: min(100%, 56rem);
-  margin-inline: auto;
-  padding: 24px 24px 48px;
-}
-
-.account-back {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 0.875rem;
-  text-decoration: none;
-}
-
-.account-back svg {
-  width: 20px;
-  height: 20px;
-}
-
-.account-back:hover,
-.account-support a:hover {
-  color: var(--ink);
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
-.account-title {
-  margin-block: 24px 36px;
-}
-
-.account-title h1 {
-  margin: 0 0 10px;
-  font-size: 1.85rem;
-  line-height: 1.15;
-}
-
-.account-title p {
-  margin: 0;
-  color: var(--muted);
-  overflow-wrap: anywhere;
-  line-height: 1.55;
-}
-
-.account-section {
+.account-access-section {
   display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: baseline;
   gap: 24px;
-  padding-block: 36px;
-  border-top: 1px solid var(--line);
+  padding: 24px 0;
+  margin-bottom: 24px;
+  border-block: 1px solid var(--line);
 }
-
-.account-section h2 {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.55;
-}
-
+.account-access-section h2,
 .account-access h3 {
-  margin: 0 0 10px;
-  font-size: 1.125rem;
-  line-height: 1.4;
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
 }
-
+.account-access h3 {
+  margin-bottom: 6px;
+}
 .account-access p {
   max-width: 65ch;
   margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
   line-height: 1.55;
 }
-
+.account-administrators-section {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.account-administrators-section h2 {
+  margin: 0 0 6px;
+  font-size: 1.125rem;
+  line-height: 1.4;
+}
 .account-permissions {
   margin: 0 0 24px;
   color: var(--muted);
   font-size: 0.875rem;
   line-height: 1.55;
 }
-
 .account-invite label {
   display: block;
-  margin-bottom: 10px;
-  font-size: 0.875rem;
+  margin-bottom: 8px;
+  font-size: 0.8125rem;
   font-weight: 700;
 }
-
 .account-invite > div {
   display: flex;
   gap: 10px;
 }
-
 .account-invite input {
   min-width: 0;
-  border-color: var(--muted);
 }
-
 .account-invite button {
   flex-shrink: 0;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
-
 .account-feedback {
-  min-height: 1.55em;
-  margin: 10px 0;
-  color: var(--muted);
+  margin: 0;
+  color: var(--success);
   font-size: 0.875rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
-
+.account-feedback:not(:empty) {
+  margin-top: 12px;
+}
 .account-error,
 .account-roster-error {
-  margin: 16px 0;
+  margin: 16px 0 0;
   color: var(--error-ink);
   font-size: 0.875rem;
   line-height: 1.55;
 }
-
 .account-roster-error {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
-
 .account-roster-error p {
   margin: 0;
 }
-
 .account-roster {
-  margin: 0;
+  margin: 24px 0 0;
   padding: 0;
   list-style: none;
 }
-
 .account-roster > li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px 16px;
+  gap: 10px 12px;
   padding-block: 16px;
   border-top: 1px solid var(--line);
 }
-
+.account-roster > li:last-child {
+  padding-bottom: 0;
+}
+.account-person-avatar {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--quiet-hover);
+  color: var(--ink);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.account-invitation-avatar {
+  color: var(--muted);
+}
+.account-person-avatar svg {
+  width: 20px;
+  height: 20px;
+}
 .account-person {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   overflow-wrap: anywhere;
 }
-
 .account-person strong {
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.4;
 }
-
 .account-person span,
 .account-person-state {
   color: var(--muted);
   font-size: 0.8125rem;
   line-height: 1.4;
 }
-
 .account-person-state {
   padding-inline: 14px;
 }
-
 button.account-row-action {
   border-color: transparent;
   background: transparent;
   color: var(--muted);
   font-size: 0.8125rem;
 }
-
 button.account-row-action:not(:disabled):hover {
   border-color: transparent;
   background: var(--quiet-hover);
   color: var(--ink);
 }
-
 .account-remove-confirmation {
   grid-column: 1 / -1;
   min-width: 0;
@@ -216,74 +154,55 @@ button.account-row-action:not(:disabled):hover {
   padding: 16px;
   border: 0;
   border-radius: 8px;
-  background: var(--panel);
+  background: var(--error-surface);
 }
-
 .account-remove-confirmation p {
   margin: 0 0 16px;
   font-size: 0.875rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
-
 .account-remove-confirmation > div {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
-
 .account-remove-confirmation button.danger {
   border-color: var(--error-ink);
   color: var(--error-ink);
 }
-
 .account-remove-confirmation button.danger:not(:disabled):hover {
   background: var(--error-surface);
 }
-
 .account-support {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0 16px;
-  padding-top: 24px;
-  border-top: 1px solid var(--line);
+  gap: 0 12px;
+  margin-top: 20px;
   color: var(--muted);
   font-size: 0.8125rem;
 }
-
 .account-support a {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  color: var(--muted);
+  color: inherit;
   overflow-wrap: anywhere;
+  text-underline-offset: 3px;
 }
-
-@media (max-width: 700px) {
-  .church-account-content {
-    padding: 16px 20px 36px;
-  }
-
-  .account-title {
-    margin-block: 16px 24px;
-  }
-
-  .account-section {
+@media (max-width: 600px) {
+  .account-access-section {
     grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
-    padding-block: 24px;
+    gap: 10px;
+    padding-block: 20px;
+  }
+  .account-administrators-section {
+    padding: 20px 16px;
   }
 }
-
 @media (max-width: 450px) {
   .account-invite > div {
     flex-direction: column;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .church-account-page button {
-    transition: none;
   }
 }

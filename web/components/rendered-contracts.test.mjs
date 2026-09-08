@@ -9,11 +9,13 @@ import { AdministratorAccount } from './AdministratorAccount.tsx';
 import { ChurchOnboarding } from './ChurchOnboarding.tsx';
 import { CoverageDashboard } from './CoverageDashboard.tsx';
 import { OutreachProgress } from './OutreachProgress.tsx';
+import { PilotRequestReview } from './PilotRequestReview.tsx';
 
 const { default: HowItWorksPage } = await import('../app/how-it-works/page.tsx');
 const { default: PricingPage } = await import('../app/pricing/page.tsx');
 const { default: WhyStreetlightPage } = await import('../app/why-streetlight/page.tsx');
 const { PublicLanding } = await import('./PublicLanding.tsx');
+const { ChurchAccount } = await import('./ChurchAccount.tsx');
 
 let browser;
 
@@ -32,6 +34,61 @@ async function render(component) {
   );
   return page;
 }
+
+test('administrator menus retain workspace sizing on Account and Access requests', async (t) => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  t.after(() => page.close());
+  const styles = [
+    '../app/globals.css',
+    '../app/workspace.css',
+    '../app/administrator-page.css',
+    '../app/account/account.css',
+    '../app/pilot-requests/pilot-requests.css',
+  ]
+    .map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'))
+    .join('\n');
+  const email = 'alex@example.com';
+  const components = [
+    createElement(
+      'div',
+      { className: 'territory-page' },
+      createElement(
+        'header',
+        { className: 'territory-header workspace-header' },
+        createElement(AdministratorAccount, { email, pendingPilotRequests: 0 }),
+      ),
+    ),
+    createElement(ChurchAccount, {
+      account: { churchName: 'Test Church', accessKind: 'founding' },
+      administratorEmail: email,
+      pendingPilotRequests: 0,
+      initialRoster: { administrators: [], invitations: [] },
+    }),
+    createElement(PilotRequestReview, { administratorEmail: email, initialRequests: [] }),
+  ];
+  const measurements = [];
+  for (const component of components) {
+    await page.setContent(`<style>${styles}</style>${renderToStaticMarkup(component)}`);
+    await page.getByRole('button', { name: `Administrator menu for ${email}` }).click();
+    await page.mouse.move(0, 899);
+    measurements.push(
+      await page.getByRole('menu').evaluate((menu) => {
+        const measure = (element) => {
+          const style = getComputedStyle(element);
+          return {
+            height: element.getBoundingClientRect().height,
+            padding: style.padding,
+            font: style.font,
+            display: style.display,
+          };
+        };
+        return { menu: measure(menu), rows: [...menu.querySelectorAll('a')].map(measure) };
+      }),
+    );
+  }
+  assert.deepEqual(measurements[1], measurements[0]);
+  assert.deepEqual(measurements[2], measurements[0]);
+});
 
 const publicLandingMotion = readFileSync(
   new URL('../public/landing/spread-the-light-v2.js', import.meta.url),

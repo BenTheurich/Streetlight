@@ -1,4 +1,5 @@
 import '../workspace.css';
+import '../administrator-page.css';
 import './account.css';
 import { notFound, redirect } from 'next/navigation';
 import { ChurchAccount } from '@/components/ChurchAccount';

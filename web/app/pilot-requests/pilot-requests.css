@@ -1,0 +1,197 @@
+.pilot-review-feedback {
+  margin: 0;
+  color: var(--success);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.pilot-review-feedback:not(:empty) {
+  margin-bottom: 24px;
+}
+.pilot-review-group + .pilot-review-group {
+  margin-top: 32px;
+}
+.pilot-review-group > h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.pilot-review-count {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.pilot-review-list {
+  display: grid;
+  gap: 12px;
+}
+.pilot-review-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.pilot-review-card > summary {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 12px;
+}
+.pilot-review-card > summary::-webkit-details-marker {
+  display: none;
+}
+.pilot-review-card > summary:hover {
+  background: var(--quiet-hover);
+}
+.pilot-review-summary {
+  min-width: 0;
+  flex: 1;
+}
+.pilot-review-summary h3 {
+  margin: 0 0 5px;
+  font-size: 1rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.pilot-review-summary p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.pilot-review-status {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.pilot-review-status.status-pending,
+.pilot-review-status.status-provisioning {
+  color: var(--warning-ink);
+}
+.pilot-review-status.status-approved {
+  color: var(--success);
+}
+.pilot-review-chevron {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.pilot-review-card[open] > summary .pilot-review-chevron {
+  transform: rotate(180deg);
+}
+.pilot-review-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  margin: 0 24px;
+  padding: 24px 0;
+  border-top: 1px solid var(--line);
+}
+.pilot-review-context {
+  min-width: 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+.pilot-review-context p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.pilot-review-context p:last-child {
+  margin-bottom: 0;
+}
+.pilot-review-contact a {
+  color: var(--ink);
+  text-underline-offset: 3px;
+}
+.pilot-review-process {
+  margin-bottom: 20px;
+}
+.pilot-review-process h4 {
+  margin: 0 0 6px;
+  font-size: 0.8125rem;
+}
+.pilot-review-card form,
+.pilot-review-card label {
+  display: grid;
+  gap: 8px;
+}
+.pilot-review-card form {
+  align-content: start;
+  gap: 16px;
+}
+.pilot-review-card label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.pilot-review-card input {
+  min-width: 0;
+  font-size: 0.875rem;
+}
+.pilot-review-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.pilot-review-error {
+  margin: 0;
+  color: var(--error-ink);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.pilot-review-empty {
+  padding: 24px;
+  border-block: 1px solid var(--line);
+}
+.pilot-review-empty p {
+  margin: 0 0 6px;
+  font-size: 0.9375rem;
+}
+.pilot-review-empty span {
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+@media (max-width: 700px) {
+  .pilot-review-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+}
+@media (max-width: 450px) {
+  .pilot-review-card > summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20px;
+    gap: 8px;
+    padding: 16px;
+  }
+  .pilot-review-status {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .pilot-review-chevron {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+  .pilot-review-body {
+    margin-inline: 16px;
+    padding-block: 20px;
+  }
+  .pilot-review-actions > button {
+    flex: 1;
+  }
+}
