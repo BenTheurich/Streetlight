@@ -1,5 +1,8 @@
 # Phase 12 deployment and recovery
 
+For routine redeployment, troubleshooting, and rollback, start with [DEPLOYMENT.md](../DEPLOYMENT.md).
+This document records the original setup, provider controls, and verification evidence.
+
 September 7, 2026. Status: complete, approved by Ben. The app is public at
 `https://streetlight.bentheurich.com`, served by `gb-dev` through Cloudflare Tunnel.
 WorkOS production is active, Ben accepted the first invitation, and church-address geocoding
@@ -255,10 +258,8 @@ running container's credential. Key values do not belong in this document or Git
 ## Resuming deployment verification
 
 The production credentials, tunnel route, and founder workspace exist. Do not provision them
-again. Confirm the current branch and `docker compose ps` on `gb-dev` before a deployment.
-Validate with `docker compose config --quiet`; use `docker compose build web` for source changes
-and `docker compose up -d web` to load the image or runtime environment. Avoid restarting during
-an import. Run `pnpm smoke:production https://streetlight.bentheurich.com` afterward.
+again. Follow [the operations guide](../DEPLOYMENT.md#redeploy-an-application-change) for branch
+checks, rebuilding, deployment, and health verification.
 
 Phase 12 is complete. Keep `Test church 1` available for further testing.
 Do not rerun provisioning, imports, or the public request test merely to resume the task.

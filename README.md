@@ -4,13 +4,13 @@ Streetlight is a web application for churches that organize house-to-house tract
 
 Read [PRODUCT.md](PRODUCT.md) for the approved product definition and founder decisions.
 Read [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the phased build and current status.
+For the live pilot, start with [DEPLOYMENT.md](DEPLOYMENT.md) for redeployment and recovery.
 
 ## Application foundation
 
 The application is one Next.js App Router project in `web`, backed by SQLite through
 Node's built-in `node:sqlite` module. SQL migrations live in `web/db/migrations`.
-WorkOS AuthKit provides invite-only administrator authentication. Deployment and recovery remain
-in Phase 12 of the implementation plan.
+WorkOS AuthKit provides invite-only administrator authentication.
 
 Requirements:
 

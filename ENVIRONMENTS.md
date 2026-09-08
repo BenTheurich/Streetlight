@@ -160,6 +160,7 @@ with `Retry-After` above the limit. Missing or malformed trusted identity return
 `STREETLIGHT_TRUST_CLOUDFLARE` unset in local previews. Deployed verification must prove that
 client-supplied identity headers cannot bypass the limit.
 
-See [Phase 12 deployment and recovery](docs/PHASE_12_DEPLOYMENT_REVIEW.md) for commands, evidence,
-provider setup, open decisions, and the founder review. Pilot data exists only on `gb-dev`;
+Use [DEPLOYMENT.md](DEPLOYMENT.md) for routine operations and
+[Phase 12 deployment and recovery](docs/PHASE_12_DEPLOYMENT_REVIEW.md) for provider setup and
+verification history. Pilot data exists only on `gb-dev`;
 the manual recovery commands do not provide a scheduled or off-machine backup.
