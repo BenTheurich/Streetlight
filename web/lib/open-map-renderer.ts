@@ -17,7 +17,6 @@ export type OpenMapRenderInput = {
   start: { number: string; position: Position };
   view: { center: Position; zoom: number };
   style: OpenMapStyle;
-  attribution: string;
 };
 
 type CaptureOpenMaps = (input: OpenMapRenderInput[]) => Promise<Uint8Array[]>;
@@ -64,16 +63,10 @@ export function packetMapDocument(
         white-space: nowrap; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff,
           -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 3px #fff;
       }
-      .attribution {
-        position: absolute; right: 8px; bottom: 7px; z-index: 4;
-        padding: 4px 7px; border-radius: 3px; background: rgba(255, 255, 255, .88);
-        color: #4d555b; font-size: 14px; line-height: 1.2;
-      }
     </style>
   </head>
   <body>
     <div id="map"></div>
-    <div class="attribution">${input.attribution}</div>
     <script>${escapeScript(maplibreScript)}</script>
     <script>
       window.__mapReady = false;
@@ -252,14 +245,6 @@ export async function renderOpenPacketMaps(
         generation,
         view.zoom,
       ),
-      attribution: [
-        'OpenFreeMap © OpenMapTiles',
-        'Data from OpenStreetMap',
-        'Overture Maps',
-        ...(generation.buildings.some(({ source }) => source === 'fema')
-          ? ['FEMA USA Structures']
-          : []),
-      ].join(' · '),
     };
   });
 

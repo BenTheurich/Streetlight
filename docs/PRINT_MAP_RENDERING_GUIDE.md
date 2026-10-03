@@ -1,6 +1,8 @@
 # Streetlight open-data print map rendering guide
 
-Status: implemented on the open-data maps branch; founder and provider-terms review pending
+Status: historical prototype and rendering reference. Current provider review is recorded in
+[Map provider review, October 3, 2026](MAP_PROVIDER_REVIEW_2026-10-03.md), including corrected
+credits, geographic data access, verification, and publication status.
 
 Recorded: 2026-07-30
 
@@ -12,8 +14,8 @@ This document preserves the exact data combination, cartographic rules, and rend
 produced the founder-approved open-data packet map. It is the implementation reference for the
 open-data replacement of the Google Static Maps image in Streetlight's printable packet PDFs.
 
-`PRODUCT.md` remains the product authority. The implementation is not ready to deploy until the
-visual, print, provider-terms, and founder-review gates below pass.
+`PRODUCT.md` remains the product authority. The prototype gates below describe the July 30
+implementation. Use the current provider review for today's source and attribution requirements.
 
 ## What each named project supplies
 
@@ -485,6 +487,10 @@ For one small pilot, a fresh headless page per PDF request is acceptable. Add po
 render service only if measured render time or memory makes the simple path inadequate.
 
 ## Attribution, terms, and production gate
+
+The following is the original prototype checklist. The October 3
+[provider review](MAP_PROVIDER_REVIEW_2026-10-03.md) supersedes its pending-review status and
+prototype credit wording. Its publication gate remains explicit in that record.
 
 The prototype displays:
 

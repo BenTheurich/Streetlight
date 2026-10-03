@@ -246,16 +246,28 @@ export function WorkspaceMap({
       {mapType === 'satellite' && satelliteError && (
         <span className="map-loading">{satelliteError}</span>
       )}
-      {mapType === 'roadmap' && data && (
+      {data && (
         <span className="workspace-map-attribution">
-          {[
-            data.attribution.base,
-            data.attribution.roads,
-            data.attribution.buildings,
-            data.attribution.fema,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
+          {mapType === 'roadmap' && (
+            <>
+              <a href="https://openmaptiles.org/">© OpenMapTiles</a> ·{' '}
+            </>
+          )}
+          <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a> ·{' '}
+          <a href="/map-data.html">{data.attribution.buildings}</a>
+          {data.attribution.fema && (
+            <>
+              {' '}
+              · <a href="/map-data.html#usa-structures">{data.attribution.fema}</a>
+            </>
+          )}
+          {' · '}
+          <a href="/map-data.html">Credits</a>
+          <span className="workspace-map-print-attribution">
+            {'\n'}
+            {mapType === 'roadmap' && 'openmaptiles.org · '}
+            openstreetmap.org/copyright · streetlight.bentheurich.com/map-data.html
+          </span>
         </span>
       )}
     </div>

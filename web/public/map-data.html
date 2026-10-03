@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Map credits · Streetlight</title>
+    <meta name="description" content="Map sources, geographic data licenses, and access to Streetlight's adapted geography.">
+    <link rel="icon" href="/streetlight-icon-48.png">
+    <link rel="stylesheet" href="/landing/public-pages-v1.css">
+    <style>
+      :root {
+        --paper: #f6f1e5;
+        --panel: #fffdf7;
+        --ink: #101a29;
+        --muted: #596675;
+        --line: #d8cfbf;
+        --amber: #e7ad50;
+        color-scheme: light;
+        background: var(--paper);
+        font-size: 16px;
+      }
+      body { margin: 0; }
+      .credits-page .public-shell-header { height: 76px; align-items: center; padding: 0 clamp(18px, 2.2vw, 36px); }
+      .credits-page .public-wordmark { gap: 10px; padding: 0; font-size: 12px; letter-spacing: .18em; }
+      .credits-page .public-wordmark img { width: 24px; height: 42px; }
+      .credits-page .public-wordmark span { display: block; }
+      .credits-page main { width: min(70ch, calc(100% - 48px)); margin: 0 auto; padding: 48px 0 64px; }
+      .credits-page h1 { font-size: clamp(2.5rem, 5vw, 3.25rem); line-height: 1.1; }
+      .credits-page h2 { margin: 36px 0 12px; font-size: 1.75rem; line-height: 1.2; }
+      .credits-page p { margin: 12px 0; }
+      .credits-page a { overflow-wrap: anywhere; }
+      .credits-page :focus-visible { outline-color: #2767e9; }
+      .credits-page .intro { margin: 12px 0 28px; color: var(--muted); }
+      .credits-page .pricing-faq { display: block; padding: 0; }
+      .credits-page .pricing-faq summary { padding: 20px 36px 20px 0; cursor: pointer; }
+      .credits-page .pricing-faq details p { margin: 0 0 16px; }
+      .credits-page .pricing-faq details ul { padding-left: 20px; margin: 0 0 16px; color: var(--muted); line-height: 1.7; }
+      .credits-page li + li { margin-top: 8px; }
+      .credits-page blockquote { margin: 0 0 16px; color: var(--muted); line-height: 1.7; }
+      .credits-page #usa-structures { scroll-margin-top: 100px; }
+      .credits-page .data-details { margin-top: 20px; }
+    </style>
+  </head>
+  <body class="public-page credits-page">
+    <header class="public-shell-header">
+      <a class="public-wordmark" href="/" aria-label="Streetlight home">
+        <img src="/landing/streetlight-logo-mark-v2.webp" width="24" height="42" alt="">
+        <span>Streetlight</span>
+      </a>
+    </header>
+    <main>
+      <h1>Map credits</h1>
+      <p class="intro">Streetlight builds outreach maps from the open data below.</p>
+
+      <div class="pricing-faq">
+      <details>
+      <summary>OpenStreetMap and basemap</summary>
+      <p><a href="https://openfreemap.org/">OpenFreeMap</a> hosts the basemap. Map data is © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, available under the <a href="https://opendatacommons.org/licenses/odbl/1-0/">Open Database License 1.0</a>. The schema and style credit © <a href="https://openmaptiles.org/">OpenMapTiles</a>.</p>
+      <p>Streetlight modifies the OpenFreeMap Positron style. Its design is derived from CartoDB Basemaps by Stamen and Paul Norman for CartoDB Inc., under <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>, and OpenMapTiles Positron under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. The adapted style's software notices are preserved in <a href="/map-style-licenses.txt">map-style-licenses.txt</a>.</p>
+      <p>Noto Sans uses the <a href="https://openfontlicense.org/">SIL Open Font License 1.1</a>; the Maki icons use <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>; Natural Earth imagery is <a href="https://www.naturalearthdata.com/about/terms-of-use/">public domain</a>. MapLibre GL JS renders the maps under <a href="https://github.com/maplibre/maplibre-gl-js/blob/main/LICENSE.txt">BSD 3-Clause</a>.</p>
+      </details>
+
+      <details>
+      <summary>Overture Maps</summary>
+      <p><a href="https://docs.overturemaps.org/attribution/">Overture Maps</a> supplies roads, addresses, buildings, and retained land-use evidence. Transportation and buildings use ODbL 1.0. Addresses have provider-specific licenses. Streetlight normalizes and splits roads, infers some road names, estimates homes, assigns addresses, and selects building footprints.</p>
+      <p>The recorded geographic release identifies the applicable upstream notices, including OpenStreetMap, TomTom, Esri Community Maps contributors, Microsoft, Google Open Buildings, USGS, Qian Shi et al., IGN, and address suppliers:</p>
+      <ul>
+        <li><a href="https://github.com/OvertureMaps/docs/blob/3d742db2401e785d608d7c0497068f5c9326f8d2/docs/_generated_attribution.mdx">2026-08-19.0 source credits and license notices</a></li>
+        <li><a href="https://github.com/OvertureMaps/docs/blob/6fd9ed1257b26129b18654569393eb1620630f30/docs/_generated_attribution.mdx">2026-06-17.0 source credits and license notices</a></li>
+      </ul>
+      <p>Each source retains its stated license and any additional conditions.</p>
+      </details>
+
+      <details>
+      <summary>USA Structures · ORNL/FEMA</summary>
+      <p id="usa-structures">Some U.S. maps include <a href="https://www.arcgis.com/home/item.html?id=0ec8512ad21e4bb987d7e848d14e7e24">USA Structures</a>, credited to Oak Ridge National Laboratory (ORNL) and the Federal Emergency Management Agency (FEMA) Geospatial Response Office, under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</p>
+      <p>The distributed source includes Esri's documented field changes. Streetlight further filters and selects single-family footprints to fill confirmed gaps in Overture buildings. Stored polygons and source identifiers remain available with the adapted geography.</p>
+      </details>
+
+      <details>
+      <summary>Regional source conditions</summary>
+      <p>Australia's G-NAF has <a href="https://geoscape.com.au/wp-content/uploads/2024/08/EULA-G-NAF-Core-1.pdf">additional conditions</a>, including restrictions on using addresses to send mail.</p>
+      <p>For maps or geographic data containing Kent County, Michigan data, the following source notice and application-use disclaimer apply under sections 5 and 8 of the <a href="https://www.kentcountymi.gov/DocumentCenter/View/6837/Terms-and-Conditions-of-Use-PDF">County's full license agreement</a>:</p>
+      <blockquote>Reproduced with permission granted by the County of Kent, Michigan. Some information has been provided subject to a non-exclusive, limited, and revocable license granted by the County of Kent, Michigan.</blockquote>
+      <blockquote>The Licensee agrees that the County and its elected officials, employees, and agents shall not be liable for damages of any kind (including, but not limited to, loss of use, time or data, inconvenience, commercial loss, business interruption, lost profits or savings, or the cost of computer equipment and software) arising from the use of the Data or any application that uses the Data including, but not limited to, direct, indirect, incidental, punitive and consequential, or special damages.</blockquote>
+      </details>
+
+      <details>
+      <summary>Accuracy and availability</summary>
+      <p>The geographic sources and map service are supplied without warranties of accuracy, completeness, fitness, or continued availability, subject to their <a href="https://openfreemap.org/tos/">service terms</a> and <a href="https://creativecommons.org/licenses/by/4.0/legalcode.en#s5">license disclaimers</a>. Maps and home counts are estimates for administrator review, not legal surveys. See each source's linked terms for its full notice.</p>
+      <p>Google supplies the separately labeled Satellite view and retains its own displayed credits. Printable packet maps use the open-data sources above.</p>
+      <p>These sources do not endorse Streetlight or a church's outreach.</p>
+      </details>
+      </div>
+
+      <h2>Free geographic data</h2>
+      <p>Streetlight offers the corresponding adapted geographic database or complete geographic alterations, free over the internet in machine-readable form under <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL 1.0</a>. Source contents keep their notices and licenses.</p>
+      <p>Email <a href="mailto:bentheurich@gmail.com?subject=Streetlight%20geographic%20data%20request">bentheurich@gmail.com</a> with the map's location and release or date. Include a packet code if you have one. No Streetlight account or church membership is required. Reuse is governed by the supplied licenses and does not require Streetlight's permission.</p>
+      <div class="pricing-faq data-details">
+        <details>
+          <summary>What the data includes</summary>
+          <p>The offer covers normalized roads, names, estimates, assigned geographic addresses, and selected building footprints, including retained earlier geography. Church account information, packet assignments, and outreach or reconciliation history are excluded.</p>
+          <p>The public <a href="https://github.com/BenTheurich/Streetlight/tree/c25ffb0c63c505c8c2d1ba89c7fe4b7a395c54c9/web/importer">importer and normalizer</a> records the transformation method. Copies use the stored geographic generation, including accepted FEMA footprints.</p>
+        </details>
+      </div>
+    </main>
+  </body>
+</html>

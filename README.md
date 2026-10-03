@@ -123,6 +123,16 @@ inspect their maps and starting addresses. Proposals do not reserve streets. Fin
 the selected proposals and downloads that exact batch as one PDF. A failed download can retry the
 same saved batch, even after another administrator finalizes a newer batch.
 
+Map credits link to the public source and license notice at `/map-data.html`. The
+[map provider review](docs/MAP_PROVIDER_REVIEW_2026-10-03.md) records the geographic-data offer,
+manual fulfillment steps, and publication status.
+
+For packet PDFs, `PRINT_STREETLIGHT_CREDITS_URL` in `web/lib/packet-pdf.ts` defaults to `false`
+for the pilot. Set it to `true` and update that file's `MAP_CREDITS_URL` for the new domain,
+then rebuild and deploy. The printed OSM copyright URL and digital full-notice link remain
+in both modes. Supply the full notices and data offer separately with standalone paper maps
+while the Streetlight URL is hidden.
+
 The explicit newest-batch and all-active-packets downloads remain available. Reconcile records
 whole-packet completion or cancellation from the paper sheets still present. Corrections retain
 history, and undo rejects any street already reserved by another active packet, including after

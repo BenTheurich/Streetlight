@@ -148,12 +148,10 @@ test('render document labels only the starting house number beneath the pin', ()
     start: { number: '40192', position: [0, 0] },
     view: { center: [0.0005, 0], zoom: 19 },
     style: { version: 8, sources: {}, layers: [] },
-    attribution: 'OpenFreeMap · Overture Maps',
   };
   const html = packetMapDocument(input, 'window.maplibregl = fake;', '.maplibregl-map{}');
 
   assert.match(html, /width: 1280px; height: 1280px/);
-  assert.match(html, /OpenFreeMap · Overture Maps/);
   assert.match(html, /number\.textContent = "40192"/);
   assert.ok(html.includes(mapPinDataUrl('start')));
   assert.match(html, /\.start-pin[^}]+width: 72px; height: 72px/s);
@@ -195,7 +193,6 @@ test('render document offers a collision-safe fallback only when the native labe
       },
       layers: [],
     },
-    attribution: 'OpenFreeMap',
   };
   const fakeMapLibre = `
     window.__addedLayers = [];
