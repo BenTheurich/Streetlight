@@ -136,13 +136,26 @@ export async function renderPacketPdf(
     const credits =
       '© OpenMapTiles.org · © OpenStreetMap contributors · Overture Maps (ODbL)' +
       (generation.buildings.some(({ source }) => source === 'fema') ? ' · ORNL/FEMA' : '');
-    page.drawText(credits, { x: 15, y: 60, size: 7, font: regular, color: muted });
-    page.drawText('openstreetmap.org/copyright · streetlight.bentheurich.com/map-data.html', {
+    const creditLines = [
+      credits,
+      'openstreetmap.org/copyright · streetlight.bentheurich.com/map-data.html',
+    ];
+    const creditWidth = Math.max(...creditLines.map((line) => regular.widthOfTextAtSize(line, 7)));
+    page.drawRectangle({
       x: 15,
-      y: 50,
-      size: 7,
-      font: regular,
-      color: muted,
+      y: 70,
+      width: creditWidth + 8,
+      height: 24,
+      color: rgb(1, 1, 1),
+    });
+    creditLines.forEach((line, index) => {
+      page.drawText(line, {
+        x: 19,
+        y: 84 - index * 10,
+        size: 7,
+        font: regular,
+        color: muted,
+      });
     });
 
     page.drawImage(logo, { x: 15, y: 24, width: 20, height: 20 });

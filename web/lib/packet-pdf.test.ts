@@ -176,7 +176,7 @@ test('provider failure rejects the complete PDF instead of returning partial byt
   assert.equal(calls, 2);
 });
 
-test('every PDF page has readable credits below its map, with FEMA credit for its stored generation', async () => {
+test('every PDF page has readable credits flush with the map bottom-left, with FEMA credit for its stored generation', async () => {
   const withFema: PacketMapGeneration = {
     ...generation,
     importGeneration: 2,
@@ -228,16 +228,19 @@ test('every PDF page has readable credits below its map, with FEMA credit for it
       '© OpenMapTiles.org · © OpenStreetMap contributors · Overture Maps (ODbL)' +
       (index === 1 ? ' · ORNL/FEMA' : '');
     for (const [text, baseline] of [
-      [credits, 60],
-      [sourceUrl, 50],
+      [credits, 84],
+      [sourceUrl, 74],
     ] as const) {
-      assert(font.widthOfTextAtSize(text, 7) <= 582);
-      assert.match(
-        operators,
+      const width = font.widthOfTextAtSize(text, 7);
+      const position = operators.match(
         new RegExp(
-          `/Helvetica-\\d+ 7 Tf\\n24 TL\\n1 0 0 1 15 ${baseline} Tm\\n${font.encodeText(text)} Tj`,
+          `/Helvetica-\\d+ 7 Tf\\n24 TL\\n1 0 0 1 ([\\d.]+) ${baseline} Tm\\n${font.encodeText(text)} Tj`,
         ),
       );
+      assert(position);
+      assert.equal(Number(position[1]), 19);
+      assert(Number(position[1]) + width <= 593);
+      assert(baseline >= 74 && baseline + 7 <= 94);
     }
     if (index === 0)
       assert(!operators.includes(font.encodeText('ORNL/FEMA').toString().slice(1, -1)));
