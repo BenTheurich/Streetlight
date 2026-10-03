@@ -250,11 +250,10 @@ export function WorkspaceMap({
         <span className="workspace-map-attribution">
           {mapType === 'roadmap' && (
             <>
-              <a href="https://openfreemap.org/">OpenFreeMap</a> ·{' '}
               <a href="https://openmaptiles.org/">© OpenMapTiles</a> ·{' '}
             </>
           )}
-          <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a> ·{' '}
+          <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a> ·{' '}
           <a href="/map-data.html">{data.attribution.buildings}</a>
           {data.attribution.fema && (
             <>
@@ -263,9 +262,11 @@ export function WorkspaceMap({
             </>
           )}
           {' · '}
-          <a href="/map-data.html">Data licenses and access</a>
+          <a href="/map-data.html">Credits</a>
           <span className="workspace-map-print-attribution">
-            {'\n'}openstreetmap.org/copyright · streetlight.bentheurich.com/map-data.html
+            {'\n'}
+            {mapType === 'roadmap' && 'openmaptiles.org · '}
+            openstreetmap.org/copyright · streetlight.bentheurich.com/map-data.html
           </span>
         </span>
       )}

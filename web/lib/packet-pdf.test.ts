@@ -1,13 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream } from 'pdf-lib';
-import type { DownloadPacket, PacketDownloadSelection } from './packet-finalization.ts';
+import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream, StandardFonts } from 'pdf-lib';
+import type {
+  DownloadPacket,
+  PacketDownloadSelection,
+  PacketMapGeneration,
+} from './packet-finalization.ts';
 import { googleMapsDirectionsUrl, renderPacketPdf } from './packet-pdf.ts';
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z3z8AAAAASUVORK5CYII=',
   'base64',
 );
+
+const generation: PacketMapGeneration = {
+  importGeneration: 1,
+  overtureRelease: '2026-06-17.0',
+  networkSegments: [],
+  buildings: [],
+  houseNumbers: [],
+};
 
 function packet(id: string, code: string, offset = 0): DownloadPacket {
   return {
@@ -53,7 +65,7 @@ test('PDF contains one Letter page per packet and uses every rendered map', asyn
   const selection: PacketDownloadSelection = {
     scope: 'active',
     packets: [packet('packet-a', 'TEM-001'), packet('packet-b', 'TEM-002', 0.001)],
-    mapGenerations: [],
+    mapGenerations: [generation],
   };
   const rendered: string[] = [];
 
@@ -77,7 +89,7 @@ test('PDF contains one Letter page per packet and uses every rendered map', asyn
 
 test('PDF draws the church printout message in every footer', async () => {
   const bytes = await renderPacketPdf(
-    { scope: 'newest', packets: [packet('packet-a', 'TEM-001')], mapGenerations: [] },
+    { scope: 'newest', packets: [packet('packet-a', 'TEM-001')], mapGenerations: [generation] },
     {
       logo: png,
       footer: { message: 'Ye are the light of the world.', reference: 'Matthew 5:14' },
@@ -102,7 +114,7 @@ test('restricted apartment packets carry an access warning', async () => {
   value.accessStatus = 'restricted';
   value.segments = [];
   const bytes = await renderPacketPdf(
-    { scope: 'newest', packets: [value], mapGenerations: [] },
+    { scope: 'newest', packets: [value], mapGenerations: [generation] },
     {
       logo: png,
       footer: { message: '', reference: '' },
@@ -121,7 +133,7 @@ test('long starting street fits before the QR panel', async () => {
   const value = packet('packet-a', 'TEM-001');
   value.start.address = '39859 N GENERAL KEARNY RD, TEMECULA 92591';
   const bytes = await renderPacketPdf(
-    { scope: 'newest', packets: [value], mapGenerations: [] },
+    { scope: 'newest', packets: [value], mapGenerations: [generation] },
     {
       logo: png,
       footer: { message: 'Ye are the light of the world.', reference: 'Matthew 5:14' },
@@ -145,7 +157,7 @@ test('provider failure rejects the complete PDF instead of returning partial byt
   const selection: PacketDownloadSelection = {
     scope: 'newest',
     packets: [packet('packet-a', 'TEM-001'), packet('packet-b', 'TEM-002', 0.001)],
-    mapGenerations: [],
+    mapGenerations: [generation],
   };
   let calls = 0;
 
@@ -162,4 +174,90 @@ test('provider failure rejects the complete PDF instead of returning partial byt
     /Open map unavailable/,
   );
   assert.equal(calls, 2);
+});
+
+test('every PDF page has readable credits below its map, with FEMA credit for its stored generation', async () => {
+  const withFema: PacketMapGeneration = {
+    ...generation,
+    importGeneration: 2,
+    buildings: [
+      {
+        source: 'fema',
+        sourceId: 'fema-one',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [0, 0],
+              [0.001, 0],
+              [0.001, 0.001],
+              [0, 0],
+            ],
+          ],
+        },
+        fema: {
+          addressSourceId: 'address-one',
+          distanceMeters: 1,
+          occupancy: 'Single Family Dwelling',
+          outbuilding: false,
+          source: 'USA Structures',
+          productDate: null,
+          imageDate: null,
+        },
+      },
+    ],
+  };
+  const second = { ...packet('packet-b', 'TEM-002'), importGeneration: 2 };
+  const bytes = await renderPacketPdf(
+    {
+      scope: 'active',
+      packets: [packet('packet-a', 'TEM-001'), second],
+      mapGenerations: [generation, withFema],
+    },
+    { logo: png, footer: { message: '', reference: '' }, renderMap: async () => png },
+  );
+  const document = await PDFDocument.load(bytes);
+  const font = await document.embedFont(StandardFonts.Helvetica);
+  const sourceUrl = 'openstreetmap.org/copyright · streetlight.bentheurich.com/map-data.html';
+  for (const [index, page] of document.getPages().entries()) {
+    const contents = page.node.Contents();
+    assert(contents instanceof PDFArray);
+    const stream = document.context.lookup(contents.get(0)) as PDFRawStream;
+    const operators = Buffer.from(decodePDFRawStream(stream).decode()).toString('latin1');
+    const credits =
+      '© OpenMapTiles.org · © OpenStreetMap contributors · Overture Maps (ODbL)' +
+      (index === 1 ? ' · ORNL/FEMA' : '');
+    for (const [text, baseline] of [
+      [credits, 60],
+      [sourceUrl, 50],
+    ] as const) {
+      assert(font.widthOfTextAtSize(text, 7) <= 582);
+      assert.match(
+        operators,
+        new RegExp(
+          `/Helvetica-\\d+ 7 Tf\\n24 TL\\n1 0 0 1 15 ${baseline} Tm\\n${font.encodeText(text)} Tj`,
+        ),
+      );
+    }
+    if (index === 0)
+      assert(!operators.includes(font.encodeText('ORNL/FEMA').toString().slice(1, -1)));
+    assert.match(operators, /582 0 0 582 0 0 cm/);
+    assert.match(operators, /1 0 0 1 15 70 cm/);
+  }
+});
+
+test('missing map provenance rejects the PDF before rendering an uncredited map', async () => {
+  await assert.rejects(
+    renderPacketPdf(
+      { scope: 'newest', packets: [packet('packet-a', 'TEM-001')], mapGenerations: [] },
+      {
+        logo: png,
+        footer: { message: '', reference: '' },
+        renderMap: async () => {
+          assert.fail('Map must not render without its generation');
+        },
+      },
+    ),
+    /import generation missing/,
+  );
 });

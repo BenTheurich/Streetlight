@@ -468,8 +468,10 @@ button.administrator-account-trigger:not(:disabled):hover {
 }
 
 .satellite .workspace-map-attribution {
-  top: 0.35rem;
-  bottom: auto;
+  left: 0.35rem;
+  right: auto;
+  bottom: 2.25rem;
+  max-width: calc(100% - 9rem);
 }
 
 @media print {

@@ -35,6 +35,7 @@ export async function renderPacketPdf(
   );
   document.setCreator('Streetlight');
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
+  const regular = await document.embedFont(StandardFonts.Helvetica);
   const italic = await document.embedFont(StandardFonts.TimesRomanItalic);
   const logo = await document.embedPng(options.logo);
   const ink = rgb(49 / 255, 44 / 255, 38 / 255);
@@ -44,6 +45,10 @@ export async function renderPacketPdf(
   const warning = rgb(128 / 255, 82 / 255, 31 / 255);
 
   for (const packet of selection.packets) {
+    const generation = selection.mapGenerations.find(
+      ({ importGeneration }) => importGeneration === packet.importGeneration,
+    );
+    if (!generation) throw new Error('Could not render packet PDF: import generation missing');
     const mapBytes = await options.renderMap(packet);
     const map = await document.embedPng(mapBytes);
     const qr = await document.embedPng(
@@ -126,6 +131,18 @@ export async function renderPacketPdf(
       height: 582,
       borderColor: border,
       borderWidth: 0.5,
+    });
+
+    const credits =
+      '© OpenMapTiles.org · © OpenStreetMap contributors · Overture Maps (ODbL)' +
+      (generation.buildings.some(({ source }) => source === 'fema') ? ' · ORNL/FEMA' : '');
+    page.drawText(credits, { x: 15, y: 60, size: 7, font: regular, color: muted });
+    page.drawText('openstreetmap.org/copyright · streetlight.bentheurich.com/map-data.html', {
+      x: 15,
+      y: 50,
+      size: 7,
+      font: regular,
+      color: muted,
     });
 
     page.drawImage(logo, { x: 15, y: 24, width: 20, height: 20 });

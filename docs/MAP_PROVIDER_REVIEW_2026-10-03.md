@@ -9,11 +9,11 @@ Production publication remains pending.
 
 | Source | Permission and conditions | Implementation |
 |---|---|---|
-| OpenFreeMap | Its [published guidance](https://openfreemap.org/#attribution) permits commercial use and gives printed-media credits. The [September 9 terms](https://openfreemap.org/tos/) provide no availability or accuracy warranty and prohibit unauthorized automated collection. | Ordinary MapLibre tile requests and bounded captures of up to three packet maps use the advertised printing path. There is no tile crawl, bulk prefetch, or use of `tile.openstreetmap.org`. Retain the approved public host and its outage behavior. |
+| OpenFreeMap | Its [published guidance](https://openfreemap.org/#attribution) permits commercial use and gives printed-media credits; displaying OpenFreeMap's own name is optional. The [September 9 terms](https://openfreemap.org/tos/) provide no availability or accuracy warranty and prohibit unauthorized automated collection. | Ordinary MapLibre tile requests and bounded captures of up to three packet maps use the advertised printing path. There is no tile crawl, bulk prefetch, or use of `tile.openstreetmap.org`. Retain the approved public host and its outage behavior. |
 | OpenStreetMap | [OSMF guidance](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines) requires readable credits and access to ODbL information. Printed maps must show `openstreetmap.org/copyright`. | Interactive credits link directly to copyright information; packet maps and the workspace print view include the readable URL. |
 | OpenMapTiles and Positron | The [style license](https://github.com/openmaptiles/positron-gl-style/blob/master/LICENSE.md) requires BSD software notices and accessible design credits. [OpenFreeMap's license list](https://github.com/hyperknot/openfreemap-styles/blob/main/LICENSE.md) identifies its MIT license, upstream cartography, fonts, icons, and imagery. | `web/public/map-style-licenses.txt` retains the supplied notices. The public map-data notice credits the CartoDB, Stamen, Paul Norman, and OpenMapTiles design lineage and identifies Streetlight's modifications. |
-| Overture | Transportation and buildings use ODbL; addresses carry source-specific terms. The exact [August](https://github.com/OvertureMaps/docs/blob/3d742db2401e785d608d7c0497068f5c9326f8d2/docs/_generated_attribution.mdx) and [June](https://github.com/OvertureMaps/docs/blob/6fd9ed1257b26129b18654569393eb1620630f30/docs/_generated_attribution.mdx) upstream notices are preserved by immutable links. | Maps identify the recorded release and link to the public source notices. Road normalization and the selected building layer are treated conservatively as adapted geography. |
-| USA Structures | The [exact ArcGIS item](https://www.arcgis.com/home/item.html?id=0ec8512ad21e4bb987d7e848d14e7e24) states CC BY 4.0 and credits ORNL and FEMA Geospatial Response Office. [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode.en) permits copying and adaptation with creator, source, license, modification, and disclaimer information. | Credits name ORNL and FEMA and identify the license. The linked notice identifies Esri's prior field changes and Streetlight's filtering. FEMA is credited only where accepted footprints exist. |
+| Overture | Transportation and buildings use ODbL; addresses carry source-specific terms. The exact [August](https://github.com/OvertureMaps/docs/blob/3d742db2401e785d608d7c0497068f5c9326f8d2/docs/_generated_attribution.mdx) and [June](https://github.com/OvertureMaps/docs/blob/6fd9ed1257b26129b18654569393eb1620630f30/docs/_generated_attribution.mdx) upstream notices are preserved by immutable links. | Maps name Overture and link to the public source notices. Stored geographic metadata retains the release. Road normalization and the selected building layer are treated conservatively as adapted geography. |
+| USA Structures | The [exact ArcGIS item](https://www.arcgis.com/home/item.html?id=0ec8512ad21e4bb987d7e848d14e7e24) states CC BY 4.0 and credits ORNL and FEMA Geospatial Response Office. [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode.en) permits copying and adaptation with creator, source, license, modification, and disclaimer information. | Compact map credits name ORNL/FEMA. The linked notice supplies full creator names, the source, license, Esri's prior field changes, and Streetlight's filtering. FEMA is credited only where accepted footprints exist. |
 
 The exact service is
 `https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/USA_Structures_View/FeatureServer/0`.
@@ -22,6 +22,24 @@ Its item metadata is available at
 The downloader uses its Query capability and 2,000-record pagination. Its existing failure path
 retains Overture-only geography. CC BY status comes from that item's explicit license, not an
 assumption that all government-hosted data is public domain.
+
+## Compact credit presentation
+
+The workspace uses `© OpenMapTiles · © OpenStreetMap · Overture Maps · ORNL/FEMA · Credits`,
+with FEMA conditional on the stored footprints. Satellite omits OpenMapTiles and keeps its
+open-data overlay credits above the Google footer area and away from the map controls.
+
+Packet PDFs use two native text lines below the map. The first names `© OpenMapTiles.org`,
+`© OpenStreetMap contributors`, `Overture Maps (ODbL)`, and conditional `ORNL/FEMA`.
+The second gives `openstreetmap.org/copyright` and the public Streetlight notice URL.
+Browser printing also exposes the URLs, including `openmaptiles.org` for Roadmap.
+The [OpenMapTiles license](https://github.com/openmaptiles/openmaptiles/blob/master/LICENSE.md)
+allows its name with a link or the visible `.org` form. Neither reviewed terms nor the attribution
+guidance require a visible release date; the geographic metadata and release notices retain it.
+
+The public notice uses native expandable sections for full source, creator, license, modification,
+and regional notices. The free machine-readable geographic-data offer stays visible without
+opening a section. No provider, geographic transformation, or service request behavior changed.
 
 ## Adapted geographic data offer
 
@@ -126,20 +144,25 @@ overlay credits now remain visible there. Printable packet maps continue to use 
 - [x] Provider URLs, pinned release notices, and exact ArcGIS license metadata reviewed;
   independent Overture and FEMA reviews completed. Their attribution findings are addressed.
 - [x] `pnpm check` passed in an isolated copy of the working source: lint, TypeScript,
-  426 web tests, 4 Python-launcher tests, 73 importer tests, and the production build.
-  Lint, types, and the build passed again after the final Satellite attribution adjustment.
+  427 web tests, 4 Python-launcher tests, 73 importer tests, and the production build.
+  Lint, types, and the build passed again after the final browser-print URL adjustment.
   Authentication values were fake; databases and browser storage were disposable.
 - [x] The local production build returned HTTP 200 for `/map-data.html` and
   `/map-style-licenses.txt` without a session. Browser checks at 320, 390, and 1440 pixels
-  found no horizontal overflow. The actual Roadmap and Satellite component markup retained
-  visible, working credit links at 390 pixels and exposed the source URLs when printing.
+  found no horizontal overflow. Revised notice sections passed both collapsed and expanded
+  checks at those widths, and the FEMA fragment opened its full notice. The actual Roadmap and
+  Satellite UI retained unclipped credit links and exposed source URLs when printing.
+  Satellite placement was checked without a Google key, with a 36-pixel footer clearance;
+  the Google imagery and provider-generated footer were not reloaded for this local review.
 - [x] The documented export ran against the real migrated schema in a disposable fixture.
   It included hidden and preserved roads, assigned addresses, and stored FEMA geometry and
   provenance for the requested generation. Other scopes and private-record sentinels were
   absent. The database bytes were unchanged; invalid and missing scopes failed.
-- [x] A fixture map passed through the actual packet PDF renderer. Visual inspection of the
-  Letter page found four readable, unclipped credit lines, including both printed source URLs.
-  Its 16-pixel map credits scale to approximately 7.3 points in the PDF.
+- [x] A recorded geographic fixture passed through the actual map and packet PDF renderers.
+  Visual inspection found two readable, unclipped 7-point credit lines below the Letter map.
+  Focused PDF tests verify the text, placement, line widths, per-generation FEMA credits,
+  and rejection of missing geographic provenance. An independent compact-credit review
+  identified the browser-print OpenMapTiles URL omission; the final layout check verifies its fix.
 - [ ] Publish the credit fixes and public notice together, then verify the public notice and
   changed maps on the deployed version. Production remains on `c25ffb0` at this review's close.
 
