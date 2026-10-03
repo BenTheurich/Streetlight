@@ -95,7 +95,7 @@ organization were deleted afterward, and their absence was verified. Ben's passw
 database, and original founder membership were unchanged. Automated regression tests continue
 to use fake providers and must not send invitations or create WorkOS organizations.
 
-The support email remains `support@streetlight.example` until Ben selects a real destination.
+The shared support email in `web/components/PublicSiteFooter.tsx` is `bentheurich@gmail.com`.
 See [Phase 11 account review](docs/PHASE_11_ACCOUNT_REVIEW.md) for the recorded checks and preview links.
 
 Production and recovery configuration belongs to Phase 12. Its deployment gate includes the
@@ -152,7 +152,7 @@ lookup succeeded, and Google's metrics show one request for `Streetlight pilot g
 The approved server-key IP restriction exception now applies to `gb-dev`'s dynamic home egress.
 Cloudflare Tunnel carries incoming traffic and does not supply a static outbound IP for Google
 requests. The Geocoding API restriction, server-only storage, and approved provider quotas remain
-required. The support-address replacement is deferred at Ben's request.
+required.
 
 The public form permits five attempts per IP per fixed UTC hour through Cloudflare Tunnel. It
 trusts only validated `CF-Connecting-IP`, ignores `X-Real-IP` and `X-Forwarded-For`, and returns `429`

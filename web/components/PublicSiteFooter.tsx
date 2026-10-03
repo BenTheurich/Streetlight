@@ -1,4 +1,4 @@
-export const SUPPORT_EMAIL = 'support@streetlight.example';
+export const SUPPORT_EMAIL = 'bentheurich@gmail.com';
 
 export function PublicSiteFooter() {
   return (

@@ -115,6 +115,6 @@ retain the original. Restoring a snapshot loses changes made after it was taken.
 
 Scheduled and off-machine backups remain deferred by Ben. A snapshot on `/data` does not protect
 against losing `gb-dev`; configure backups and prove off-machine recovery before a real release.
-The real support address is also deferred. Preserve the approved Google quotas, project budget
+Support links use `bentheurich@gmail.com`. Preserve the approved Google quotas, project budget
 alerts, server-key restriction exception, and public-request limit documented in
 [production configuration](ENVIRONMENTS.md#phase-12-production-configuration).

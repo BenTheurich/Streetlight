@@ -175,11 +175,11 @@ export function StreetlightWorkspace({
     }) => {
       setPacketResult(null);
       setSelectedPacketIndex(null);
+      if (completedInitialSetup) setSetupOnly(false);
       const refreshes = [refreshCoverage()];
       if (mapChanged) refreshes.push(refreshMapData());
       await Promise.all(refreshes);
       if (completedInitialSetup) {
-        setSetupOnly(false);
         setTool('coverage');
       }
     },

@@ -36,6 +36,30 @@ const browserModules = {
     import.meta.url,
   ),
   './outreach-progress.ts': new URL('../lib/outreach-progress.ts', import.meta.url),
+  ChurchOnboarding: new URL('./ChurchOnboarding.tsx', import.meta.url),
+  StreetlightWorkspace: new URL('./StreetlightWorkspace.tsx', import.meta.url),
+  '@/lib/google-maps-browser': new URL('../lib/google-maps-browser.ts', import.meta.url),
+  '@/lib/coverage': new URL('../lib/coverage.ts', import.meta.url),
+  '@/lib/region-setup-workflow': new URL('../lib/region-setup-workflow.ts', import.meta.url),
+  '@/lib/territory-client': new URL('../lib/territory-client.ts', import.meta.url),
+  '@/lib/territory-geometry': new URL('../lib/territory-geometry.ts', import.meta.url),
+  '@/lib/territory-map-style': new URL('../lib/territory-map-style.ts', import.meta.url),
+  '@/lib/product-capabilities': new URL('../lib/product-capabilities.ts', import.meta.url),
+  './TerritoryEditor': new URL('./TerritoryEditor.tsx', import.meta.url),
+  './OperationStatus': new URL('./OperationStatus.ts', import.meta.url),
+  './ToolViewSwitcher': new URL('./ToolViewSwitcher.tsx', import.meta.url),
+  './UnsavedChangesDialog': new URL('./UnsavedChangesDialog.tsx', import.meta.url),
+  ...Object.fromEntries(
+    [
+      'apartment-mutation-state',
+      'operation-state',
+      'product-capabilities',
+      'territory-client',
+      'territory-draft',
+      'territory-geometry',
+      'territory-import',
+    ].map((name) => [`./${name}.ts`, new URL(`../lib/${name}.ts`, import.meta.url)]),
+  ),
 };
 const progressBrowserScript = `
   const process = { env: { NODE_ENV: 'development' } };
@@ -55,6 +79,30 @@ const progressBrowserScript = `
       return `${JSON.stringify(name)}: (require, module, exports) => {${code}\n}`;
     })
     .join(',')}};
+  modules['next/image'] = (require, module) => {
+    module.exports.default = (props) => require('react').createElement('img', props);
+  };
+  modules['./StreetlightSelect'] = (require, module) => {
+    module.exports.StreetlightSelect = ({ ariaLabel, onValueChange, options, ...props }) =>
+      require('react').createElement('select', {
+        ...props, 'aria-label': ariaLabel, onChange: (event) => onValueChange(event.target.value),
+      }, options.map(({ value, label }) =>
+        require('react').createElement('option', { key: value, value }, label)));
+  };
+  for (const name of ['AdministratorAccount', 'HeatmapSettingsOverlay', 'MapLayersControl',
+    'OpenCoverageMap', 'PacketGenerator', 'PacketProposalMap', 'PrintoutSettings',
+    'ReconciliationTool', 'WorkspaceMap', 'OpenTerritoryMap']) {
+    modules['./' + name] = (require, module) => { module.exports[name] = () => null; };
+  }
+  modules['./OpenProgressMap'] = modules.OpenProgressMap;
+  modules['./useOutreachProgress'] = modules.useOutreachProgress;
+  modules['./OutreachProgress'] = (require, module) => {
+    module.exports.WorkspaceProgressPanel = () => null;
+  };
+  modules['./CoverageDashboard'] = (require, module) => {
+    module.exports.CoverageDashboard = ({ active }) => active
+      ? require('react').createElement('aside', { 'data-testid': 'coverage' }, 'Coverage data') : null;
+  };
   const cache = {};
   window.fixtureRequire = (name) => {
     if (!cache[name]) {
@@ -64,6 +112,270 @@ const progressBrowserScript = `
     return cache[name].exports;
   };
 `;
+
+async function mountOnboarding(t, failure = null) {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.setContent('<div id="root"></div>');
+  await page.addScriptTag({ content: progressBrowserScript });
+  await page.evaluate((failure) => {
+    window.submissions = [];
+    window.fetch = async (_url, init) => {
+      window.submissions.push(JSON.parse(init.body));
+      return Response.json({ error: 'Server validation response' }, { status: 400 });
+    };
+    class FakeAutocomplete extends HTMLElement {
+      connectedCallback() {
+        this.innerHTML = '<input aria-label="Address search">';
+      }
+    }
+    customElements.define('fake-autocomplete', FakeAutocomplete);
+    window.google = {
+      maps: {
+        importLibrary: async () => {
+          if (failure === 'initialization') throw new Error('Places unavailable');
+          return { PlaceAutocompleteElement: FakeAutocomplete };
+        },
+      },
+    };
+    window.selectAddress = (address, mode) => {
+      const place = {
+        formattedAddress: address,
+        async fetchFields() {
+          if (mode === 'failure') throw new Error('Details unavailable');
+          if (mode === 'pending') {
+            await new Promise((resolve) => {
+              window.finishDetails = resolve;
+            });
+          }
+        },
+      };
+      document.querySelector('fake-autocomplete').dispatchEvent(
+        Object.assign(new Event('gmp-select'), {
+          placePrediction: { toPlace: () => place },
+        }),
+      );
+    };
+    const { createElement } = window.fixtureRequire('react');
+    const { createRoot } = window.fixtureRequire('react-dom/client');
+    window.root = createRoot(document.querySelector('#root'));
+    window.root.render(
+      createElement(window.fixtureRequire('ChurchOnboarding').ChurchOnboarding, {
+        churchName: 'Sample Church',
+        initialTimeZone: 'America/Los_Angeles',
+        mapsApiKey: failure === 'missing-key' ? '' : 'fake-key',
+        timeZones: ['America/Los_Angeles'],
+      }),
+    );
+  }, failure);
+  await page.getByRole('button', { name: 'Continue to Region Setup' }).waitFor();
+  if (!failure) await page.getByRole('textbox', { name: 'Address search' }).waitFor();
+  return page;
+}
+
+async function selectedAddress(page, address = '1 Sample Road') {
+  await page.evaluate((address) => window.selectAddress(address), address);
+  await page.waitForFunction(
+    (address) => document.querySelector('input[name="address"]').value === address,
+    address,
+  );
+}
+
+test('onboarding requires a new selection after the selected address is edited or cleared', async (t) => {
+  const page = await mountOnboarding(t);
+  for (const edited of ['Another church', '']) {
+    await selectedAddress(page);
+    await page.getByRole('textbox', { name: 'Address search' }).fill('1 Sample Road');
+    await page.getByRole('textbox', { name: 'Address search' }).fill(edited);
+    await page.getByRole('button', { name: 'Continue to Region Setup' }).click();
+    assert.deepEqual(await page.evaluate(() => window.submissions), []);
+    assert.equal(
+      await page.locator('.field-error').textContent(),
+      'Choose your church or address from the suggestions.',
+    );
+  }
+  await selectedAddress(page, '2 Sample Road');
+  await page.getByRole('button', { name: 'Continue to Region Setup' }).click();
+  assert.equal((await page.evaluate(() => window.submissions))[0].address, '2 Sample Road');
+});
+
+test('late place details cannot restore an address after editing or replace a newer selection', async (t) => {
+  const page = await mountOnboarding(t);
+  await page.evaluate(() => window.selectAddress('Old address', 'pending'));
+  await page.getByRole('textbox', { name: 'Address search' }).fill('Another church');
+  await page.evaluate(() => window.finishDetails());
+  await page.getByRole('button', { name: 'Continue to Region Setup' }).click();
+  assert.deepEqual(await page.evaluate(() => window.submissions), []);
+  await page.evaluate(() => window.selectAddress('Old address', 'pending'));
+  await selectedAddress(page, 'New address');
+  await page.evaluate(() => window.finishDetails());
+  await page.getByRole('button', { name: 'Continue to Region Setup' }).click();
+  assert.equal((await page.evaluate(() => window.submissions))[0].address, 'New address');
+});
+
+for (const failure of [
+  'initialization',
+  'missing-key',
+  'details',
+  'missing-address',
+  'gmp-error',
+]) {
+  test(`onboarding permits a server-validated manual address after ${failure}`, async (t) => {
+    const page = await mountOnboarding(
+      t,
+      ['initialization', 'missing-key'].includes(failure) ? failure : null,
+    );
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    if (failure === 'details') {
+      await selectedAddress(page);
+      await page.evaluate(() => window.selectAddress('Unavailable place', 'failure'));
+    } else if (failure === 'missing-address') {
+      await page.evaluate(() => window.selectAddress(undefined));
+    } else if (failure === 'gmp-error') {
+      await page.evaluate(() =>
+        document.querySelector('fake-autocomplete').dispatchEvent(new Event('gmp-error')),
+      );
+    }
+    const address = page.getByRole('textbox', { name: 'Church or address' });
+    await address.waitFor({ timeout: 3_000 });
+    assert.equal(await address.inputValue(), '');
+    await page.getByRole('button', { name: 'Continue to Region Setup' }).click();
+    assert.deepEqual(await page.evaluate(() => window.submissions), []);
+    assert.equal(
+      await page.locator('.field-error').textContent(),
+      'Enter the full church address.',
+    );
+    await address.fill('123 Full Street, Sample City, CA');
+    await page.getByRole('button', { name: 'Continue to Region Setup' }).click();
+    assert.equal(
+      (await page.evaluate(() => window.submissions))[0].address,
+      '123 Full Street, Sample City, CA',
+    );
+    assert.equal(await page.locator('.field-error').textContent(), 'Server validation response');
+    assert.deepEqual(errors, []);
+  });
+}
+
+for (const coverageFails of [false, true]) {
+  test(`first region save unlocks the mounted workspace when coverage ${coverageFails ? 'fails' : 'succeeds'}`, async (t) => {
+    const browser = await chromium.launch({ headless: true });
+    t.after(() => browser.close());
+    const page = await browser.newPage();
+    await page.setContent('<div id="root"></div>');
+    await page.addScriptTag({ content: progressBrowserScript });
+    await page.evaluate((coverageFails) => {
+      const territory = {
+        id: 'region',
+        churchName: 'Sample Church',
+        name: 'Outreach Region',
+        originAddress: '1 Sample Road',
+        center: [-117.15, 33.5],
+        radiusMiles: 1,
+        boundaryShape: 'circle',
+        apartmentSites: [],
+        apartmentComplexes: [],
+        segments: [],
+        totals: { allSegments: 0, eligibleSegments: 0, allHomes: 0, eligibleHomes: 0 },
+        import: {
+          kind: 'overture',
+          release: null,
+          center: null,
+          radiusMiles: null,
+          completedAt: null,
+          normalizerVersion: null,
+          quality: null,
+        },
+      };
+      const coverage = { ...territory, asOf: '2026-10-03', activePackets: [], latestBatch: null };
+      window.saved = false;
+      window.mapRequests = 0;
+      let job = null;
+      window.fetch = async (url, init) => {
+        if (url === '/api/map') {
+          window.mapRequests += 1;
+          return Response.json({});
+        }
+        if (url === '/api/coverage')
+          return coverageFails
+            ? Response.json({ error: 'Temporary coverage failure' }, { status: 503 })
+            : Response.json(coverage);
+        if (url === '/api/territory/import') {
+          return Response.json(
+            job
+              ? {
+                  job: { ...job, status: 'succeeded', stage: 'saving' },
+                  workspace: {
+                    ...territory,
+                    import: {
+                      ...territory.import,
+                      release: '2026-08-19.0',
+                      center: territory.center,
+                      radiusMiles: 1,
+                      completedAt: '2026-10-03T12:00:00.000Z',
+                      normalizerVersion: 12,
+                    },
+                  },
+                }
+              : { job: null, workspace: null },
+          );
+        }
+        if (url === '/api/territory') {
+          if (init?.method === 'PATCH') {
+            window.saved = true;
+            job = {
+              id: 'first-import',
+              status: 'queued',
+              stage: 'queued',
+              draft: JSON.parse(init.body),
+              error: null,
+              createdAt: '2026-10-03T12:00:00.000Z',
+              updatedAt: '2026-10-03T12:00:00.000Z',
+            };
+            return Response.json({ job }, { status: 202 });
+          }
+          return Response.json(territory);
+        }
+        throw new Error(`Unexpected fixture request: ${url}`);
+      };
+      window
+        .fixtureRequire('react-dom/client')
+        .createRoot(document.querySelector('#root'))
+        .render(
+          window
+            .fixtureRequire('react')
+            .createElement(window.fixtureRequire('StreetlightWorkspace').StreetlightWorkspace, {
+              administratorEmail: 'admin@example.com',
+              setupOnly: true,
+              initialData: coverage,
+              initialPrintoutSettings: {},
+              mapsApiKey: '',
+            }),
+        );
+    }, coverageFails);
+    await page.getByRole('button', { name: 'Save changes', exact: true }).waitFor();
+    assert.equal(await page.getByRole('navigation', { name: 'Administrator tools' }).count(), 0);
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await page.waitForFunction(() => window.saved);
+    await page.getByRole('status').filter({ hasText: 'Street data refresh queued' }).waitFor();
+    assert.equal(await page.getByRole('navigation', { name: 'Administrator tools' }).count(), 0);
+    if (coverageFails) {
+      await page
+        .getByRole('status')
+        .filter({ hasText: 'Reload if map totals have not refreshed.' })
+        .waitFor();
+    } else {
+      await page.getByTestId('coverage').waitFor();
+    }
+    assert.equal(await page.getByRole('navigation', { name: 'Administrator tools' }).count(), 1);
+    assert.equal(await page.evaluate(() => window.mapRequests), 2);
+    assert.equal(
+      await page.getByRole('button', { name: 'Setup', exact: true }).getAttribute('aria-pressed'),
+      String(coverageFails),
+    );
+  });
+}
 
 test('progress map updates preserve visible ownership and unmount releases the final presentation', async (t) => {
   const browser = await chromium.launch({ headless: true });

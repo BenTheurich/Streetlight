@@ -32,6 +32,15 @@ export function ChurchOnboarding({
     const container = placeSearchRef.current;
     if (!mapsApiKey || !container) return;
     let disposed = false;
+    let selectionVersion = 0;
+
+    function fallBackToManualAddress() {
+      if (disposed) return;
+      selectionVersion += 1;
+      setAddress('');
+      setPlaceSearchFailed(true);
+      setError('Address search is unavailable. Enter the full church address below.');
+    }
 
     void loadGoogleMaps(mapsApiKey)
       .then(async (maps) => {
@@ -43,16 +52,31 @@ export function ChurchOnboarding({
         autocomplete.className = 'church-place-autocomplete';
         autocomplete.description = 'Search for your church or address';
         autocomplete.placeholder = 'Search for your church or address';
+        autocomplete.addEventListener('input', () => {
+          selectionVersion += 1;
+          setAddress('');
+          setError('');
+        });
+        autocomplete.addEventListener('gmp-error', fallBackToManualAddress);
         autocomplete.addEventListener('gmp-select', async (event) => {
-          const place = (
-            event as google.maps.places.PlacePredictionSelectEvent
-          ).placePrediction.toPlace();
-          await place.fetchFields({ fields: ['formattedAddress'] });
-          if (place.formattedAddress) setAddress(place.formattedAddress);
+          const version = ++selectionVersion;
+          setAddress('');
+          setError('');
+          try {
+            const place = (
+              event as google.maps.places.PlacePredictionSelectEvent
+            ).placePrediction.toPlace();
+            await place.fetchFields({ fields: ['formattedAddress'] });
+            if (disposed || version !== selectionVersion) return;
+            if (!place.formattedAddress) throw new Error('No formatted address');
+            setAddress(place.formattedAddress);
+          } catch {
+            if (!disposed && version === selectionVersion) fallBackToManualAddress();
+          }
         });
         container.replaceChildren(autocomplete);
       })
-      .catch(() => setPlaceSearchFailed(true));
+      .catch(fallBackToManualAddress);
 
     return () => {
       disposed = true;
@@ -76,8 +100,12 @@ export function ChurchOnboarding({
         <form
           onSubmit={async (event) => {
             event.preventDefault();
-            if (!address) {
-              setError('Choose your church or address from the suggestions.');
+            if (!address.trim()) {
+              setError(
+                placeSearchFailed
+                  ? 'Enter the full church address.'
+                  : 'Choose your church or address from the suggestions.',
+              );
               return;
             }
             setBusy(true);
@@ -116,7 +144,10 @@ export function ChurchOnboarding({
               <input
                 id="church-address"
                 value={address}
-                onChange={(event) => setAddress(event.target.value)}
+                onChange={(event) => {
+                  setAddress(event.target.value);
+                  setError('');
+                }}
                 autoComplete="street-address"
                 placeholder="Search for your church or address"
               />
