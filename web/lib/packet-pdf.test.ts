@@ -176,7 +176,7 @@ test('provider failure rejects the complete PDF instead of returning partial byt
   assert.equal(calls, 2);
 });
 
-test('every PDF page has readable credits flush with the map bottom-left, with FEMA credit for its stored generation', async () => {
+test('every PDF page has readable credits flush with the map bottom-right, with FEMA credit for its stored generation', async () => {
   const withFema: PacketMapGeneration = {
     ...generation,
     importGeneration: 2,
@@ -238,8 +238,8 @@ test('every PDF page has readable credits flush with the map bottom-left, with F
         ),
       );
       assert(position);
-      assert.equal(Number(position[1]), 19);
-      assert(Number(position[1]) + width <= 593);
+      assert(Number(position[1]) >= 19);
+      assert(Math.abs(Number(position[1]) + width - 593) < 1e-6);
       assert(baseline >= 74 && baseline + 7 <= 94);
     }
     if (index === 0)

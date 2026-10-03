@@ -29,7 +29,7 @@ The workspace uses `© OpenMapTiles · © OpenStreetMap · Overture Maps · ORNL
 with FEMA conditional on the stored footprints. Satellite omits OpenMapTiles and keeps its
 open-data overlay credits above the Google footer area and away from the map controls.
 
-Packet PDFs use two native text lines inside the map's bottom-left corner, left-aligned
+Packet PDFs use two native text lines inside the map's bottom-right corner, right-aligned
 on a small white backing flush with the map edges for readable contrast. The first names `© OpenMapTiles.org`,
 `© OpenStreetMap contributors`, `Overture Maps (ODbL)`, and conditional `ORNL/FEMA`.
 The second gives `openstreetmap.org/copyright` and the public Streetlight notice URL.
@@ -161,7 +161,7 @@ overlay credits now remain visible there. Printable packet maps continue to use 
   absent. The database bytes were unchanged; invalid and missing scopes failed.
 - [x] A recorded geographic fixture passed through the actual map and packet PDF renderers.
   Visual inspection found two readable, unclipped 7-point credit lines inside the Letter map's
-  bottom-left corner, with the credit backing flush to the map edges.
+  bottom-right corner, with the credit backing flush to the map edges.
   Focused PDF tests verify the text, placement, line widths, per-generation FEMA credits,
   and rejection of missing geographic provenance. An independent compact-credit review
   identified the browser-print OpenMapTiles URL omission; the final layout check verifies its fix.

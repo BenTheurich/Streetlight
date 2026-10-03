@@ -140,9 +140,10 @@ export async function renderPacketPdf(
       credits,
       'openstreetmap.org/copyright · streetlight.bentheurich.com/map-data.html',
     ];
-    const creditWidth = Math.max(...creditLines.map((line) => regular.widthOfTextAtSize(line, 7)));
+    const creditWidths = creditLines.map((line) => regular.widthOfTextAtSize(line, 7));
+    const creditWidth = Math.max(...creditWidths);
     page.drawRectangle({
-      x: 15,
+      x: 589 - creditWidth,
       y: 70,
       width: creditWidth + 8,
       height: 24,
@@ -150,7 +151,7 @@ export async function renderPacketPdf(
     });
     creditLines.forEach((line, index) => {
       page.drawText(line, {
-        x: 19,
+        x: 593 - creditWidths[index],
         y: 84 - index * 10,
         size: 7,
         font: regular,
