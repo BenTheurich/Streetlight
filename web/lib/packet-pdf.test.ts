@@ -189,7 +189,7 @@ test('provider failure rejects the complete PDF instead of returning partial byt
   assert.equal(calls, 2);
 });
 
-test('pilot and rollout PDFs retain printed OSM and linked notices, with readable credits for each stored generation', async () => {
+test('pilot and rollout PDFs fit credits and printed OSM on one line, with linked notices for each stored generation', async () => {
   const withFema: PacketMapGeneration = {
     ...generation,
     importGeneration: 2,
@@ -249,21 +249,16 @@ test('pilot and rollout PDFs retain printed OSM and linked notices, with readabl
       const credits =
         '© OpenMapTiles.org · © OpenStreetMap · Overture Maps (ODbL)' +
         (index === 1 ? ' · ORNL/FEMA' : '');
-      for (const [text, baseline] of [
-        [credits, 84],
-        [sourceUrl, 74],
-      ] as const) {
-        const width = font.widthOfTextAtSize(text, 7);
-        const position = operators.match(
-          new RegExp(
-            `/Helvetica-\\d+ 7 Tf\\n24 TL\\n1 0 0 1 ([\\d.]+) ${baseline} Tm\\n${font.encodeText(text)} Tj`,
-          ),
-        );
-        assert(position);
-        assert(Number(position[1]) >= 19);
-        assert(Math.abs(Number(position[1]) + width - 593) < 1e-6);
-        assert(baseline >= 74 && baseline + 7 <= 94);
-      }
+      const text = `${credits} · ${sourceUrl}`;
+      const width = font.widthOfTextAtSize(text, 7);
+      const position = operators.match(
+        new RegExp(
+          `/Helvetica-\\d+ 7 Tf\\n24 TL\\n1 0 0 1 ([\\d.]+) 74 Tm\\n${font.encodeText(text)} Tj`,
+        ),
+      );
+      assert(position);
+      assert(Number(position[1]) >= 19);
+      assert(Math.abs(Number(position[1]) + width - 593) < 1e-6);
       if (index === 0)
         assert(!operators.includes(font.encodeText('ORNL/FEMA').toString().slice(1, -1)));
       if (!printsStreetlightUrl)
@@ -283,10 +278,10 @@ test('pilot and rollout PDFs retain printed OSM and linked notices, with readabl
         '0',
       ]);
       assert.deepEqual(link.lookup(PDFName.of('Rect'), PDFArray).asArray().map(Number), [
-        593 - font.widthOfTextAtSize(credits, 7),
+        593 - width,
+        72,
+        593 - width + font.widthOfTextAtSize(credits, 7),
         82,
-        593,
-        92,
       ]);
       const action = link.lookup(PDFName.of('A'), PDFDict);
       assert.equal(action.lookup(PDFName.of('S'), PDFName), PDFName.of('URI'));

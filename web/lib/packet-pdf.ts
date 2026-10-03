@@ -144,35 +144,31 @@ export async function renderPacketPdf(
     const credits =
       '© OpenMapTiles.org · © OpenStreetMap · Overture Maps (ODbL)' +
       (generation.buildings.some(({ source }) => source === 'fema') ? ' · ORNL/FEMA' : '');
-    const creditLines = [
-      credits,
-      'openstreetmap.org/copyright' +
-        (printStreetlightCreditsUrl ? ` · ${MAP_CREDITS_URL.slice('https://'.length)}` : ''),
-    ];
-    const creditWidths = creditLines.map((line) => regular.widthOfTextAtSize(line, 7));
-    const creditWidth = Math.max(...creditWidths);
+    const creditLine =
+      `${credits} · openstreetmap.org/copyright` +
+      (printStreetlightCreditsUrl ? ` · ${MAP_CREDITS_URL.slice('https://'.length)}` : '');
+    const creditWidth = regular.widthOfTextAtSize(creditLine, 7);
+    const creditX = 593 - creditWidth;
     page.drawRectangle({
-      x: 589 - creditWidth,
+      x: creditX - 4,
       y: 70,
       width: creditWidth + 8,
-      height: 24,
+      height: 14,
       color: rgb(1, 1, 1),
     });
-    creditLines.forEach((line, index) => {
-      page.drawText(line, {
-        x: 593 - creditWidths[index],
-        y: 84 - index * 10,
-        size: 7,
-        font: regular,
-        color: muted,
-      });
+    page.drawText(creditLine, {
+      x: creditX,
+      y: 74,
+      size: 7,
+      font: regular,
+      color: muted,
     });
     page.node.addAnnot(
       document.context.register(
         document.context.obj({
           Type: 'Annot',
           Subtype: 'Link',
-          Rect: [593 - creditWidths[0], 82, 593, 92],
+          Rect: [creditX, 72, creditX + regular.widthOfTextAtSize(credits, 7), 82],
           Border: [0, 0, 0],
           Contents: PDFString.of('Map credits and free geographic data'),
           A: { Type: 'Action', S: 'URI', URI: PDFString.of(MAP_CREDITS_URL) },
