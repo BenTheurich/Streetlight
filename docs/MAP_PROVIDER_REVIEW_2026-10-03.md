@@ -33,11 +33,18 @@ Packet PDFs use two native text lines inside the map's bottom-right corner, righ
 on a small white backing flush with the map edges for readable contrast. The first names `© OpenMapTiles.org`,
 `© OpenStreetMap`, `Overture Maps (ODbL)`, and conditional `ORNL/FEMA`.
 The shorter OSM name is accepted by [OSMF's attribution-text guidance](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines#Attribution_text).
-The second gives `openstreetmap.org/copyright` and the public Streetlight notice URL.
-The separate second line is a layout choice. The [OSMF printed-map guidance](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines#Books,_magazines,_and_printed_maps)
-calls for the OSM copyright URL on paper. Streetlight's notice URL supplies the remaining
-creator, license, modification, and data-offer information. Those URLs can share a readable
-line with the credits; this page refinement leaves the current PDF layout unchanged.
+The second always gives `openstreetmap.org/copyright`, as required by the
+[OSMF printed-map guidance](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines#Books,_magazines,_and_printed_maps).
+For the pilot, `PRINT_STREETLIGHT_CREDITS_URL` in `web/lib/packet-pdf.ts` is `false`, hiding
+the personal Streetlight hostname from the printed sheet. Set it to `true` to append the
+Streetlight notice URL again. Update `MAP_CREDITS_URL` when the new domain is ready, then
+rebuild and deploy. This flag is independent of the public website's release flag.
+
+The first credit row always links to the full notice in digital PDFs, with no visible link
+border. Its destination still contains the current hostname. The free pilot does not waive
+creator, license, modification, or data-offer obligations. Supply the full notices and offer
+separately when distributing standalone paper maps while the Streetlight URL is hidden.
+The public notice and workspace credit links remain available.
 Browser printing also exposes the URLs, including `openmaptiles.org` for Roadmap.
 The [OpenMapTiles license](https://github.com/openmaptiles/openmaptiles/blob/master/LICENSE.md)
 allows its name with a link or the visible `.org` form. Neither reviewed terms nor the attribution
@@ -161,6 +168,7 @@ overlay credits now remain visible there. Printable packet maps continue to use 
   427 web tests, 4 Python-launcher tests, 73 importer tests, and the production build.
   Lint, types, and the build passed again after the final browser-print URL adjustment.
   The full check passed again after the credits-page refinement and shorter printed OSM credit.
+  It also passed after adding the pilot URL flag and digital PDF notice link.
   Authentication values were fake; databases and browser storage were disposable.
 - [x] The local production build returned HTTP 200 for `/map-data.html` and
   `/map-style-licenses.txt` without a session. Browser checks at 320, 390, and 1440 pixels
@@ -182,9 +190,13 @@ overlay credits now remain visible there. Printable packet maps continue to use 
 - [x] A recorded geographic fixture passed through the actual map and packet PDF renderers.
   Visual inspection found two readable, unclipped 7-point credit lines inside the Letter map's
   bottom-right corner, with the credit backing flush to the map edges.
-  Focused PDF tests verify the text, placement, line widths, per-generation FEMA credits,
+  Focused PDF tests verify both pilot and restored-URL modes, the mandatory printed OSM URL,
+  the full-notice link annotation, placement, line widths, per-generation FEMA credits,
   and rejection of missing geographic provenance. An independent compact-credit review
   identified the browser-print OpenMapTiles URL omission; the final layout check verifies its fix.
+  Pilot and restored-URL previews reused the recorded map image. Both passed visual inspection
+  and independent PDF text/link checks. The pilot sheet omitted the personal hostname from its
+  visible text; its digital link retained the current hostname. The local notice returned HTTP 200.
 - [ ] Publish the credit fixes and public notice together, then verify the public notice and
   changed maps on the deployed version. Production remains on `c25ffb0` at this review's close.
 

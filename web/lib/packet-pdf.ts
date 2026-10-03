@@ -1,7 +1,12 @@
-import { PDFDocument, type PDFFont, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, type PDFFont, PDFString, rgb, StandardFonts } from 'pdf-lib';
 import QRCode from 'qrcode';
 import type { DownloadPacket, PacketDownloadSelection } from './packet-finalization.ts';
 import type { ChurchPrintoutSettings } from './settings.ts';
+
+// Set true for rollout after updating the credits URL, then rebuild and deploy.
+// The OSM copyright URL remains printed in either mode.
+export const PRINT_STREETLIGHT_CREDITS_URL = false;
+const MAP_CREDITS_URL = 'https://streetlight.bentheurich.com/map-data.html';
 
 export function googleMapsDirectionsUrl(address: string): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}&travelmode=walking`;
@@ -11,6 +16,7 @@ type RenderPacketPdfOptions = {
   logo: Uint8Array;
   footer: ChurchPrintoutSettings;
   renderMap: (packet: DownloadPacket) => Promise<Uint8Array>;
+  printStreetlightCreditsUrl?: boolean;
 };
 
 function footerLines(message: string, font: PDFFont, size: number, width: number): string[] {
@@ -28,6 +34,8 @@ export async function renderPacketPdf(
   options: RenderPacketPdfOptions,
 ): Promise<Uint8Array> {
   const document = await PDFDocument.create();
+  const printStreetlightCreditsUrl =
+    options.printStreetlightCreditsUrl ?? PRINT_STREETLIGHT_CREDITS_URL;
   document.setTitle(
     selection.scope === 'active'
       ? 'Streetlight active outreach packets'
@@ -138,7 +146,8 @@ export async function renderPacketPdf(
       (generation.buildings.some(({ source }) => source === 'fema') ? ' · ORNL/FEMA' : '');
     const creditLines = [
       credits,
-      'openstreetmap.org/copyright · streetlight.bentheurich.com/map-data.html',
+      'openstreetmap.org/copyright' +
+        (printStreetlightCreditsUrl ? ` · ${MAP_CREDITS_URL.slice('https://'.length)}` : ''),
     ];
     const creditWidths = creditLines.map((line) => regular.widthOfTextAtSize(line, 7));
     const creditWidth = Math.max(...creditWidths);
@@ -158,6 +167,18 @@ export async function renderPacketPdf(
         color: muted,
       });
     });
+    page.node.addAnnot(
+      document.context.register(
+        document.context.obj({
+          Type: 'Annot',
+          Subtype: 'Link',
+          Rect: [593 - creditWidths[0], 82, 593, 92],
+          Border: [0, 0, 0],
+          Contents: PDFString.of('Map credits and free geographic data'),
+          A: { Type: 'Action', S: 'URI', URI: PDFString.of(MAP_CREDITS_URL) },
+        }),
+      ),
+    );
 
     page.drawImage(logo, { x: 15, y: 24, width: 20, height: 20 });
     page.drawText('STREETLIGHT', { x: 42, y: 31, size: 9, font: bold, color: ink });

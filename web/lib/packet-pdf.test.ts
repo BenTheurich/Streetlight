@@ -1,12 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream, StandardFonts } from 'pdf-lib';
+import {
+  decodePDFRawStream,
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFRawStream,
+  PDFString,
+  StandardFonts,
+} from 'pdf-lib';
 import type {
   DownloadPacket,
   PacketDownloadSelection,
   PacketMapGeneration,
 } from './packet-finalization.ts';
-import { googleMapsDirectionsUrl, renderPacketPdf } from './packet-pdf.ts';
+import {
+  googleMapsDirectionsUrl,
+  PRINT_STREETLIGHT_CREDITS_URL,
+  renderPacketPdf,
+} from './packet-pdf.ts';
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z3z8AAAAASUVORK5CYII=',
@@ -176,7 +189,7 @@ test('provider failure rejects the complete PDF instead of returning partial byt
   assert.equal(calls, 2);
 });
 
-test('every PDF page has readable credits flush with the map bottom-right, with FEMA credit for its stored generation', async () => {
+test('pilot and rollout PDFs retain printed OSM and linked notices, with readable credits for each stored generation', async () => {
   const withFema: PacketMapGeneration = {
     ...generation,
     importGeneration: 2,
@@ -208,44 +221,82 @@ test('every PDF page has readable credits flush with the map bottom-right, with 
     ],
   };
   const second = { ...packet('packet-b', 'TEM-002'), importGeneration: 2 };
-  const bytes = await renderPacketPdf(
-    {
-      scope: 'active',
-      packets: [packet('packet-a', 'TEM-001'), second],
-      mapGenerations: [generation, withFema],
-    },
-    { logo: png, footer: { message: '', reference: '' }, renderMap: async () => png },
-  );
-  const document = await PDFDocument.load(bytes);
-  const font = await document.embedFont(StandardFonts.Helvetica);
-  const sourceUrl = 'openstreetmap.org/copyright · streetlight.bentheurich.com/map-data.html';
-  for (const [index, page] of document.getPages().entries()) {
-    const contents = page.node.Contents();
-    assert(contents instanceof PDFArray);
-    const stream = document.context.lookup(contents.get(0)) as PDFRawStream;
-    const operators = Buffer.from(decodePDFRawStream(stream).decode()).toString('latin1');
-    const credits =
-      '© OpenMapTiles.org · © OpenStreetMap · Overture Maps (ODbL)' +
-      (index === 1 ? ' · ORNL/FEMA' : '');
-    for (const [text, baseline] of [
-      [credits, 84],
-      [sourceUrl, 74],
-    ] as const) {
-      const width = font.widthOfTextAtSize(text, 7);
-      const position = operators.match(
-        new RegExp(
-          `/Helvetica-\\d+ 7 Tf\\n24 TL\\n1 0 0 1 ([\\d.]+) ${baseline} Tm\\n${font.encodeText(text)} Tj`,
-        ),
+  for (const printStreetlightCreditsUrl of [undefined, false, true]) {
+    const printsStreetlightUrl = printStreetlightCreditsUrl ?? PRINT_STREETLIGHT_CREDITS_URL;
+    const bytes = await renderPacketPdf(
+      {
+        scope: 'active',
+        packets: [packet('packet-a', 'TEM-001'), second],
+        mapGenerations: [generation, withFema],
+      },
+      {
+        logo: png,
+        footer: { message: '', reference: '' },
+        renderMap: async () => png,
+        printStreetlightCreditsUrl,
+      },
+    );
+    const document = await PDFDocument.load(bytes);
+    const font = await document.embedFont(StandardFonts.Helvetica);
+    const sourceUrl = printsStreetlightUrl
+      ? 'openstreetmap.org/copyright · streetlight.bentheurich.com/map-data.html'
+      : 'openstreetmap.org/copyright';
+    for (const [index, page] of document.getPages().entries()) {
+      const contents = page.node.Contents();
+      assert(contents instanceof PDFArray);
+      const stream = document.context.lookup(contents.get(0)) as PDFRawStream;
+      const operators = Buffer.from(decodePDFRawStream(stream).decode()).toString('latin1');
+      const credits =
+        '© OpenMapTiles.org · © OpenStreetMap · Overture Maps (ODbL)' +
+        (index === 1 ? ' · ORNL/FEMA' : '');
+      for (const [text, baseline] of [
+        [credits, 84],
+        [sourceUrl, 74],
+      ] as const) {
+        const width = font.widthOfTextAtSize(text, 7);
+        const position = operators.match(
+          new RegExp(
+            `/Helvetica-\\d+ 7 Tf\\n24 TL\\n1 0 0 1 ([\\d.]+) ${baseline} Tm\\n${font.encodeText(text)} Tj`,
+          ),
+        );
+        assert(position);
+        assert(Number(position[1]) >= 19);
+        assert(Math.abs(Number(position[1]) + width - 593) < 1e-6);
+        assert(baseline >= 74 && baseline + 7 <= 94);
+      }
+      if (index === 0)
+        assert(!operators.includes(font.encodeText('ORNL/FEMA').toString().slice(1, -1)));
+      if (!printsStreetlightUrl)
+        assert(
+          !operators.includes(
+            font.encodeText('streetlight.bentheurich.com').toString().slice(1, -1),
+          ),
+        );
+      const annotations = page.node.Annots();
+      assert(annotations instanceof PDFArray);
+      assert.equal(annotations.size(), 1);
+      const link = document.context.lookup(annotations.get(0), PDFDict);
+      assert.equal(link.lookup(PDFName.of('Subtype'), PDFName), PDFName.of('Link'));
+      assert.deepEqual(link.lookup(PDFName.of('Border'), PDFArray).asArray().map(String), [
+        '0',
+        '0',
+        '0',
+      ]);
+      assert.deepEqual(link.lookup(PDFName.of('Rect'), PDFArray).asArray().map(Number), [
+        593 - font.widthOfTextAtSize(credits, 7),
+        82,
+        593,
+        92,
+      ]);
+      const action = link.lookup(PDFName.of('A'), PDFDict);
+      assert.equal(action.lookup(PDFName.of('S'), PDFName), PDFName.of('URI'));
+      assert.equal(
+        action.lookup(PDFName.of('URI'), PDFString).decodeText(),
+        'https://streetlight.bentheurich.com/map-data.html',
       );
-      assert(position);
-      assert(Number(position[1]) >= 19);
-      assert(Math.abs(Number(position[1]) + width - 593) < 1e-6);
-      assert(baseline >= 74 && baseline + 7 <= 94);
+      assert.match(operators, /582 0 0 582 0 0 cm/);
+      assert.match(operators, /1 0 0 1 15 70 cm/);
     }
-    if (index === 0)
-      assert(!operators.includes(font.encodeText('ORNL/FEMA').toString().slice(1, -1)));
-    assert.match(operators, /582 0 0 582 0 0 cm/);
-    assert.match(operators, /1 0 0 1 15 70 cm/);
   }
 });
 
