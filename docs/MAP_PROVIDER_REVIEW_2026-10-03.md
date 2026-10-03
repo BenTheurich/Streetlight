@@ -2,8 +2,8 @@
 
 Reviewed: October 3, 2026. Scope: the existing open-data workspace and packet-map workflow,
 Overture releases `2026-08-19.0` and `2026-06-17.0`, the adapted Positron style, and the exact
-USA Structures service used by the importer. Review and local verification are complete.
-Production publication remains pending.
+USA Structures service used by the importer. Review, local verification, and production
+publication are complete. Ben approved merging and deploying PR #18 on October 3, 2026.
 
 ## Provider findings
 
@@ -198,9 +198,21 @@ overlay credits now remain visible there. Printable packet maps continue to use 
   Pilot and restored-URL one-line previews reused the recorded map image. Both passed visual inspection
   and independent PDF text/link checks. The pilot sheet omitted the personal hostname from its
   visible text; its digital link retained the current hostname. The local notice returned HTTP 200.
-- [ ] Publish the credit fixes and public notice together, then verify the public notice and
-  changed maps on the deployed version. Production remains on `c25ffb0` at this review's close.
+- [x] PR #18 was squash-merged and deployed at `684484c85ac2f4e494e84eef77280e6a91f23e7a`.
+  CI passed on that merged commit. Only the `web` container was replaced; the Cloudflare
+  connector and database volume remained in place. The deployed image is
+  `sha256:5638784b1f7b78544edcc7eb0b96b2567a7dabcbfafa95da37a7361eb8eecb3c`.
+  The prior image remains tagged `streetlight:previous`, and the verified recovery snapshot is
+  `/data/pre-pr18-deploy-20261003T181125Z.db` on `gb-dev`.
+  Public health, homepage, notice, style-license file, stylesheet, logo, and icon returned HTTP 200.
+  Static assets matched the merged source. The public HTML differed only by Cloudflare's email
+  protection and injected scripts; browser checks confirmed the decoded contact link, source
+  disclosures, and no horizontal overflow. Sign-in redirected to WorkOS authorization with 307.
+  The deployed map and PDF renderers passed the recorded fixture: one Letter page, one native
+  credit line, the pilot URL flag disabled, and the full-notice link present. This check created
+  no church records. Live database integrity and foreign keys passed, with the same 32 migrations
+  and operational-record counts as the pre-deployment snapshot.
 
-The provider-review item is complete. Production publication is the remaining action;
-it requires Ben's approval under the repository's live-change rule. The regional conditions
-and re-review triggers above remain ongoing requirements.
+The provider-review item and production publication are complete. The regional conditions,
+paper-distribution notices, data-request fulfillment, and re-review triggers remain ongoing
+requirements.
