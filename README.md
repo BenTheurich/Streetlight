@@ -123,6 +123,10 @@ inspect their maps and starting addresses. Proposals do not reserve streets. Fin
 the selected proposals and downloads that exact batch as one PDF. A failed download can retry the
 same saved batch, even after another administrator finalizes a newer batch.
 
+Map credits link to the public source and license notice at `/map-data.html`. The
+[map provider review](docs/MAP_PROVIDER_REVIEW_2026-10-03.md) records the geographic-data offer,
+manual fulfillment steps, and publication status.
+
 The explicit newest-batch and all-active-packets downloads remain available. Reconcile records
 whole-packet completion or cancellation from the paper sheets still present. Corrections retain
 history, and undo rejects any street already reserved by another active packet, including after

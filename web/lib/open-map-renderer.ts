@@ -67,13 +67,14 @@ export function packetMapDocument(
       .attribution {
         position: absolute; right: 8px; bottom: 7px; z-index: 4;
         padding: 4px 7px; border-radius: 3px; background: rgba(255, 255, 255, .88);
-        color: #4d555b; font-size: 14px; line-height: 1.2;
+        color: #4d555b; font-size: 16px; line-height: 1.25;
+        max-width: calc(100% - 30px); white-space: pre-line;
       }
     </style>
   </head>
   <body>
     <div id="map"></div>
-    <div class="attribution">${input.attribution}</div>
+    <div class="attribution">${input.attribution.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}</div>
     <script>${escapeScript(maplibreScript)}</script>
     <script>
       window.__mapReady = false;
@@ -253,13 +254,13 @@ export async function renderOpenPacketMaps(
         view.zoom,
       ),
       attribution: [
-        'OpenFreeMap © OpenMapTiles',
-        'Data from OpenStreetMap',
-        'Overture Maps',
+        'OpenFreeMap · © OpenMapTiles · © OpenStreetMap contributors · openstreetmap.org/copyright',
+        `Overture Maps ${generation.overtureRelease} · Geographic data adapted by Streetlight (ODbL 1.0)`,
         ...(generation.buildings.some(({ source }) => source === 'fema')
-          ? ['FEMA USA Structures']
+          ? ['USA Structures: ORNL / FEMA Geospatial Response Office (CC BY 4.0)']
           : []),
-      ].join(' · '),
+        'Sources, licenses and geographic data: streetlight.bentheurich.com/map-data.html',
+      ].join('\n'),
     };
   });
 

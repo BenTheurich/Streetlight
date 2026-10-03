@@ -127,8 +127,10 @@ export function getOpenMapData(filename?: string): OpenMapData {
       attribution: {
         base: 'OpenFreeMap © OpenMapTiles',
         roads: 'Data from OpenStreetMap',
-        buildings: 'Overture Maps',
-        fema: buildings.some(({ source }) => source === 'fema') ? 'FEMA USA Structures' : null,
+        buildings: 'Overture Maps (ODbL)',
+        fema: buildings.some(({ source }) => source === 'fema')
+          ? 'USA Structures: ORNL / FEMA (CC BY 4.0)'
+          : null,
       },
     };
   } finally {

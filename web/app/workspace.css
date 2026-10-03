@@ -452,8 +452,31 @@ button.administrator-account-trigger:not(:disabled):hover {
   border-radius: 3px;
   background: rgb(255 255 255 / 88%);
   color: #4d555b;
-  font-size: 0.62rem;
-  pointer-events: none;
+  max-width: calc(100% - 0.7rem);
+  font-size: 0.68rem;
+  line-height: 1.4;
+  pointer-events: auto;
+}
+
+.workspace-map-attribution a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.workspace-map-print-attribution {
+  display: none;
+}
+
+.satellite .workspace-map-attribution {
+  top: 0.35rem;
+  bottom: auto;
+}
+
+@media print {
+  .workspace-map-print-attribution {
+    display: block;
+    white-space: pre-line;
+  }
 }
 
 .operation-status {

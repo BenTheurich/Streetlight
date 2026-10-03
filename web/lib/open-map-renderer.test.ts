@@ -124,6 +124,62 @@ test('renders every packet with its recorded map generation', async () => {
   assert(received[0][0].style.layers.some(({ id }) => id === 'streetlight-route'));
 });
 
+test('printed map credits identify the recorded release, licenses and geographic source offer', async () => {
+  let captured: OpenMapRenderInput[] = [];
+  await renderOpenPacketMaps(selection, async (input) => {
+    captured = input;
+    return [png];
+  });
+  const attribution = captured[0].attribution;
+  assert.match(attribution, /© OpenMapTiles/);
+  assert.match(attribution, /© OpenStreetMap contributors/);
+  assert.match(attribution, /openstreetmap\.org\/copyright/);
+  assert.match(attribution, /Overture Maps 2026-06-17\.0/);
+  assert.match(attribution, /adapted by Streetlight \(ODbL 1\.0\)/);
+  assert.match(attribution, /streetlight\.bentheurich\.com\/map-data\.html/);
+  assert.doesNotMatch(attribution, /FEMA|ORNL/);
+
+  const withFema = structuredClone(selection);
+  withFema.mapGenerations[0].buildings.push({
+    ...withFema.mapGenerations[0].buildings[0],
+    source: 'fema',
+    sourceId: 'fema-one',
+    fema: {
+      addressSourceId: 'address-one',
+      distanceMeters: 1,
+      occupancy: 'Single Family Dwelling',
+      outbuilding: false,
+      source: 'USA Structures',
+      productDate: null,
+      imageDate: null,
+    },
+  });
+  await renderOpenPacketMaps(withFema, async (input) => {
+    captured = input;
+    return [png];
+  });
+  assert.match(captured[0].attribution, /ORNL \/ FEMA Geospatial Response Office \(CC BY 4\.0\)/);
+
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 1280 } });
+    await page.setContent(packetMapDocument(captured[0], '', ''));
+    const credits = page.locator('.attribution');
+    assert.equal(await credits.innerText(), captured[0].attribution);
+    const bounds = await credits.boundingBox();
+    assert(bounds && bounds.x >= 0 && bounds.y >= 0);
+    assert(bounds.x + bounds.width <= 1280);
+    assert(bounds.y + bounds.height <= 1280);
+    assert.equal(
+      await credits.evaluate((element) => element.scrollWidth > element.clientWidth),
+      false,
+    );
+    assert.equal(await credits.evaluate((element) => getComputedStyle(element).fontSize), '16px');
+  } finally {
+    await browser.close();
+  }
+});
+
 test('retries one complete transient capture failure and then fails clearly', async () => {
   let attempts = 0;
   const images = await renderOpenPacketMaps(selection, async () => {

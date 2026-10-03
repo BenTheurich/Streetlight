@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Streetlight map data and licenses</title>
+    <meta name="description" content="Map sources, geographic data licenses, and access to Streetlight's adapted geography.">
+    <style>
+      html { color-scheme: light; background: #f7f4ed; color: #312c26; font: 17px/1.6 system-ui, sans-serif; }
+      body { max-width: 48rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+      h1 { font-size: 2rem; line-height: 1.2; }
+      h2 { margin-top: 2rem; font-size: 1.3rem; }
+      a { color: #263c4a; text-underline-offset: .15em; overflow-wrap: anywhere; }
+      a:focus-visible { outline: 3px solid #9a582a; outline-offset: 3px; }
+      li { margin: .4rem 0; }
+      .notice { border-left: 3px solid #9a582a; padding-left: 1rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="/">Streetlight home</a>
+      <h1>Map data and licenses</h1>
+      <p>Streetlight adapts public geographic data for outreach maps. The sources below supply the geography; they do not endorse Streetlight or a church's outreach.</p>
+
+      <h2>Basemap and cartography</h2>
+      <p><a href="https://openfreemap.org/">OpenFreeMap</a> hosts the basemap. Map data is © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, available under the <a href="https://opendatacommons.org/licenses/odbl/1-0/">Open Database License 1.0</a>. The schema and style credit © <a href="https://openmaptiles.org/">OpenMapTiles</a>.</p>
+      <p>Streetlight modifies the OpenFreeMap Positron style. Its design is derived from CartoDB Basemaps by Stamen and Paul Norman for CartoDB Inc., under <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>, and OpenMapTiles Positron under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. The adapted style's software notices are preserved in <a href="/map-style-licenses.txt">map-style-licenses.txt</a>.</p>
+      <p>Noto Sans uses the <a href="https://openfontlicense.org/">SIL Open Font License 1.1</a>; the Maki icons use <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>; Natural Earth imagery is <a href="https://www.naturalearthdata.com/about/terms-of-use/">public domain</a>. MapLibre GL JS renders the maps under <a href="https://github.com/maplibre/maplibre-gl-js/blob/main/LICENSE.txt">BSD 3-Clause</a>.</p>
+
+      <h2>Overture geography</h2>
+      <p><a href="https://docs.overturemaps.org/attribution/">Overture Maps</a> supplies roads, addresses, buildings, and retained land-use evidence. Transportation and buildings use ODbL 1.0. Addresses have provider-specific licenses. Streetlight normalizes and splits roads, infers some road names, estimates homes, assigns addresses, and selects building footprints.</p>
+      <p>The recorded release on a map identifies the applicable upstream notices, including OpenStreetMap, TomTom, Esri Community Maps contributors, Microsoft, Google Open Buildings, USGS, Qian Shi et al., IGN, and address suppliers:</p>
+      <ul>
+        <li><a href="https://github.com/OvertureMaps/docs/blob/3d742db2401e785d608d7c0497068f5c9326f8d2/docs/_generated_attribution.mdx">2026-08-19.0 source credits and license notices</a></li>
+        <li><a href="https://github.com/OvertureMaps/docs/blob/6fd9ed1257b26129b18654569393eb1620630f30/docs/_generated_attribution.mdx">2026-06-17.0 source credits and license notices</a></li>
+      </ul>
+      <p>Each source retains its stated license and any additional conditions. In particular, <a href="https://www.kentcountymi.gov/DocumentCenter/View/6837/Terms-and-Conditions-of-Use-PDF">Kent County, Michigan</a> has additional permission, disclaimer, and reuse conditions. Australia's G-NAF has <a href="https://geoscape.com.au/wp-content/uploads/2024/08/EULA-G-NAF-Core-1.pdf">additional conditions</a>, including restrictions on using addresses to send mail.</p>
+
+      <h2>Kent County source conditions</h2>
+      <p>For maps or geographic data containing Kent County, Michigan data, the following source notice and application-use disclaimer apply under sections 5 and 8 of the <a href="https://www.kentcountymi.gov/DocumentCenter/View/6837/Terms-and-Conditions-of-Use-PDF">County's full license agreement</a>:</p>
+      <blockquote class="notice">Reproduced with permission granted by the County of Kent, Michigan. Some information has been provided subject to a non-exclusive, limited, and revocable license granted by the County of Kent, Michigan.</blockquote>
+      <blockquote class="notice">The Licensee agrees that the County and its elected officials, employees, and agents shall not be liable for damages of any kind (including, but not limited to, loss of use, time or data, inconvenience, commercial loss, business interruption, lost profits or savings, or the cost of computer equipment and software) arising from the use of the Data or any application that uses the Data including, but not limited to, direct, indirect, incidental, punitive and consequential, or special damages.</blockquote>
+
+      <h2 id="usa-structures">USA Structures</h2>
+      <p>Some U.S. maps include <a href="https://www.arcgis.com/home/item.html?id=0ec8512ad21e4bb987d7e848d14e7e24">USA Structures</a>, credited to Oak Ridge National Laboratory (ORNL) and the Federal Emergency Management Agency (FEMA) Geospatial Response Office, under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</p>
+      <p>The distributed source includes Esri's documented field changes. Streetlight further filters and selects single-family footprints to fill confirmed gaps in Overture buildings. Stored polygons and source identifiers remain available with the adapted geography.</p>
+
+      <h2>Access to adapted geographic data</h2>
+      <p class="notice">Streetlight offers the corresponding adapted geographic database, or complete geographic alterations, in machine-readable form under ODbL 1.0, free of charge over the internet. Source contents retain their applicable notices and licenses.</p>
+      <p>Email <a href="mailto:bentheurich@gmail.com?subject=Streetlight%20geographic%20data%20request">bentheurich@gmail.com</a> with the map's location, release or date, and packet code if available. You do not need a Streetlight account or church membership to request this data. Geographic reuse does not require permission from Streetlight and remains governed by the supplied licenses.</p>
+      <p>The offer covers normalized road geography, names, estimates, assigned geographic addresses, and selected building footprints, including retained earlier geography. Church account information, packet assignments, and outreach or reconciliation history are separate operational records and are excluded.</p>
+      <p>The public <a href="https://github.com/BenTheurich/Streetlight/tree/c25ffb0c63c505c8c2d1ba89c7fe4b7a395c54c9/web/importer">importer and normalizer</a> records the current transformation method. Copies use the stored geographic generation, including accepted FEMA footprints, rather than replacing it with today's source data.</p>
+
+      <h2>Accuracy and availability</h2>
+      <p>The geographic sources and map service are supplied without warranties of accuracy, completeness, fitness, or continued availability, subject to their <a href="https://openfreemap.org/tos/">service terms</a> and <a href="https://creativecommons.org/licenses/by/4.0/legalcode.en#s5">license disclaimers</a>. Maps and home counts are estimates for administrator review, not legal surveys. See each source's linked terms for its full notice.</p>
+      <p>Google supplies the separately labeled Satellite view and retains its own displayed credits. Printable packet maps use the open-data sources above.</p>
+    </main>
+  </body>
+</html>
