@@ -225,7 +225,7 @@ test('every PDF page has readable credits flush with the map bottom-right, with 
     const stream = document.context.lookup(contents.get(0)) as PDFRawStream;
     const operators = Buffer.from(decodePDFRawStream(stream).decode()).toString('latin1');
     const credits =
-      '© OpenMapTiles.org · © OpenStreetMap contributors · Overture Maps (ODbL)' +
+      '© OpenMapTiles.org · © OpenStreetMap · Overture Maps (ODbL)' +
       (index === 1 ? ' · ORNL/FEMA' : '');
     for (const [text, baseline] of [
       [credits, 84],

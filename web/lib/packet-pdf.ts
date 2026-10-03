@@ -134,7 +134,7 @@ export async function renderPacketPdf(
     });
 
     const credits =
-      '© OpenMapTiles.org · © OpenStreetMap contributors · Overture Maps (ODbL)' +
+      '© OpenMapTiles.org · © OpenStreetMap · Overture Maps (ODbL)' +
       (generation.buildings.some(({ source }) => source === 'fema') ? ' · ORNL/FEMA' : '');
     const creditLines = [
       credits,

@@ -31,7 +31,8 @@ open-data overlay credits above the Google footer area and away from the map con
 
 Packet PDFs use two native text lines inside the map's bottom-right corner, right-aligned
 on a small white backing flush with the map edges for readable contrast. The first names `© OpenMapTiles.org`,
-`© OpenStreetMap contributors`, `Overture Maps (ODbL)`, and conditional `ORNL/FEMA`.
+`© OpenStreetMap`, `Overture Maps (ODbL)`, and conditional `ORNL/FEMA`.
+The shorter OSM name is accepted by [OSMF's attribution-text guidance](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines#Attribution_text).
 The second gives `openstreetmap.org/copyright` and the public Streetlight notice URL.
 The separate second line is a layout choice. The [OSMF printed-map guidance](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines#Books,_magazines,_and_printed_maps)
 calls for the OSM copyright URL on paper. Streetlight's notice URL supplies the remaining
@@ -159,7 +160,7 @@ overlay credits now remain visible there. Printable packet maps continue to use 
 - [x] `pnpm check` passed in an isolated copy of the working source: lint, TypeScript,
   427 web tests, 4 Python-launcher tests, 73 importer tests, and the production build.
   Lint, types, and the build passed again after the final browser-print URL adjustment.
-  The full check passed again after the credits-page refinement.
+  The full check passed again after the credits-page refinement and shorter printed OSM credit.
   Authentication values were fake; databases and browser storage were disposable.
 - [x] The local production build returned HTTP 200 for `/map-data.html` and
   `/map-style-licenses.txt` without a session. Browser checks at 320, 390, and 1440 pixels
