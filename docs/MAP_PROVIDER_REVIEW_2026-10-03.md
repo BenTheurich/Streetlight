@@ -33,6 +33,10 @@ Packet PDFs use two native text lines inside the map's bottom-right corner, righ
 on a small white backing flush with the map edges for readable contrast. The first names `© OpenMapTiles.org`,
 `© OpenStreetMap contributors`, `Overture Maps (ODbL)`, and conditional `ORNL/FEMA`.
 The second gives `openstreetmap.org/copyright` and the public Streetlight notice URL.
+The separate second line is a layout choice. The [OSMF printed-map guidance](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines#Books,_magazines,_and_printed_maps)
+calls for the OSM copyright URL on paper. Streetlight's notice URL supplies the remaining
+creator, license, modification, and data-offer information. Those URLs can share a readable
+line with the credits; this page refinement leaves the current PDF layout unchanged.
 Browser printing also exposes the URLs, including `openmaptiles.org` for Roadmap.
 The [OpenMapTiles license](https://github.com/openmaptiles/openmaptiles/blob/master/LICENSE.md)
 allows its name with a link or the visible `.org` form. Neither reviewed terms nor the attribution
@@ -41,6 +45,14 @@ guidance require a visible release date; the geographic metadata and release not
 The public notice uses native expandable sections for full source, creator, license, modification,
 and regional notices. The free machine-readable geographic-data offer stays visible without
 opening a section. No provider, geographic transformation, or service request behavior changed.
+The tightened page reuses the public website's wordmark, Georgia headings, Trebuchet body type,
+cream/navy palette, and FAQ disclosure styling, including its 200-millisecond motion and
+reduced-motion behavior. Source grouping and direct notice links follow the readable structure
+of [OpenStreetMap's copyright page](https://www.openstreetmap.org/copyright) and
+[MapTiler's data attribution page](https://www.maptiler.com/copyright/).
+Data scope and transformation-method details are expandable; the free offer, email destination,
+and lack of account or membership requirements remain visible. All source/license links and
+both exact Kent County notices are retained.
 
 ## Adapted geographic data offer
 
@@ -147,6 +159,7 @@ overlay credits now remain visible there. Printable packet maps continue to use 
 - [x] `pnpm check` passed in an isolated copy of the working source: lint, TypeScript,
   427 web tests, 4 Python-launcher tests, 73 importer tests, and the production build.
   Lint, types, and the build passed again after the final browser-print URL adjustment.
+  The full check passed again after the credits-page refinement.
   Authentication values were fake; databases and browser storage were disposable.
 - [x] The local production build returned HTTP 200 for `/map-data.html` and
   `/map-style-licenses.txt` without a session. Browser checks at 320, 390, and 1440 pixels
@@ -155,6 +168,12 @@ overlay credits now remain visible there. Printable packet maps continue to use 
   Satellite UI retained unclipped credit links and exposed source URLs when printing.
   Satellite placement was checked without a Google key, with a 36-pixel footer clearance;
   the Google imagery and provider-generated footer were not reloaded for this local review.
+- [x] The refined credits page and shared stylesheet, logo, icon, and license file returned
+  HTTP 200 in the isolated local preview. Collapsed and expanded layouts passed at 320, 390,
+  768, and 1440 pixels. Keyboard disclosure controls, visible focus, the FEMA fragment,
+  script-free use, and reduced-motion behavior passed. Text contrast met 4.5:1 against the
+  page background; the focus indicator exceeded 3:1. The page produced no browser errors
+  after adding Streetlight's existing icon to avoid the browser's missing favicon request.
 - [x] The documented export ran against the real migrated schema in a disposable fixture.
   It included hidden and preserved roads, assigned addresses, and stored FEMA geometry and
   provenance for the requested generation. Other scopes and private-record sentinels were
