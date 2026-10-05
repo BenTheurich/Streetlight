@@ -667,14 +667,19 @@ export function packetStartDisplay(
   return positionedHouseNumbers(generation)[index];
 }
 
+export function buildBaseMapStyle(base: OpenMapStyle): OpenMapStyle {
+  const style = structuredClone(base);
+  styleOpenRoads(style);
+  return style;
+}
+
 export function buildOpenMapStyle(
   base: OpenMapStyle,
   packet: DownloadPacket,
   generation: PacketMapGeneration,
   zoom: number,
 ): OpenMapStyle {
-  const style = structuredClone(base);
-  styleOpenRoads(style);
+  const style = buildBaseMapStyle(base);
   addBuildingLayer(style, generation.buildings);
   const routeFeatures = packetRouteFeatures(packet, generation, zoom);
   style.sources.streetlightRoute = {
@@ -711,9 +716,8 @@ export function buildWorkspaceMapStyle(
 ): OpenMapStyle {
   const style: OpenMapStyle = overlay
     ? { version: 8, glyphs: base.glyphs, sources: {}, layers: [] }
-    : structuredClone(base);
+    : buildBaseMapStyle(base);
   if (!overlay) {
-    styleOpenRoads(style);
     addBuildingLayer(style, data.buildings, 16);
     style.sources.streetlightHouseNumbers = {
       type: 'geojson',

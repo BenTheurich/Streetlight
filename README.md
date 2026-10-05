@@ -86,6 +86,13 @@ its WorkOS administrator roster. Administrators may invite another full administ
 pending invitation, or remove another administrator. Self-removal is blocked. Founding and sponsored
 labels describe no-cost access; billing and trial enforcement remain deferred.
 
+The founder menu also links to **Pilot requests** and **Church accounts** at `/church-accounts`.
+Pilot requests checks each first invitation's current WorkOS state when opened or refreshed.
+Church accounts shows saved territory and radius, the latest import attempt, finalized packet
+totals, administrators, recorded actions, and current or recovered issues. Both founder pages
+remain unavailable to ordinary administrators. See the
+[founder account review](docs/FOUNDER_ACCOUNT_VISIBILITY_REVIEW.md) for verification and review steps.
+
 Store local Google Maps and WorkOS configuration in the ignored `web/.env.local` file. Next.js
 loads it for the application, and the seed command uses the same location. For maps:
 

@@ -4,6 +4,7 @@ import './pilot-requests.css';
 import { notFound } from 'next/navigation';
 import { PilotRequestReview } from '@/components/PilotRequestReview';
 import { FounderAccessNotFoundError, requireFounderSession } from '@/lib/founder-auth';
+import { readPilotInvitationStatuses } from '@/lib/founder-church-accounts';
 import { listPilotRequests } from '@/lib/pilot-requests';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,12 @@ export default async function PilotRequestsPage() {
     if (error instanceof FounderAccessNotFoundError) notFound();
     throw error;
   }
+  const requests = listPilotRequests();
   return (
-    <PilotRequestReview initialRequests={listPilotRequests()} administratorEmail={session.email} />
+    <PilotRequestReview
+      initialRequests={requests}
+      administratorEmail={session.email}
+      invitationStatuses={await readPilotInvitationStatuses(requests)}
+    />
   );
 }

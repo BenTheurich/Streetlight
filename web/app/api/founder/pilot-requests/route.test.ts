@@ -5,7 +5,14 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../../db/migrate.mjs';
 import type { AuthLoader } from '../../../../lib/auth.ts';
-import { parsePilotRequest, submitPilotRequest } from '../../../../lib/pilot-requests.ts';
+import type { FounderChurchAccount } from '../../../../lib/founder-account-types.ts';
+import type { FounderIdentityAdapter } from '../../../../lib/founder-church-accounts.ts';
+import {
+  beginPilotProvisioning,
+  parsePilotRequest,
+  recordPilotOrganization,
+  submitPilotRequest,
+} from '../../../../lib/pilot-requests.ts';
 import type { WorkOSProvisioningAdapter } from '../../../../lib/workos-provisioning.ts';
 import { handleFounderPilotRequests } from './route.ts';
 
@@ -31,6 +38,33 @@ const adapter: WorkOSProvisioningAdapter = {
     return { id: 'invitation-test' };
   },
 };
+
+function identityAdapter(
+  organizationId: string,
+  state: NonNullable<FounderChurchAccount['invitation']>['state'],
+): FounderIdentityAdapter {
+  return {
+    async getInvitation(id) {
+      if (state === 'unavailable') throw new Error('Provider unavailable');
+      return {
+        id,
+        organizationId,
+        email: 'pastor@example.com',
+        state,
+        acceptedAt: state === 'accepted' ? '2026-10-05T10:00:00Z' : null,
+      };
+    },
+    async listMemberships() {
+      throw new Error('Unexpected membership read');
+    },
+    async listInvitations() {
+      throw new Error('Unexpected invitation list');
+    },
+    async getUser() {
+      throw new Error('Unexpected user read');
+    },
+  };
+}
 
 test('founder request API is hidden from ordinary administrators and supports review actions', async () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-founder-api-'));
@@ -101,11 +135,64 @@ test('founder request API is hidden from ordinary administrators and supports re
       adapter,
       filename,
       'bentheurich@gmail.com',
+      identityAdapter(`org-${first.requestId}`, 'pending'),
     );
     assert.deepEqual(
       ((await approved.json()).request as { status: string; approvedChurchName: string }).status,
       'approved',
     );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('resumed approval returns the reused invitation state without assuming a new invitation', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-founder-resume-'));
+  const filename = path.join(directory, 'streetlight.db');
+  const database = openDatabase(filename);
+  migrateDatabase(database);
+  database.close();
+  try {
+    for (const state of ['pending', 'accepted', 'expired', 'revoked', 'unavailable'] as const) {
+      const submitted = submitPilotRequest(
+        parsePilotRequest({
+          churchName: 'Grace Community',
+          contactName: 'Ada',
+          email: `${state}@example.com`,
+          location: 'Temecula, CA',
+          outreachProcess: '',
+          website: '',
+        }),
+        filename,
+      );
+      const corrections = { churchName: 'Grace Church', email: 'pastor@example.com' };
+      const organizationId = `org-${submitted.requestId}`;
+      beginPilotProvisioning(submitted.requestId, corrections, filename);
+      recordPilotOrganization(submitted.requestId, organizationId, filename);
+      const response = await handleFounderPilotRequests(
+        apiRequest('PATCH', { id: submitted.requestId, action: 'approve', ...corrections }),
+        founder,
+        {
+          async findOrCreateOrganization() {
+            throw new Error('The existing organization must be reused');
+          },
+          async findOrCreateInvitation() {
+            return { id: `existing-${state}` };
+          },
+        },
+        filename,
+        'bentheurich@gmail.com',
+        identityAdapter(organizationId, state),
+      );
+      assert.equal(response.status, 200, state);
+      const result = await response.json();
+      assert.equal(result.request.status, 'approved', state);
+      assert.equal(result.invitation?.state, state);
+      assert.equal(
+        result.invitation.acceptedAt,
+        state === 'accepted' ? '2026-10-05T10:00:00Z' : null,
+      );
+    }
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

@@ -1,3 +1,4 @@
+import { recordAccountResponse, withAccountActivity } from '../../../lib/account-activity.ts';
 import {
   type AuthLoader,
   ChurchWorkspaceAccessError,
@@ -5,7 +6,7 @@ import {
   requireOrganizationSession,
   SignInRequiredError,
 } from '../../../lib/auth.ts';
-import type { GeocodedAddress } from '../../../lib/google-maps-server.ts';
+import { type GeocodedAddress, geocodeAddress } from '../../../lib/google-maps-server.ts';
 import { onboardChurch } from '../../../lib/onboarding.ts';
 
 export async function handleOnboarding(
@@ -26,18 +27,40 @@ export async function handleOnboarding(
     }
     return Response.json({ error: 'Could not authenticate request' }, { status: 500 });
   }
+  const respond = (response: Response) =>
+    recordAccountResponse(
+      response,
+      { churchId: session.access.churchId, user: session.user, action: 'onboarding' },
+      filename,
+    );
   if (session.access.territoryId) {
-    return Response.json({ error: 'Church onboarding is already complete' }, { status: 409 });
+    return respond(
+      Response.json({ error: 'Church onboarding is already complete' }, { status: 409 }),
+    );
   }
+  let lookupAttempted = false;
   try {
-    return Response.json(
-      await onboardChurch(session.organizationId, await request.json(), geocoder, filename),
-      { status: 201 },
+    const result = await onboardChurch(
+      session.organizationId,
+      await request.json(),
+      async (address) => {
+        lookupAttempted = true;
+        return (geocoder ?? geocodeAddress)(address);
+      },
+      filename,
+    );
+    return respond(
+      withAccountActivity(Response.json(result, { status: 201 }), { targetId: result.territoryId }),
     );
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : 'Could not complete onboarding' },
-      { status: 400 },
+    return respond(
+      withAccountActivity(
+        Response.json(
+          { error: error instanceof Error ? error.message : 'Could not complete onboarding' },
+          { status: 400 },
+        ),
+        { outcome: lookupAttempted ? 'failed' : 'rejected' },
+      ),
     );
   }
 }

@@ -6,6 +6,11 @@ import test from 'node:test';
 import { PDFDocument } from 'pdf-lib';
 import { migrateDatabase, openDatabase } from '../../../../db/migrate.mjs';
 import { seedDatabase } from '../../../../db/seed.mjs';
+import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
+import {
+  type FounderIdentityAdapter,
+  listFounderChurchAccounts,
+} from '../../../../lib/founder-church-accounts.ts';
 import { withTemeculaWorkspace } from '../../../../test/workspace-fixtures.ts';
 import { getPacketPdf as GET } from './route.ts';
 
@@ -19,7 +24,7 @@ function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
   const filename = path.join(directory, 'streetlight.db');
   const database = openDatabase(filename);
   migrateDatabase(database);
-  seedDatabase(database);
+  seedDatabase(database, { authOrganizationId: 'org_test_temecula' });
   const segment = database
     .prepare(
       `SELECT id FROM street_segments
@@ -78,6 +83,97 @@ function counts(filename: string): number[] {
     database.close();
   }
 }
+
+test('PDF selection failures recover only after retrying the same batch or scope', async () => {
+  await withDatabase(async (filename) => {
+    const provider: FounderIdentityAdapter = {
+      async listMemberships() {
+        return [];
+      },
+      async listInvitations() {
+        return [];
+      },
+      async getInvitation() {
+        throw new Error('Unexpected invitation read');
+      },
+      async getUser() {
+        throw new Error('Unexpected user read');
+      },
+    };
+    const download = authenticatedRoute(
+      (request) => GET(request, { renderMaps }),
+      async () => ({
+        user: { id: 'user_pdf', email: 'pdf@example.test' },
+        organizationId: 'org_test_temecula',
+      }),
+      filename,
+      false,
+      'pdf_preparation',
+    );
+    const database = openDatabase(filename);
+    try {
+      database.exec(`INSERT INTO batches (id,church_id,name,status,finalized_at)
+        VALUES ('batch-other','church-temecula-pilot','Other batch','finalized','2026-07-27T19:30:00Z');
+        INSERT INTO packets (id,church_id,batch_id,packet_code,start_address,estimated_homes,status,sequence_number,start_longitude,start_latitude)
+        VALUES ('packet-other','church-temecula-pilot','batch-other','TEM-OTHER','Other Road',10,'active',0,-117.11,33.54);`);
+      const before = counts(filename);
+      for (const [query, target] of [
+        ['scope=batch&batchId=batch-pdf', 'batch-pdf'],
+        ['scope=newest', 'newest'],
+        ['scope=active', 'active'],
+      ]) {
+        database.exec("UPDATE packets SET start_longitude=NULL WHERE id='packet-pdf'");
+        const failed = await download(
+          new Request(`http://streetlight.local/api/packets/pdf?${query}`),
+        );
+        assert.equal(failed.status, 500);
+        assert.deepEqual(await failed.json(), { error: 'Could not create packet PDF' });
+        database.exec("UPDATE packets SET start_longitude=-117.116885 WHERE id='packet-pdf'");
+        assert.equal(
+          (
+            await download(
+              new Request(
+                'http://streetlight.local/api/packets/pdf?scope=batch&batchId=batch-other',
+              ),
+            )
+          ).status,
+          200,
+        );
+        const rows = database
+          .prepare('SELECT * FROM account_activity ORDER BY id DESC LIMIT 2')
+          .all()
+          .reverse();
+        assert.deepEqual(
+          rows.map(({ outcome, target_id }) => [outcome, target_id]),
+          [
+            ['failed', target],
+            ['succeeded', 'batch-other'],
+          ],
+        );
+        assert.ok(
+          rows.every(
+            (row) => row.church_id === 'church-temecula-pilot' && row.user_id === 'user_pdf',
+          ),
+        );
+        assert.doesNotMatch(JSON.stringify(rows), /Packet starting point missing|Other Road/);
+        const readIssue = async () =>
+          (await listFounderChurchAccounts(filename, provider)).churches
+            .find((church) => church.id === 'church-temecula-pilot')
+            ?.issues.find((issue) => issue.id === `activity-${rows[0].id}`);
+        assert.equal((await readIssue())?.resolvedAt, null);
+        const retried = await download(
+          new Request(`http://streetlight.local/api/packets/pdf?${query}`),
+        );
+        assert.equal(retried.status, 200);
+        assert.equal(retried.headers.get('content-type'), 'application/pdf');
+        assert.ok((await readIssue())?.resolvedAt);
+        assert.deepEqual(counts(filename), before);
+      }
+    } finally {
+      database.close();
+    }
+  });
+});
 
 test('GET downloads the selected packet scope without database mutation', async () => {
   await withDatabase(async (filename) => {

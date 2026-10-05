@@ -1,3 +1,4 @@
+import { recordAccountActivity, recordAccountResponse } from './account-activity.ts';
 import {
   type AdministratorSession,
   type AuthLoader,
@@ -5,6 +6,7 @@ import {
   requireAdministratorSession,
   SignInRequiredError,
 } from './auth.ts';
+import type { AccountAction } from './founder-account-types.ts';
 import { runInWorkspace } from './workspace-scope.ts';
 
 type RouteHandler = (request: Request) => Response | Promise<Response>;
@@ -14,6 +16,7 @@ export function authenticatedRoute(
   loadSession?: AuthLoader,
   filename?: string,
   allowIncomplete = false,
+  action?: AccountAction,
 ): RouteHandler {
   return async (request) => {
     let session: AdministratorSession;
@@ -31,6 +34,15 @@ export function authenticatedRoute(
     if (!allowIncomplete && !session.onboardingCompleted) {
       return Response.json({ error: 'Complete Region Setup first' }, { status: 403 });
     }
-    return runInWorkspace(session.workspace, () => handler(request));
+    return runInWorkspace(session.workspace, async () => {
+      const actor = { churchId: session.workspace.churchId, user: session.user };
+      try {
+        const response = await handler(request);
+        return action ? recordAccountResponse(response, { ...actor, action }, filename) : response;
+      } catch (error) {
+        if (action) recordAccountActivity({ ...actor, action, outcome: 'failed' }, filename);
+        throw error;
+      }
+    });
   };
 }

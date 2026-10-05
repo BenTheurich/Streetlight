@@ -8,6 +8,9 @@
 .pilot-review-feedback:not(:empty) {
   margin-bottom: 24px;
 }
+.pilot-review-update {
+  margin-bottom: 24px;
+}
 .pilot-review-group + .pilot-review-group {
   margin-top: 32px;
 }
@@ -82,6 +85,14 @@
 .pilot-review-status.status-approved {
   color: var(--success);
 }
+.pilot-review-status[data-invitation-state="pending"],
+.pilot-review-status[data-invitation-state="unavailable"] {
+  color: var(--warning-ink);
+}
+.pilot-review-status[data-invitation-state="expired"],
+.pilot-review-status[data-invitation-state="revoked"] {
+  color: var(--error-ink);
+}
 .pilot-review-chevron {
   width: 20px;
   height: 20px;
@@ -152,6 +163,9 @@
   font-size: 0.875rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
+}
+.pilot-review-update .pilot-review-error {
+  margin-top: 12px;
 }
 .pilot-review-empty {
   padding: 24px;

@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { withAccountActivity } from '../../../../lib/account-activity.ts';
 import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
 import { renderOpenPacketMaps } from '../../../../lib/open-map-renderer.ts';
 import type { PacketDownloadSelection } from '../../../../lib/packet-finalization.ts';
@@ -27,6 +28,7 @@ export async function getPacketPdf(
   ) {
     return Response.json({ error: 'Invalid packet download scope' }, { status: 400 });
   }
+  const targetId = scope === 'batch' ? batchId : scope;
   try {
     const selection = getPacketDownloadSelection(
       scope === 'batch' ? { batchId: batchId as string } : scope,
@@ -48,22 +50,31 @@ export async function getPacketPdf(
         : scope === 'newest'
           ? 'streetlight-newest-batch.pdf'
           : 'streetlight-active-packets.pdf';
-    return new Response(Uint8Array.from(bytes).buffer, {
-      headers: {
-        'content-type': 'application/pdf',
-        'content-disposition': `attachment; filename="${filename}"`,
-        'cache-control': 'no-store',
-      },
-    });
+    return withAccountActivity(
+      new Response(Uint8Array.from(bytes).buffer, {
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': `attachment; filename="${filename}"`,
+          'cache-control': 'no-store',
+        },
+      }),
+      { targetId },
+    );
   } catch (error) {
     if (error instanceof Error && error.message === 'No packets available') {
       return Response.json({ error: 'No packets available' }, { status: 404 });
     }
     if (error instanceof Error && error.message.startsWith('Could not render packet maps')) {
-      return Response.json({ error: 'Could not render packet maps' }, { status: 502 });
+      return withAccountActivity(
+        Response.json({ error: 'Could not render packet maps' }, { status: 502 }),
+        { targetId },
+      );
     }
-    return Response.json({ error: 'Could not create packet PDF' }, { status: 500 });
+    return withAccountActivity(
+      Response.json({ error: 'Could not create packet PDF' }, { status: 500 }),
+      { targetId },
+    );
   }
 }
 
-export const GET = authenticatedRoute(getPacketPdf);
+export const GET = authenticatedRoute(getPacketPdf, undefined, undefined, false, 'pdf_preparation');

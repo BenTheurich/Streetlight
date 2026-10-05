@@ -5,6 +5,11 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../db/migrate.mjs';
 import { seedDatabase } from '../../../db/seed.mjs';
+import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
+import {
+  type FounderIdentityAdapter,
+  listFounderChurchAccounts,
+} from '../../../lib/founder-church-accounts.ts';
 import { withTemeculaWorkspace } from '../../../test/workspace-fixtures.ts';
 import {
   getReconciliation as GET,
@@ -17,7 +22,7 @@ async function withDatabase(run: (filename: string) => Promise<void>): Promise<v
   const filename = path.join(directory, 'streetlight.db');
   const database = openDatabase(filename);
   migrateDatabase(database);
-  seedDatabase(database);
+  seedDatabase(database, { authOrganizationId: 'org_test_temecula' });
   const segment = database
     .prepare(
       `SELECT id FROM street_segments
@@ -78,6 +83,114 @@ function eventCount(filename: string): number {
     database.close();
   }
 }
+
+test('reconciliation storage failures recover only after success for the same batch or packet', async () => {
+  await withDatabase(async (filename) => {
+    const database = openDatabase(filename);
+    const provider: FounderIdentityAdapter = {
+      async listMemberships() {
+        return [];
+      },
+      async listInvitations() {
+        return [];
+      },
+      async getInvitation() {
+        throw new Error('Unexpected invitation read');
+      },
+      async getUser() {
+        throw new Error('Unexpected user read');
+      },
+    };
+    const loadSession = async () => ({
+      user: { id: 'user_reconcile', email: 'reconcile@example.test' },
+      organizationId: 'org_test_temecula',
+    });
+    try {
+      const segment = database
+        .prepare(`SELECT id FROM street_segments
+        WHERE church_id='church-temecula-pilot' AND is_current=1 ORDER BY id LIMIT 1 OFFSET 1`)
+        .get() as { id: string };
+      database.exec(`INSERT INTO batches (id,church_id,name,status,finalized_at)
+        VALUES ('other-batch','church-temecula-pilot','Other batch','finalized','2026-07-28T18:00:00.000Z');
+        INSERT INTO packets (id,church_id,batch_id,packet_code,start_address,estimated_homes,status,sequence_number,start_longitude,start_latitude,packet_kind)
+        VALUES ('other-packet','church-temecula-pilot','other-batch','TEM-OTHER','20 Route Road',10,'active',0,-117.11,33.54,'street');`);
+      database
+        .prepare(`INSERT INTO packet_segments (church_id,packet_id,street_segment_id,sequence_number)
+        VALUES ('church-temecula-pilot','other-packet',?,0)`)
+        .run(segment.id);
+
+      const cases = [
+        {
+          action: 'reconciliation' as const,
+          handler: POST,
+          method: 'POST' as const,
+          targets: ['route-batch', 'other-batch'],
+          bodies: [
+            { batchId: 'route-batch', decisions: [{ packetId: 'route-packet', outcome: 'taken' }] },
+            { batchId: 'other-batch', decisions: [{ packetId: 'other-packet', outcome: 'taken' }] },
+          ],
+        },
+        {
+          action: 'packet_correction' as const,
+          handler: PATCH,
+          method: 'PATCH' as const,
+          targets: ['route-packet', 'other-packet'],
+          bodies: [
+            { packetId: 'route-packet', coveredOn: '2026-07-20' },
+            { packetId: 'other-packet', coveredOn: '2026-07-20' },
+          ],
+        },
+      ];
+      for (const operation of cases) {
+        const mutate = authenticatedRoute(
+          operation.handler,
+          loadSession,
+          filename,
+          false,
+          operation.action,
+        );
+        database.exec(`CREATE TRIGGER fail_reconciliation_write BEFORE INSERT ON coverage_events
+          WHEN NEW.packet_id='route-packet'
+          BEGIN SELECT RAISE(ABORT,'Synthetic storage failure'); END;`);
+        const failed = await mutate(request(operation.method, operation.bodies[0]));
+        assert.equal(failed.status, 500);
+        assert.doesNotMatch(JSON.stringify(await failed.json()), /Synthetic storage failure/);
+        database.exec('DROP TRIGGER fail_reconciliation_write');
+        assert.equal((await mutate(request(operation.method, operation.bodies[1]))).status, 200);
+
+        const rows = database
+          .prepare('SELECT * FROM account_activity WHERE action=? ORDER BY id')
+          .all(operation.action);
+        assert.deepEqual(
+          rows.map(({ outcome, target_id }) => [outcome, target_id]),
+          [
+            ['failed', operation.targets[0]],
+            ['succeeded', operation.targets[1]],
+          ],
+        );
+        assert.ok(
+          rows.every(
+            (row) => row.church_id === 'church-temecula-pilot' && row.user_id === 'user_reconcile',
+          ),
+        );
+        assert.doesNotMatch(JSON.stringify(rows), /Synthetic storage failure|decisions|coveredOn/);
+        const readIssue = async () => {
+          const snapshot = await listFounderChurchAccounts(filename, provider);
+          return snapshot.churches
+            .find((church) => church.id === 'church-temecula-pilot')
+            ?.issues.find((issue) => issue.id === `activity-${rows[0].id}`);
+        };
+        const unresolved = await readIssue();
+        assert.ok(unresolved);
+        assert.equal(unresolved.resolvedAt, null);
+        assert.equal((await mutate(request(operation.method, operation.bodies[0]))).status, 200);
+        assert.ok((await readIssue())?.resolvedAt);
+      }
+    } finally {
+      database.close();
+    }
+  });
+});
 
 test('reconciliation route exposes read, confirm, replay, correction, and undo', async () => {
   await withDatabase(async (filename) => {

@@ -36,4 +36,10 @@ export async function proposePackets(request: Request): Promise<Response> {
   }
 }
 
-export const POST = authenticatedRoute(proposePackets);
+export const POST = authenticatedRoute(
+  proposePackets,
+  undefined,
+  undefined,
+  false,
+  'packet_proposals',
+);

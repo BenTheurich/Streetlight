@@ -43,6 +43,25 @@ test('onboarding route requires a mapped organization and returns the setup terr
     );
     assert.equal(missing.status, 401);
 
+    const invalid = await handleOnboarding(
+      request({ churchName: 'Grace', address: '', timeZone: 'America/Los_Angeles' }),
+      signedIn,
+      async () => {
+        throw new Error('Validation should not reach geocoding');
+      },
+      filename,
+    );
+    assert.equal(invalid.status, 400);
+    const failed = await handleOnboarding(
+      request({ churchName: 'Grace', address: '1 Main', timeZone: 'America/Los_Angeles' }),
+      signedIn,
+      async () => {
+        throw new Error('Provider request failed');
+      },
+      filename,
+    );
+    assert.equal(failed.status, 400);
+
     const created = await handleOnboarding(
       request({
         churchName: 'Grace Church',
@@ -66,6 +85,19 @@ test('onboarding route requires a mapped organization and returns the setup terr
       radiusMiles: 1,
       boundaryShape: 'circle',
     });
+    const check = openDatabase(filename);
+    try {
+      const rows = check.prepare('SELECT * FROM account_activity ORDER BY id').all();
+      assert.deepEqual(
+        rows.map(({ outcome }) => outcome),
+        ['rejected', 'failed', 'succeeded'],
+      );
+      assert.ok(rows.every((row) => row.church_id === 'church-new' && row.user_id === user.id));
+      assert.equal(rows[2].target_id, payload.territoryId);
+      assert.doesNotMatch(JSON.stringify(rows), /Provider request failed|1 Main/);
+    } finally {
+      check.close();
+    }
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

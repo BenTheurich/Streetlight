@@ -5,7 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../db/migrate.mjs';
 import { seedDatabase } from '../../../db/seed.mjs';
+import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
 import { getCoverageWorkspace } from '../../../lib/coverage-persistence.ts';
+import {
+  type FounderIdentityAdapter,
+  listFounderChurchAccounts,
+} from '../../../lib/founder-church-accounts.ts';
 import { getTerritoryWorkspace } from '../../../lib/territory-persistence.ts';
 import { insertCoverageCompletionFixture } from '../../../test/persistence-fixtures.ts';
 import { withTemeculaWorkspace } from '../../../test/workspace-fixtures.ts';
@@ -20,7 +25,7 @@ function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
   const filename = path.join(directory, 'streetlight.db');
   const database = openDatabase(filename);
   migrateDatabase(database);
-  seedDatabase(database);
+  seedDatabase(database, { authOrganizationId: 'org_test_temecula' });
   database.close();
   const original = process.env.STREETLIGHT_DATABASE_PATH;
   process.env.STREETLIGHT_DATABASE_PATH = filename;
@@ -57,6 +62,170 @@ function thresholdRequest(body: unknown): Request {
     body: JSON.stringify(body),
   });
 }
+
+test('coverage writes record trusted activity and failures while reads remain untracked', async () => {
+  await withDatabase(async (filename) => {
+    const loadSession = async () => ({
+      user: { id: 'user_coverage', email: 'coverage@example.test' },
+      organizationId: 'org_test_temecula',
+    });
+    const read = authenticatedRoute(GET, loadSession, filename);
+    const ranges = authenticatedRoute(PATCH, loadSession, filename, false, 'coverage_settings');
+    const correction = authenticatedRoute(
+      POST,
+      loadSession,
+      filename,
+      false,
+      'coverage_correction',
+    );
+    const segment = getTerritoryWorkspace().segments.find((current) => current.eligible);
+    assert.ok(segment);
+    const eventId = insertCoverageCompletionFixture(segment.id, '2026-07-01', filename);
+    const database = openDatabase(filename);
+    try {
+      assert.equal((await read(new Request('http://streetlight.local/api/coverage'))).status, 200);
+      assert.equal(
+        database.prepare('SELECT COUNT(*) AS count FROM account_activity').get()?.count,
+        0,
+      );
+      assert.equal(
+        (
+          await ranges(
+            thresholdRequest({ yellowAfterDays: 30, orangeAfterDays: 60, redAfterDays: 90 }),
+          )
+        ).status,
+        200,
+      );
+      assert.equal((await correction(request({ eventId, coveredOn: '2026-07-20' }))).status, 200);
+      assert.equal((await ranges(thresholdRequest({ yellowAfterDays: 0 }))).status, 400);
+      assert.equal(
+        (await correction(request({ eventId: 'missing', coveredOn: '2026-07-20' }))).status,
+        404,
+      );
+      database.exec(`CREATE TRIGGER fail_heatmap_write BEFORE UPDATE OF coverage_yellow_after_days ON territories
+        BEGIN SELECT RAISE(ABORT, 'Synthetic storage failure'); END;
+        CREATE TRIGGER fail_coverage_write BEFORE INSERT ON coverage_events
+        BEGIN SELECT RAISE(ABORT, 'Synthetic storage failure'); END;`);
+      assert.equal(
+        (
+          await ranges(
+            thresholdRequest({ yellowAfterDays: 31, orangeAfterDays: 61, redAfterDays: 91 }),
+          )
+        ).status,
+        400,
+      );
+      assert.equal((await correction(request({ eventId, coveredOn: '2026-07-21' }))).status, 400);
+      const rows = database.prepare('SELECT * FROM account_activity ORDER BY id').all();
+      assert.deepEqual(
+        rows.map(({ action, outcome }) => [action, outcome]),
+        [
+          ['coverage_settings', 'succeeded'],
+          ['coverage_correction', 'succeeded'],
+          ['coverage_settings', 'rejected'],
+          ['coverage_correction', 'rejected'],
+          ['coverage_settings', 'failed'],
+          ['coverage_correction', 'failed'],
+        ],
+      );
+      assert.ok(
+        rows.every(
+          (row) => row.church_id === 'church-temecula-pilot' && row.user_id === 'user_coverage',
+        ),
+      );
+      assert.equal(rows[1].target_id, eventId);
+      assert.equal(rows[5].target_id, eventId);
+      assert.doesNotMatch(
+        JSON.stringify(rows),
+        /Synthetic storage failure|coveredOn|yellowAfterDays/,
+      );
+    } finally {
+      database.close();
+    }
+  });
+});
+
+test('coverage workspace read failures retain their target and recover only after its retry', async () => {
+  await withDatabase(async (filename) => {
+    const correction = authenticatedRoute(
+      POST,
+      async () => ({
+        user: { id: 'user_coverage', email: 'coverage@example.test' },
+        organizationId: 'org_test_temecula',
+      }),
+      filename,
+      false,
+      'coverage_correction',
+    );
+    const provider: FounderIdentityAdapter = {
+      async listMemberships() {
+        return [];
+      },
+      async listInvitations() {
+        return [];
+      },
+      async getInvitation() {
+        throw new Error('Unexpected invitation read');
+      },
+      async getUser() {
+        throw new Error('Unexpected user read');
+      },
+    };
+    const segment = getTerritoryWorkspace().segments.find((current) => current.eligible);
+    assert.ok(segment);
+    const eventA = insertCoverageCompletionFixture(segment.id, '2026-07-01', filename);
+    const eventB = insertCoverageCompletionFixture(segment.id, '2026-07-02', filename);
+    const database = openDatabase(filename);
+    try {
+      const geometry = database
+        .prepare('SELECT geometry_geojson FROM street_segments WHERE import_segment_id = ?')
+        .get(segment.id)?.geometry_geojson;
+      assert.equal(typeof geometry, 'string');
+      const before = eventCount(filename);
+      database
+        .prepare('UPDATE street_segments SET geometry_geojson = ? WHERE import_segment_id = ?')
+        .run('Synthetic read failure', segment.id);
+      const failed = await correction(request({ eventId: eventA, coveredOn: '2026-07-20' }));
+      assert.equal(failed.status, 400);
+      assert.deepEqual(await failed.json(), { error: 'Invalid correction request' });
+      assert.equal(eventCount(filename), before);
+      const row = database.prepare('SELECT * FROM account_activity ORDER BY id DESC LIMIT 1').get();
+      assert.equal(row?.outcome, 'failed');
+      assert.equal(row?.target_id, eventA);
+      assert.equal(row?.church_id, 'church-temecula-pilot');
+      assert.equal(row?.user_id, 'user_coverage');
+      assert.doesNotMatch(JSON.stringify(row), /Synthetic read failure|coveredOn|SyntaxError/);
+      database
+        .prepare('UPDATE street_segments SET geometry_geojson = ? WHERE import_segment_id = ?')
+        .run(geometry as string, segment.id);
+      const readIssue = async () =>
+        (await listFounderChurchAccounts(filename, provider)).churches
+          .find((church) => church.id === 'church-temecula-pilot')
+          ?.issues.find((issue) => issue.id === `activity-${row?.id}`);
+      assert.equal((await readIssue())?.resolvedAt, null);
+      assert.equal(
+        (await correction(request({ eventId: eventB, coveredOn: '2026-07-20' }))).status,
+        200,
+      );
+      assert.equal((await readIssue())?.resolvedAt, null);
+      assert.equal(
+        (await correction(request({ eventId: eventA, coveredOn: '2026-07-20' }))).status,
+        200,
+      );
+      assert.ok((await readIssue())?.resolvedAt);
+      assert.equal(
+        (await correction(request({ eventId: eventA, coveredOn: 'invalid' }))).status,
+        400,
+      );
+      assert.equal(
+        database.prepare('SELECT outcome FROM account_activity ORDER BY id DESC LIMIT 1').get()
+          ?.outcome,
+        'rejected',
+      );
+    } finally {
+      database.close();
+    }
+  });
+});
 
 test('GET returns the current coverage workspace without mutation', async () => {
   await withDatabase(async (filename) => {

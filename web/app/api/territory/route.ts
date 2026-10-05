@@ -1,3 +1,4 @@
+import { withAccountActivity } from '../../../lib/account-activity.ts';
 import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
 import { applyMvpCapabilities } from '../../../lib/product-capabilities.ts';
 import { parseTerritoryDraft, type TerritoryDraftInput } from '../../../lib/territory-draft.ts';
@@ -24,7 +25,9 @@ export async function updateTerritory(request: Request) {
   try {
     const result = territoryImportLifecycle.save(draft);
     if (result.kind === 'importing') {
-      return Response.json({ job: result.job }, { status: 202 });
+      return withAccountActivity(Response.json({ job: result.job }, { status: 202 }), {
+        targetId: result.job.id,
+      });
     }
     if (result.kind === 'conflict') {
       return Response.json({ error: result.error }, { status: 409 });
@@ -39,4 +42,10 @@ export async function updateTerritory(request: Request) {
 }
 
 export const GET = authenticatedRoute(getTerritory, undefined, undefined, true);
-export const PATCH = authenticatedRoute(updateTerritory, undefined, undefined, true);
+export const PATCH = authenticatedRoute(
+  updateTerritory,
+  undefined,
+  undefined,
+  true,
+  'territory_save',
+);
