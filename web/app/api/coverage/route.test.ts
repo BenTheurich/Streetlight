@@ -7,6 +7,10 @@ import { migrateDatabase, openDatabase } from '../../../db/migrate.mjs';
 import { seedDatabase } from '../../../db/seed.mjs';
 import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
 import { getCoverageWorkspace } from '../../../lib/coverage-persistence.ts';
+import {
+  type FounderIdentityAdapter,
+  listFounderChurchAccounts,
+} from '../../../lib/founder-church-accounts.ts';
 import { getTerritoryWorkspace } from '../../../lib/territory-persistence.ts';
 import { insertCoverageCompletionFixture } from '../../../test/persistence-fixtures.ts';
 import { withTemeculaWorkspace } from '../../../test/workspace-fixtures.ts';
@@ -133,6 +137,89 @@ test('coverage writes record trusted activity and failures while reads remain un
       assert.doesNotMatch(
         JSON.stringify(rows),
         /Synthetic storage failure|coveredOn|yellowAfterDays/,
+      );
+    } finally {
+      database.close();
+    }
+  });
+});
+
+test('coverage workspace read failures retain their target and recover only after its retry', async () => {
+  await withDatabase(async (filename) => {
+    const correction = authenticatedRoute(
+      POST,
+      async () => ({
+        user: { id: 'user_coverage', email: 'coverage@example.test' },
+        organizationId: 'org_test_temecula',
+      }),
+      filename,
+      false,
+      'coverage_correction',
+    );
+    const provider: FounderIdentityAdapter = {
+      async listMemberships() {
+        return [];
+      },
+      async listInvitations() {
+        return [];
+      },
+      async getInvitation() {
+        throw new Error('Unexpected invitation read');
+      },
+      async getUser() {
+        throw new Error('Unexpected user read');
+      },
+    };
+    const segment = getTerritoryWorkspace().segments.find((current) => current.eligible);
+    assert.ok(segment);
+    const eventA = insertCoverageCompletionFixture(segment.id, '2026-07-01', filename);
+    const eventB = insertCoverageCompletionFixture(segment.id, '2026-07-02', filename);
+    const database = openDatabase(filename);
+    try {
+      const geometry = database
+        .prepare('SELECT geometry_geojson FROM street_segments WHERE import_segment_id = ?')
+        .get(segment.id)?.geometry_geojson;
+      assert.equal(typeof geometry, 'string');
+      const before = eventCount(filename);
+      database
+        .prepare('UPDATE street_segments SET geometry_geojson = ? WHERE import_segment_id = ?')
+        .run('Synthetic read failure', segment.id);
+      const failed = await correction(request({ eventId: eventA, coveredOn: '2026-07-20' }));
+      assert.equal(failed.status, 400);
+      assert.deepEqual(await failed.json(), { error: 'Invalid correction request' });
+      assert.equal(eventCount(filename), before);
+      const row = database.prepare('SELECT * FROM account_activity ORDER BY id DESC LIMIT 1').get();
+      assert.equal(row?.outcome, 'failed');
+      assert.equal(row?.target_id, eventA);
+      assert.equal(row?.church_id, 'church-temecula-pilot');
+      assert.equal(row?.user_id, 'user_coverage');
+      assert.doesNotMatch(JSON.stringify(row), /Synthetic read failure|coveredOn|SyntaxError/);
+      database
+        .prepare('UPDATE street_segments SET geometry_geojson = ? WHERE import_segment_id = ?')
+        .run(geometry as string, segment.id);
+      const readIssue = async () =>
+        (await listFounderChurchAccounts(filename, provider)).churches
+          .find((church) => church.id === 'church-temecula-pilot')
+          ?.issues.find((issue) => issue.id === `activity-${row?.id}`);
+      assert.equal((await readIssue())?.resolvedAt, null);
+      assert.equal(
+        (await correction(request({ eventId: eventB, coveredOn: '2026-07-20' }))).status,
+        200,
+      );
+      assert.equal((await readIssue())?.resolvedAt, null);
+      assert.equal(
+        (await correction(request({ eventId: eventA, coveredOn: '2026-07-20' }))).status,
+        200,
+      );
+      assert.ok((await readIssue())?.resolvedAt);
+      assert.equal(
+        (await correction(request({ eventId: eventA, coveredOn: 'invalid' }))).status,
+        400,
+      );
+      assert.equal(
+        database.prepare('SELECT outcome FROM account_activity ORDER BY id DESC LIMIT 1').get()
+          ?.outcome,
+        'rejected',
       );
     } finally {
       database.close();

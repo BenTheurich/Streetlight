@@ -56,7 +56,7 @@ All database checks used disposable files, and WorkOS checks used fake adapters.
 
 | Check | Result |
 |---|---|
-| Application tests | 453 passed |
+| Application tests | 454 passed |
 | Python launcher tests | 4 passed |
 | Importer tests | 73 passed |
 | Lint | 228 files, no findings |
@@ -157,6 +157,15 @@ verify that success on B leaves A's failure unresolved, then a successful retry 
 through the founder account read. PDF checks cover batch, newest, and active scopes without
 changing packet or coverage records. Actor/church attribution and safe error responses remain
 covered. The full isolated `pnpm check` passes 530 tests, lint, TypeScript, and build.
+
+Ben authorized a fifth focused repair/review cycle and redeployment for coverage-loading failures.
+Coverage corrections now distinguish workspace read failures from invalid requests before applying
+the mutation. Read failures retain the safe event identifier and appear in founder issue history.
+The regression corrupts geometry only in a disposable database, verifies the unchanged safe 400
+response and no coverage mutation, then restores it. Success on event B leaves event A's issue
+unresolved; retrying A resolves it. Invalid input still records a rejection. The regression failed
+before the fix and passes afterward. Full isolated `pnpm check` passes 531 tests, lint, TypeScript,
+and build.
 
 ## Human review
 

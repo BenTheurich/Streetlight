@@ -24,10 +24,35 @@ export async function correctCoverage(request: Request): Promise<Response> {
     return json({ error: 'Invalid correction request' }, 400);
   }
 
-  let correction: ReturnType<typeof parseCorrectionRequest> | undefined;
+  const targetId =
+    body &&
+    typeof body === 'object' &&
+    !Array.isArray(body) &&
+    'eventId' in body &&
+    typeof body.eventId === 'string'
+      ? body.eventId
+      : null;
+  let workspace: ReturnType<typeof getCoverageWorkspace>;
   try {
-    const workspace = applyMvpCapabilities(getCoverageWorkspace());
+    workspace = applyMvpCapabilities(getCoverageWorkspace());
+  } catch {
+    return withAccountActivity(json({ error: 'Invalid correction request' }, 400), {
+      targetId,
+      outcome: 'failed',
+    });
+  }
+
+  let correction: ReturnType<typeof parseCorrectionRequest>;
+  try {
     correction = parseCorrectionRequest(body, workspace.asOf);
+  } catch {
+    return withAccountActivity(json({ error: 'Invalid correction request' }, 400), {
+      targetId,
+      outcome: 'rejected',
+    });
+  }
+
+  try {
     return withAccountActivity(
       json(
         applyMvpCapabilities(appendCoverageCorrection(correction.eventId, correction.coveredOn)),
@@ -36,18 +61,16 @@ export async function correctCoverage(request: Request): Promise<Response> {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
-    const rejected =
-      !correction ||
-      [
-        'Coverage event not found',
-        'Packet-managed coverage must be corrected in Reconcile packets',
-        'Coverage event is already void',
-      ].includes(message);
+    const rejected = [
+      'Coverage event not found',
+      'Packet-managed coverage must be corrected in Reconcile packets',
+      'Coverage event is already void',
+    ].includes(message);
     return withAccountActivity(
       message === 'Coverage event not found'
         ? json({ error: message }, 404)
         : json({ error: 'Invalid correction request' }, 400),
-      { targetId: correction?.eventId, outcome: rejected ? 'rejected' : 'failed' },
+      { targetId: correction.eventId, outcome: rejected ? 'rejected' : 'failed' },
     );
   }
 }
