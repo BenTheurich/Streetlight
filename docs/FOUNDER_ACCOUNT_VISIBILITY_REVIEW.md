@@ -54,7 +54,7 @@ All database checks used disposable files, and WorkOS checks used fake adapters.
 
 | Check | Result |
 |---|---|
-| Application tests | 448 passed |
+| Application tests | 449 passed |
 | Python launcher tests | 4 passed |
 | Importer tests | 73 passed |
 | Lint | 228 files, no findings |
@@ -114,12 +114,21 @@ search results, accounts without a saved territory, retained snapshots after ref
 and unavailable provider data. Desktop, tablet, and narrow phone views retained readable text
 without horizontal overflow. The final phone capture verifies 44px zoom and attribution controls
 with visible attribution credits. The full check passed 525 tests, lint, types, and build after
-these changes.
+these visual changes. The PR review follow-up adds one approval-recovery regression, bringing
+the final full check to 526 tests.
 
 The independent read-only review also checked the corrected map, long content, tablet layout,
 empty and error states, and Pilot requests colors and spacing. Its final disposition is `ship`,
 with no material visual findings. The final enlarged phone controls were verified separately in
 the browser.
+
+## PR review follow-up
+
+Codex code review identified a resumed-approval case where WorkOS could reuse an accepted,
+expired, or revoked invitation while the UI assumed it was pending. Approval now returns the
+current provider state and uses it for both the row and feedback. A failed provider lookup keeps
+the approved decision and displays unavailable status. The regression covers all five invitation
+outcomes with an existing organization and reused invitation.
 
 ## Human review
 

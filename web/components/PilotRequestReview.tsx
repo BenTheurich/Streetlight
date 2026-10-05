@@ -86,7 +86,9 @@ export function PilotRequestReview({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const result = (await response.json()) as { request: PilotRequest } | { error: string };
+      const result = (await response.json()) as
+        | { request: PilotRequest; invitation: FounderChurchAccount['invitation'] }
+        | { error: string };
       if (!response.ok || 'error' in result) {
         throw new Error(
           'error' in result ? result.error : 'Could not update this request. Try again.',
@@ -96,20 +98,23 @@ export function PilotRequestReview({
         current.map((item) => (item.id === result.request.id ? result.request : item)),
       );
       if (action === 'approve') {
+        const invitation: NonNullable<FounderChurchAccount['invitation']> = result.invitation ?? {
+          state: 'unavailable',
+          email: result.request.inviteEmail ?? result.request.email,
+          acceptedAt: null,
+        };
         setInvitations((current) => ({
           ...current,
-          [result.request.id]: {
-            state: 'pending',
-            email: result.request.inviteEmail ?? result.request.email,
-            acceptedAt: null,
-          },
+          [result.request.id]: invitation,
         }));
+        setMessage(
+          invitation.state === 'unavailable'
+            ? 'Approved. Could not check the invitation status. Refresh invitation statuses to try again.'
+            : `${invitationLabels[invitation.state]} for ${invitation.email}.`,
+        );
+      } else {
+        setMessage(`${request.churchName} was declined. No invitation was sent.`);
       }
-      setMessage(
-        action === 'decline'
-          ? `${request.churchName} was declined. No invitation was sent.`
-          : `Invitation sent to ${result.request.inviteEmail ?? result.request.email}.`,
-      );
       // The completed request moves to Reviewed, so keep keyboard focus at its outcome.
       feedback.current?.focus();
     } catch (failure) {

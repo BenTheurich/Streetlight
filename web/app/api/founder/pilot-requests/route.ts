@@ -89,7 +89,11 @@ export async function handleFounderPilotRequests(
             adapter,
             filename,
           );
-    return Response.json({ request: reviewed });
+    const invitations =
+      action.action === 'approve'
+        ? await readPilotInvitationStatuses([reviewed], identityAdapter)
+        : {};
+    return Response.json({ request: reviewed, invitation: invitations[reviewed.id] ?? null });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : 'Review failed' },
