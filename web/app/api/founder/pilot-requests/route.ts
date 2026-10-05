@@ -1,5 +1,9 @@
 import type { AuthLoader } from '../../../../lib/auth.ts';
 import { FounderAccessNotFoundError, requireFounderSession } from '../../../../lib/founder-auth.ts';
+import {
+  type FounderIdentityAdapter,
+  readPilotInvitationStatuses,
+} from '../../../../lib/founder-church-accounts.ts';
 import { declinePilotRequest, listPilotRequests } from '../../../../lib/pilot-requests.ts';
 import {
   provisionPilotRequest,
@@ -48,6 +52,7 @@ export async function handleFounderPilotRequests(
   adapter?: WorkOSProvisioningAdapter,
   filename?: string,
   founderEmail?: string,
+  identityAdapter?: FounderIdentityAdapter,
 ): Promise<Response> {
   try {
     await requireFounderSession(loadSession, founderEmail);
@@ -59,7 +64,15 @@ export async function handleFounderPilotRequests(
   }
 
   if (request.method === 'GET') {
-    return Response.json({ requests: listPilotRequests(filename) });
+    const requests = listPilotRequests(filename);
+    return Response.json(
+      {
+        requests,
+        invitationStatuses: await readPilotInvitationStatuses(requests, identityAdapter),
+        checkedAt: new Date().toISOString(),
+      },
+      { headers: { 'cache-control': 'no-store' } },
+    );
   }
   if (request.method !== 'PATCH') {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });

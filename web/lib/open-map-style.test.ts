@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import baseStyle from './open-map-base-style.json' with { type: 'json' };
 import type { OpenMapData } from './open-map-data.ts';
 import {
+  buildBaseMapStyle,
   buildOpenMapStyle,
   buildWorkspaceMapStyle,
   packetMapView,
@@ -101,6 +103,34 @@ test('road widths use the approved class and zoom curves', () => {
   assert.equal(roadWidthAtZoom('unknown', 14), 8);
   assert(roadWidthAtZoom('residential', 16) > 8);
   assert(roadWidthAtZoom('residential', 16) < 31);
+});
+
+test('a territory preview uses readable overview roads without adding workspace data', () => {
+  const original = structuredClone(baseStyle);
+  const preview = buildBaseMapStyle(baseStyle);
+  const workspace = buildWorkspaceMapStyle(baseStyle, openMapData());
+  for (const id of [
+    'highway_minor',
+    'highway_major_inner',
+    'highway_motorway_inner',
+    'highway-name-minor',
+    'highway-name-major',
+  ]) {
+    const layer = preview.layers.find((entry) => entry.id === id);
+    const reference = workspace.layers.find((entry) => entry.id === id);
+    assert.deepEqual(layer, reference, id);
+  }
+  const majorWidth = preview.layers.find((entry) => entry.id === 'highway_major_inner')?.paint?.[
+    'line-width'
+  ];
+  assert.ok(Array.isArray(majorWidth));
+  assert.deepEqual(majorWidth.slice(3, 7), [11, 2, 13, 4]);
+  assert.deepEqual(preview.sources, original.sources);
+  assert.deepEqual(
+    preview.layers.map(({ id }) => id),
+    original.layers.map(({ id }) => id),
+  );
+  assert.deepEqual(baseStyle, original);
 });
 
 test('packet view derives zoom from complete geometry instead of road names', () => {

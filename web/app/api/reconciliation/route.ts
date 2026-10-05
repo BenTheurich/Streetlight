@@ -1,3 +1,4 @@
+import { withAccountActivity } from '../../../lib/account-activity.ts';
 import { authenticatedRoute } from '../../../lib/authenticated-route.ts';
 import type { ReconciliationSelection } from '../../../lib/reconciliation.ts';
 import {
@@ -53,7 +54,10 @@ async function requestPayload(request: Request): Promise<unknown> {
 
 export async function reconcilePackets(request: Request): Promise<Response> {
   try {
-    return mutationResponse(applyReconciliation('reconcile', await requestPayload(request)));
+    const result = applyReconciliation('reconcile', await requestPayload(request));
+    return withAccountActivity(mutationResponse(result), {
+      targetId: result.kind === 'accepted' ? result.workspace.batch?.id : null,
+    });
   } catch {
     return json({ error: 'Could not reconcile packet batch' }, 500);
   }
@@ -61,12 +65,34 @@ export async function reconcilePackets(request: Request): Promise<Response> {
 
 export async function correctPacket(request: Request): Promise<Response> {
   try {
-    return mutationResponse(applyReconciliation('completion', await requestPayload(request)));
+    const payload = await requestPayload(request);
+    const result = applyReconciliation('completion', payload);
+    return withAccountActivity(mutationResponse(result), {
+      targetId:
+        result.kind === 'accepted' &&
+        payload &&
+        typeof payload === 'object' &&
+        'packetId' in payload
+          ? (payload.packetId as string)
+          : null,
+    });
   } catch {
     return json({ error: 'Could not change packet completion' }, 500);
   }
 }
 
 export const GET = authenticatedRoute(getReconciliation);
-export const POST = authenticatedRoute(reconcilePackets);
-export const PATCH = authenticatedRoute(correctPacket);
+export const POST = authenticatedRoute(
+  reconcilePackets,
+  undefined,
+  undefined,
+  false,
+  'reconciliation',
+);
+export const PATCH = authenticatedRoute(
+  correctPacket,
+  undefined,
+  undefined,
+  false,
+  'packet_correction',
+);

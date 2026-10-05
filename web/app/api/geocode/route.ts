@@ -1,3 +1,4 @@
+import { withAccountActivity } from '@/lib/account-activity';
 import { authenticatedRoute } from '@/lib/authenticated-route';
 import { geocodeAddress } from '@/lib/google-maps-server';
 
@@ -17,11 +18,14 @@ export async function geocodeChurch(request: Request) {
   try {
     return Response.json(await geocodeAddress(body.address));
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : 'Could not resolve that address' },
-      { status: 422 },
+    return withAccountActivity(
+      Response.json(
+        { error: error instanceof Error ? error.message : 'Could not resolve that address' },
+        { status: 422 },
+      ),
+      { outcome: 'failed' },
     );
   }
 }
 
-export const POST = authenticatedRoute(geocodeChurch, undefined, undefined, true);
+export const POST = authenticatedRoute(geocodeChurch, undefined, undefined, true, 'geocoding');

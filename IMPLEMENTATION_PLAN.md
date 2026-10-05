@@ -1509,6 +1509,42 @@ The founder runs the complete workflow without editing data manually or asking a
 
 The founder completes a real outreach batch from region review through reconciliation and approves Streetlight for another church pilot.
 
+## Founder account visibility extension
+
+Status: Awaiting human review. Ben approved the complete proposed extension on October 5, 2026.
+Dependencies: Phases 7, 8, and 11 are Complete. This extension does not start or complete Phase 13.
+
+### Scope
+
+Implement the founder-only Church accounts overview and details, truthful invitation state,
+read-only territory map, setup/import visibility, current packet totals, per-administrator
+recorded activity, and issue recovery history. Keep the existing WorkOS roster and SQLite stack.
+Preserve church authorization and record only meaningful authenticated actions.
+
+Implementation and verification evidence:
+[Founder account visibility review](docs/FOUNDER_ACCOUNT_VISIBILITY_REVIEW.md).
+The isolated canonical `pnpm check` passed 448 application tests, 4 launcher tests, 73 importer
+tests, lint, TypeScript, and the production build. The visual correction pass reuses approved
+road styling and fixes map controls, issue alignment, and invitation-state presentation.
+Synthetic desktop, tablet, and phone browser checks passed. Production and the daily preview
+remain untouched.
+
+### Checks
+
+- Run `pnpm check` and apply migrations to a fresh disposable database.
+- Verify founder authorization, accepted/expired/revoked/unavailable invitations, churches without
+  access requests, failed import replacements, packet-state corrections, actor attribution,
+  issue recovery, and church-scoped activity pagination with fake WorkOS providers.
+- Check the overview, filters, details, refresh, pagination, errors, map, and keyboard behavior
+  in an isolated browser at desktop and mobile widths. Do not send invitations or inspect live
+  production records during automated verification.
+
+### Human review
+
+Ben opens Church accounts from the founder menu, checks a church's map and packet counts,
+refreshes invitation status, and reviews administrators, activity, and current/recovered issues.
+Deployment requires separate authorization. Stop after implementation and this review handoff.
+
 ## Standard agent handoff
 
 At the end of a phase, the agent reports:

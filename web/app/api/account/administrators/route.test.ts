@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -145,6 +146,37 @@ test('administrator API authenticates, rejects forged scopes and IDs, and only u
     const unavailable = await request('GET');
     assert.equal(unavailable.status, 503);
     assert.doesNotMatch(await unavailable.text(), /secret|private data/);
+    const failedInvitation = await request('PATCH', {
+      action: 'invite',
+      email: 'retry@example.com',
+    });
+    assert.equal(failedInvitation.status, 503);
+    const check = openDatabase(filename);
+    try {
+      const rows = check.prepare('SELECT * FROM account_activity ORDER BY id').all();
+      assert.deepEqual(
+        rows.map(({ action, outcome, target_id }) => ({ action, outcome, target_id })),
+        [
+          { action: 'administrator_removal', outcome: 'rejected', target_id: 'member-b' },
+          { action: 'administrator_removal', outcome: 'rejected', target_id: 'member-a' },
+          { action: 'administrator_revocation', outcome: 'rejected', target_id: 'invite-b' },
+          {
+            action: 'administrator_invitation',
+            outcome: 'succeeded',
+            target_id: createHash('sha256').update('new@example.com').digest('hex'),
+          },
+          {
+            action: 'administrator_invitation',
+            outcome: 'failed',
+            target_id: createHash('sha256').update('retry@example.com').digest('hex'),
+          },
+        ],
+      );
+      assert.ok(rows.every((row) => row.church_id === 'church-a' && row.user_id === 'alice'));
+      assert.doesNotMatch(JSON.stringify(rows), /secret|private data|retry@example.com/);
+    } finally {
+      check.close();
+    }
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

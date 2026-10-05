@@ -1,3 +1,4 @@
+import { withAccountActivity } from '../../../../lib/account-activity.ts';
 import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
 import {
   type PacketFinalizationInput,
@@ -15,7 +16,8 @@ export async function finalizePacketBatchRequest(request: Request): Promise<Resp
   }
 
   try {
-    return Response.json(finalizePacketBatch(input), { status: 201 });
+    const batch = finalizePacketBatch(input);
+    return withAccountActivity(Response.json(batch, { status: 201 }), { targetId: batch.id });
   } catch (error) {
     if (error instanceof PacketProposalConflictError) {
       return Response.json(
@@ -27,4 +29,10 @@ export async function finalizePacketBatchRequest(request: Request): Promise<Resp
   }
 }
 
-export const POST = authenticatedRoute(finalizePacketBatchRequest);
+export const POST = authenticatedRoute(
+  finalizePacketBatchRequest,
+  undefined,
+  undefined,
+  false,
+  'batch_finalization',
+);

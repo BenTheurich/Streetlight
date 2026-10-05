@@ -84,6 +84,14 @@ test('the existing administrator menu links to Account and retains founder revie
   );
   assert.match(html, /href="\/account"/);
   assert.match(html, /href="\/pilot-requests"/);
+  assert.match(html, /href="\/church-accounts"/);
   assert.match(html, /href="\/logout"/);
   assert.match(html, /Administrator menu for alex@example.com/);
+});
+
+test('church administrators do not receive founder account navigation', () => {
+  const html = renderToStaticMarkup(
+    createElement(AdministratorAccount, { email: 'alex@example.com' }),
+  );
+  assert.doesNotMatch(html, /href="\/church-accounts"|href="\/pilot-requests"/);
 });

@@ -4,10 +4,15 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PilotRequestReview } from './PilotRequestReview.tsx';
 
-function render(status) {
+function render(status, invitationState) {
   return renderToStaticMarkup(
     createElement(PilotRequestReview, {
       administratorEmail: 'founder@example.com',
+      invitationStatuses: invitationState
+        ? {
+            'request-test': { state: invitationState, email: 'alex@example.com', acceptedAt: null },
+          }
+        : {},
       initialRequests: [
         {
           id: 'request-test',
@@ -19,7 +24,7 @@ function render(status) {
           status,
           approvedChurchName: null,
           inviteEmail: null,
-          provisionedChurchId: null,
+          provisionedChurchId: status === 'approved' ? 'church-test' : null,
           authOrganizationId: null,
           authInvitationId: null,
           createdAt: '2026-09-08T12:00:00Z',
@@ -51,7 +56,20 @@ test('partially approved requests can resume approval but cannot be declined', (
 });
 
 test('approved requests show the invitation outcome without review actions', () => {
-  const html = render('approved');
+  const html = render('approved', 'accepted');
   assert.doesNotMatch(html, /<form|>Decline<\/button>|>Approve and invite<\/button>/);
-  assert.match(html, /Invitation sent/);
+  assert.match(html, /Invitation accepted/);
+  assert.doesNotMatch(html, /Invitation sent/);
+  assert.match(html, /href="\/church-accounts#church-church-test"/);
+});
+
+test('approved requests distinguish provider invitation outcomes and missing provider status', () => {
+  for (const state of ['pending', 'expired', 'revoked']) {
+    assert.match(render('approved', state), new RegExp(`Invitation ${state}`));
+  }
+  const html = render('approved');
+  assert.match(html, /Invitation status unavailable/);
+  assert.match(html, /Could not check the invitation status/);
+  assert.match(html, /Refresh invitation statuses/);
+  assert.doesNotMatch(html, /Invitation sent/);
 });

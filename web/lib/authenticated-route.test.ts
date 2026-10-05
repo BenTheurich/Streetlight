@@ -6,10 +6,115 @@ import test from 'node:test';
 import { reconcilePackets } from '../app/api/reconciliation/route.ts';
 import { migrateDatabase, openDatabase } from '../db/migrate.mjs';
 import { seedDatabase } from '../db/seed.mjs';
+import { withAccountActivity } from './account-activity.ts';
 import { authenticatedRoute } from './authenticated-route.ts';
 import { requireWorkspaceScope } from './workspace-scope.ts';
 
 const user = { id: 'user_test', email: 'admin@example.com' };
+
+test('tracked routes attribute outcomes only after verified workspace access', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-tracked-routes-'));
+  const filename = path.join(directory, 'streetlight.db');
+  const database = openDatabase(filename);
+  try {
+    migrateDatabase(database);
+    seedDatabase(database, { authOrganizationId: 'org_test_temecula' });
+    const request = new Request('http://streetlight.local/api/test', {
+      method: 'POST',
+      body: JSON.stringify({ userId: 'forged', churchId: 'forged', secret: 'private' }),
+    });
+    const signedIn = async () => ({ user, organizationId: 'org_test_temecula' });
+    for (const loadSession of [
+      async () => ({ user: null }),
+      async () => ({ user, organizationId: 'org_missing' }),
+    ]) {
+      const result = await authenticatedRoute(
+        () => Response.json({ ok: true }),
+        loadSession,
+        filename,
+        false,
+        'territory_save',
+      )(request);
+      assert.ok([401, 403].includes(result.status));
+    }
+    assert.equal(
+      database.prepare('SELECT COUNT(*) AS count FROM account_activity').get()?.count,
+      0,
+    );
+    for (const status of [202, 201, 400, 409, 502]) {
+      const result = await authenticatedRoute(
+        () =>
+          withAccountActivity(Response.json({ status }, { status }), { targetId: 'safe-target' }),
+        signedIn,
+        filename,
+        false,
+        'territory_save',
+      )(request);
+      assert.equal(result.status, status);
+      assert.deepEqual(await result.json(), { status });
+    }
+    await assert.rejects(
+      async () =>
+        authenticatedRoute(
+          () => {
+            throw new Error('private provider error');
+          },
+          signedIn,
+          filename,
+          false,
+          'territory_save',
+        )(request),
+      /private provider error/,
+    );
+    const rows = database.prepare('SELECT * FROM account_activity ORDER BY id').all();
+    assert.deepEqual(
+      rows.map(({ outcome }) => outcome),
+      ['started', 'succeeded', 'rejected', 'rejected', 'failed', 'failed'],
+    );
+    assert.ok(
+      rows.every((row) => row.church_id === 'church-temecula-pilot' && row.user_id === user.id),
+    );
+    assert.doesNotMatch(JSON.stringify(rows), /forged|private/);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('a recorder failure preserves the committed workflow and its response', async (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-tracking-failure-'));
+  const filename = path.join(directory, 'streetlight.db');
+  const database = openDatabase(filename);
+  const warnings: unknown[] = [];
+  t.mock.method(console, 'warn', (message: unknown) => warnings.push(message));
+  try {
+    migrateDatabase(database);
+    seedDatabase(database, { authOrganizationId: 'org_test_temecula' });
+    database.exec('DROP TABLE account_activity');
+    const response = await authenticatedRoute(
+      () => {
+        database
+          .prepare('UPDATE churches SET name = ? WHERE id = ?')
+          .run('Saved church name', 'church-temecula-pilot');
+        return Response.json({ saved: true }, { status: 201 });
+      },
+      async () => ({ user, organizationId: 'org_test_temecula' }),
+      filename,
+      false,
+      'printout_settings',
+    )(new Request('http://streetlight.local/api/test'));
+    assert.equal(response.status, 201);
+    assert.deepEqual(await response.json(), { saved: true });
+    assert.equal(
+      database.prepare('SELECT name FROM churches WHERE id = ?').get('church-temecula-pilot')?.name,
+      'Saved church name',
+    );
+    assert.deepEqual(warnings, ['Could not record church account activity']);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test('authenticated routes reject missing access and run mapped sessions in church scope', async () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'streetlight-auth-route-'));

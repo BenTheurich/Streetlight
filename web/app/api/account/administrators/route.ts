@@ -1,6 +1,9 @@
+import { createHash } from 'node:crypto';
+import { recordAccountResponse, withAccountActivity } from '../../../../lib/account-activity.ts';
 import {
   type AuthLoader,
   ChurchWorkspaceAccessError,
+  type OrganizationSession,
   requireOrganizationSession,
   SignInRequiredError,
 } from '../../../../lib/auth.ts';
@@ -12,6 +15,7 @@ import {
   parseAdministratorAction,
   type WorkOSAdministratorsAdapter,
 } from '../../../../lib/church-administrators.ts';
+import type { AccountAction } from '../../../../lib/founder-account-types.ts';
 
 export async function handleChurchAdministrators(
   request: Request,
@@ -19,8 +23,11 @@ export async function handleChurchAdministrators(
   adapter?: WorkOSAdministratorsAdapter,
   filename?: string,
 ): Promise<Response> {
+  let session: OrganizationSession | undefined;
+  let activity: AccountAction | undefined;
+  let targetId: string | null = null;
   try {
-    const session = await requireOrganizationSession(loadSession, filename);
+    session = await requireOrganizationSession(loadSession, filename);
     if (request.method === 'GET') {
       return Response.json(
         await listChurchAdministrators(session.organizationId, session.user.id, adapter),
@@ -45,25 +52,49 @@ export async function handleChurchAdministrators(
     } catch {
       throw new AdministratorActionError('Invalid administrator action');
     }
-    return Response.json(
-      await mutateChurchAdministrator(
-        session.organizationId,
-        session.user.id,
-        parseAdministratorAction(input),
-        adapter,
-      ),
+    const action = parseAdministratorAction(input);
+    targetId =
+      action.action === 'invite'
+        ? createHash('sha256').update(action.email).digest('hex')
+        : action.id;
+    activity =
+      action.action === 'invite'
+        ? 'administrator_invitation'
+        : action.action === 'revoke'
+          ? 'administrator_revocation'
+          : 'administrator_removal';
+    const result = await mutateChurchAdministrator(
+      session.organizationId,
+      session.user.id,
+      action,
+      adapter,
+    );
+    return recordAccountResponse(
+      withAccountActivity(Response.json(result), {
+        targetId,
+      }),
+      { churchId: session.access.churchId, user: session.user, action: activity },
+      filename,
     );
   } catch (error) {
     if (error instanceof SignInRequiredError)
       return Response.json({ error: error.message }, { status: 401 });
     if (error instanceof ChurchWorkspaceAccessError || error instanceof AdministratorAccessError)
       return Response.json({ error: error.message }, { status: 403 });
-    if (error instanceof AdministratorActionError)
-      return Response.json({ error: error.message }, { status: 400 });
-    return Response.json(
-      { error: 'Could not load or update administrators. Please try again.' },
-      { status: 503 },
-    );
+    const response =
+      error instanceof AdministratorActionError
+        ? Response.json({ error: error.message }, { status: 400 })
+        : Response.json(
+            { error: 'Could not load or update administrators. Please try again.' },
+            { status: 503 },
+          );
+    return session && activity
+      ? recordAccountResponse(
+          withAccountActivity(response, { targetId }),
+          { churchId: session.access.churchId, user: session.user, action: activity },
+          filename,
+        )
+      : response;
   }
 }
 

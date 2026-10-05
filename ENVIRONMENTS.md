@@ -103,6 +103,21 @@ approved Google quotas, server-key restrictions, public-request rate control, an
 Ben deferred scheduled and off-machine backups for the pilot; configure them and prove recovery
 before a real release.
 
+## Founder account visibility
+
+The founder-only `/church-accounts` page and `/api/founder/church-accounts` API read church
+configuration, packet states, recorded activity, and persisted import jobs. WorkOS remains the
+administrator roster and invitation-state authority. These founder reads do not require the
+founder to join each church, and the existing configured-founder authorization must run first.
+Opening or refreshing `/pilot-requests` also reads the current WorkOS invitation state.
+
+Migration `031_account_activity.sql` adds local activity storage. Recording begins after that
+migration is applied and the new application is deployed. Automated checks use disposable
+databases and fake identity providers; they never create organizations or send invitations.
+The activity log contains actor identifiers and existing name/email values, named operations,
+outcomes, target identifiers, and timestamps. It excludes request bodies and provider secrets.
+Recording failure must not change an application's successful business response.
+
 ## Phase 12 production configuration
 
 The repository-root Dockerfile contains the application, importer, and Chromium PDF renderer.

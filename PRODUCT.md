@@ -4,7 +4,7 @@
 
 Status: approved founder direction  
 Approved: 2026-07-27
-Updated: 2026-09-06
+Updated: 2026-10-05
 
 ## Platform
 
@@ -168,6 +168,32 @@ Version one has one authenticated role: administrator.
   in Region Setup until the first explicit save succeeds; that save is the first action that
   may launch an Overture import.
 - Existing configured church workspaces bypass onboarding unchanged.
+
+## Founder account visibility
+
+Ben approved this founder support extension on October 5, 2026.
+
+- The configured founder can inspect every church through a read-only Church accounts view.
+  Other administrators cannot access the cross-church page or its APIs.
+- Access request approval and invitation acceptance are separate facts. Read the invitation's
+  current WorkOS state when the founder opens or refreshes the view. Provider failures show
+  unavailable status; they never imply that an invitation remains pending.
+- Show church setup state, active administrators and pending invitations, the saved church
+  address and boundary, import state and warnings, finalized batch and packet counts, current
+  active/completed/cancelled counts, and estimated homes reached in the saved territory.
+- Packet totals count finalized assignments. Proposal previews and PDF preparation remain
+  separate activities. Streetlight does not infer printing or physical distribution from a PDF.
+- Record meaningful authenticated setup, packet, reconciliation, printout, and administrator
+  actions with their church, WorkOS actor, outcome, target identifier, and server timestamp.
+  Retain recorded failures and show whether a later successful retry resolved them. Existing
+  import-job records supply import history and attempted configuration without replacing the
+  saved territory in this view.
+- Per-administrator activity begins when recording is deployed. Historical outreach totals
+  remain available; older records do not acquire invented actor attribution. Routine map
+  viewing and polling are not tracked. Do not store request bodies, credentials, resident
+  information, volunteer identities, or arbitrary provider error text in the activity log.
+- Preserve the approved SQLite and WorkOS stack. This extension adds no analytics provider,
+  impersonation, church-editing controls, or new administrator permissions.
 
 ## Domain vocabulary
 
@@ -501,6 +527,7 @@ Included:
 - Public How it works, Why Streetlight, and Pricing pages
 - Plain-language church access status in the administrator account
 - Church administrator list, invitation, pending-invitation revocation, and removal
+- Founder-only church setup, outreach totals, activity, and issue visibility
 - Church workspace setup
 - Region creation and correction
 - Editable region boundary shape and distance

@@ -43,12 +43,17 @@ export function AdministratorAccount({
           Account
         </a>
         {pendingPilotRequests !== null && (
-          <a href="/pilot-requests" role="menuitem">
-            Pilot requests
-            {pendingPilotRequests > 0 && (
-              <span className="administrator-account-badge">{pendingPilotRequests}</span>
-            )}
-          </a>
+          <>
+            <a href="/pilot-requests" role="menuitem">
+              Pilot requests
+              {pendingPilotRequests > 0 && (
+                <span className="administrator-account-badge">{pendingPilotRequests}</span>
+              )}
+            </a>
+            <a href="/church-accounts" role="menuitem">
+              Church accounts
+            </a>
+          </>
         )}
         <a href="/logout" role="menuitem">
           Sign out
