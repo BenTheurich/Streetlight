@@ -1,8 +1,9 @@
 # Founder account visibility review
 
 Ben approved this extension on October 5, 2026. Implementation is local on
-`codex/founder-church-accounts` and awaits human review. Production and the daily preview were
-untouched; this work does not start Phase 13.
+`codex/founder-church-accounts` and awaits human review. Ben separately authorized live deployment
+on October 5, and the extension is deployed. The daily preview remains untouched; this work does
+not start Phase 13.
 
 ## Account pages
 
@@ -55,7 +56,7 @@ All database checks used disposable files, and WorkOS checks used fake adapters.
 
 | Check | Result |
 |---|---|
-| Application tests | 451 passed |
+| Application tests | 453 passed |
 | Python launcher tests | 4 passed |
 | Importer tests | 73 passed |
 | Lint | 228 files, no findings |
@@ -148,6 +149,15 @@ handlers and the founder account read, preserving actor attribution and safe err
 The full isolated `pnpm check` passes 528 tests, lint, types, and build. Its Playwright browser
 cache is isolated inside the verification folder.
 
+Ben authorized another focused repair/review cycle and live deployment for two later findings.
+Finalization now records the validated proposal fingerprint on successful, rejected, and failed
+attempts. PDF preparation retains the validated batch or scope before packet selection, including
+selection failures. Both regressions failed on the old handlers and pass with these fixes. They
+verify that success on B leaves A's failure unresolved, then a successful retry of A resolves it
+through the founder account read. PDF checks cover batch, newest, and active scopes without
+changing packet or coverage records. Actor/church attribution and safe error responses remain
+covered. The full isolated `pnpm check` passes 530 tests, lint, TypeScript, and build.
+
 ## Human review
 
 1. Open Church accounts from the founder menu and search for a church.
@@ -156,6 +166,7 @@ cache is isolated inside the verification folder.
 4. Inspect administrators, pending invitations, current/recovered issues, and older activity.
 5. Open Pilot requests, refresh invitation statuses, and follow a church account link.
 
-Deployment requires separate authorization. Deploy through the existing runbook and apply migration
-031 with the normal migration path after approval; no new environment variables or providers are
-required. Activity recording starts when this version is running.
+Ben authorized deployment through the existing runbook. The first rollout applied migration 031
+on October 5 and passed health, integrity, foreign-key, data-preservation, and founder access checks.
+Activity recording began with that deployment. Follow-up repairs use the same deployment runbook
+and need no new migrations, environment variables, or providers.

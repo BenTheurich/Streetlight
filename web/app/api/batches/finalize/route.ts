@@ -15,17 +15,24 @@ export async function finalizePacketBatchRequest(request: Request): Promise<Resp
     return Response.json({ error: 'Invalid finalization request' }, { status: 400 });
   }
 
+  const activity = { targetId: input.proposalFingerprint };
   try {
     const batch = finalizePacketBatch(input);
-    return withAccountActivity(Response.json(batch, { status: 201 }), { targetId: batch.id });
+    return withAccountActivity(Response.json(batch, { status: 201 }), activity);
   } catch (error) {
     if (error instanceof PacketProposalConflictError) {
-      return Response.json(
-        { error: 'Packet proposals changed. Generate proposals again.' },
-        { status: 409 },
+      return withAccountActivity(
+        Response.json(
+          { error: 'Packet proposals changed. Generate proposals again.' },
+          { status: 409 },
+        ),
+        activity,
       );
     }
-    return Response.json({ error: 'Could not finalize packet batch' }, { status: 500 });
+    return withAccountActivity(
+      Response.json({ error: 'Could not finalize packet batch' }, { status: 500 }),
+      activity,
+    );
   }
 }
 

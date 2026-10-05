@@ -5,6 +5,11 @@ import path from 'node:path';
 import test from 'node:test';
 import { migrateDatabase, openDatabase } from '../../../../db/migrate.mjs';
 import { seedDatabase } from '../../../../db/seed.mjs';
+import { authenticatedRoute } from '../../../../lib/authenticated-route.ts';
+import {
+  type FounderIdentityAdapter,
+  listFounderChurchAccounts,
+} from '../../../../lib/founder-church-accounts.ts';
 import type { ImportedTerritoryInput } from '../../../../lib/overture-import.ts';
 import {
   getTerritoryWorkspace,
@@ -20,7 +25,7 @@ function withDatabase(run: (filename: string) => Promise<void>): Promise<void> {
   const filename = path.join(directory, 'streetlight.db');
   const database = openDatabase(filename);
   migrateDatabase(database);
-  seedDatabase(database);
+  seedDatabase(database, { authOrganizationId: 'org_test_temecula' });
   database.close();
   const original = process.env.STREETLIGHT_DATABASE_PATH;
   process.env.STREETLIGHT_DATABASE_PATH = filename;
@@ -121,6 +126,96 @@ function counts(filename: string): number[] {
     database.close();
   }
 }
+
+test('finalization storage failures recover only after retrying the same proposals', async () => {
+  await withDatabase(async (filename) => {
+    preparePacketGraph(filename);
+    const provider: FounderIdentityAdapter = {
+      async listMemberships() {
+        return [];
+      },
+      async listInvitations() {
+        return [];
+      },
+      async getInvitation() {
+        throw new Error('Unexpected invitation read');
+      },
+      async getUser() {
+        throw new Error('Unexpected user read');
+      },
+    };
+    const mutate = authenticatedRoute(
+      finalize,
+      async () => ({
+        user: { id: 'user_finalize', email: 'finalize@example.test' },
+        organizationId: 'org_test_temecula',
+      }),
+      filename,
+      false,
+      'batch_finalization',
+    );
+    const bodies = [];
+    for (const targetHomes of [16, 8]) {
+      const requests = [{ quantity: 1, targetHomes }];
+      const proposals = await (
+        await propose(jsonRequest('http://streetlight.local/api/packet-proposals', { requests }))
+      ).json();
+      bodies.push({
+        requests,
+        proposalFingerprint: proposals.proposalFingerprint,
+        proposalIndexes: proposals.proposalIndexes,
+        customName: null,
+      });
+    }
+    assert.notEqual(bodies[0].proposalFingerprint, bodies[1].proposalFingerprint);
+    const database = openDatabase(filename);
+    try {
+      database.exec(`CREATE TRIGGER fail_finalization BEFORE INSERT ON batches
+        BEGIN SELECT RAISE(ABORT,'Synthetic storage failure'); END;`);
+      const failed = await mutate(
+        jsonRequest('http://streetlight.local/api/batches/finalize', bodies[0]),
+      );
+      assert.equal(failed.status, 500);
+      assert.deepEqual(await failed.json(), { error: 'Could not finalize packet batch' });
+      assert.deepEqual(counts(filename), [0, 0, 0]);
+      database.exec('DROP TRIGGER fail_finalization');
+      const other = await mutate(
+        jsonRequest('http://streetlight.local/api/batches/finalize', bodies[1]),
+      );
+      assert.equal(other.status, 201);
+      const otherBatch = await other.json();
+      const rows = database.prepare('SELECT * FROM account_activity ORDER BY id').all();
+      assert.deepEqual(
+        rows.map(({ outcome, target_id }) => [outcome, target_id]),
+        [
+          ['failed', bodies[0].proposalFingerprint],
+          ['succeeded', bodies[1].proposalFingerprint],
+        ],
+      );
+      assert.ok(
+        rows.every(
+          (row) => row.church_id === 'church-temecula-pilot' && row.user_id === 'user_finalize',
+        ),
+      );
+      assert.doesNotMatch(JSON.stringify(rows), /Synthetic storage failure|targetHomes|customName/);
+      const readIssue = async () =>
+        (await listFounderChurchAccounts(filename, provider)).churches
+          .find((church) => church.id === 'church-temecula-pilot')
+          ?.issues.find((issue) => issue.id === `activity-${rows[0].id}`);
+      assert.equal((await readIssue())?.resolvedAt, null);
+      // Release B's reservations so the original reviewed proposals can be retried.
+      database.prepare("UPDATE packets SET status='cancelled' WHERE batch_id=?").run(otherBatch.id);
+      assert.equal(
+        (await mutate(jsonRequest('http://streetlight.local/api/batches/finalize', bodies[0])))
+          .status,
+        201,
+      );
+      assert.ok((await readIssue())?.resolvedAt);
+    } finally {
+      database.close();
+    }
+  });
+});
 
 test('POST finalizes the exact reviewed proposals once', async () => {
   await withDatabase(async (filename) => {

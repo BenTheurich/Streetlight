@@ -28,12 +28,11 @@ export async function getPacketPdf(
   ) {
     return Response.json({ error: 'Invalid packet download scope' }, { status: 400 });
   }
-  let targetId: string | null = null;
+  const targetId = scope === 'batch' ? batchId : scope;
   try {
     const selection = getPacketDownloadSelection(
       scope === 'batch' ? { batchId: batchId as string } : scope,
     );
-    targetId = scope === 'batch' ? selection.packets[0].batchId : scope;
     const logo = await readFile(path.join(process.cwd(), 'public', 'StreetlightLogo.png'));
     const maps = await (options.renderMaps ?? renderOpenPacketMaps)(selection);
     const bytes = await renderPacketPdf(selection, {

@@ -1523,11 +1523,11 @@ Preserve church authorization and record only meaningful authenticated actions.
 
 Implementation and verification evidence:
 [Founder account visibility review](docs/FOUNDER_ACCOUNT_VISIBILITY_REVIEW.md).
-The isolated canonical `pnpm check` passed 451 application tests, 4 launcher tests, 73 importer
+The isolated canonical `pnpm check` passed 453 application tests, 4 launcher tests, 73 importer
 tests, lint, TypeScript, and the production build. The visual correction pass reuses approved
 road styling and fixes map controls, issue alignment, and invitation-state presentation.
-Synthetic desktop, tablet, and phone browser checks passed. Production and the daily preview
-remain untouched.
+Synthetic desktop, tablet, and phone browser checks passed. Ben separately authorized live
+deployment on October 5; the extension is deployed. The daily preview remains untouched.
 
 ### Checks
 
