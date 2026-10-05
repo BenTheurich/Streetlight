@@ -9,6 +9,8 @@ export type AccountAction =
   | 'pdf_preparation'
   | 'reconciliation'
   | 'packet_correction'
+  | 'coverage_settings'
+  | 'coverage_correction'
   | 'printout_settings'
   | 'administrator_invitation'
   | 'administrator_revocation'
@@ -110,6 +112,8 @@ export const accountActionLabels: Record<AccountAction, string> = {
   pdf_preparation: 'Packet PDF prepared',
   reconciliation: 'Packets reconciled',
   packet_correction: 'Packet correction',
+  coverage_settings: 'Heatmap ranges saved',
+  coverage_correction: 'Coverage correction',
   printout_settings: 'Printout settings saved',
   administrator_invitation: 'Administrator invitation',
   administrator_revocation: 'Invitation revoked',

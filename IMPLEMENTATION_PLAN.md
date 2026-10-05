@@ -1523,7 +1523,7 @@ Preserve church authorization and record only meaningful authenticated actions.
 
 Implementation and verification evidence:
 [Founder account visibility review](docs/FOUNDER_ACCOUNT_VISIBILITY_REVIEW.md).
-The isolated canonical `pnpm check` passed 449 application tests, 4 launcher tests, 73 importer
+The isolated canonical `pnpm check` passed 450 application tests, 4 launcher tests, 73 importer
 tests, lint, TypeScript, and the production build. The visual correction pass reuses approved
 road styling and fixes map controls, issue alignment, and invitation-state presentation.
 Synthetic desktop, tablet, and phone browser checks passed. Production and the daily preview

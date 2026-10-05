@@ -7,6 +7,7 @@ CREATE TABLE account_activity (
   action TEXT NOT NULL CHECK (action IN (
     'onboarding', 'geocoding', 'territory_save', 'packet_proposals',
     'batch_finalization', 'pdf_preparation', 'reconciliation', 'packet_correction',
+    'coverage_settings', 'coverage_correction',
     'printout_settings', 'administrator_invitation', 'administrator_revocation',
     'administrator_removal'
   )),

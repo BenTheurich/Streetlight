@@ -32,7 +32,8 @@ retain the previous snapshot.
 Migration `031_account_activity.sql` adds church-scoped activity with trusted user identity,
 operation, outcome, an optional opaque target, and a server timestamp. Meaningful authenticated
 actions include onboarding, geocoding, territory saves, packet previews, finalization, PDF
-preparation, reconciliation, corrections, printout settings, and administrator changes. Polling and
+preparation, reconciliation, packet and coverage corrections, heatmap ranges, printout settings,
+and administrator changes. Polling and
 map reads do not add activity. Recording failure never changes the original operation's result.
 
 Issue recovery matches the operation and target where known. Success on one administrator or
@@ -54,7 +55,7 @@ All database checks used disposable files, and WorkOS checks used fake adapters.
 
 | Check | Result |
 |---|---|
-| Application tests | 449 passed |
+| Application tests | 450 passed |
 | Python launcher tests | 4 passed |
 | Importer tests | 73 passed |
 | Lint | 228 files, no findings |
@@ -115,7 +116,8 @@ and unavailable provider data. Desktop, tablet, and narrow phone views retained 
 without horizontal overflow. The final phone capture verifies 44px zoom and attribution controls
 with visible attribution credits. The full check passed 525 tests, lint, types, and build after
 these visual changes. The PR review follow-up adds one approval-recovery regression, bringing
-the final full check to 526 tests.
+the full check to 526 tests. Coverage activity review adds one regression, bringing the final
+full check to 527 tests.
 
 The independent read-only review also checked the corrected map, long content, tablet layout,
 empty and error states, and Pilot requests colors and spacing. Its final disposition is `ship`,
@@ -129,6 +131,13 @@ expired, or revoked invitation while the UI assumed it was pending. Approval now
 current provider state and uses it for both the row and feedback. A failed provider lookup keeps
 the approved decision and displays unavailable status. The regression covers all five invitation
 outcomes with an existing organization and reused invitation.
+
+A later code review identified untracked heatmap-range saves and non-packet coverage corrections.
+Both mutations now record trusted actor, church, outcome, and the correction event target where
+known. Validation rejections remain separate from storage failures, and GET remains untracked.
+The regression verifies successful and rejected writes, injected storage failures, unchanged
+HTTP responses, and absence of request values or storage-error text in the log. The undeployed
+migration 031 includes both action names.
 
 ## Human review
 
