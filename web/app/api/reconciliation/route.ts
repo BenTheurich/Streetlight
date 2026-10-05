@@ -52,32 +52,35 @@ async function requestPayload(request: Request): Promise<unknown> {
   }
 }
 
+function requestTarget(payload: unknown, key: 'batchId' | 'packetId'): string | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const target = (payload as Record<string, unknown>)[key];
+  return typeof target === 'string' ? target : null;
+}
+
 export async function reconcilePackets(request: Request): Promise<Response> {
+  const payload = await requestPayload(request);
+  const targetId = requestTarget(payload, 'batchId');
   try {
-    const result = applyReconciliation('reconcile', await requestPayload(request));
-    return withAccountActivity(mutationResponse(result), {
-      targetId: result.kind === 'accepted' ? result.workspace.batch?.id : null,
-    });
+    const result = applyReconciliation('reconcile', payload);
+    return withAccountActivity(mutationResponse(result), { targetId });
   } catch {
-    return json({ error: 'Could not reconcile packet batch' }, 500);
+    return withAccountActivity(json({ error: 'Could not reconcile packet batch' }, 500), {
+      targetId,
+    });
   }
 }
 
 export async function correctPacket(request: Request): Promise<Response> {
+  const payload = await requestPayload(request);
+  const targetId = requestTarget(payload, 'packetId');
   try {
-    const payload = await requestPayload(request);
     const result = applyReconciliation('completion', payload);
-    return withAccountActivity(mutationResponse(result), {
-      targetId:
-        result.kind === 'accepted' &&
-        payload &&
-        typeof payload === 'object' &&
-        'packetId' in payload
-          ? (payload.packetId as string)
-          : null,
-    });
+    return withAccountActivity(mutationResponse(result), { targetId });
   } catch {
-    return json({ error: 'Could not change packet completion' }, 500);
+    return withAccountActivity(json({ error: 'Could not change packet completion' }, 500), {
+      targetId,
+    });
   }
 }
 

@@ -55,7 +55,7 @@ All database checks used disposable files, and WorkOS checks used fake adapters.
 
 | Check | Result |
 |---|---|
-| Application tests | 450 passed |
+| Application tests | 451 passed |
 | Python launcher tests | 4 passed |
 | Importer tests | 73 passed |
 | Lint | 228 files, no findings |
@@ -117,7 +117,8 @@ without horizontal overflow. The final phone capture verifies 44px zoom and attr
 with visible attribution credits. The full check passed 525 tests, lint, types, and build after
 these visual changes. The PR review follow-up adds one approval-recovery regression, bringing
 the full check to 526 tests. Coverage activity review adds one regression, bringing the final
-full check to 527 tests.
+full check to 527 tests. The additional reconciliation recovery regression brings the final
+full check to 528 tests.
 
 The independent read-only review also checked the corrected map, long content, tablet layout,
 empty and error states, and Pilot requests colors and spacing. Its final disposition is `ship`,
@@ -138,6 +139,14 @@ known. Validation rejections remain separate from storage failures, and GET rema
 The regression verifies successful and rejected writes, injected storage failures, unchanged
 HTTP responses, and absence of request values or storage-error text in the log. The undeployed
 migration 031 includes both action names.
+
+Ben authorized one additional repair and review cycle after the two-cycle limit. Reconciliation
+and packet correction now preserve their batch or packet target in storage-failure responses.
+The regression injects a storage failure for target A, succeeds on target B, and verifies that
+A's issue remains unresolved until A succeeds. It covers both mutations through authenticated
+handlers and the founder account read, preserving actor attribution and safe error responses.
+The full isolated `pnpm check` passes 528 tests, lint, types, and build. Its Playwright browser
+cache is isolated inside the verification folder.
 
 ## Human review
 
