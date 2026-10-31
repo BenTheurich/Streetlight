@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .overture_import import (
     NormalizedImportResult,
+    OVERTURE_RELEASE,
     download_fema_features,
     download_features,
     enclosing_bbox,
@@ -97,6 +98,7 @@ def load_sources(name, longitude, latitude, radius_miles, cache_dir=None):
         payload = json.loads(cache_path.read_text(encoding="utf-8"))
         if (
             payload.get("cacheVersion") == CACHE_VERSION
+            and payload.get("release") == OVERTURE_RELEASE
             and payload["center"] == [longitude, latitude]
             and payload["radiusMiles"] == radius_miles
         ):
@@ -127,6 +129,7 @@ def load_sources(name, longitude, latitude, radius_miles, cache_dir=None):
             json.dumps(
                 {
                     "cacheVersion": CACHE_VERSION,
+                    "release": OVERTURE_RELEASE,
                     "center": [longitude, latitude],
                     "radiusMiles": radius_miles,
                     "roads": roads,
@@ -175,6 +178,7 @@ def load_audit_overture(fixture, cache_dir=None):
         payload = json.loads(cache_path.read_text(encoding="utf-8"))
         if (
             payload.get("cacheVersion") in {3, CACHE_VERSION, AUDIT_CACHE_VERSION}
+            and payload.get("release") == OVERTURE_RELEASE
             and payload.get("center") == fixture["center"]
             and payload.get("radiusMiles") == radius_miles
         ):
@@ -191,6 +195,7 @@ def load_audit_overture(fixture, cache_dir=None):
             json.dumps(
                 {
                     "cacheVersion": AUDIT_CACHE_VERSION,
+                    "release": OVERTURE_RELEASE,
                     "center": fixture["center"],
                     "radiusMiles": radius_miles,
                     "roads": roads,

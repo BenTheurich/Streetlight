@@ -124,6 +124,7 @@ test('rejects malformed JSON and every invalid import field', () => {
 
   const invalidValues: unknown[] = [
     { ...validOutput, release: 'wrong' },
+    { ...validOutput, release: '2026-08-19.0' },
     { ...validOutput, center: [Number.NaN, 33.5107] },
     { ...validOutput, center: [-181, 33.5107] },
     { ...validOutput, radiusMiles: 0 },

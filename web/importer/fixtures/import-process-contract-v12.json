@@ -169,7 +169,7 @@
     "warnings": []
   },
   "radiusMiles": 1,
-  "release": "2026-08-19.0",
+  "release": "2026-10-21.0",
   "segments": [
     {
       "activationKind": "automatic",

@@ -18,7 +18,7 @@ const workspace: TerritoryWorkspace = {
   boundaryShape: 'circle',
   import: {
     kind: 'overture',
-    release: '2026-08-19.0',
+    release: '2026-10-21.0',
     center: [-117.15, 33.5],
     radiusMiles: 3,
     completedAt: '2026-08-25T10:00:00.000Z',
