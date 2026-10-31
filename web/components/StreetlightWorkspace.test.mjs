@@ -310,7 +310,7 @@ for (const coverageFails of [false, true]) {
                     ...territory,
                     import: {
                       ...territory.import,
-                      release: '2026-08-19.0',
+                      release: '2026-10-21.0',
                       center: territory.center,
                       radiusMiles: 1,
                       completedAt: '2026-10-03T12:00:00.000Z',

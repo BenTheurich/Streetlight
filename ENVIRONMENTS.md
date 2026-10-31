@@ -35,6 +35,14 @@ python -m pip install -r web/importer/requirements.txt
 
 Overture import requires network access to its public S3 data but no API key. Streetlight
 explicitly uses anonymous access and does not reuse ambient AWS credentials.
+The importer pins `2026-10-21.0` in Python and TypeScript. Overture keeps public data for
+[at most 60 days](https://docs.overturemaps.org/release-calendar/#data-retention-policy), so
+review the pin with each monthly release. Before changing it, compare the upstream schema,
+exercise all four production projections against the new Parquet data, update the shared
+process fixture and release-specific source notices, and run the fixed geographic benchmarks
+with fresh Overture inputs. Keep the prior notices for saved older geography. A pin change does
+not refresh church data on startup; the next import-required explicit save uses the new release.
+See [October release validation](docs/benchmarks/2026-10-31-overture-release.md).
 On Windows, point `STREETLIGHT_PYTHON` at the prepared importer environment when the Microsoft Store
 Python alias is unusable. If DuckDB reports a certificate verification error, point
 `SSL_CERT_FILE` at a trusted local CA bundle such as Git for Windows' `ca-bundle.crt`.

@@ -47,7 +47,7 @@ function jsonRequest(url: string, body: unknown): Request {
 function preparePacketGraph(filename: string): void {
   const workspace = getTerritoryWorkspace(filename);
   const imported: ImportedTerritoryInput = {
-    release: '2026-08-19.0',
+    release: '2026-10-21.0',
     center: workspace.center,
     radiusMiles: workspace.radiusMiles,
     completedAt: '2026-07-28T12:00:00.000Z',

@@ -61,7 +61,7 @@ export function importedTerritoryFixture(
   segments: ImportedTerritorySegment[],
 ): ImportedTerritoryInput {
   return {
-    release: '2026-08-19.0',
+    release: '2026-10-21.0',
     center: [-117.116885, 33.54293],
     radiusMiles: 10,
     completedAt: '2026-07-27T12:00:00.000Z',

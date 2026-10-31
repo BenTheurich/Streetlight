@@ -966,6 +966,8 @@ class NormalizeFeaturesTest(TestCase):
                     [0.00082, 0.00002],
                 ],
             ),
+            # Schema v2 adds shelters; they are not evidence of another home.
+            building("shelter", "shelter", box(50, 10)),
         ]
 
         result = normalize_features(roads, addresses, buildings)
@@ -2246,6 +2248,7 @@ class BenchmarkMetricsTest(TestCase):
         fixture = {"center": [0, 0], "radiusMiles": 1}
         cached = {
             "cacheVersion": benchmark_module.CACHE_VERSION,
+            "release": OVERTURE_RELEASE,
             **fixture,
             "roads": [road("oak", "residential", "Oak Road", [[0, 0], [0.001, 0]])],
             "addresses": [address("Oak Road", 0.0005, 0.00005, number="1")],
@@ -2264,6 +2267,43 @@ class BenchmarkMetricsTest(TestCase):
                 result = benchmark_module.load_audit_overture(fixture, directory)
 
         self.assertEqual(result, (cached["roads"], cached["addresses"], cached["buildings"]))
+
+    def test_benchmark_and_audit_refresh_caches_from_another_or_unknown_release(self):
+        fixture = {"center": [0, 0], "radiusMiles": 1}
+        for audit in (False, True):
+            for release in (None, "2026-08-19.0"):
+                with self.subTest(audit=audit, release=release), TemporaryDirectory() as directory:
+                    cache = {
+                        "cacheVersion": benchmark_module.CACHE_VERSION,
+                        **fixture,
+                        "roads": ["stale road"],
+                        "addresses": [],
+                        "buildings": [],
+                        "reference": [],
+                        "fema": [],
+                    }
+                    if release is not None:
+                        cache["release"] = release
+                    filename = "temecula-building-audit.json" if audit else "test-area.json"
+                    cache_path = Path(directory, filename)
+                    cache_path.write_text(json.dumps(cache), encoding="utf-8")
+                    with (
+                        patch.object(
+                            benchmark_module, "download_features", return_value=([], [], [])
+                        ) as download,
+                        patch.object(benchmark_module, "download_nad_reference", return_value=[]),
+                        patch.object(benchmark_module, "download_fema_features", return_value=[]),
+                    ):
+                        if audit:
+                            result = benchmark_module.load_audit_overture(fixture, directory)
+                        else:
+                            result = benchmark_module.load_sources("test-area", 0, 0, 1, directory)
+                    download.assert_called_once_with(0, 0, 1)
+                    self.assertEqual(result[0], [])
+                    self.assertEqual(
+                        json.loads(cache_path.read_text(encoding="utf-8"))["release"],
+                        OVERTURE_RELEASE,
+                    )
 
 
 class ImportBoundaryTest(TestCase):
@@ -2324,7 +2364,7 @@ class ImportBoundaryTest(TestCase):
                     (
                         "area-1",
                         {"primary": "Sample Apartments"},
-                        [{"key": "residential", "value": "apartments"}],
+                        {"residential": "apartments"},
                         '{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,0]]]}',
                     )
                 ]
@@ -2350,11 +2390,17 @@ class ImportBoundaryTest(TestCase):
         self.assertEqual(
             result,
             [
-                apartment_area(
-                    "area-1",
-                    [[0, 0], [1, 0], [1, 1], [0, 0]],
-                    name="Sample Apartments",
-                )
+                {
+                    **apartment_area(
+                        "area-1",
+                        [[0, 0], [1, 0], [1, 1], [0, 0]],
+                        name="Sample Apartments",
+                    ),
+                    "properties": {
+                        "names": {"primary": "Sample Apartments"},
+                        "source_tags": {"residential": "apartments"},
+                    },
+                }
             ],
         )
         query = connection.calls[-1]
@@ -2513,6 +2559,7 @@ class ImportBoundaryTest(TestCase):
         )
         bbox_calls = connection.calls[5:]
         for sql, parameters in bbox_calls:
+            self.assertIn(f"release/{OVERTURE_RELEASE}/", sql)
             self.assertIn("bbox.xmin <= ?", sql)
             self.assertIn("bbox.xmax >= ?", sql)
             self.assertIn("bbox.ymin <= ?", sql)
